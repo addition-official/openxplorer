@@ -9,6 +9,8 @@
   menu now matches Explorer's: Name, Date modified and Type, with Size and
   the further keys under More. The first group's heading is no longer
   hidden when a grouped folder opens.
+- No more crash when Details columns change while groups are shown, such as
+  going Back from the Recycle Bin to Downloads grouped by date.
 - The note at the bottom of the Details pane ("Select an item to see its
   properties…") uses the pane's whole width instead of a narrow column.
 - Open and Save dialogs behave more like Windows':
