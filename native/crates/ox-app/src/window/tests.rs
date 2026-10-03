@@ -59,3 +59,4 @@ mod tabs;
 mod view_styles;
 mod views;
 mod worker_questions;
+mod zip_folder;
