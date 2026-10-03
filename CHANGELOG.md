@@ -12,8 +12,18 @@
 
 - The note at the bottom of the Details pane ("Select an item to see its
   properties…") uses the pane's whole width instead of a narrow column.
-- Escape closes an Open or Save dialog again while a file is selected in
-  the list, as in Windows, instead of only clearing the selection.
+- Open and Save dialogs behave more like Windows':
+  - Escape closes the dialog while a file is selected in the list,
+    instead of only clearing the selection.
+  - Open dialogs have a File name box too; File name takes a path from the
+    folder shown, `~/...` or a full path, and a folder typed there opens.
+  - Save adds the chosen type's extension to a name without one.
+  - A file typed in the address bar is chosen instead of being opened in
+    another application.
+  - Alt+Left, Alt+Right and Alt+Up work from the File name box.
+  - Ctrl+Q cancels the dialog instead of closing every window, and Ctrl+N
+    and Open file location in new window open no window from it.
+  - A dialog for one file keeps one item selected.
 - Optional: other applications' Open and Save dialogs in OpenXplorer.
   Settings > Default apps > "Apps' Open and Save dialogs" > Enable makes
   applications that use the desktop portal (Chrome, Firefox, Flatpak apps)
