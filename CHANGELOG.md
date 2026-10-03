@@ -46,6 +46,9 @@
   stays read-only. The default, In a pop-up window, keeps today's window.
 - Extract all appears in the command bar while a ZIP is selected, as in
   Windows Explorer.
+- Holding Shift while clicking Delete, in the command bar, the right-click
+  menu or the folder tree's menu, deletes permanently after asking, as in
+  Windows Explorer. Before, only the Shift+Delete key did.
 
 # 2.0.1 — 2026-10-02
 
