@@ -497,6 +497,17 @@ impl FileDialogRegistration {
     }
 }
 
+/// Serialises the opt-in's file changes across the app's windows.
+static CHANGES: Mutex<()> = Mutex::new(());
+
+/// Runs `operation` while no other change of the opt-in runs.
+fn one_at_a_time<T>(operation: impl FnOnce() -> T) -> T {
+    // A change that panicked leaves nothing locked that matters: each one
+    // reads the files afresh.
+    let _turn = CHANGES.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    operation()
+}
+
 /// [`FileDialogRegistration::restart_portal`] with `program` as `systemctl`.
 /// Serialises the opt-in's file changes across the app's windows.
 static CHANGES: Mutex<()> = Mutex::new(());
