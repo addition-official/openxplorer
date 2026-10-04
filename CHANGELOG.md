@@ -55,6 +55,9 @@
   in Settings > Appearance > Files and folders, draws the Details rows and
   the navigation pane's rows closer together, so more items fit. Off by
   default. (Not the List layout, which Dolphin calls "Compact".)
+- Settings > Appearance > Layout > "Hide the folder tree's expand arrows"
+  takes the arrows off the folder tree in the navigation pane. Right and
+  Left still open and close folders. The arrows show by default.
 
 # 2.0.1 — 2026-10-02
 
