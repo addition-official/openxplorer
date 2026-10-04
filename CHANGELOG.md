@@ -54,6 +54,10 @@
   stays read-only. The default, In a pop-up window, keeps today's window.
 - Extract all appears in the command bar while a ZIP is selected, as in
   Windows Explorer.
+- A file opened from inside a ZIP no longer leaves its copy in memory until
+  logout: each copy is removed ten minutes after it was opened, and older
+  copies are swept when another is opened and when OpenXplorer starts and
+  quits.
 - Holding Shift while clicking Delete, in the command bar, the right-click
   menu or the folder tree's menu, deletes permanently after asking, as in
   Windows Explorer. Before, only the Shift+Delete key did.
