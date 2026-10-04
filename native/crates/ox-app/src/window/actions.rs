@@ -132,6 +132,7 @@ impl BrowserWindow {
         self.install_navigation_actions();
         self.install_address_actions();
         self.install_compact_view_action();
+        self.follow_expand_arrows_preference();
         self.install_crumb_actions();
         self.install_selection_actions();
         self.install_view_actions();
