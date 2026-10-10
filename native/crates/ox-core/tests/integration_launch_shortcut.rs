@@ -688,3 +688,30 @@ fn a_failure_while_taking_super_e_back_leaves_the_other_package_as_it_was() {
     assert_eq!(stable.restore().unwrap(), RestoredShortcut::GivenBack);
     assert!(shortcuts.keys_of("org.kde.dolphin.desktop").contains(&SUPER_E));
 }
+
+/// Super+E the user cleared in System Settings after `OpenXplorer` took
+/// it from Dolphin is free: turning the switch on and off again leaves it
+/// free, instead of giving it to Dolphin by the old record.
+///
+/// parity: INT-033
+#[test]
+fn turning_it_on_from_a_free_key_forgets_an_old_record() {
+    let settings = tempfile::tempdir().unwrap();
+    let shortcuts = Shortcuts::plasma();
+    let opt_in = launch_shortcut(&shortcuts, settings.path());
+    opt_in.enable().unwrap();
+    shortcuts
+        .set_keys(
+            &ShortcutAction::desktop_action(OURS, NEW_WINDOW_ACTION, "", ""),
+            &[],
+        )
+        .unwrap();
+    assert_eq!(opt_in.status(), LaunchShortcutStatus::Free);
+
+    opt_in.enable().unwrap();
+    assert_eq!(opt_in.restore().unwrap(), RestoredShortcut::Freed);
+
+    assert_eq!(opt_in.status(), LaunchShortcutStatus::Free);
+    assert_eq!(shortcuts.keys_of("org.kde.dolphin.desktop"), [CTRL_ALT_D]);
+    assert!(!settings.path().join(RECORD).exists());
+}

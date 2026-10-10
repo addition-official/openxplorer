@@ -329,6 +329,9 @@ pub struct LaunchShortcut<G> {
     ours: ShortcutAction,
     desktops: Vec<String>,
     sandbox: Sandbox,
+    /// Writes a record file privately; tests make it fail as a full disk
+    /// would.
+    write_file: fn(&Path, &str, &[u8]) -> std::io::Result<()>,
 }
 
 impl<G: GlobalShortcuts> LaunchShortcut<G> {
@@ -347,6 +350,7 @@ impl<G: GlobalShortcuts> LaunchShortcut<G> {
             ours: ShortcutAction::desktop_action(desktop_id, NEW_WINDOW_ACTION, "OpenXplorer", "New window"),
             desktops,
             sandbox,
+            write_file: write_private_file,
         }
     }
 
@@ -426,7 +430,12 @@ impl<G: GlobalShortcuts> LaunchShortcut<G> {
                 }
                 Some(previous)
             }
-            None => None,
+            // A free Super+E has nothing to go back to. A record left from
+            // before the user cleared Super+E would give it to that action.
+            None => {
+                self.remove_record();
+                None
+            }
         };
         match self.give_super_e_to_ours() {
             Ok(()) => {
@@ -455,7 +464,9 @@ impl<G: GlobalShortcuts> LaunchShortcut<G> {
     /// # Errors
     ///
     /// [`ShortcutError::Unsupported`] off KDE Plasma and in the Flatpak,
-    /// and the service's failure.
+    /// the service's failure, and [`ShortcutError::Record`] when this
+    /// package's record could not be handed on to the package that took
+    /// Super+E from it (the record then stays).
     pub fn restore(&self) -> Result<RestoredShortcut, ShortcutError> {
         if !self.is_available() {
             return Err(ShortcutError::Unsupported);
@@ -468,7 +479,8 @@ impl<G: GlobalShortcuts> LaunchShortcut<G> {
         let Some(owner) = owner else {
             // Another package of `OpenXplorer` may have taken Super+E from
             // this one; it now gives it back to where this one took it.
-            self.hand_record_on(record.as_ref());
+            // This record stays until that is written.
+            self.hand_record_on(record.as_ref())?;
             self.remove_record();
             return Ok(RestoredShortcut::NotOurs);
         };
@@ -575,7 +587,7 @@ impl<G: GlobalShortcuts> LaunchShortcut<G> {
         let path = self.record_path();
         let text = serde_json::to_string_pretty(record).expect("a record serialises");
         std::fs::create_dir_all(&self.settings)
-            .and_then(|()| write_private_file(&path, ".winspace-", text.as_bytes()))
+            .and_then(|()| (self.write_file)(&path, ".winspace-", text.as_bytes()))
             .map_err(|error| ShortcutError::Record { path, error })
     }
 
@@ -619,21 +631,26 @@ impl<G: GlobalShortcuts> LaunchShortcut<G> {
     /// Hands this package's `record` on to every other package that took
     /// Super+E from this one, so turning that one off gives Super+E to
     /// where this one took it, or frees it, instead of back here.
-    fn hand_record_on(&self, record: Option<&Record>) {
+    ///
+    /// # Errors
+    ///
+    /// [`ShortcutError::Record`] when a record could not be written or
+    /// removed; this package's record must then stay.
+    fn hand_record_on(&self, record: Option<&Record>) -> Result<(), ShortcutError> {
         for (path, sibling) in self.sibling_records() {
             if !self.is_ours_or_earlier(&sibling.previous) {
                 continue;
             }
-            match record {
+            let handed = match record {
                 Some(record) => {
                     let text = serde_json::to_string_pretty(record).expect("a record serialises");
-                    let _ = write_private_file(&path, ".winspace-", text.as_bytes());
+                    (self.write_file)(&path, ".winspace-", text.as_bytes())
                 }
-                None => {
-                    let _ = std::fs::remove_file(path);
-                }
-            }
+                None => std::fs::remove_file(&path),
+            };
+            handed.map_err(|error| ShortcutError::Record { path, error })?;
         }
+        Ok(())
     }
 
     /// Removes the record, and an earlier one; a missing one is fine.
@@ -700,5 +717,59 @@ mod tests {
         );
         assert!(ShortcutAction::from_names(&names).is_some());
         assert_eq!(ShortcutAction::from_names(&[]), None);
+    }
+
+    /// Global shortcuts where Super+E belongs to `owner` and nothing
+    /// else is asked.
+    struct OwnedBy(ShortcutAction);
+
+    impl GlobalShortcuts for OwnedBy {
+        fn owner(&self, _keys: KeySequence) -> Result<Option<ShortcutAction>, ShortcutError> {
+            Ok(Some(self.0.clone()))
+        }
+        fn keys(&self, _action: &ShortcutAction) -> Result<Vec<KeySequence>, ShortcutError> {
+            Ok(vec![SUPER_E])
+        }
+        fn register(&self, _action: &ShortcutAction) -> Result<(), ShortcutError> {
+            Ok(())
+        }
+        fn set_keys(&self, _action: &ShortcutAction, _keys: &[KeySequence]) -> Result<(), ShortcutError> {
+            Ok(())
+        }
+    }
+
+    /// When handing its record on to the package that took Super+E fails,
+    /// as on a full disk, turning the switch off says so and keeps the
+    /// record, so the way back to Dolphin is not lost.
+    ///
+    /// parity: INT-033
+    #[test]
+    fn a_failed_handover_keeps_the_record() {
+        let settings = tempfile::tempdir().unwrap();
+        let preview_id = "io.winspace.Development.Native.desktop";
+        let preview_owner = ShortcutAction::desktop_action(preview_id, NEW_WINDOW_ACTION, "", "");
+        let mut stable = LaunchShortcut::new(
+            OwnedBy(preview_owner),
+            settings.path(),
+            APP_ID,
+            vec!["kde".to_owned()],
+            Sandbox::Host,
+        );
+        let dolphin = Record {
+            previous: ShortcutAction::launch("org.kde.dolphin.desktop", "Dolphin"),
+        };
+        stable.write_record(&dolphin).unwrap();
+        let pointing_here = Record {
+            previous: stable.ours.clone(),
+        };
+        let preview_record = record_paths(settings.path(), preview_id).remove(0);
+        let text = serde_json::to_string(&pointing_here).unwrap();
+        std::fs::write(&preview_record, &text).unwrap();
+        stable.write_file = |_, _, _| Err(std::io::Error::other("No space left on device"));
+
+        assert!(matches!(stable.restore(), Err(ShortcutError::Record { .. })));
+
+        assert_eq!(stable.read_record(), Some(dolphin), "the record stays");
+        assert_eq!(std::fs::read_to_string(&preview_record).unwrap(), text);
     }
 }
