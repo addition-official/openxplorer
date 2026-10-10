@@ -80,6 +80,7 @@ impl BrowserWindow {
             let grid = pane.icon_view().grid().clone();
             self.folder_input(details.upcast_ref());
             self.folder_input(grid.upcast_ref());
+            self.empty_folder_input(pane);
         }
         self.install_selection_keys();
         self.install_slow_click_rename();
@@ -218,6 +219,39 @@ impl BrowserWindow {
         self.attach_file_drag(view);
         self.attach_details_hover(view);
         self.attach_file_drop_zone(view, DropZone::FolderView);
+    }
+
+    /// Gives the empty page's whole area in `pane` what an empty folder takes in
+    /// Windows Explorer: the folder's keys, focus on a click, the folder's
+    /// right-click menu (New, Paste) and drops into the folder. Item
+    /// gestures (rename, rubber band, dragging items out) have no items to
+    /// act on here.
+    fn empty_folder_input(&self, pane: &super::folder_pane::FolderPane) {
+        let area = &pane.empty_area();
+        area.update_property(&[gtk::accessible::Property::Label(ox_core::i18n::gettext_static(
+            FOLDER_VIEW_LABEL,
+        ))]);
+        let input = self.typing_input(area);
+        let keys = gtk::EventControllerKey::new();
+        keys.set_propagation_phase(gtk::PropagationPhase::Capture);
+        keys.connect_key_pressed(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            #[upgrade_or]
+            glib::Propagation::Proceed,
+            move |controller, key, _, modifiers| window.folder_key(controller, &input, key, modifiers)
+        ));
+        area.add_controller(keys);
+        let press = gtk::GestureClick::new();
+        press.set_button(gdk::BUTTON_PRIMARY);
+        press.connect_pressed(glib::clone!(
+            #[weak]
+            pane,
+            move |_, _, _, _| pane.focus_view()
+        ));
+        area.add_controller(press);
+        self.attach_context_menu(area);
+        self.attach_file_drop_zone(area, DropZone::FolderView);
     }
 
     /// The input method that turns key presses in `view` into text for

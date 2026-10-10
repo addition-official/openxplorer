@@ -1,3 +1,10 @@
+# Unreleased
+
+- An empty folder now works like one in Windows Explorer: right-click
+  its "This folder is empty" page for the folder menu (New, Paste and the
+  rest), paste with Ctrl+V or the menu, and drop files on it. The
+  keyboard stays on the folder too, so the Menu key and Backspace work.
+
 # 2.0.4 — 2026-10-09
 
 ## What's Changed

@@ -248,7 +248,7 @@ impl BrowserWindow {
     /// Opens the classic menu from the Menu key or Shift+F10, pointing at
     /// the first selected item, or near the top of the view without one.
     pub(super) fn open_context_menu_from_keyboard(&self) {
-        let view = self.folder_pane().view_widget();
+        let view = self.folder_pane().input_widget();
         let selected = self.folder_pane().model().first_selected();
         if let Some(position) = selected {
             self.folder_pane().reveal(position);
@@ -260,7 +260,7 @@ impl BrowserWindow {
 
     /// "Show more options": the classic menu where the compact one was.
     pub(super) fn show_more_options(&self) {
-        let view = self.folder_pane().view_widget();
+        let view = self.folder_pane().input_widget();
         let Some(point) = context_menu_of(&view).and_then(|popover| popover.pointing_to().1.into()) else {
             return;
         };
@@ -270,7 +270,7 @@ impl BrowserWindow {
     /// The folder menu's "New…", "Sort by" and "View": `entries`, the
     /// command bar's menu, where the folder menu was.
     fn show_menu_in_place(&self, entries: Vec<MenuEntry>) {
-        let view = self.folder_pane().view_widget();
+        let view = self.folder_pane().input_widget();
         let Some(popover) = context_menu_of(&view) else {
             return;
         };
@@ -332,7 +332,7 @@ impl BrowserWindow {
     /// The context menu of the view shown, for tests.
     #[cfg(test)]
     pub(super) fn context_menu(&self) -> MenuPopover {
-        context_menu_of(&self.folder_pane().view_widget()).expect("every view has a context menu")
+        context_menu_of(&self.folder_pane().input_widget()).expect("every view has a context menu")
     }
 
     /// Opens the context menu as a right-click at the item at `position`,
@@ -340,7 +340,7 @@ impl BrowserWindow {
     /// selection changes as [`Self::select_for_context_menu`] decides.
     #[cfg(test)]
     pub(super) fn right_click(&self, position: Option<u32>) {
-        let view = self.folder_pane().view_widget();
+        let view = self.folder_pane().input_widget();
         let (x, y) = match position {
             Some(position) => {
                 let point_on_item = || self.point_on_item(&view, position);
