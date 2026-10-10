@@ -121,10 +121,10 @@ impl BrowserWindow {
         }
         // Asked at every motion, even where nothing takes the drop, so the
         // first offer is remembered as the drag reaches the window.
-        let action = self.drop_action(drop);
-        match (spot, action) {
-            (Some(_), Some(action)) => action.as_drag_action(),
-            _ => gdk::DragAction::empty(),
+        let action = self.hover_action(drop);
+        match spot {
+            Some(_) => action,
+            None => gdk::DragAction::empty(),
         }
     }
 

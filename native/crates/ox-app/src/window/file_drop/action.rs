@@ -31,7 +31,7 @@ use gtk::{gdk, glib};
 
 use ox_core::ops::is_recycle_bin_item;
 
-use super::drive::{answer_within, on_same_drive};
+use super::drive::{answer_within, on_same_drive, DRIVE_PROBES};
 use super::DropDestination;
 use crate::icons::Icon;
 use crate::window::menu_popover::{MenuEntry, MenuItem, MenuPopover};
@@ -117,6 +117,22 @@ impl DropRun {
             Self::MoveWithinDrive => DropAction::Copy,
         }
     }
+
+    /// The action the window answers the drag with while it hovers: one
+    /// the drag `offered`, as a desktop may refuse any other. A move of
+    /// this app's own items that the drag did not offer (Shift pressed
+    /// only while it hovers) is answered as a copy, and the window runs
+    /// the move itself, as it runs a plain drag's move within a drive.
+    pub(crate) fn protocol_action(self, offered: gdk::DragAction) -> gdk::DragAction {
+        let shown = self.shown().as_drag_action();
+        if offered.contains(shown) {
+            shown
+        } else if offered.contains(gdk::DragAction::COPY) {
+            gdk::DragAction::COPY
+        } else {
+            gdk::DragAction::empty()
+        }
+    }
 }
 
 /// How long a drop waits to learn whether its items are on the drive of
@@ -148,7 +164,10 @@ pub(crate) async fn drop_run_action(
         return DropAction::Copy;
     }
     let (uris, folder) = (uris.to_vec(), folder.clone());
-    let same = answer_within(DRIVE_TIMEOUT, move || on_same_drive(&uris, &folder)).await;
+    let same = answer_within(&DRIVE_PROBES, DRIVE_TIMEOUT, move || {
+        on_same_drive(&uris, &folder)
+    })
+    .await;
     if same {
         DropAction::Move
     } else {
@@ -305,9 +324,18 @@ impl BrowserWindow {
         Some(action.with_keys(origin, self.held_drop_keys()))
     }
 
-    /// The action `drop` shows now, or `None` when it is refused.
+    /// The action `drop` shows now, or `None` when it is refused. For
+    /// tests; a hover answers with [`Self::hover_action`].
+    #[cfg(test)]
     pub(super) fn drop_action(&self, drop: &impl OfferedDrop) -> Option<DropAction> {
         self.drop_run(drop).map(DropRun::shown)
+    }
+
+    /// The action the window answers `drop` with while it hovers, one the
+    /// drag offers; empty when the drop is refused.
+    pub(super) fn hover_action(&self, drop: &impl OfferedDrop) -> gdk::DragAction {
+        self.drop_run(drop)
+            .map_or_else(gdk::DragAction::empty, |run| run.protocol_action(drop.offered()))
     }
 
     /// The keys held now that change what a drop does.
@@ -499,6 +527,38 @@ mod tests {
             DropRun::MoveWithinDrive.shown(),
             DropAction::Copy,
             "a hover shows a copy"
+        );
+    }
+
+    /// Shift pressed only while a drag of this app's own items hovers
+    /// moves them, but the drag offered Copy and Ask when it started, and
+    /// a desktop may refuse an action the drag did not offer. The window
+    /// answers the drag with Copy and runs the move itself.
+    ///
+    /// parity: DND-017
+    #[test]
+    fn a_move_the_drag_did_not_offer_is_answered_as_a_copy() {
+        let plain_offer = gdk::DragAction::COPY | gdk::DragAction::ASK;
+        let shift_at_start = plain_offer | gdk::DragAction::MOVE;
+        let shift_while_hovering =
+            DropAction::Copy.with_keys(DragOrigin::ThisApp, gdk::ModifierType::SHIFT_MASK);
+        assert_eq!(shift_while_hovering, DropRun::Run(DropAction::Move), "it moves");
+
+        assert_eq!(
+            shift_while_hovering.protocol_action(plain_offer),
+            gdk::DragAction::COPY
+        );
+        assert_eq!(
+            shift_while_hovering.protocol_action(shift_at_start),
+            gdk::DragAction::MOVE
+        );
+        assert_eq!(
+            DropRun::MoveWithinDrive.protocol_action(plain_offer),
+            gdk::DragAction::COPY
+        );
+        assert_eq!(
+            DropRun::Run(DropAction::Ask).protocol_action(plain_offer),
+            gdk::DragAction::ASK
         );
     }
 

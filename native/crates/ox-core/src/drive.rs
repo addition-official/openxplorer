@@ -15,6 +15,8 @@ use std::path::Path;
 
 use rustix::fs::{AtFlags, StatxFlags, CWD};
 
+use crate::network::{mount_for_path, parse_mount_table};
+
 /// This process's mount table.
 const MOUNT_INFO: &str = "/proc/self/mountinfo";
 
@@ -49,9 +51,21 @@ impl Drive {
 /// The drive of the item at `path`, or `None` when it cannot be read. A
 /// symbolic link is on the drive of the folder holding it unless `follow`
 /// is true, when it is where the link points. Never triggers an automount.
-/// It reads file metadata, which can block on a share that stopped
+/// A path the mount table places on a network mount is not read. It
+/// reads file metadata, which can block on a share that stopped
 /// answering, so call it off the GTK thread.
 pub fn drive_of(path: &Path, follow: bool) -> Option<Drive> {
+    let table = std::fs::read_to_string(MOUNT_INFO).ok();
+    if table
+        .as_deref()
+        .is_some_and(|table| is_below_network_mount(table, path))
+    {
+        return Some(Drive {
+            mount: None,
+            device: 0,
+            is_network: true,
+        });
+    }
     let mut flags = AtFlags::NO_AUTOMOUNT;
     if !follow {
         flags |= AtFlags::SYMLINK_NOFOLLOW;
@@ -68,10 +82,9 @@ pub fn drive_of(path: &Path, follow: bool) -> Option<Drive> {
         }
         Err(_) => return None,
     };
-    let filesystem = mount.and_then(|mount| {
-        let table = std::fs::read_to_string(MOUNT_INFO).ok()?;
-        filesystem_of_mount(&table, mount)
-    });
+    let filesystem = mount
+        .zip(table.as_deref())
+        .and_then(|(mount, table)| filesystem_of_mount(table, mount));
     // Without the mount table, the filesystem's magic number tells: the
     // folder holding a link that is not followed decides.
     let is_network = if let Some(filesystem) = filesystem {
@@ -88,6 +101,17 @@ pub fn drive_of(path: &Path, follow: bool) -> Option<Drive> {
         device,
         is_network,
     })
+}
+
+/// True when `path` lies, by its name alone, on a network mount of the
+/// mount table `table`, so nothing needs to read it: reading a path on a
+/// share that stopped answering can block for long.
+fn is_below_network_mount(table: &str, path: &Path) -> bool {
+    let Some(text) = path.to_str().filter(|_| path.is_absolute()) else {
+        return false;
+    };
+    let mounts = parse_mount_table(table);
+    mount_for_path(text, &mounts).is_some_and(|mount| is_network_filesystem(&mount.filesystem))
 }
 
 /// The filesystem type of the mount `mount` in the mount table `table`.
@@ -229,5 +253,28 @@ mod tests {
         assert_eq!(filesystem_of_mount(table, 97).as_deref(), Some("cifs"));
         assert_eq!(filesystem_of_mount(table, 98).as_deref(), Some("ext4"));
         assert_eq!(filesystem_of_mount(table, 99), None);
+    }
+
+    /// A path on a share the mount table already names is a network place
+    /// without being read, so a share that stopped answering is never
+    /// asked.
+    ///
+    /// parity: DND-017
+    #[test]
+    fn a_path_on_a_known_network_mount_is_told_by_its_name() {
+        let table = "\
+41 1 8:2 / / rw,relatime shared:1 - ext4 /dev/sda2 rw
+97 41 0:55 / /mnt/share rw,relatime shared:60 - cifs //nas/share rw,vers=3.1.1
+98 41 8:2 /srv /mnt/srv rw - ext4 /dev/sda2 rw
+99 41 0:60 / /mnt/my\\040files rw - fuse.sshfs host:/files rw
+";
+        let on = |path: &str| is_below_network_mount(table, Path::new(path));
+
+        assert!(on("/mnt/share"));
+        assert!(on("/mnt/share/Docs/Notes.txt"));
+        assert!(on("/mnt/my files/Notes.txt"), "escaped mount points");
+        assert!(!on("/mnt/shared/Notes.txt"), "only below the mount point");
+        assert!(!on("/mnt/srv/Notes.txt"));
+        assert!(!on("/home/user/Notes.txt"));
     }
 }

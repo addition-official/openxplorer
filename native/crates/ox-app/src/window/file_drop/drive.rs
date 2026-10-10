@@ -13,21 +13,85 @@
 //!
 //! Reading a file's device number can block for long on a kernel mount of
 //! a share that stopped answering, so it is never read on the GTK thread:
-//! the drop reads it once its items are known, on a worker thread and for
-//! a limited time ([`answer_within`]).
+//! the drop reads it once its items are known, on a thread of its own and
+//! for a limited time, with only a few such reads at once
+//! ([`answer_within`]). A path the mount table already places on a share
+//! is not read at all.
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use gtk::prelude::*;
 use gtk::{gio, glib};
 use ox_core::drive::Drive;
 
-/// What `check` answers on a worker thread, or false when it does not
-/// answer within `timeout`; the GTK thread goes on meanwhile.
-pub(super) async fn answer_within(timeout: Duration, check: impl FnOnce() -> bool + Send + 'static) -> bool {
-    let worker = gio::spawn_blocking(check);
-    glib::future_with_timeout(timeout, worker)
+/// How many drive reads may run at once. Each runs on a thread of its
+/// own, never on GIO's shared threads: a read stuck on a share that
+/// stopped answering cannot be stopped, so it must not hold a thread the
+/// rest of the app needs, and only a few may linger.
+pub(super) struct ProbeLimit {
+    /// How many run now, stuck ones included.
+    running: AtomicUsize,
+    /// The most that may run.
+    max: usize,
+}
+
+impl ProbeLimit {
+    /// At most `max` reads at once.
+    pub(super) const fn new(max: usize) -> Self {
+        Self {
+            running: AtomicUsize::new(0),
+            max,
+        }
+    }
+
+    /// A place for one more read, or `None` when `max` already run.
+    fn take(&'static self) -> Option<ProbeSlot> {
+        self.running
+            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |running| {
+                (running < self.max).then_some(running + 1)
+            })
+            .ok()
+            .map(|_| ProbeSlot(self))
+    }
+}
+
+/// One running read's place, given back when it ends.
+struct ProbeSlot(&'static ProbeLimit);
+
+impl Drop for ProbeSlot {
+    fn drop(&mut self) {
+        self.0.running.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
+/// The drive reads of drops: a few, as each normally takes microseconds.
+pub(super) static DRIVE_PROBES: ProbeLimit = ProbeLimit::new(4);
+
+/// What `check` answers on a thread of its own, or false when it does not
+/// answer within `timeout` or `limit` reads already run; the GTK thread
+/// goes on meanwhile.
+pub(super) async fn answer_within(
+    limit: &'static ProbeLimit,
+    timeout: Duration,
+    check: impl FnOnce() -> bool + Send + 'static,
+) -> bool {
+    let Some(slot) = limit.take() else {
+        return false;
+    };
+    let (sender, receiver) = async_channel::bounded(1);
+    let started = std::thread::Builder::new()
+        .name("drive-read".to_owned())
+        .spawn(move || {
+            let answer = check();
+            drop(slot);
+            let _ = sender.try_send(answer);
+        });
+    if started.is_err() {
+        return false;
+    }
+    glib::future_with_timeout(timeout, receiver.recv())
         .await
         .ok()
         .and_then(Result::ok)
@@ -116,6 +180,7 @@ mod tests {
     /// parity: DND-017
     #[gtk::test]
     fn a_drive_that_does_not_answer_in_time_is_another() {
+        static LIMIT: ProbeLimit = ProbeLimit::new(4);
         let context = glib::MainContext::default();
         let ticks = std::rc::Rc::new(std::cell::Cell::new(0));
         let counter = ticks.clone();
@@ -125,11 +190,11 @@ mod tests {
         });
         let main_thread = std::thread::current().id();
 
-        let slow = context.block_on(answer_within(Duration::from_millis(300), || {
+        let slow = context.block_on(answer_within(&LIMIT, Duration::from_millis(300), || {
             std::thread::sleep(Duration::from_secs(2));
             true
         }));
-        let checked_on = context.block_on(answer_within(Duration::from_secs(5), move || {
+        let checked_on = context.block_on(answer_within(&LIMIT, Duration::from_secs(5), move || {
             std::thread::current().id() != main_thread
         }));
         tick.remove();
@@ -147,5 +212,59 @@ mod tests {
         std::os::unix::fs::symlink("/proc/self", &link).expect("the link is made");
 
         assert!(on_same_drive(&[uri_of(&link)], &uri_of(folder.path())));
+    }
+
+    /// A drive that never answers, such as a share that stopped answering,
+    /// ties up only the drive reads' own threads, never GIO's shared ones,
+    /// and at most a few: past that, a drop copies without reading, until
+    /// the stuck reads end.
+    ///
+    /// parity: DND-017
+    #[gtk::test]
+    fn a_drive_that_never_answers_ties_up_at_most_a_few_threads_of_its_own() {
+        static LIMIT: ProbeLimit = ProbeLimit::new(2);
+        let context = glib::MainContext::default();
+        let gate = std::sync::Arc::new(std::sync::Mutex::new(()));
+        let closed = gate.lock().expect("the gate");
+        let names = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        for _ in 0..2 {
+            let (gate, names) = (gate.clone(), names.clone());
+            let answered = context.block_on(answer_within(&LIMIT, Duration::from_millis(100), move || {
+                let name = std::thread::current().name().map(str::to_owned);
+                names.lock().expect("the names").push(name);
+                let _stuck = gate.lock();
+                true
+            }));
+            assert!(!answered, "a stuck read counts as another drive");
+        }
+        let ran = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let third_ran = ran.clone();
+        let third = context.block_on(answer_within(&LIMIT, Duration::from_secs(1), move || {
+            third_ran.store(true, std::sync::atomic::Ordering::SeqCst);
+            true
+        }));
+
+        assert!(!third, "past the limit a drop copies");
+        assert!(
+            !ran.load(std::sync::atomic::Ordering::SeqCst),
+            "and reads nothing"
+        );
+        let names = names.lock().expect("the names").clone();
+        assert_eq!(
+            names,
+            vec![Some("drive-read".to_owned()); 2],
+            "the reads' own threads"
+        );
+
+        drop(closed);
+        let freed = context.block_on(answer_within(&LIMIT, Duration::from_secs(5), || true));
+        let mut tries = 0;
+        let mut answered = freed;
+        while !answered && tries < 50 {
+            std::thread::sleep(Duration::from_millis(100));
+            answered = context.block_on(answer_within(&LIMIT, Duration::from_secs(5), || true));
+            tries += 1;
+        }
+        assert!(answered, "once the stuck reads end, drives are read again");
     }
 }
