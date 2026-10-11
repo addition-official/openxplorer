@@ -30,7 +30,9 @@
 - In a folder you are not allowed to write to (on a drive that is
   otherwise writable), New and Paste are now off in the folder's
   right-click menu and the command bar, with "This folder is read-only."
-  as the reason. Before, they stayed on and the action then failed.
+  as the reason. Before, they stayed on and the action then failed. This
+  also covers a folder you may write to but not enter (no execute
+  permission), where nothing can be created either.
 
 # 2.0.4 — 2026-10-09
 
