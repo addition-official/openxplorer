@@ -1,0 +1,3 @@
+STATUS: DONE
+HEAD: see-more-menu eea54f8b3ad22b7ce15295400a266e8673571655
+NOTE: Options and This PC's three network commands in "..." now use the custom icons (grey follows the text colour, blue #0078d4 light / #60cdff dark); full, parity and website checks passed.
