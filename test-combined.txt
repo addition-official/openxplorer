@@ -1,3 +1,3 @@
 STATUS: WORKING
-HEAD: test-combined-2 (merging; not pushed yet)
-NOTE: Merging see-more-menu into 2.0.13+ main (71e2d91d): resolving its overlap with #198 (Update, Settings gear) in the command bar and the "…" menu.
+HEAD: test-combined-2 a8208df80551e36933ee654a11a09f717107cb69 (local, not pushed yet)
+NOTE: All six branches merged on main 71e2d91d; running fmt, clippy and the full test suite next.
