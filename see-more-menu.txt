@@ -1,3 +1,3 @@
-STATUS: DONE
+STATUS: WORKING
 HEAD: see-more-menu bebab20ee809d23599243cee6e9f7f68140dfff5
-NOTE: Merged upstream main 71e2d91; quick checks and a full check passed (one earlier full run stopped in a GTK test that passed on re-run).
+NOTE: Fixing the two review findings (Disconnect network drive choices, file list accessible names); tests added, checks running.
