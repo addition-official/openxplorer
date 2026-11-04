@@ -1,0 +1,3 @@
+STATUS: DONE
+HEAD: send-to 5958eb17eaec6aea27fc9ce0f89c9414af9c2d63
+NOTE: Saved shares that are not connected are now offered in Send to and connect when chosen. Fixed an intermittent test crash; full native and website checks pass.
