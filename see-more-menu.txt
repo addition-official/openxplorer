@@ -1,3 +1,3 @@
-STATUS: DONE
+STATUS: WORKING
 HEAD: see-more-menu bebab20ee809d23599243cee6e9f7f68140dfff5
-NOTE: Merged upstream main 71e2d91; quick checks passed. Full check running after the push.
+NOTE: Merged upstream main 71e2d91; quick checks passed. The full check stopped in one GTK test that passes alone; re-running it.
