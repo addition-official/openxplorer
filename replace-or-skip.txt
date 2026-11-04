@@ -1,0 +1,3 @@
+STATUS: DONE
+HEAD: replace-or-skip d67df1fcc440cfc5fc3a0aedde738f80b698da07
+NOTE: File Conflict window and Replace or Skip Files matched to Windows 11 spacing: framed Continue/Cancel, 64 px top-aligned thumbnails, short dates, no focus ring on opening, no lone Cancel. Full check passed.
