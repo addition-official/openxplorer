@@ -1,3 +1,3 @@
-STATUS: WORKING
-HEAD: see-more-menu bebab20ee809d23599243cee6e9f7f68140dfff5
-NOTE: Fixing the two review findings (Disconnect network drive choices, file list accessible names); tests added, checks running.
+STATUS: DONE
+HEAD: see-more-menu f19379864f1b4dfde9e8ac4b07caa260e4f85090
+NOTE: Fixed the two review findings (Disconnect network drive lists each mount once; file list accessible names follow File name extensions); added tests; quick checks passed.
