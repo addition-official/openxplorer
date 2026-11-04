@@ -1,3 +1,3 @@
 STATUS: DONE
-HEAD: send-to 5958eb17eaec6aea27fc9ce0f89c9414af9c2d63
-NOTE: Saved shares that are not connected are now offered in Send to and connect when chosen. Fixed an intermittent test crash; full native and website checks pass.
+HEAD: send-to 2e0fb0e14e3adaa6b2e739cba509c682f1b7ae84
+NOTE: Merged upstream/main (71e2d91) and regenerated the docs files with sync-docs. Quick checks and the Send to, context-menu and icon tests pass.
