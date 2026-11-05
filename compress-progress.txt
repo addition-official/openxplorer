@@ -1,4 +1,4 @@
 STATUS: DONE
-HEAD: compress-progress 3bef475e05ceab5ed11aafcf877bac7e35d0101d
-NOTE: Merged upstream/main (71e2d91d); regenerated the message template.
-NOTE: Compress and extract progress shown like Copy, ZIP written under its final name, added tests; quick checks pass.
+HEAD: compress-progress 6bad0b44fa7f33f39a6751beaa408d0bbb7993ad
+NOTE: Addressed review findings on #202; added tests.
+NOTE: Quick check and archive tests pass.
