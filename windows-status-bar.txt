@@ -1,0 +1,3 @@
+STATUS: WORKING
+HEAD: windows-status-bar 71e2d91da97b75b7cc1e5003886ae3ba5ec5d7a9
+NOTE: Started. Reading the current status bar code.
