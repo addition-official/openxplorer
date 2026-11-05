@@ -1,3 +1,3 @@
 STATUS: WORKING
-HEAD: properties-details-tab ef4fbe9df0cd9e685694bc162eeec78d42b6e7a4
-NOTE: Details tab implemented and pushed; running the 1.92 lints and the weston captures next.
+HEAD: properties-details-tab 114c0962f0b24185a88cc7db5db512badb626c73
+NOTE: Details tab done and captured under weston; full check as tester running.
