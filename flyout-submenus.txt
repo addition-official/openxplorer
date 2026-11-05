@@ -1,4 +1,3 @@
-STATUS: BLOCKED
+STATUS: DONE
 HEAD: flyout-submenus d1b35de950177f4d0c8dc8a516bd759b4dfaf5be
-QUESTION: Which ox_app test fails on Fedora/Arch/Tumbleweed (last "test ..." line or "failures:" list of run 42063142003)? Or allow a GTK 4.22 source build here, or add AKolenda/openxplorer so I can read the logs.
-NOTE: Cannot reproduce on GTK 4.14; a GTK 4.20+ build and the upstream run logs were both out of reach. Pushed test hardening; a 4.14-only tooltip critical also exists on main.
+NOTE: CI failure on Fedora/Arch/Tumbleweed was slow_locations::working_on_it_carries_over_from_the_lookup_to_the_listing, an upstream timing test; handled on deflake-slow-locations.
