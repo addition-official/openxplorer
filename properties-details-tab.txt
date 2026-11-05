@@ -1,4 +1,4 @@
 STATUS: DONE
-HEAD: properties-details-tab 2590c0639f76a0875712671057b33e948f589379
-NOTE: Details tab added with captures; check.py as tester, parity and website checks pass. Remove Properties left out (PROP-035).
-NOTE: Building now needs libgstreamer1.0-dev and libgstreamer-plugins-base1.0-dev.
+HEAD: properties-details-tab 5eec84053a325a458955918168374c76fa8d14d1
+NOTE: Review fixes: broken EXIF dates are refused instead of stopping the reader; RPM and Arch licences name BSD-2-Clause.
+NOTE: Building needs libgstreamer1.0-dev and libgstreamer-plugins-base1.0-dev.
