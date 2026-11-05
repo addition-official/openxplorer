@@ -1,0 +1,3 @@
+STATUS: WORKING
+HEAD: details-pane 3a290eb5a936202e5fe8a9c8440092eb4dd2eeec
+NOTE: Cut from properties-details-tab 5eec840. Pane laid out as Windows 11 with the reader's rows; captures and docs next.
