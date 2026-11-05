@@ -1,3 +1,5 @@
-STATUS: WORKING
-HEAD: test-combined-5 e319af0f9e57122d612f7b16164c9531678d77e6
-NOTE: All eleven heads merged, flyout-submenus now at 63be0829 merged on top of d1b35de9; ox_app suite running.
+STATUS: DONE
+HEAD: test-combined-5 9a6b600da4b9c1d9f186b47cfbb87dcbc125f785
+DEB: claude/test-combined-5-deb df4b2bc77a067706778c4954f9fd7e0cdb6cff3b 354296185381593074a0f003412fa7634bb40b861b4275b07910910740ce34a5
+NOTE: upstream main 71e2d91d; see-more-menu f3244791, picker-icon-crash df17054f, compress-progress 1e19c62d, send-to 96c45582, right-drag-menu 57f72d4c, replace-or-skip 88c8549a,
+flyout-submenus d1b35de9 then 63be0829, customize-tab 13ca7432, windows-status-bar abfaafa0, details-pane 551c59ab, deflake-slow-locations fd9e4093; ox_app 1855 and ox-core pass; stable app ID deb verified.
