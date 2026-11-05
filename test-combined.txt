@@ -1,4 +1,3 @@
-STATUS: DONE
-HEAD: test-combined-2 34a3a48718c2c9055da559d1138e0617f5070f88
-DEB: claude/test-combined-2-deb 4eb05a29c00a7dfcfa3e046d354d6b5e31bdfaca 15e5bfbceaabfaa7fbeb091e40cc95b162622528571fdf65301472e0002903bb
-NOTE: Merged the six branches' newest heads on main 71e2d91d; all tests passed; deb pushed.
+STATUS: WORKING
+HEAD: test-combined-3 (starting)
+NOTE: Fetching the eight branches and installing the GStreamer build packages.
