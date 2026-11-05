@@ -1,0 +1,3 @@
+STATUS: WORKING
+HEAD: properties-details-tab 71e2d91da97b75b7cc1e5003886ae3ba5ec5d7a9
+NOTE: Branched from upstream main; building the Details tab.
