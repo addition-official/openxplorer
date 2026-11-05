@@ -1,3 +1,3 @@
 STATUS: WORKING
-HEAD: flyout-submenus 71e2d91d
-NOTE: Old side menus replayed under kwin_wayland 5.27 with a foreign-parented Save dialog: no freeze there; KWin 6.6 not installable here. Building flyouts with one popup grab only.
+HEAD: flyout-submenus f4d3594d8cfaff25db073019b6631d654487f31a
+NOTE: Flyout submenus pushed (one popup grab only, 400 ms hover, View > Show). Weston and KWin captures done; full check.py run as tester in progress.
