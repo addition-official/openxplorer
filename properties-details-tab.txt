@@ -1,3 +1,4 @@
-STATUS: WORKING
-HEAD: properties-details-tab 114c0962f0b24185a88cc7db5db512badb626c73
-NOTE: Details tab done and captured under weston; full check as tester running.
+STATUS: DONE
+HEAD: properties-details-tab 2590c0639f76a0875712671057b33e948f589379
+NOTE: Details tab added with captures; check.py as tester, parity and website checks pass. Remove Properties left out (PROP-035).
+NOTE: Building now needs libgstreamer1.0-dev and libgstreamer-plugins-base1.0-dev.
