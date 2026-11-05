@@ -1,3 +1,3 @@
 STATUS: DONE
-HEAD: see-more-menu 0a468d0d69d954399692588c9f870175b73ce6a1
-NOTE: Sort menu drawn as Windows 11 does (no row glyphs, dot marks; Folders first kept as a check-mark toggle); menu rows lose label-only tooltips; quick checks and menu tests passed.
+HEAD: see-more-menu f32447913a2235c38fe0b4758a3174ebdf63c111
+NOTE: Menu rows show their whole label as a tooltip only when the menu cuts it short; test added; quick checks and menu tests passed.
