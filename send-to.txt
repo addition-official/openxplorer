@@ -1,3 +1,3 @@
 STATUS: DONE
-HEAD: send-to 2e0fb0e14e3adaa6b2e739cba509c682f1b7ae84
-NOTE: Merged upstream/main (71e2d91) and regenerated the docs files with sync-docs. Quick checks and the Send to, context-menu and icon tests pass.
+HEAD: send-to 96c455825b201b26d036c91bbb73c36e0a0831a1
+NOTE: Addressed the three review findings with tests: Recent rows send their file, copies and the shortcut wait for room with a reason, long names are shortened to fit.
