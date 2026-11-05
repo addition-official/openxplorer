@@ -1,3 +1,3 @@
 STATUS: DONE
-HEAD: right-drag-menu b7c4402104313e66be19b085cfc7131ec860af16
-NOTE: Merged upstream main (71e2d91d); resolved file_drag.rs keeping both changes; regenerated docs. Quick checks and drag tests pass.
+HEAD: right-drag-menu 57f72d4c0ce88c30bd1749a1382fc4eb55377547
+NOTE: Addressed two review findings (Recycle Bin right-drop asks first; tooltips off in every window during a drag); added tests. Quick checks and drag tests pass.
