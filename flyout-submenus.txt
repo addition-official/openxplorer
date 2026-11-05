@@ -1,3 +1,4 @@
-STATUS: DONE
-HEAD: flyout-submenus 94aa1ee415c4b0babd277b6562a82187716b4226
-NOTE: Escape or Left now closes only the open submenu, also one the pointer opened (Codex finding on #207); test fails before, passes after; quick checks and menu tests pass.
+STATUS: BLOCKED
+HEAD: flyout-submenus d1b35de950177f4d0c8dc8a516bd759b4dfaf5be
+QUESTION: Which ox_app test fails on Fedora/Arch/Tumbleweed (last "test ..." line or "failures:" list of run 42063142003)? Or allow a GTK 4.22 source build here, or add AKolenda/openxplorer so I can read the logs.
+NOTE: Cannot reproduce on GTK 4.14; a GTK 4.20+ build and the upstream run logs were both out of reach. Pushed test hardening; a 4.14-only tooltip critical also exists on main.
