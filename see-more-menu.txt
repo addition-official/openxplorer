@@ -1,3 +1,3 @@
 STATUS: DONE
 HEAD: see-more-menu f32447913a2235c38fe0b4758a3174ebdf63c111
-NOTE: Menu rows show their whole label as a tooltip only when the menu cuts it short; test added; quick checks and menu tests passed.
+NOTE: The slow-location test timeout from CI did not reproduce: 20 of 20 runs passed on this head and on main; no change pushed.
