@@ -1,3 +1,4 @@
-STATUS: WORKING
-HEAD: test-combined-3 1790c38f38616fb56cad86321813b7868e32b07e (local, not pushed yet)
-NOTE: All eight branches merged on main 71e2d91d; running fmt, clippy and the full test suite.
+STATUS: DONE
+HEAD: test-combined-3 d7c1a63e049de00167757fcaea2f67cf9a598439
+DEB: claude/test-combined-3-deb f2b7349d4fbdc3bf9ecff210e58d94908cced559 88124f645ce08ad72a9799318cb6d4932824b30b65f6cec3b292de3b1d1874d6
+NOTE: Merged the eight branches' heads on main 71e2d91d, with test updates for flyout submenus; all tests passed; deb pushed.
