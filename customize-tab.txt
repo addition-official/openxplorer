@@ -1,4 +1,4 @@
 STATUS: DONE
-HEAD: customize-tab 6feec12322cf8a5897cd8f045be928ee1c6cf47a
-NOTE: Customize tab has template, folder pictures and folder icons; merges and builds cleanly with properties-details-tab.
-NOTE: Checks pass except one pre-existing racy test (also fails on upstream main) and a Python 3.13.18 fixture drift.
+HEAD: customize-tab 13ca74322a8d929bb322238c02dd1acca63686c1
+NOTE: a_long_note_wraps_inside_the_pane is an upstream race: same command, 20 runs each, branch 2 fails, upstream main 3 fails.
+NOTE: American spelling fixed in comments; merges and builds cleanly with properties-details-tab.
