@@ -1,3 +1,4 @@
-STATUS: WORKING
+STATUS: DONE
 HEAD: customize-tab 6feec12322cf8a5897cd8f045be928ee1c6cf47a
-NOTE: Customize tab pushed and captured. Finishing the remaining native test executables.
+NOTE: Customize tab has template, folder pictures and folder icons; merges and builds cleanly with properties-details-tab.
+NOTE: Checks pass except one pre-existing racy test (also fails on upstream main) and a Python 3.13.18 fixture drift.
