@@ -1,3 +1,3 @@
 STATUS: DONE
-HEAD: windows-status-bar bdfd56c3203d9da4cf708596b8a164cd1fd4487a
-NOTE: Status bar reads "N items | N items selected  size" with Details/Large icons toggles; free-space meter kept left of them. Captured in light/dark at 2x and 680px; check.py stops at location_fixture_drift, which also fails on upstream here (Python 3.13).
+HEAD: windows-status-bar abfaafa0191c3c467844d2bcdcadbe584e284cb7
+NOTE: Zoom slider removed from the status bar per review; icon size stays on Ctrl+wheel, the View menu and Ctrl+Shift+1..4. Large icons and narrow strips recaptured; full ox_app tests pass.
