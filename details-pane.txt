@@ -1,3 +1,3 @@
-STATUS: WORKING
+STATUS: DONE
 HEAD: details-pane 5235648a48300c1e5ac35b819591641aeb04bc4d
-NOTE: Pane, reader rows, docs and 2x captures done (13, light and dark, narrow, focus rings). Full check.py run in progress.
+NOTE: Windows 11 Details pane on properties-details-tab 5eec840, using its reader. check.py (3768 tests) and parity/check.py pass; 13 2x captures in the chat report.
