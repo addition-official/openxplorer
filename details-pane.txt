@@ -1,3 +1,3 @@
-STATUS: DONE
-HEAD: details-pane 5235648a48300c1e5ac35b819591641aeb04bc4d
-NOTE: Windows 11 Details pane on properties-details-tab 5eec840, using its reader. check.py (3768 tests) and parity/check.py pass; 13 2x captures in the chat report.
+STATUS: WORKING
+HEAD: details-pane 551c59ab65e54cafb8a1251b0718af5cc5dfa834
+NOTE: Review fixes pushed (times, no folder size, files-only totals, no close button); full checks running.
