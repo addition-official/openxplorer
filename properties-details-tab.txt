@@ -1,3 +1,3 @@
 STATUS: WORKING
-HEAD: properties-details-tab 71e2d91da97b75b7cc1e5003886ae3ba5ec5d7a9
-NOTE: Branched from upstream main; building the Details tab.
+HEAD: properties-details-tab ef4fbe9df0cd9e685694bc162eeec78d42b6e7a4
+NOTE: Details tab implemented and pushed; running the 1.92 lints and the weston captures next.
