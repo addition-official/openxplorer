@@ -1,0 +1,3 @@
+STATUS: DONE
+HEAD: deflake-slow-locations fd9e4093e0eae51c1856c7e93ca4f385d470052b
+NOTE: working_on_it_carries_over_from_the_lookup_to_the_listing now runs on a held test clock (delay and its redraw), same checks; passed 50 of 50 in a row under check.py isolation.
