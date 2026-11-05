@@ -1,3 +1,3 @@
 STATUS: DONE
-HEAD: flyout-submenus d1b35de950177f4d0c8dc8a516bd759b4dfaf5be
-NOTE: CI failure on Fedora/Arch/Tumbleweed was slow_locations::working_on_it_carries_over_from_the_lookup_to_the_listing, an upstream timing test; handled on deflake-slow-locations.
+HEAD: flyout-submenus 63be08296c1a8e82de3279d6dbc05604e0b77e01
+NOTE: A submenu opened before its menu is laid out (newer GTK maps first) now moves beside its row on layout; fixes View > Show test on Fedora. Menu tests pass.
