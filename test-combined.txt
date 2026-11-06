@@ -1,3 +1,8 @@
+STATUS: WORKING
+HEAD: test-combined-12 (merging)
+NOTE: Merging three upstream PRs and six fork heads onto the newest upstream main.
+
+Earlier record, kept:
 STATUS: DONE
 HEAD: test-combined-11 781b1b234c2e84e5c4dbcb40a10fb700e614d9a6
 DEB: claude/test-combined-11-deb f33506796d9aa41b89805d56602cccd1a7183a32 8112abd0fe24cc64daef2799b6b9ddbf36cf775d4c1c8b6503e07ffbcef4ba19
