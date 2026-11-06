@@ -1,3 +1,3 @@
-STATUS: WORKING
-HEAD: restore-conflicts 1411d5167ecb138cbb6c11b3a7890a930c00559b
-NOTE: Restore conflicts now ask Replace or Skip Files in the progress window. Running the full checks.
+STATUS: DONE
+HEAD: restore-conflicts 4640704a1150221c9589a072629acc05a5fe8391
+NOTE: Restore, Restore the selected items and Restore all items ask Replace or Skip Files in the progress window; Skip is silent. New tests and parity pass; check.py fails only on environment Python fixtures (urllib, gi) and timing-flaky tab drags that pass alone.
