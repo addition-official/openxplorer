@@ -10,7 +10,9 @@
 //! ([`service`]) when it has one and supports the type, else, for the
 //! picture types gdk-pixbuf reads, by the app itself ([`writer`]). Only a
 //! few are decoded or made at a time ([`slots`]); a type that cannot be
-//! previewed, or a failed attempt, keeps its icon. [`PreviewPolicy`]
+//! previewed, or a failed attempt, keeps its icon. Every picture is
+//! decoded through [`picture_guard`], so a huge, damaged or animated one
+//! keeps its icon instead of holding the app up. [`PreviewPolicy`]
 //! says which items of a folder get previews, from the Settings the user
 //! chose (VIEW-058).
 
@@ -30,6 +32,8 @@ use ox_core::entry::{cached_thumbnail, CachedThumbnail, Entry, ThumbnailFlavor, 
 use ox_core::settings::{ViewOptions, PREVIEW_SIZE_LIMIT};
 
 pub(crate) use slots::Slots;
+
+use crate::picture_guard::{self, Limits};
 use writer::Source;
 
 /// How many previews are decoded at a time.
@@ -240,10 +244,14 @@ async fn make_thumbnail(request: &PreviewRequest) -> Option<PathBuf> {
         .flatten()
 }
 
-/// The thumbnail at `path`, scaled to fit `pixels` square.
+/// The thumbnail at `path`, scaled to fit `pixels` square; `None` for a
+/// file in the cache that is not a sensible thumbnail (more than the
+/// largest standard size, damaged, or slow to read), so the item keeps
+/// its icon.
 fn decode(path: &std::path::Path, pixels: i32) -> Option<gdk::Texture> {
-    let pixbuf = Pixbuf::from_file_at_scale(path, pixels, pixels, true).ok()?;
-    Some(gdk::Texture::for_pixbuf(&pixbuf))
+    let file = gio::File::for_path(path);
+    let decoded = picture_guard::decode_to_fit(&file, pixels, pixels, Limits::THUMBNAIL_FILE, None).ok()?;
+    Some(gdk::Texture::for_pixbuf(&decoded.pixbuf))
 }
 
 #[cfg(test)]
