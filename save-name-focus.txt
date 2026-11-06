@@ -1,3 +1,3 @@
 STATUS: WORKING
-HEAD: save-name-focus 35058ef8c54b8a0ff94d9b239e79ff19e26e9135
-NOTE: Fix and tests committed locally (unfocused name not drawn selected; one-item dialogs keep the item, not its position, across refreshes). Full native checks running.
+HEAD: save-name-focus c79ad3fd7500a2b69b8418a253bf9a19e5bbf115
+NOTE: Fix and tests committed; full native check rerunning (unshimmed run stops on an unrelated ox-core fixture test under this env's Python 3.13.18).
