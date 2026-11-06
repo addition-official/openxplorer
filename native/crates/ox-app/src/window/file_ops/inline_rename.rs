@@ -2,8 +2,10 @@
 //! Renaming in place: the name becomes a text field in its row or tile
 //! (OPS-010).
 //!
-//! As in Explorer and Dolphin, the field starts with a file's name before
-//! its extension selected, or a folder's whole name. Enter or moving focus
+//! As in Windows 11, the field starts with a file's name before its last
+//! extension selected ("archive.tar" of "archive.tar.gz"), or the whole
+//! name of a folder, a shortcut or a name with no extension
+//! ([`super::rename::name_selection`]). Enter or moving focus
 //! away commits; Escape cancels. The field's own right-click menu and
 //! switching to another window keep the rename going. The name is checked with the Python Rename
 //! dialog's rules and messages (`validateName`, then the backend's); a
@@ -34,7 +36,7 @@ use ox_core::ops::{rename_item, OpsError, RenamedItem};
 use super::name_balloon::refuse_forbidden_characters;
 use super::names::check_typed_name;
 use super::numbered_rename::numbered_batch_for;
-use super::rename::selected_name_length;
+use super::rename::{has_no_extension, selected_name_length};
 use super::rename_conflict::TakenNameAnswer;
 use crate::folder_view::cells::FileCell;
 use crate::folder_view::shown_name::{hidden_extension, shown_name};
@@ -51,7 +53,12 @@ struct RenameTarget {
     uri: String,
     /// Its name before the rename.
     name: String,
-    /// True for a folder, whose name has no extension.
+    /// True for a folder or a shortcut, whose name has no extension to
+    /// ask about changing: a Windows shortcut's own `.lnk` is hidden and
+    /// kept, so Explorer never asks.
+    has_no_extension: bool,
+    /// True for a folder, which a taken name refuses rather than offering
+    /// the next free numbered name.
     is_folder: bool,
     /// The extension the field leaves out, with its dot, while names hide
     /// known types' extensions; the rename puts it back, as Windows'
@@ -98,6 +105,7 @@ impl BrowserWindow {
         let target = RenameTarget {
             uri: entry.uri.clone(),
             name: entry.name.clone(),
+            has_no_extension: has_no_extension(entry),
             is_folder: entry.is_dir,
             several: several.map(Rc::from),
             hidden_extension: hidden_extension.clone(),
@@ -338,7 +346,7 @@ impl BrowserWindow {
             return;
         }
         let confirmed = self
-            .confirm_extension_change(&target.name, name, target.is_folder)
+            .confirm_extension_change(&target.name, name, target.has_no_extension)
             .await
             && self.confirm_hiding_rename(&target.name, name).await;
         if !confirmed {
