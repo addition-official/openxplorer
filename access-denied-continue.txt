@@ -1,4 +1,4 @@
 STATUS: DONE
-HEAD: access-denied-continue 34c14a4758ebc385c1c903dbd04929b9756d07a3
+HEAD: access-denied-continue c86a7744910944b2dc9d588f3e26a2219f31e197
 QUESTION: none
-NOTE: Destination Folder Access Denied (copy and move) shows Continue with the administrator shield in place of Try Again, plus Skip, Cancel and Do this for all current items. Continue finishes the copy or move as administrator through the app's existing Open as administrator access; no new privilege mechanism. Every failed-item question has More details (source and destination), closed by default and remembered like the progress window. Real copy and move into a root-owned test folder through Continue checked in the container; captures light and dark at 2x in the report. rustfmt and clippy (1.92.0) clean; named transfer, core and app tests pass as a normal user. Details in the report, which needs the manager's read before a PR.
+NOTE: review fixes done. Both review items addressed in one follow-up commit with tests; rustfmt and clippy (1.92.0) clean; named transfer, core and app tests pass as a normal user; rechecked in the real app. Details in the report.
