@@ -1,3 +1,3 @@
-STATUS: DONE
-HEAD: rename-selection 7a82fb51d4349d4db5bd30925ec4602f5bea4ee9
-NOTE: Shortcuts and folders select the whole name, files the name before the last extension; new tests and parity pass. check.py stops only at two Python-interop tests that fail in this environment.
+STATUS: WORKING
+HEAD: rename-selection 59fb3b7f74065b6b03fefb59ee6ffc0e2625d84b
+NOTE: Shortcuts now typed Shortcut and never asked about their extension from Properties or Rename items; captures and full checks next.
