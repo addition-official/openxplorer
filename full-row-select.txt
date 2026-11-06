@@ -1,3 +1,3 @@
 STATUS: DONE
-HEAD: full-row-select 00a12fbe644dbfb8231aba1cdf8597e643882698
-NOTE: On upstream main 3fd8f2a; a click anywhere on a Details row selects it (full-row select), debug logging dropped. check.py (3921 tests) and parity pass; real Wayland clicks under Weston select in every column, grouped and ungrouped, light and dark.
+HEAD: full-row-select 6800bc34810c0e2a4514c4e180bce761c9222483
+NOTE: ready for PR. Merged upstream main a5e5850e; rustfmt, clippy, selection/pointer/focus tests (35) and parity pass.

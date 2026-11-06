@@ -1,3 +1,3 @@
-STATUS: DONE
-HEAD: list-focus-outline 39e9af06334b3aeafea6b8baebc91a8b4bb6ddbe
-NOTE: On upstream main 3fd8f2a; the focused row or tile draws a 1px outline while the list has focus, #227 colors kept. check.py (3921 tests) and parity pass; four states checked under Weston in light and dark.
+STATUS: WORKING
+HEAD: list-focus-outline e22521d03b5c42724a2646ab0851c71d561b74c2
+NOTE: Outline now needs the list to hold the keyboard (.keyboard-in); check.py (3922) and parity pass. Missing fill after sidebar navigation not reproduced on GTK 4.14; captures in progress.
