@@ -322,6 +322,8 @@ impl BrowserWindow {
         self.attach_file_drag(view);
         self.attach_details_hover(view);
         self.attach_file_drop_zone(view, DropZone::FolderView);
+        // Last, so it hears the press before the others (capture phase).
+        self.attach_click_debug(view);
     }
 
     /// Gives the empty page's whole area in `pane` what an empty folder takes in
@@ -546,8 +548,8 @@ impl BrowserWindow {
         }
     }
 
-    /// A primary press on blank space in `view`, below the rows, between
-    /// the tiles or on the empty part of an unselected details row, clears
+    /// A primary press on blank space in `view`, below the rows or between
+    /// the tiles, clears
     /// the selection and keeps keyboard focus on the view, as in Windows
     /// Explorer and Dolphin; with Ctrl or Shift held the selection stays.
     /// A drag from there draws a rubber band ([`super::rubber_band`]).
@@ -575,12 +577,14 @@ impl BrowserWindow {
     }
 
     /// Whether (`x`, `y`) in `view` is its blank space: inside the list,
-    /// not on an item, and not on the column titles. The empty part of an
-    /// unselected details row is blank space too ([`Self::is_beside_item`]).
+    /// not on an item, and not on the column titles.
     pub(super) fn is_blank_space(&self, view: &gtk::Widget, x: f64, y: f64) -> bool {
         let position = self.folder_pane().owners().position_at(view, x, y);
+        // A press anywhere on a file's row is on that item, as in Windows
+        // 11 Explorer's full-row select in Details (test-combined-10.3; the
+        // empty end of the Name cell included).
         let blank = if position.is_some() {
-            self.is_beside_item(view, x, y)
+            false
         } else {
             // The details view's rows are an inner list view; its titles
             // are not inside it. The icon grid is the list itself.
@@ -592,41 +596,6 @@ impl BrowserWindow {
             log_hit(view, (x, y), position, blank);
         }
         blank
-    }
-
-    /// Whether (`x`, `y`) in `view` is on the empty part of an unselected
-    /// details row's Name cell: past the end of its name. As in Windows 11
-    /// Explorer, a press there starts a rubber band, even in a folder whose
-    /// rows fill the view, and a click there clears the selection; a press
-    /// on the icon or the name, or in any other column of the row, is on
-    /// the item and selects it. A selected row stays the item across its
-    /// width, and so does every tile of the icon views. A drop still goes
-    /// into the folder of the whole row.
-    ///
-    /// test-combined-10.1: upstream #226 also took the row's other columns
-    /// for blank space, so a click on a row's date, type or size selected
-    /// nothing, and in a wide window most of every row did.
-    pub(super) fn is_beside_item(&self, view: &gtk::Widget, x: f64, y: f64) -> bool {
-        if !view.is::<gtk::ColumnView>() {
-            return false;
-        }
-        let pane = self.folder_pane();
-        let Some(position) = pane.owners().position_at(view, x, y) else {
-            return false;
-        };
-        if pane.model().selection().is_selected(position) {
-            return false;
-        }
-        let Some(cell) = pane.owners().file_cell_at(position, view) else {
-            return false;
-        };
-        if !in_name_column(view, &cell, x) {
-            return false;
-        }
-        #[expect(clippy::cast_possible_truncation, reason = "pointer positions are small")]
-        let in_view = gtk::graphene::Point::new(x as f32, y as f32);
-        view.compute_point(&cell, &in_view)
-            .is_some_and(|point| cell.is_past_name(point))
     }
 
     /// Middle-click on a folder opens it in a tab without selecting it;
@@ -673,7 +642,7 @@ impl BrowserWindow {
 /// With this variable set, every hit test of a press in the file list
 /// writes what is under the pointer to standard error, for diagnosing
 /// clicks on a desktop the tests cannot reproduce (test-combined-10.2).
-const DEBUG_CLICKS: &str = "OX_DEBUG_CLICKS";
+const DEBUG_CLICKS: &str = super::click_debug::VARIABLE;
 
 /// Writes the widgets from the one picked at `point` up to `view`, the
 /// item position found there and whether the point was taken for blank
@@ -696,22 +665,6 @@ fn log_hit(view: &gtk::Widget, point: (f64, f64), position: Option<u32>, blank: 
         view.type_().name(),
         chain.join(" < ")
     );
-}
-
-/// Whether `x` in the details `view` lies in the Name column of the row
-/// whose icon-and-name cell is `cell`: within that cell's own bounds,
-/// which never reach the Date modified, Type, Size or another column. The
-/// cell's own bounds, not those of the widget GTK wraps it in, as that
-/// nesting differs between GTK releases (test-combined-10.2: with a newer
-/// GTK the wrapper spanned the whole row, so 10.1's check took every
-/// column for the Name column).
-fn in_name_column(view: &gtk::Widget, cell: &impl IsA<gtk::Widget>, x: f64) -> bool {
-    let Some(bounds) = cell.as_ref().compute_bounds(view) else {
-        return false;
-    };
-    #[expect(clippy::cast_possible_truncation, reason = "pointer positions are small")]
-    let x = x as f32;
-    x >= bounds.x() && x < bounds.x() + bounds.width()
 }
 
 #[cfg(test)]

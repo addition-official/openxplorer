@@ -60,6 +60,7 @@ mod cache_folder;
 mod caller_window;
 mod caption_buttons;
 mod card_grid;
+mod click_debug;
 mod closing;
 mod command_bar;
 mod compact_density;

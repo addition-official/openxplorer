@@ -84,13 +84,13 @@ fn beside_name_on_screen(pointer: &mut Pointer, test: &TestWindow, position: u32
 }
 
 /// In a folder whose rows fill the details view, a real click beside an
-/// unselected row's name clears the selection without selecting that row,
-/// and a real drag from there draws a rubber band over the rows it crosses
-/// instead of dragging the row, as in Windows Explorer.
+/// unselected row's name selects that row, as Windows 11's full-row select
+/// does, and draws no rubber band (test-combined-10.3; upstream #226 took
+/// the press for a band).
 ///
 /// parity: SEL-002, SEL-012
 #[gtk::test]
-fn a_real_press_beside_a_details_name_bands_and_a_click_there_clears() {
+fn a_real_click_beside_a_details_name_selects_its_row() {
     let fixture = Fixture::with_files(FULL_FOLDER);
     let mut pointer = Pointer::connect();
     let test = TestWindow::open(&fixture.uri());
@@ -102,26 +102,12 @@ fn a_real_press_beside_a_details_name_bands_and_a_click_there_clears() {
     pointer.move_to(click_at.0, click_at.1);
     pointer.press(Button::Primary);
     pointer.release(Button::Primary);
-    wait_until("the selection to clear", || model.selected_positions().is_empty());
+    wait_until("the clicked row to be selected", || {
+        model.selected_positions() == [3]
+    });
     wait_for(HOLD);
-    let after_click = model.selected_positions();
-    let from = beside_name_on_screen(&mut pointer, &test, 2);
-    let to = beside_name_on_screen(&mut pointer, &test, 5);
-    pointer.move_to(from.0, from.1);
-    pointer.press(Button::Primary);
-    pointer.glide(from, (from.0 - 30, to.1), 12);
-    wait_until("the band to select the rows", || {
-        model.selected_positions() == [2, 3, 4, 5]
-    });
-    let band_shown = test.window.folder_pane().rubber_band_shown();
-    let dragged = test.window.imp().outgoing_drag.borrow().is_some();
-    pointer.release(Button::Primary);
-    wait_until("the band to end", || {
-        !test.window.folder_pane().rubber_band_shown()
-    });
-
-    assert!(after_click.is_empty(), "the clicked row is not selected");
-    assert!(band_shown, "the band is drawn");
-    assert!(!dragged, "no row is dragged");
-    assert_eq!(model.selected_positions(), [2, 3, 4, 5]);
+    assert!(
+        !test.window.folder_pane().rubber_band_shown(),
+        "no band is drawn for a click on a row"
+    );
 }

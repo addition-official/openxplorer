@@ -248,10 +248,10 @@ fn name_and_beside_it(
     (on_name, beside, other_column)
 }
 
-/// A real click in a row's Date modified, Type or Size column selects the
-/// row's item, as in Windows 11 Explorer; a real click on the empty end of
-/// its Name cell selects nothing there (test-combined-10.1: upstream #226
-/// made every column but the name empty space).
+/// A real click anywhere on a Details row selects its item, as Windows 11
+/// Explorer's full-row select does: in the row's Date modified, Type or
+/// Size column, and on the empty end of its Name cell (test-combined-10.3;
+/// upstream #226 made the row past its name empty space).
 ///
 /// parity: SEL-002, SEL-012
 #[gtk::test]
@@ -273,21 +273,21 @@ fn a_real_click_in_another_column_of_a_row_selects_it() {
 
     click(&mut pointer, other_column);
     wait_until("the row to be selected", || selected(&test) == [3]);
-    // Clear it, then click the empty end of the Name cell.
+    // Select another, then click the empty end of the Name cell.
     test.window.folder_model().select_only(1);
     click(&mut pointer, beside);
-    wait_until("the click to clear the selection", || selected(&test).is_empty());
+    wait_until("the row to be selected again", || selected(&test) == [3]);
 }
 
-/// In a folder whose rows fill the details view, the empty part of an
-/// unselected row's Name cell is blank space, as in Windows 11 Explorer: a
-/// press there clears the selection and may start a rubber band. Its icon
-/// and name, its other columns, a selected row, and the tiles of the icon
-/// views stay the item (the other columns since test-combined-10.1).
+/// No part of a Details row is blank space, as Windows 11 Explorer's
+/// full-row select has it: its icon and name, the empty end of its Name
+/// cell and its other columns are the item, and a press there keeps the
+/// view's focus; the tiles of the icon views are the item to their edge
+/// (test-combined-10.3).
 ///
 /// parity: SEL-002, SEL-012
 #[gtk::test]
-fn the_empty_part_of_an_unselected_details_row_is_blank_space() {
+fn no_part_of_a_details_row_is_blank_space() {
     let fixture = Fixture::with_files(LONG_FOLDER);
     let test = TestWindow::open(&fixture.uri());
     show_view(&test, "details");
@@ -298,27 +298,13 @@ fn the_empty_part_of_an_unselected_details_row_is_blank_space() {
     let name_is_blank = test.window.is_blank_space(&view, on_name.0, on_name.1);
     let beside_is_blank = test.window.is_blank_space(&view, beside.0, beside.1);
     let other_column_is_blank = test.window.is_blank_space(&view, other_column.0, other_column.1);
-    test.window.folder_model().select_only(3);
-    let beside_selected_is_blank = test.window.is_blank_space(&view, beside.0, beside.1);
-    test.window.folder_model().select_only(1);
-    press_at(&test, beside.0, beside.1);
-    let after_press = selected(&test);
 
     assert!(!name_is_blank, "the name is the item");
     assert!(
         !other_column_is_blank,
         "another column of the row is the item, as in Windows 11"
     );
-    assert!(beside_is_blank, "beside the name is blank space");
-    assert!(
-        !beside_selected_is_blank,
-        "a selected row is the item across its width"
-    );
-    assert!(
-        after_press.is_empty(),
-        "a press beside a name clears the selection"
-    );
-    assert!(test.window.folder_pane().view_has_focus());
+    assert!(!beside_is_blank, "the empty end of the Name cell is the item too");
 
     show_view(&test, "medium");
     let grid = test.window.folder_pane().view_widget();
