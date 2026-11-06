@@ -1,3 +1,3 @@
-STATUS: WORKING
+STATUS: DONE
 HEAD: save-name-focus c79ad3fd7500a2b69b8418a253bf9a19e5bbf115
-NOTE: Fix and tests committed; full native check rerunning (unshimmed run stops on an unrelated ox-core fixture test under this env's Python 3.13.18).
+NOTE: Name box draws its selection only with the keyboard; one-item dialogs keep the item, not its position, when files appear; no refresh or resize moved focus in tests. Checks pass (check.py with Python 3.12 for an unrelated ox-core fixture test).
