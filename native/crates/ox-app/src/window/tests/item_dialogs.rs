@@ -1972,7 +1972,9 @@ fn change_icon_lists_the_themes_folder_icons() {
     wait_until("the icon buttons", || {
         texts(&customize).contains(&"Change Icon...".to_owned())
     });
-    assert!(!button(&customize, "Restore Default").is_visible());
+    // Folder pictures has a Restore Default of its own, above Folder icons.
+    let icons = group_box(&customize, "Folder icons");
+    assert!(!button(&icons, "Restore Default").is_visible());
 
     press(&customize, "Change Icon...");
     let dialog = sub_dialog(&window, "Change Icon for Album Folder");
@@ -1994,7 +1996,7 @@ fn change_icon_lists_the_themes_folder_icons() {
 
     wait_until("Change Icon to close", || dialog.is_closed());
     assert!(
-        button(&customize, "Restore Default").is_visible(),
+        button(&icons, "Restore Default").is_visible(),
         "the icon is chosen"
     );
     assert!(window.apply_button().is_sensitive(), "it waits for OK or Apply");
@@ -2025,6 +2027,42 @@ fn put_folder_picture(folder: &str, picture: &str) {
         finished.set(true);
     });
     wait_until("the folder picture to be stored", || done.get());
+}
+
+/// A folder's picture chosen on its Customize tab shows in the details
+/// pane in place of the folder art, as in Windows' Details pane, and the
+/// pane follows the change at once when OK or Apply announces it, also
+/// when the picture is taken off again (glue of the details-pane and
+/// customize-tab branches).
+///
+/// parity: PROP-037, PROP-011
+#[gtk::test]
+fn the_details_pane_shows_a_folders_picture_and_follows_its_change() {
+    let fixture = Fixture::standard();
+    fs::create_dir(fixture.path("Beach day")).expect("a folder");
+    let pixels = glib::Bytes::from_owned(vec![0x60_u8; 4 * 3 * 4]);
+    let picture = gtk::gdk::MemoryTexture::new(4, 3, gtk::gdk::MemoryFormat::R8g8b8a8, &pixels, 16);
+    picture
+        .save_to_png(fixture.path("Harbour.png"))
+        .expect("a picture");
+    let folder = fixture.uri_of("Beach day");
+    let test = TestWindow::open(&fixture.uri());
+    if !test.window.details_pane().is_visible() {
+        test.activate("details-pane", None);
+    }
+    let pane = test.window.details_pane();
+    test.select_named("Beach day");
+    let shows_picture = || !descendants::<gtk::Picture>(pane).is_empty();
+    crate::test_support::harness::wait_for_frames(&test.window, 3);
+    assert!(!shows_picture(), "a folder without a picture shows its art");
+
+    put_folder_picture(&folder, &fixture.uri_of("Harbour.png"));
+    test.window.announce_item_icon(&folder);
+    wait_until("the folder's picture in the pane", shows_picture);
+
+    put_folder_picture(&folder, "");
+    test.window.announce_item_icon(&folder);
+    wait_until("the folder's art again", || !shows_picture());
 }
 
 /// The Customize tab has Windows 11's three groups in its order. A
