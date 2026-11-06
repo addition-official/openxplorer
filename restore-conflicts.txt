@@ -1,3 +1,3 @@
-STATUS: DONE
-HEAD: restore-conflicts ba0ba3af372d28bf44f0905b8b809f47ace1eb95
-NOTE: Restore, Restore the selected items and Restore all items ask Replace or Skip Files in the progress window; Skip is silent. Fmt, clippy, doctests, parity and new tests pass; failures left are two Python 3.13 interop fixtures and tab-drag tests that pass alone.
+STATUS: WORKING
+HEAD: restore-conflicts e3eb7464b67483f3f5fa6af47531f941bfc1b65a
+NOTE: Merged upstream main. More details now keeps its remembered state and, while Replace or Skip Files asks, compares both files instead of an empty body. Full checks running.
