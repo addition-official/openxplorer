@@ -4689,7 +4689,7 @@ msgstr ""
 msgid "Select none"
 msgstr ""
 
-#: crates/ox-app/src/window/command_bar/menus.rs
+#: crates/ox-app/src/window/command_bar/menus.rs crates/ox-core/src/entry/type_label.rs
 msgid "Shortcut"
 msgstr ""
 
