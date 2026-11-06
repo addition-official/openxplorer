@@ -1,0 +1,3 @@
+STATUS: WORKING
+HEAD: properties-width 2d1f88fae0f1e7d78f8623db72ddfd6bd7021644
+NOTE: Fixing the Properties window width so long names and paths never widen it.
