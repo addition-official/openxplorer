@@ -1,3 +1,4 @@
-STATUS: WORKING
-HEAD: customize-tab 13ca74322a8d929bb322238c02dd1acca63686c1
-NOTE: Live apply to every window, folder pictures in small icons and a details-pane hook done; upstream main 60a2469 merged; checks running.
+STATUS: DONE
+HEAD: customize-tab 746338a06926bcfb47d8675d5d90e4c5290cba22
+NOTE: Apply/OK reaches every open window (template, folder picture, icon); small icons show the folder picture; folder_picture_of hook for details-pane.
+NOTE: Merged upstream main 60a2469 with no conflicts; check.py (73 executables) and parity pass on the merged tree.
