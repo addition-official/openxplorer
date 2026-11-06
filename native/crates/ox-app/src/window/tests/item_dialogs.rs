@@ -2338,3 +2338,39 @@ fn ok_during_apply_closes_once_the_change_is_made() {
     wait_until("the window to close", || window.is_closed());
     assert_eq!(extension_questions(&window), 0, "asked once");
 }
+
+/// A folder's picture chosen on its Customize tab shows in the details
+/// pane in place of the folder art, as in Windows' Details pane, and the
+/// pane follows the change at once when OK or Apply announces it, also
+/// when the picture is taken off again (glue of the details-pane and
+/// customize-tab branches).
+///
+/// parity: PROP-037, PROP-011
+#[gtk::test]
+fn the_details_pane_shows_a_folders_picture_and_follows_its_change() {
+    let fixture = Fixture::standard();
+    fs::create_dir(fixture.path("Beach day")).expect("a folder");
+    let pixels = glib::Bytes::from_owned(vec![0x60_u8; 4 * 3 * 4]);
+    let picture = gtk::gdk::MemoryTexture::new(4, 3, gtk::gdk::MemoryFormat::R8g8b8a8, &pixels, 16);
+    picture
+        .save_to_png(fixture.path("Harbour.png"))
+        .expect("a picture");
+    let folder = fixture.uri_of("Beach day");
+    let test = TestWindow::open(&fixture.uri());
+    if !test.window.details_pane().is_visible() {
+        test.activate("details-pane", None);
+    }
+    let pane = test.window.details_pane();
+    test.select_named("Beach day");
+    let shows_picture = || !descendants::<gtk::Picture>(pane).is_empty();
+    crate::test_support::harness::wait_for_frames(&test.window, 3);
+    assert!(!shows_picture(), "a folder without a picture shows its art");
+
+    put_folder_picture(&folder, &fixture.uri_of("Harbour.png"));
+    test.window.announce_item_icon(&folder);
+    wait_until("the folder's picture in the pane", shows_picture);
+
+    put_folder_picture(&folder, "");
+    test.window.announce_item_icon(&folder);
+    wait_until("the folder's art again", || !shows_picture());
+}

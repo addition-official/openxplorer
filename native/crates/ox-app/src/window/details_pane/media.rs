@@ -22,7 +22,7 @@ use ox_core::entry::{thumbnail_path, THUMBNAIL_ATTRIBUTES};
 
 use super::content::MediaPreview;
 use super::DetailsPane;
-use crate::folder_view::cells::CUSTOM_ICON;
+use crate::folder_view::cells::{folder_picture_of, CUSTOM_ICON};
 use crate::icons::{Art, ArtImage};
 use crate::picture_guard::{self, Limits, Refusal};
 
@@ -131,13 +131,15 @@ impl DetailsPane {
         let scale = self.scale_factor().max(1);
         glib::spawn_future_local(async move {
             let decoded = gio::spawn_blocking(move || {
-                let path = path.or_else(|| cached_thumbnail(uri.as_deref()?))?;
-                let (width, height) = (PREVIEW_WIDTH * scale, PREVIEW_HEIGHT * scale);
-                let limits = if is_image {
+                // A file of the user's (an image, a folder's picture) may be
+                // a photo; a file from the thumbnail cache is a thumbnail.
+                let limits = if path.is_some() {
                     Limits::DISPLAY
                 } else {
                     Limits::THUMBNAIL_FILE
                 };
+                let path = path.or_else(|| cached_thumbnail(uri.as_deref()?))?;
+                let (width, height) = (PREVIEW_WIDTH * scale, PREVIEW_HEIGHT * scale);
                 let file = gio::File::for_path(&path);
                 match picture_guard::decode_to_fit(&file, width, height, limits, None) {
                     Ok(picture) => Some((
@@ -231,18 +233,18 @@ impl DetailsPane {
 }
 
 /// The picture the pane shows for the local folder at `uri` in place of
-/// its art, as Windows' Details pane shows a customized folder: its
-/// custom icon (PROP-016, `metadata::custom-icon`, which the file list
-/// draws too), read at low priority.
-///
-/// Shared hook (PROP-037): the Customize tab's folder picture, read by
-/// `folder_view::cells::folder_picture_of` on the customize-tab branch,
-/// comes first once both branches are merged:
-/// `if let Some(picture) = folder_picture_of(uri).await { return Some(picture); }`.
-/// Both are announced the same way: OK or Apply on the Customize tab
-/// calls `BrowserWindow::refresh_item_icon` in every window, which has
-/// the pane read its picture again ([`DetailsPane::reread_picture_of`]).
+/// its art, as Windows' Details pane shows a customized folder: the
+/// picture chosen under "Folder pictures" on its Customize tab
+/// (PROP-037, [`folder_picture_of`]), else its custom icon (PROP-016,
+/// `metadata::custom-icon`, which the file list draws too), read at low
+/// priority. Both are announced the same way: OK or Apply on the
+/// Customize tab calls `BrowserWindow::refresh_item_icon` in every
+/// window, which has the pane read its picture again at once
+/// ([`DetailsPane::reread_picture_of`]).
 async fn folder_picture(uri: &str) -> Option<String> {
+    if let Some(picture) = folder_picture_of(uri).await {
+        return Some(picture);
+    }
     let info = gio::File::for_uri(uri)
         .query_info_future(CUSTOM_ICON, gio::FileQueryInfoFlags::NONE, glib::Priority::LOW)
         .await
