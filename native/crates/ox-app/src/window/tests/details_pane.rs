@@ -140,7 +140,6 @@ fn several_items_show_their_count_and_total_size() {
     assert!(pane.shown_summary().ends_with(" items"));
 }
 
-
 /// The pane's keyboard stops are its buttons: its names and values can be
 /// selected with the pointer but take no Tab, so focus moving on its own
 /// (after a menu closes) never lands on a label (see `property_value`).
@@ -188,7 +187,9 @@ fn search_results_are_counted_as_the_list_shows_them() {
     test.search_for("notes");
 
     assert_eq!(test.names().len(), 2);
-    wait_until("the pane to count the results", || pane.shown_summary() == "2 items");
+    wait_until("the pane to count the results", || {
+        pane.shown_summary() == "2 items"
+    });
     test.window.search_box().entry().set_text("");
     wait_until("the folder counted again", || pane.shown_summary() == "4 items");
 }
