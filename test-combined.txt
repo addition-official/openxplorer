@@ -1,3 +1,3 @@
 STATUS: WORKING
-HEAD: test-combined-8 (merging)
-NOTE: Merging eight fork heads and two upstream PRs onto upstream main 2f010857.
+HEAD: test-combined-9 a566fe82a009a3c3adacd2f5ae109c8b1895eb6d
+NOTE: Deb 9: 8 fork heads, nav-pane and thumbnail-safety merged onto upstream main 3fd8f2a4 (#227 and #228 already in main); full tests running. Deb 8 line before this: WORKING test-combined-8 (merging).
