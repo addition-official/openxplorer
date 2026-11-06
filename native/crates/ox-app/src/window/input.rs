@@ -578,13 +578,20 @@ impl BrowserWindow {
     /// not on an item, and not on the column titles. The empty part of an
     /// unselected details row is blank space too ([`Self::is_beside_item`]).
     pub(super) fn is_blank_space(&self, view: &gtk::Widget, x: f64, y: f64) -> bool {
-        if self.folder_pane().owners().position_at(view, x, y).is_some() {
-            return self.is_beside_item(view, x, y);
+        let position = self.folder_pane().owners().position_at(view, x, y);
+        let blank = if position.is_some() {
+            self.is_beside_item(view, x, y)
+        } else {
+            // The details view's rows are an inner list view; its titles
+            // are not inside it. The icon grid is the list itself.
+            view.pick(x, y, gtk::PickFlags::DEFAULT).is_some_and(|picked| {
+                &picked == view || picked.ancestor(gtk::ListView::static_type()).is_some()
+            })
+        };
+        if std::env::var_os(DEBUG_CLICKS).is_some() {
+            log_hit(view, (x, y), position, blank);
         }
-        // The details view's rows are an inner list view; its titles are
-        // not inside it. The icon grid is the list itself.
-        view.pick(x, y, gtk::PickFlags::DEFAULT)
-            .is_some_and(|picked| &picked == view || picked.ancestor(gtk::ListView::static_type()).is_some())
+        blank
     }
 
     /// Whether (`x`, `y`) in `view` is on the empty part of an unselected
@@ -663,12 +670,43 @@ impl BrowserWindow {
     }
 }
 
-/// Whether `x` in the details `view` lies in the Name column of the
-/// row whose name cell is `cell`: inside the column view cell that holds
-/// it, not in the Date modified, Type, Size or another column.
+/// With this variable set, every hit test of a press in the file list
+/// writes what is under the pointer to standard error, for diagnosing
+/// clicks on a desktop the tests cannot reproduce (test-combined-10.2).
+const DEBUG_CLICKS: &str = "OX_DEBUG_CLICKS";
+
+/// Writes the widgets from the one picked at `point` up to `view`, the
+/// item position found there and whether the point was taken for blank
+/// space.
+fn log_hit(view: &gtk::Widget, point: (f64, f64), position: Option<u32>, blank: bool) {
+    let chain: Vec<String> = std::iter::successors(
+        view.pick(point.0, point.1, gtk::PickFlags::DEFAULT),
+        WidgetExt::parent,
+    )
+    .take_while(|widget| widget != view)
+    .map(|widget| {
+        let bounds = widget.compute_bounds(view).map(|b| (b.x(), b.width()));
+        format!("{}{:?}", widget.type_().name(), bounds)
+    })
+    .collect();
+    eprintln!(
+        "OX_DEBUG_CLICKS at ({:.0}, {:.0}) in {}: position {position:?}, blank space {blank}; picked {}",
+        point.0,
+        point.1,
+        view.type_().name(),
+        chain.join(" < ")
+    );
+}
+
+/// Whether `x` in the details `view` lies in the Name column of the row
+/// whose icon-and-name cell is `cell`: within that cell's own bounds,
+/// which never reach the Date modified, Type, Size or another column. The
+/// cell's own bounds, not those of the widget GTK wraps it in, as that
+/// nesting differs between GTK releases (test-combined-10.2: with a newer
+/// GTK the wrapper spanned the whole row, so 10.1's check took every
+/// column for the Name column).
 fn in_name_column(view: &gtk::Widget, cell: &impl IsA<gtk::Widget>, x: f64) -> bool {
-    let name_cell = cell.as_ref().parent().unwrap_or_else(|| cell.as_ref().clone());
-    let Some(bounds) = name_cell.compute_bounds(view) else {
+    let Some(bounds) = cell.as_ref().compute_bounds(view) else {
         return false;
     };
     #[expect(clippy::cast_possible_truncation, reason = "pointer positions are small")]

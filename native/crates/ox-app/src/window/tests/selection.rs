@@ -239,10 +239,8 @@ fn name_and_beside_it(
         .file_cell_at(position, view)
         .expect("the row is on screen");
     let bounds = cell.compute_bounds(view).expect("a shown row has bounds");
-    let column = cell
-        .parent()
-        .and_then(|name_cell| name_cell.compute_bounds(view))
-        .expect("the Name column's cell has bounds");
+    // The empty end of the icon-and-name cell, inside the Name column.
+    let column = bounds;
     let y = f64::from(bounds.y() + bounds.height() / 2.0);
     let on_name = (f64::from(bounds.x()) + 40.0, y);
     let beside = (f64::from(column.x() + column.width()) - 8.0, y);
