@@ -1,3 +1,4 @@
-STATUS: WORKING
+STATUS: DONE
 HEAD: list-focus-outline e22521d03b5c42724a2646ab0851c71d561b74c2
-NOTE: Outline now needs the list to hold the keyboard (.keyboard-in); check.py (3922) and parity pass. Missing fill after sidebar navigation not reproduced on GTK 4.14; captures in progress.
+NOTE: Outline only while the list holds the keyboard (.keyboard-in); fill always. check.py (3922) and parity pass; states and sidebar/Up/address-bar navigation captured under Weston, light and dark.
+NOTE: The missing fill seen on deb 11 does not reproduce on GTK 4.14 here; needs a retest on the user PC.
