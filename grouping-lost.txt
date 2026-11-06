@@ -1,4 +1,3 @@
-STATUS: BLOCKED
-HEAD: grouping-lost aade63cd1f322f5809c3f41e78e9ac42243b357e
-QUESTION: In the Save dialog that showed Downloads ungrouped, what did Sort > Group by show, and was there a heading at the top of the list after scrolling up? Please send that dialog screenshot privately.
-NOTE: Split view fix stands. The Save dialog keeps Downloads grouped in tests and in the real deb 6 app with settings like the user: opened at the last folder, a folder or a file, with a file selected, other types, Back/Forward and the sidebar.
+STATUS: DONE
+HEAD: grouping-lost 4527dee7c3f92b2bd300f45188de63dd2fc9dec6
+NOTE: Split view fix; the user's own case not reproduced yet, waiting for a screenshot
