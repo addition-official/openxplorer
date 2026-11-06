@@ -1,3 +1,3 @@
 STATUS: WORKING
 HEAD: customize-tab 13ca74322a8d929bb322238c02dd1acca63686c1
-NOTE: Making Apply/OK restyle open windows and refresh folder pictures in every window at once.
+NOTE: Live apply to every window, folder pictures in small icons and a details-pane hook done; upstream main 60a2469 merged; checks running.
