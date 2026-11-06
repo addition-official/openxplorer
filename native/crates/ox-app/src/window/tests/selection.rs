@@ -224,10 +224,14 @@ fn a_rubber_band_selects_the_rows_it_crosses_as_it_moves() {
     );
 }
 
-/// The middle of the name cell of the row at `position` in `view`, and a
-/// point on the same row past the end of its name, in `view`'s
-/// coordinates.
-fn name_and_beside_it(test: &TestWindow, view: &gtk::Widget, position: u32) -> ((f64, f64), (f64, f64)) {
+/// The middle of the name cell of the row at `position` in `view`, a
+/// point on the same row in its Name column past the end of its name, and
+/// one in its last column, in `view`'s coordinates.
+fn name_and_beside_it(
+    test: &TestWindow,
+    view: &gtk::Widget,
+    position: u32,
+) -> ((f64, f64), (f64, f64), (f64, f64)) {
     let cell = test
         .window
         .folder_pane()
@@ -235,16 +239,53 @@ fn name_and_beside_it(test: &TestWindow, view: &gtk::Widget, position: u32) -> (
         .file_cell_at(position, view)
         .expect("the row is on screen");
     let bounds = cell.compute_bounds(view).expect("a shown row has bounds");
+    let column = cell
+        .parent()
+        .and_then(|name_cell| name_cell.compute_bounds(view))
+        .expect("the Name column's cell has bounds");
     let y = f64::from(bounds.y() + bounds.height() / 2.0);
     let on_name = (f64::from(bounds.x()) + 40.0, y);
-    let beside = (f64::from(view.width()) - 40.0, y);
-    (on_name, beside)
+    let beside = (f64::from(column.x() + column.width()) - 8.0, y);
+    let other_column = (f64::from(view.width()) - 40.0, y);
+    (on_name, beside, other_column)
+}
+
+/// A real click in a row's Date modified, Type or Size column selects the
+/// row's item, as in Windows 11 Explorer; a real click on the empty end of
+/// its Name cell selects nothing there (test-combined-10.1: upstream #226
+/// made every column but the name empty space).
+///
+/// parity: SEL-002, SEL-012
+#[gtk::test]
+fn a_real_click_in_another_column_of_a_row_selects_it() {
+    use crate::test_support::pointer::{screen_point, Button, Pointer};
+    let fixture = Fixture::with_files(LONG_FOLDER);
+    let mut pointer = Pointer::connect();
+    let test = TestWindow::open(&fixture.uri());
+    show_view(&test, "details");
+    crate::test_support::harness::wait_for_frames(&test.window, 3);
+    let view = test.window.folder_pane().view_widget();
+    let (_, beside, other_column) = name_and_beside_it(&test, &view, 3);
+    let click = |pointer: &mut Pointer, point: (f64, f64)| {
+        let (x, y) = screen_point(pointer, &view, point, (400, 300));
+        pointer.move_to(x, y);
+        pointer.press(Button::Primary);
+        pointer.release(Button::Primary);
+    };
+
+    click(&mut pointer, other_column);
+    wait_until("the row to be selected", || selected(&test) == [3]);
+    // Clear it, then click the empty end of the Name cell.
+    test.window.folder_model().select_only(1);
+    click(&mut pointer, beside);
+    wait_until("the click to clear the selection", || selected(&test).is_empty());
 }
 
 /// In a folder whose rows fill the details view, the empty part of an
-/// unselected row is blank space, as in Windows Explorer: a press there
-/// clears the selection and may start a rubber band. Its icon and name,
-/// a selected row, and the tiles of the icon views stay the item.
+/// unselected row's Name cell is blank space, as in Windows 11 Explorer: a
+/// press there clears the selection and may start a rubber band. Its icon
+/// and name, its other columns, a selected row, and the tiles of the icon
+/// views stay the item (the other columns since test-combined-10.1).
 ///
 /// parity: SEL-002, SEL-012
 #[gtk::test]
@@ -253,11 +294,12 @@ fn the_empty_part_of_an_unselected_details_row_is_blank_space() {
     let test = TestWindow::open(&fixture.uri());
     show_view(&test, "details");
     let view = test.window.folder_pane().view_widget();
-    let (on_name, beside) = name_and_beside_it(&test, &view, 3);
+    let (on_name, beside, other_column) = name_and_beside_it(&test, &view, 3);
     test.window.folder_model().select_only(1);
 
     let name_is_blank = test.window.is_blank_space(&view, on_name.0, on_name.1);
     let beside_is_blank = test.window.is_blank_space(&view, beside.0, beside.1);
+    let other_column_is_blank = test.window.is_blank_space(&view, other_column.0, other_column.1);
     test.window.folder_model().select_only(3);
     let beside_selected_is_blank = test.window.is_blank_space(&view, beside.0, beside.1);
     test.window.folder_model().select_only(1);
@@ -265,6 +307,10 @@ fn the_empty_part_of_an_unselected_details_row_is_blank_space() {
     let after_press = selected(&test);
 
     assert!(!name_is_blank, "the name is the item");
+    assert!(
+        !other_column_is_blank,
+        "another column of the row is the item, as in Windows 11"
+    );
     assert!(beside_is_blank, "beside the name is blank space");
     assert!(
         !beside_selected_is_blank,

@@ -588,14 +588,17 @@ impl BrowserWindow {
     }
 
     /// Whether (`x`, `y`) in `view` is on the empty part of an unselected
-    /// details row: past the end of its name, or in its other columns. As
-    /// in Windows Explorer, only the icon and the name (with the check box
-    /// and the expand arrow before them) are the item there, so a press on
-    /// the rest of the row starts a rubber band, even in a folder whose
-    /// rows fill the view, and a click there clears the selection. A
-    /// selected row stays the item across its width, and so does every
-    /// tile of the icon views. A drop still goes into the folder of the
-    /// whole row.
+    /// details row's Name cell: past the end of its name. As in Windows 11
+    /// Explorer, a press there starts a rubber band, even in a folder whose
+    /// rows fill the view, and a click there clears the selection; a press
+    /// on the icon or the name, or in any other column of the row, is on
+    /// the item and selects it. A selected row stays the item across its
+    /// width, and so does every tile of the icon views. A drop still goes
+    /// into the folder of the whole row.
+    ///
+    /// test-combined-10.1: upstream #226 also took the row's other columns
+    /// for blank space, so a click on a row's date, type or size selected
+    /// nothing, and in a wide window most of every row did.
     pub(super) fn is_beside_item(&self, view: &gtk::Widget, x: f64, y: f64) -> bool {
         if !view.is::<gtk::ColumnView>() {
             return false;
@@ -610,6 +613,9 @@ impl BrowserWindow {
         let Some(cell) = pane.owners().file_cell_at(position, view) else {
             return false;
         };
+        if !in_name_column(view, &cell, x) {
+            return false;
+        }
         #[expect(clippy::cast_possible_truncation, reason = "pointer positions are small")]
         let in_view = gtk::graphene::Point::new(x as f32, y as f32);
         view.compute_point(&cell, &in_view)
@@ -655,6 +661,19 @@ impl BrowserWindow {
             Activation::File | Activation::Archive | Activation::Refused(_) => None,
         }
     }
+}
+
+/// Whether `x` in the details `view` lies in the Name column of the
+/// row whose name cell is `cell`: inside the column view cell that holds
+/// it, not in the Date modified, Type, Size or another column.
+fn in_name_column(view: &gtk::Widget, cell: &impl IsA<gtk::Widget>, x: f64) -> bool {
+    let name_cell = cell.as_ref().parent().unwrap_or_else(|| cell.as_ref().clone());
+    let Some(bounds) = name_cell.compute_bounds(view) else {
+        return false;
+    };
+    #[expect(clippy::cast_possible_truncation, reason = "pointer positions are small")]
+    let x = x as f32;
+    x >= bounds.x() && x < bounds.x() + bounds.width()
 }
 
 #[cfg(test)]

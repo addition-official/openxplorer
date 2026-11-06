@@ -73,8 +73,14 @@ fn beside_name_on_screen(pointer: &mut Pointer, test: &TestWindow, position: u32
         .file_cell_at(position, &view)
         .expect("the row is shown");
     let bounds = cell.compute_bounds(&view).expect("the row is laid out");
+    // The empty end of the Name cell, the only part of a row that is empty
+    // space in Windows 11 (test-combined-10.1).
+    let column = cell
+        .parent()
+        .and_then(|name_cell| name_cell.compute_bounds(&view))
+        .expect("the Name column's cell is laid out");
     let point = (
-        f64::from(view.width()) - 40.0,
+        f64::from(column.x() + column.width()) - 8.0,
         f64::from(bounds.y() + bounds.height() / 2.0),
     );
     screen_point(pointer, &view, point, PROBE)
