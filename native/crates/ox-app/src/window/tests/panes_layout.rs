@@ -7,9 +7,7 @@ use ox_core::settings::{PreferencesUpdate, Settings};
 
 use super::geometry::{bounds, laid_out, laid_out_with_details_pane, Bounds};
 use super::icons::{pixel_rows, Pixel};
-use crate::test_support::harness::{
-    descendants, wait_for_frames, wait_until, Fixture, TestWindow, ThemeGuard,
-};
+use crate::test_support::harness::{descendants, wait_for_frames, Fixture, TestWindow, ThemeGuard};
 use crate::window::widget_tree::children;
 
 /// The column titles of the details view, left to right.
