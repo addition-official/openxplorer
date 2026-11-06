@@ -1,0 +1,3 @@
+STATUS: WORKING
+HEAD: rename-selection 7a82fb5
+NOTE: Shortcuts and folders select the whole name; tests pass. Captures and full checks next.
