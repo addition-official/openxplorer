@@ -1,0 +1,3 @@
+STATUS: WORKING
+HEAD: mount-point-folder bf9935869fb9d74d30f94a016b974ea5b00dfc08
+NOTE: A mount point opened from a folder listing shows folder Properties; drive page only for This PC drives.

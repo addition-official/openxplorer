@@ -1,3 +1,4 @@
-STATUS: WORKING
-HEAD: properties-width 3eafca514556c8987e7136a1724b567065e3273a
-NOTE: Drive and several-items Properties: keeping the fixed width (two tab rows, as Windows).
+STATUS: DONE
+HEAD: properties-width c9bd1cfb195835074f1b081ecf169c080de37cf8
+NOTE: Drive and several-items Properties keep the width: tabs take more rows as in Windows; check boxes wrap. Named Properties tests, rustfmt, clippy pass.
+NOTE: The tmpfs-folder drive page fix is on its own branch, mount-point-folder (status in mount-point-folder.txt).
