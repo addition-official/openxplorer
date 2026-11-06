@@ -2849,7 +2849,7 @@ mod tests {
                     .collect();
                 (lists, details.vadjustment())
             }
-            FolderView::Compact | FolderView::Icons(_) => {
+            FolderView::Compact | FolderView::Icons(_) | FolderView::Tiles | FolderView::Content => {
                 let icons = pane.icon_view();
                 (vec![icons.grid().clone().upcast()], icons.scroll_adjustment())
             }
