@@ -225,8 +225,9 @@ impl FolderTemplate {
     }
 }
 
-/// The icon edge of Explorer's Large icons, in pixels.
-const LARGE_ICONS: u32 = 56;
+/// The icon edge of Explorer's Large icons, in pixels: 96, as in Windows
+/// 11 and the icon view's own Large icons.
+const LARGE_ICONS: u32 = 96;
 
 /// One folder's own style.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -581,7 +582,7 @@ mod tests {
         let pictures = FolderTemplate::Pictures.style(&sorted_by("type"));
         assert_eq!(
             (pictures.mode.as_str(), pictures.icon_size, pictures.sort.as_str()),
-            ("icons", 56, "type")
+            ("icons", 96, "type")
         );
         assert_eq!(FolderTemplate::Music.style(&pictures).mode, "details");
 
