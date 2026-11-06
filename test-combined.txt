@@ -1,4 +1,11 @@
 STATUS: DONE
+HEAD: test-combined-10 30e6ddeb488b192bb2dda99686dc41ef665d50f2
+DEB: claude/test-combined-10-3-deb ea0e820c921aeab14de7cccd260fe90233206116 88291e618f9639882f595235207fd3a9d654fcdfedfc907316c664de79cb043a
+NOTE: Deb 10.3 (2.0.14+test10.3): full-row select (a press anywhere on a Details row selects it; #226 empty-space rule removed) and OX_DEBUG_CLICKS=1 logging of GTK version, every list gesture (begin/claim/deny/release/cancel/end), selection changes, model replacement and focus. Real Wayland clicks here (GTK 4.14.5, sway): every column selects, with or without pointer movement.
+NOTE: Why a non-blank click selects nothing on the user Plasma 6 desktop is not reproduced here; the 10.3 log of the same clicks is needed. Full test run on 30e6ddeb pending.
+
+Earlier record, kept:
+STATUS: DONE
 HEAD: test-combined-10 856544cd3cfcdfa99a9f704870e4cba24d0dfae9
 DEB: claude/test-combined-10-2-deb 34913dc129874002ef944164f0af2ea56e107147 0ffca50ec59517f8b6442988f2a41c3e142c4e579b6b65628c266a1eae27a67e
 NOTE: Deb 10.2 (2.0.14+test10.2) = 10.1 plus 856544cd: Name column and row item found without relying on GTK cell nesting (10.1 still failed on the user Plasma 6 desktop, not reproducible here); OX_DEBUG_CLICKS=1 logs each list hit test to stderr. Real Wayland clicks (sway, virtual pointer, user columns 176/135/90, groups, compact, details pane, 1920x1080): deb 10 Date/Type/Size do not select, deb 10.2 select in every column.
