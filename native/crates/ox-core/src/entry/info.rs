@@ -273,7 +273,7 @@ mod tests {
         assert!(file.is_symlink);
         assert_eq!(folder.type_label, "Shortcut");
         assert!(folder.is_dir, "a link to a folder still opens as one");
-        assert_eq!(original.type_label, "Text document");
+        assert_eq!(original.type_label, "Text Document", "#233's Windows type name");
     }
 
     /// Ported from `v2.0.0:desktop/tests/test_gio_serialization.py::GioSerializationTests::test_real_zero_byte_file_remains_zero_bytes`
