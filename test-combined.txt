@@ -1,4 +1,11 @@
 STATUS: DONE
+HEAD: test-combined-10 0e2b86729dd84066dea027e83baa7e415a03ec4d
+DEB: claude/test-combined-10-1-deb adb87c3c4053e6062f49de5857e46ab4ea9debf5 9ca422838ee88ffa71f4402294fc74a6d67a9d73580394a0fad0f2fe14dcf5a4
+NOTE: Deb 10.1 (2.0.14+test10.1) = deb 10 b745b784 plus 2510e0b8 (Details row clicked in its Date/Type/Size columns selects it; upstream #226 2f010857 had made them empty space, confirmed by real XTest clicks: b66ae267 selects, 2f010857 does not) and 0e2b8672 (launch guard restart question named as the app and non-modal; it is the source of the startup "GtkDialog mapped without a transient parent" line when an older instance runs).
+NOTE: Same merged heads as deb 10 below. Full test run on 0e2b8672 pending; targeted tests (selection, rubber band, pointer, drag, details, update) pass.
+
+Earlier record (deb 10, 9, 8), kept:
+STATUS: DONE
 HEAD: test-combined-10 b745b784d69a9be0f8714261e7f04243e270536d
 DEB: claude/test-combined-10-deb 948130b7372158c06399a849c28251383ee7bbd5 4df236c43a9ec2f4096d8527cc824f34ebb8df9bfcafa7542dddc196ff3c9739
 NOTE: Base upstream main 3fd8f2a4 via test-combined-9 a566fe82 (same base and heads, so the same resolutions and glue). Fork heads: customize-tab 746338a0, details-pane 1f7cd717, one-update-button c117af71, rename-selection 8dbb14af, save-name-focus 70e9203d, restore-conflicts e3eb7464, properties-width 3880b655, grouping-lost 4527dee7, nav-pane 96fd63b4, thumbnail-safety 4dab0f9d. Upstream PRs (test build only): #232 64249190, #233 c8e6851a, #234 29e5b35a, #235 504a5f79, #236 4a21115b, #237 a3a13a56, #238 f5426bfb, #239 1deb3a1f, #240 a87afa4f then its newer head ff51be47.
