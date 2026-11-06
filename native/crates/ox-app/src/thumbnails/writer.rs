@@ -11,13 +11,12 @@ use std::fs;
 use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
-use gtk::gdk_pixbuf::{Pixbuf, PixbufLoader};
+use gtk::gdk_pixbuf::Pixbuf;
 use gtk::prelude::*;
 use gtk::{gio, glib};
 use ox_core::entry::{thumbnail_file, ThumbnailFlavor};
 
-/// How much of a picture is read at a time.
-const READ_CHUNK: usize = 64 * 1024;
+use crate::picture_guard::{self, Limits};
 
 /// What the thumbnail is made of.
 #[derive(Debug, Clone)]
@@ -83,7 +82,12 @@ pub(super) fn find_thumbnail(
     flavor: ThumbnailFlavor,
 ) -> Option<PathBuf> {
     let path = thumbnail_file(cache_dir, uri, flavor);
-    let thumbnail = Pixbuf::from_file(&path).ok()?;
+    // Read within a thumbnail's limits: another program may have left a
+    // huge or damaged file there.
+    let file = gio::File::for_path(&path);
+    let thumbnail = picture_guard::decode_to_fit(&file, i32::MAX, i32::MAX, Limits::THUMBNAIL_FILE, None)
+        .ok()?
+        .pixbuf;
     let is_current = thumbnail.option("tEXt::Thumb::URI").as_deref() == Some(uri)
         && thumbnail.option("tEXt::Thumb::MTime").as_deref() == Some(modified.to_string().as_str());
     is_current.then_some(path)
@@ -91,42 +95,14 @@ pub(super) fn find_thumbnail(
 
 /// The picture at `uri`, turned upright and decoded to fit `edge` pixels
 /// square, or at its own size when smaller: a large photo is never held
-/// in memory at full size.
+/// in memory at full size, and a picture over the pixel limit, damaged,
+/// slow or animated is refused or cut to its first frame
+/// ([`picture_guard`]).
 fn scaled_picture(uri: &str, edge: i32, cancellation: &gio::Cancellable) -> Option<Pixbuf> {
-    let stream = gio::File::for_uri(uri).read(Some(cancellation)).ok()?;
-    let loader = PixbufLoader::new();
-    loader.connect_size_prepared(move |loader, width, height| {
-        if width > edge || height > edge {
-            let (width, height) = fit(width, height, edge);
-            loader.set_size(width, height);
-        }
-    });
-    let mut buffer = vec![0; READ_CHUNK];
-    loop {
-        let Ok(read) = stream.read(&mut buffer, Some(cancellation)) else {
-            let _ = loader.close();
-            return None;
-        };
-        if read == 0 {
-            break;
-        }
-        if loader.write(&buffer[..read]).is_err() {
-            let _ = loader.close();
-            return None;
-        }
-    }
-    loader.close().ok()?;
-    let pixbuf = loader.pixbuf()?;
-    Some(pixbuf.apply_embedded_orientation().unwrap_or(pixbuf))
-}
-
-/// `width` × `height` scaled to fit `edge` square, keeping the aspect
-/// ratio and at least one pixel.
-fn fit(width: i32, height: i32, edge: i32) -> (i32, i32) {
-    let longest = width.max(height).max(1);
-    let scale = |side: i32| (i64::from(side) * i64::from(edge) / i64::from(longest)).max(1);
-    let to_i32 = |side: i64| i32::try_from(side).unwrap_or(edge);
-    (to_i32(scale(width)), to_i32(scale(height)))
+    let file = gio::File::for_uri(uri);
+    picture_guard::decode_to_fit(&file, edge, edge, Limits::DISPLAY, Some(cancellation))
+        .ok()
+        .map(|decoded| decoded.pixbuf)
 }
 
 #[cfg(test)]
