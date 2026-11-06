@@ -1,3 +1,3 @@
 STATUS: DONE
-HEAD: rename-selection 5c21e60f298daeab7ebf81e33fac248ad6f55d93
-NOTE: ready for PR
+HEAD: rename-selection daed5306451a8791b0c4839d0717a9b0c7111744
+NOTE: Both review findings fixed with tests, local checks unchanged. The Debian 13 CI log could not be read from this session, so its cause is unconfirmed.
