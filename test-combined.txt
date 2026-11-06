@@ -1,4 +1,11 @@
 STATUS: DONE
+HEAD: test-combined-10 856544cd3cfcdfa99a9f704870e4cba24d0dfae9
+DEB: claude/test-combined-10-2-deb 34913dc129874002ef944164f0af2ea56e107147 0ffca50ec59517f8b6442988f2a41c3e142c4e579b6b65628c266a1eae27a67e
+NOTE: Deb 10.2 (2.0.14+test10.2) = 10.1 plus 856544cd: Name column and row item found without relying on GTK cell nesting (10.1 still failed on the user Plasma 6 desktop, not reproducible here); OX_DEBUG_CLICKS=1 logs each list hit test to stderr. Real Wayland clicks (sway, virtual pointer, user columns 176/135/90, groups, compact, details pane, 1920x1080): deb 10 Date/Type/Size do not select, deb 10.2 select in every column.
+NOTE: Cause of the regression: upstream #226 (2f010857) treats an unselected Details row past its name as empty space. Full test run on 856544cd pending.
+
+Earlier record, kept:
+STATUS: DONE
 HEAD: test-combined-10 0e2b86729dd84066dea027e83baa7e415a03ec4d
 DEB: claude/test-combined-10-1-deb adb87c3c4053e6062f49de5857e46ab4ea9debf5 9ca422838ee88ffa71f4402294fc74a6d67a9d73580394a0fad0f2fe14dcf5a4
 NOTE: Deb 10.1 (2.0.14+test10.1) = deb 10 b745b784 plus 2510e0b8 (Details row clicked in its Date/Type/Size columns selects it; upstream #226 2f010857 had made them empty space, confirmed by real XTest clicks: b66ae267 selects, 2f010857 does not) and 0e2b8672 (launch guard restart question named as the app and non-modal; it is the source of the startup "GtkDialog mapped without a transient parent" line when an older instance runs).
