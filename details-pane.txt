@@ -1,3 +1,3 @@
-STATUS: WORKING
-HEAD: details-pane bb7b61a1d676552f4a58812df0acc3272389248b
-NOTE: Merged upstream main 3fd8f2a; nothing-selected, folder and wrench Properties as in Windows 11. Full checks and captures running.
+STATUS: DONE
+HEAD: details-pane b52a4609ce06dc1a326701fbad8dcdea7c3bcc08
+NOTE: Merged upstream main 3fd8f2a; nothing selected, folder rows and wrench Properties as in Windows 11. check.py (3931 tests, --test-timeout 1200) and parity pass.
