@@ -192,6 +192,13 @@ pub(super) fn this_identity() -> RuntimeIdentity {
 /// Asks whether to restart the outdated instance `status` describes
 /// (`confirm_restart` in `winspace.py`), before the application runs.
 fn confirm_restart(status: &InstanceStatus) -> bool {
+    // Named as the app, so the compositor lists the question as
+    // OpenXplorer's rather than an untitled "GTK Application", and not
+    // modal: with no window to belong to, a modal question can be kept out
+    // of sight under the app's other windows while it holds the launch
+    // (test-combined-10.1; KDE Plasma showed only the older instance).
+    glib::set_prgname(Some(APP_ID));
+    glib::set_application_name("OpenXplorer");
     if gtk::init().is_err() {
         return false;
     }
@@ -208,7 +215,7 @@ fn confirm_restart(status: &InstanceStatus) -> bool {
         .buttons(["Not now", "Restart OpenXplorer"])
         .cancel_button(0)
         .default_button(1)
-        .modal(true)
+        .modal(false)
         .build();
     let answer = glib::MainContext::default().block_on(dialog.choose_future(None::<&gtk::Window>));
     answer == Ok(1)
