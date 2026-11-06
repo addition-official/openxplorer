@@ -1,3 +1,4 @@
-STATUS: WORKING
-HEAD: mount-point-folder bf9935869fb9d74d30f94a016b974ea5b00dfc08
-NOTE: A mount point opened from a folder listing shows folder Properties; drive page only for This PC drives.
+STATUS: DONE
+HEAD: mount-point-folder be1d7cceb24807e2ccaa5e42f99efe89d59cd3b3
+NOTE: A mount point reached as a folder (tmpfs /tmp) shows folder Properties; the root and This PC drives keep the drive page.
+NOTE: Cut from upstream main c97404e0; rustfmt, clippy, parity and the named Properties tests pass; merges cleanly with properties-width.
