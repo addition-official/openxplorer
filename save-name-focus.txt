@@ -1,3 +1,3 @@
-STATUS: DONE
-HEAD: save-name-focus c79ad3fd7500a2b69b8418a253bf9a19e5bbf115
-NOTE: Name box draws its selection only with the keyboard; one-item dialogs keep the item, not its position, when files appear; no refresh or resize moved focus in tests. Checks pass (check.py with Python 3.12 for an unrelated ox-core fixture test).
+STATUS: WORKING
+HEAD: save-name-focus 70e9203d7b5a77c14ba9be0df456fd3048c83b3b
+NOTE: Merged upstream main; Open dialogs now show the type list beside File name with no caption (committed, full check running). Alt+Tab request: KWin lists a modal dialog in place of its parent by design; replying with details.
