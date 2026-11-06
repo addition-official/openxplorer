@@ -7,18 +7,17 @@
 //! A request reads the cache through GIO (`thumbnail::path`,
 //! `thumbnail::is-valid`, `thumbnail::failed`) at low priority. A missing
 //! thumbnail is made by the session's thumbnailer service
-//! ([`service`]) when it has one and supports the type, else for a
-//! picture gdk-pixbuf may read by the app itself ([`writer`]), which
-//! costs less than a program, else by a thumbnailer the desktop installs
-//! for the type ([`thumbnailers`], a program the app starts in a
-//! sandbox). The desktop's thumbnailer is asked for a picture only when
-//! the app cannot read it ([`writer::Failure::Unreadable`]): one the cache
-//! refuses would be
-//! refused for the program too, and a dropped request needs no picture at
-//! all. Only a few are decoded or made at a time ([`slots`]); a type that
-//! cannot be previewed, or a failed attempt, keeps its icon.
-//! [`PreviewPolicy`] says which items of a folder get previews, from the
-//! Settings the user chose (VIEW-058).
+//! ([`service`]) when it has one and supports the type, else, for a
+//! picture gdk-pixbuf may read ([`pixbuf_may_read`]), by the app itself
+//! ([`writer`]), which costs less than a program, else by a thumbnailer
+//! the desktop installs for the type ([`thumbnailers`], a program the app
+//! starts in a sandbox). The desktop's thumbnailer is asked for a picture
+//! only when the app cannot read it ([`writer::Failure::Unreadable`]): one
+//! the cache refuses would be refused for the program too, and a dropped
+//! request needs no picture at all. Only a few are decoded or made at a
+//! time ([`slots`]); a type that cannot be previewed, or a failed attempt,
+//! keeps its icon. [`PreviewPolicy`] says which items of a folder get
+//! previews, from the Settings the user chose (VIEW-058).
 
 mod service;
 mod slots;
@@ -160,8 +159,9 @@ thread_local! {
 /// loader declaring `image/x-dds` alone for the `image/vnd.ms-dds` files
 /// GIO reports, so matching the lists exactly would leave pictures
 /// without thumbnails. Decoding settles it instead: [`writer`] reads
-/// what a loader reads and answers `None` for the rest, and the item
-/// keeps its icon.
+/// what a loader reads and answers [`writer::Failure::Unreadable`] for the
+/// rest, which leaves the item to a thumbnailer of the desktop's, or to
+/// its icon when there is none.
 fn pixbuf_may_read(content_type: &str, declared: &HashSet<String>) -> bool {
     let is_picture = content_type
         .split_once('/')
@@ -278,10 +278,10 @@ async fn make_thumbnail(request: &PreviewRequest) -> Result<PathBuf, Missing> {
     make_thumbnail_with(request, &cache_dir, None, flavor, modified).await
 }
 
-/// The thumbnail `request` asks for: the app decodes a picture itself,
-/// which costs less than a program of the desktop's, and a program of the
-/// desktop's makes it when the type is not a picture or gdk-pixbuf cannot
-/// read it (a type without its loader). `catalogue` is the desktop's own
+/// The thumbnail `request` asks for: the app decodes a picture itself
+/// ([`pixbuf_may_read`]), which costs less than a program of the
+/// desktop's, and a program of the desktop's makes it when the type is not
+/// a picture or gdk-pixbuf cannot read it (a type without its loader). `catalogue` is the desktop's own
 /// list unless a test hands its own.
 async fn make_thumbnail_with(
     request: &PreviewRequest,
