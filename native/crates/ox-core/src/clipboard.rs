@@ -20,10 +20,16 @@
 //! Paste tries [`CUSTOM`], then [`GNOME`], then [`URI_LIST`] with the
 //! [`KDE_CUT`] marker of the same clipboard owner. [`FileListFormat`] names
 //! these three formats, and [`decode()`] reads one of them. [`TEXT`] is
-//! published for other applications only: text is never read back as files.
+//! published for other applications only.
+//!
+//! Text and images are never a file list: text copied in another
+//! application may not claim to name files. They are pasted as one new
+//! file instead ([`PastedContent`], CLIP-015), and the file list is always
+//! read first, so a copy that offers both stays a copy.
 
 mod decode;
 mod lines;
+mod pasted;
 
 use std::collections::HashSet;
 
@@ -32,6 +38,10 @@ use serde::{Deserialize, Serialize};
 use crate::location::{breaks_a_line, require_item_uri, LocationContext, LocationError};
 
 pub use decode::{decode, FileListFormat};
+pub use pasted::{
+    image_extension, PastedContent, IMAGE_MIME_TYPES, TEXTURE_EXTENSION, TEXT_EXTENSION, TEXT_MIME_TYPE,
+    TOO_LARGE_TO_PASTE,
+};
 
 /// The app's own cross-process format; the name is a compatibility
 /// contract with the Python app and older Winspace windows.
