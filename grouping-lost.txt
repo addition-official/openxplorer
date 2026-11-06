@@ -1,3 +1,3 @@
 STATUS: WORKING
-HEAD: grouping-lost 4eb05a29c00a7dfcfa3e046d354d6b5e31bdfaca
-NOTE: Started from upstream main 1f3bf19; reading how group-by is stored and restored.
+HEAD: grouping-lost 881e69850244c2b23105fc232ad484c9a5101a60
+NOTE: Back/Forward, sidebar, outside writes and the Save dialog keep the groups on main in tests; split view drops them in the inactive pane, fixing. Checking the deb 6 code next.
