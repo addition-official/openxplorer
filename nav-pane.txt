@@ -1,4 +1,3 @@
 STATUS: DONE
-HEAD: nav-pane 96fd63b4e64585313087666c514c0ace66554fa7
-NOTE: Windows 11 order (Home | pins | This PC and Network) with one icon column; saved searches, Recent files, Recent locations and Recycle Bin in a last group after Network. Gallery needs its own job.
-NOTE: check.py (74 executables, 3905 tests) and parity pass; captures in the chat report.
+HEAD: nav-pane 6960700eaf71b02ba978ba97dc596a23bdbdfa9c
+NOTE: ready for PR. Upstream main 3fd8f2a4 merged; check.py (74 executables, 3922 tests) and parity pass.
