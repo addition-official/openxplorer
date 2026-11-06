@@ -1,3 +1,3 @@
-STATUS: DONE
-HEAD: details-pane 551c59ab65e54cafb8a1251b0718af5cc5dfa834
-NOTE: Review fixes in: dates with times, no folder size, files-only totals, no close button. check.py (3768 tests, Python 3.12 first on PATH) and parity/check.py pass; 13 recaptures at 2x.
+STATUS: WORKING
+HEAD: details-pane 645f9b13eef14b642483070403aaadcd44fd337e
+NOTE: Merged upstream main 60a2469 (normal merge); Preview pane mode ported to the new layout. Full checks and recaptures running.
