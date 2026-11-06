@@ -187,8 +187,6 @@ impl BrowserWindow {
         self.command_bar().offer_share(offered);
         let enabled = offered && self.selected_sources().is_some();
         self.set_action_enabled(WindowAction::Share, enabled);
-        // The pane shows Share only for what it can share.
-        self.details_pane().offer_share(enabled);
     }
 
     /// The addresses of the files Share attaches for the selection

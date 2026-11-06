@@ -177,8 +177,9 @@ fn settle_layout(test: &TestWindow) {
     wait_for(Duration::from_millis(100));
 }
 
-/// Nothing selected, the pane counts the folder's items, as Windows'
-/// pane does; one file shows Windows 11's Details rows.
+/// As Windows 11's Details pane: the folder's name and item count with
+/// nothing selected, and a selected file's rows of names and values,
+/// without buttons.
 ///
 /// parity: PROP-009
 #[gtk::test]
@@ -187,26 +188,28 @@ fn the_details_pane_lists_a_file_and_the_folder() {
     let test = TestWindow::open(&fixture.uri());
     test.open_details_pane();
     let pane = test.window.details_pane();
-    // The Python backend lists hidden items only while they are shown
-    // (`enumerate_folder(uri, showHidden)`), and app.js counts that list.
-    assert_eq!(pane.shown_name(), "4 items", "hidden items are not listed");
-    let folder_address = fixture.root().display().to_string();
-    assert_eq!(
-        property(&pane.shown_properties(), "Folder"),
-        Some(folder_address.as_str())
-    );
+    // Hidden items count only while they are shown, as in the status bar.
+    assert_eq!(pane.shown_summary(), "4 items", "hidden items are not listed");
+    assert!(pane.shown_properties().is_empty());
     test.activate("hidden", None);
-    assert_eq!(pane.shown_name(), "5 items", "shown hidden items count");
+    assert_eq!(pane.shown_summary(), "5 items", "shown hidden items count");
     test.activate("hidden", None);
-    test.window.folder_model().select_only(1);
+    test.select_named("Notes 2.txt");
+    assert_eq!(pane.shown_summary(), "", "no count under an item's name");
     let file = pane.shown_properties();
-    let names: Vec<&str> = file.iter().map(|property| property.name.as_str()).collect();
-    assert_eq!(
-        names[..4],
-        ["Type", "Size", "File location", "Date modified"],
-        "then Date created, where the file system keeps it"
-    );
-    assert_eq!(property(&file, "File location"), Some(folder_address.as_str()));
+    let names: Vec<&str> = file
+        .iter()
+        .map(|property| property.name.as_str())
+        // Only a file system that records creation times has the row.
+        .filter(|name| *name != "Date created")
+        .collect();
+    assert_eq!(names, ["Type", "Size", "Date modified", "Availability"]);
+    assert_eq!(property(&file, "Type"), Some("Text Document"));
+    assert_eq!(property(&file, "Availability"), Some("Available on this device"));
+    let buttons = descendants::<gtk::Button>(pane);
+    let shown: Vec<&gtk::Button> = buttons.iter().filter(|button| button.is_visible()).collect();
+    assert_eq!(shown.len(), 1, "only the close button: {shown:?}");
+    assert!(shown[0].has_css_class("detail-close"));
 }
 
 /// One selected image shows its picture and dimensions in the details
@@ -315,7 +318,7 @@ fn the_details_pane_follows_the_pointer_and_shows_the_chosen_fields() {
     assert!(property(&shown, "Type").is_some());
     assert!(property(&shown, "Size").is_none(), "Size is turned off");
     test.window.pointer_over_items(&view, None);
-    assert!(pane.shown_name().ends_with(" items"), "the folder again");
+    assert!(!pane.shown_summary().is_empty(), "the folder again");
     wait_until("the options saved", || {
         let saved = Settings::open(test.settings_directory())
             .data()

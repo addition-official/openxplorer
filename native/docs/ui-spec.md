@@ -580,14 +580,12 @@ where it differs; ✓ means the target equals the current app.
 |---|---|---|---|
 | Default | Closed for a new user; Details or Alt+Shift+P opens it, and the choice is saved | Windows 11 Explorer opens with the Details and Preview panes closed | Keep. |
 | Pane | width **262** (235 at ≤ 1190, hidden at ≤ 960); `border-left: 1px solid @ox_border`; padding `22 22 16`; background `@ox_bg` | Explorer details pane about 260–320 (observed, unverified) | Keep. |
-| Order | preview, small icon and name, Share, "Details" heading over the rows, Properties: Windows 11's Details pane (View › Show › Details pane, Alt+Shift+P) | Windows 11 Explorer's Details pane (observed, unverified) | safe |
-| Close | none: View › Details pane, the command bar's Details toggle and Alt+Shift+P hide the pane | Explorer's pane has no close button (observed, unverified) | safe |
-| Preview | min height 162 with its border; background `@ox_chrome`; 1 px `@ox_border`; radius 7 ✓ (R09); large icon 96 (copy glyph 80 for several items) with `drop-shadow(0 4px 4px alpha(black, .04))`; a photo, a document's thumbnail or a player fills the width, at most 180 high | Windows' pane shows the picture itself or the large icon (observed, unverified) | safe |
-| Icon and name | icon 20 beside the name, 8 apart; name 14 / 600, selectable, wraps anywhere; 14 px above and below | — | safe |
-| Share | bordered button 32 high with glyph 16, as wide as its text; only where the desktop can share (CMD-037) and something is selected; 18 px below | — | safe |
-| Details | heading 13 / 600, 10 px below; grid with an 88 px name column, row gap 10, column gap 12; names `@ox_muted`; values selectable with the pointer, each read as "Name: value"; no label is a Tab stop, the buttons are | — | safe |
-| Rows | one item: Type, Size (not for a folder), File location, Date modified, Date created (date and time, as the Date modified column), then a photo's Date taken, Dimensions, Rating, Title, Tags, Authors, Camera maker, Camera model, F-stop, Exposure time, ISO speed, Exposure bias, Focal length, Flash mode, or a recording's Length, bit rates and artists, as Properties' Details tab words them; several: "N items selected" with Total size (files only), Date modified (first – last, days) and File location; none: "N items" (the items the list shows: a search's results while searching) and Folder; a local folder's custom icon takes the preview, read again when it changes | — | safe |
-| Properties | bordered button 32 high with the info glyph 16; 20 px below the rows | — | safe |
+| Header | "Details" at 13 px; close button 24 × 24, glyph 12; 20 px below | — | Keep. |
+| Preview | 148 high, with no background, border or corners; icon **96** with `drop-shadow(0 4px 4px alpha(black, .04))`; several items show the art of the first three at 80, stacked 10 px apart, the first in front; 16 px below; thumbnails when available (gain) | Windows 11 Explorer's Details pane shows the large icon or thumbnail without a frame, and stacked icons for several items | visible |
+| Name | **20** / 600, selectable, wraps anywhere; "N items selected" for several items; 4 px below | Windows 11's pane shows the name in large text | visible |
+| Item count | With nothing selected, "N items" under the folder's name, as the status bar counts them; 12 px `@ox_muted` | Windows 11's pane: the folder's icon, name and item count | visible |
+| Rows | One item: Type, Size (folders: measured or "Not scanned"), Date modified, Date created (when the file system records it), Availability ("Available on this device" for a local item), then Dimensions or Length from the preview; several items: their total Size while all are files. A 92 px name column, row gap 12, column gap 8, 16 px above; names `@ox_muted`; values selectable; text 12 px | Windows 11's pane lists label and value rows (Type, Size, Date modified, Date created, Availability) | visible |
+| Buttons, heading and note | None: Open and Pin to Quick access are in the item's context menu and the command bar's More options, as in Windows | Windows 11's pane has no buttons | visible |
 
 ### 4.9 Menus and context menus
 

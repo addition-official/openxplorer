@@ -20,7 +20,7 @@ use gtk::subclass::prelude::*;
 use gtk::{gdk, gio, glib};
 use ox_core::entry::{thumbnail_path, THUMBNAIL_ATTRIBUTES};
 
-use super::content::MediaPreview;
+use super::content::{Field, MediaPreview};
 use super::DetailsPane;
 use crate::folder_view::cells::{folder_picture_of, CUSTOM_ICON};
 use crate::icons::{Art, ArtImage};
@@ -72,7 +72,7 @@ impl DetailsPane {
 
     /// Puts `widget` in the preview area in place of the art, or the art
     /// back for `None`.
-    fn set_preview_widget(&self, widget: Option<&gtk::Widget>) {
+    pub(super) fn set_preview_widget(&self, widget: Option<&gtk::Widget>) {
         let imp = self.imp();
         let art = imp.preview.upcast_ref::<gtk::Widget>();
         let widget = widget.unwrap_or(art);
@@ -163,7 +163,7 @@ impl DetailsPane {
             }
             if is_image {
                 pane.add_media_property(
-                    "Dimensions",
+                    Field::Dimensions,
                     ox_core::i18n::format_message(
                         "{width} × {height} pixels",
                         &[("width", &size.0.to_string()), ("height", &size.1.to_string())],
@@ -217,17 +217,17 @@ impl DetailsPane {
             };
             let micros = stream.duration();
             if pane.imp().media_generation.get() == generation && stream.is_prepared() && micros > 0 {
-                pane.add_media_property("Length", length_text(micros));
+                pane.add_media_property(Field::Length, length_text(micros));
             }
         });
     }
 }
 
 impl DetailsPane {
-    /// Adds the row `name` that the media shown says, unless the reader
+    /// Adds the row of `field` that the media shown says, unless the reader
     /// gave it already, and keeps it for when the rows are drawn again.
-    fn add_media_property(&self, name: &'static str, value: String) {
-        self.imp().media_rows.borrow_mut().push((name, value));
+    fn add_media_property(&self, field: Field, value: String) {
+        self.imp().media_rows.borrow_mut().push((field, value));
         self.redraw_properties();
     }
 }

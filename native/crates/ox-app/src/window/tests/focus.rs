@@ -94,13 +94,12 @@ fn focused(test: &TestWindow) -> Option<gtk::Widget> {
     GtkWindowExt::focus(&test.window)
 }
 
-/// The Details pane's Properties button, a control of the pane that can
-/// hold the keyboard.
-fn details_button(test: &TestWindow) -> gtk::Button {
+/// The Details pane's close button, the control the keyboard used to end up on.
+fn details_close(test: &TestWindow) -> gtk::Button {
     descendants::<gtk::Button>(test.window.details_pane())
         .into_iter()
-        .find(|button| button.action_name().as_deref() == Some("win.properties"))
-        .expect("the Details pane has a Properties button")
+        .find(|button| button.has_css_class("detail-close"))
+        .expect("the Details pane has a close button")
 }
 
 /// The Back button of the navigation row.
@@ -206,9 +205,9 @@ fn typing_on_a_command_or_the_details_pane_selects_in_the_folder() {
     test.wait_for_listing("the first folder");
     test.open_details_pane();
     let refresh = refresh_button(&test);
-    let properties = details_button(&test);
+    let close = details_close(&test);
 
-    for button in [refresh, properties] {
+    for button in [refresh, close] {
         test.window.folder_pane().model().select_none();
         assert!(button.grab_focus(), "the control takes the keyboard");
         assert!(!test.window.folder_pane().view_has_focus());
@@ -303,11 +302,8 @@ fn closing_the_details_pane_puts_the_keyboard_in_the_folder() {
     let test = TestWindow::open(&fixture.uri());
     test.wait_for_listing("the first folder");
     test.open_details_pane();
-    let button = details_button(&test);
-    assert!(
-        button.grab_focus(),
-        "the pane's Properties button takes the keyboard"
-    );
+    let close = details_close(&test);
+    assert!(close.grab_focus(), "the pane's close button takes the keyboard");
 
     test.activate("details-pane", None);
 

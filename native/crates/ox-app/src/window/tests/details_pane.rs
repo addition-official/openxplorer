@@ -10,8 +10,7 @@ use std::time::Duration;
 use gtk::prelude::*;
 
 use crate::media_details::tests::{camera_exif, jpeg_with_exif};
-use crate::test_support::harness::{wait_for, wait_for_frames, wait_until, Fixture, TestWindow};
-use crate::test_support::portal::EmailPortal;
+use crate::test_support::harness::{wait_for, wait_until, Fixture, TestWindow};
 use crate::window::details_pane::ShownProperty;
 
 /// Opens a window on `fixture` with the details pane shown.
@@ -67,7 +66,9 @@ fn a_photos_camera_rows_follow_its_file_rows() {
     let rows = pane.shown_properties();
     let names = names(&rows);
     let taken = names.iter().position(|name| *name == "Date taken");
-    let location = names.iter().position(|name| *name == "File location");
+    // Under #233's layout the file rows end with Date modified, Date
+    // created and Availability; the photo's own rows follow them.
+    let location = names.iter().position(|name| *name == "Date modified");
     assert!(
         taken > location && location.is_some(),
         "the photo's rows come after its file rows: {names:?}"
@@ -132,44 +133,13 @@ fn several_items_show_their_count_and_total_size() {
     model.select_positions(&positions);
     assert_eq!(pane.shown_name(), "2 items selected");
     assert_eq!(
-        value(&pane.shown_properties(), "Total size"),
+        value(&pane.shown_properties(), "Size"),
         Some(ox_core::format::pretty_bytes(2000).as_str())
     );
     model.select_positions(&[]);
-    assert!(pane.shown_name().ends_with(" items"));
+    assert!(pane.shown_summary().ends_with(" items"));
 }
 
-/// Share shows in the pane where the desktop can share, for files it
-/// can attach; Properties opens the Properties of what the pane shows.
-///
-/// parity: PROP-009, CMD-037
-#[gtk::test]
-fn the_pane_offers_share_and_properties() {
-    let fixture = Fixture::standard();
-    let test = window_with_pane(&fixture);
-    let pane = test.window.details_pane();
-    assert!(!pane.shows_share(), "this desktop has no Email portal");
-
-    let portal = EmailPortal::answering(0);
-    test.window.follow_share_service(&portal.name());
-    wait_until("the window to ask the portal", || {
-        test.window.share_service_checked(&portal.name())
-    });
-    wait_for_frames(&test.window, 2);
-    assert!(!pane.shows_share(), "nothing selected, nothing to share");
-    test.select_named("Documents");
-    assert!(!pane.shows_share(), "a folder cannot be shared");
-    test.select_named("Notes 2.txt");
-    assert!(pane.shows_share());
-
-    let properties = crate::test_support::harness::descendants::<gtk::Button>(pane)
-        .into_iter()
-        .find(|button| button.action_name().as_deref() == Some("win.properties"))
-        .expect("the Properties button");
-    assert!(properties.is_visible() && properties.is_sensitive());
-    properties.emit_clicked();
-    test.wait_for_properties("Notes 2.txt Properties");
-}
 
 /// The pane's keyboard stops are its buttons: its names and values can be
 /// selected with the pointer but take no Tab, so focus moving on its own
@@ -213,14 +183,14 @@ fn search_results_are_counted_as_the_list_shows_them() {
     let test = window_with_pane(&fixture);
     test.start_search_cache();
     let pane = test.window.details_pane();
-    assert_eq!(pane.shown_name(), "4 items", "the folder");
+    assert_eq!(pane.shown_summary(), "4 items", "the folder");
 
     test.search_for("notes");
 
     assert_eq!(test.names().len(), 2);
-    wait_until("the pane to count the results", || pane.shown_name() == "2 items");
+    wait_until("the pane to count the results", || pane.shown_summary() == "2 items");
     test.window.search_box().entry().set_text("");
-    wait_until("the folder counted again", || pane.shown_name() == "4 items");
+    wait_until("the folder counted again", || pane.shown_summary() == "4 items");
 }
 
 /// A selected folder whose picture changes in Properties shows the new

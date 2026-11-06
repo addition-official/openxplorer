@@ -2,60 +2,47 @@
 //! What the details pane says about the selection, computed without
 //! widgets so it is tested on its own.
 //!
-//! Laid out as Windows 11 Explorer's Details pane (PROP-009). One selected
-//! item shows its large preview, its small icon and name, and under
-//! "Details" its Type, Size, File location, Date modified and Date
-//! created; a picture, video or audio file adds the rows its own metadata
-//! gives once the reader has read them ([`MetadataRequest`]). Several
-//! selected items show "N items selected" with their total size, the
-//! range of their dates and the folder they are in; nothing selected
-//! shows the folder's item count. A folder on an SMB share is pictured as
-//! its tab and sidebar row picture it, on the network bar (the owner's
-//! icon mapping, 2026-09-28).
+//! It follows Windows 11 File Explorer's Details pane: with nothing
+//! selected, the folder's picture, its name and "N items"; with one item,
+//! its picture, its name and rows of Type, Size, Date modified, Date
+//! created and Availability; with several, their pictures stacked, "N items
+//! selected" and their total size. A folder on an SMB share is pictured as
+//! its tab and sidebar row picture it, on the network bar (the owner's icon
+//! mapping, 2026-09-28).
+//!
+//! Kept from the details-pane branch in test-combined-10, under #233's
+//! layout: a picture, video or audio file adds the rows its own metadata
+//! gives once the reader has read them ([`MetadataRequest`]), and a
+//! selected local folder shows its Customize picture or custom icon
+//! ([`MediaPreview::Folder`]).
 
 use std::path::PathBuf;
 
 use gtk::gio;
 use gtk::prelude::FileExt;
 use ox_core::format;
-use ox_core::location::{is_smb_location, parent_location, ArchiveLocation, LocationContext};
+use ox_core::i18n::message_id;
+use ox_core::location::{is_smb_location, ArchiveLocation, LocationContext};
 use ox_core::places::NetworkLocation;
 
 use crate::folder_view::item::FileItem;
-use crate::i18n::message_id;
-use crate::icons::{Art, Icon};
-use crate::locations::Page;
+use crate::icons::Art;
 use crate::media_details::MediaKind;
+use crate::properties::NOT_SCANNED;
 
-/// The keys of the rows the pane's menu can turn off (PROP-010), which
-/// are also the names the settings keep them under.
-pub(in crate::window) mod keys {
-    pub(in crate::window) const TYPE: &str = "Type";
-    pub(in crate::window) const SIZE: &str = "Size";
-    pub(in crate::window) const LOCATION: &str = "Location";
-    pub(in crate::window) const MODIFIED: &str = "Modified";
-    pub(in crate::window) const CREATED: &str = "Created";
-    pub(in crate::window) const DIMENSIONS: &str = "Dimensions";
-    pub(in crate::window) const LENGTH: &str = "Length";
-}
+/// What Windows says of an item stored on this computer.
+const AVAILABLE_HERE: &str = message_id("Available on this device");
+
+/// How many of several selected items the stacked picture shows.
+const STACKED_ITEMS: usize = 3;
 
 /// The picture at the top of the pane.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::window) enum Preview {
     /// The one selected item's art, or the folder's.
     Art(Art),
-    /// The copy glyph for several items.
-    Several,
-}
-
-impl Preview {
-    /// The art beside the name: the same picture, small.
-    pub(in crate::window) fn art(self) -> Art {
-        match self {
-            Preview::Art(art) => art,
-            Preview::Several => Art::Glyph(Icon::Copy),
-        }
-    }
+    /// Several selected items: the art of the first few, stacked.
+    Stack(Vec<Art>),
 }
 
 /// What the preview area shows of one selected file's content
@@ -150,40 +137,83 @@ impl MetadataRequest {
     }
 }
 
-/// One row of the Details list.
+/// A row the pane can show, which its menu can turn off (PROP-010).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::window) enum Field {
+    Type,
+    Size,
+    Modified,
+    Created,
+    Availability,
+    Dimensions,
+    Length,
+}
+
+impl Field {
+    /// Every field, in the order the pane shows them.
+    pub(in crate::window) const ALL: [Self; 7] = [
+        Self::Type,
+        Self::Size,
+        Self::Modified,
+        Self::Created,
+        Self::Availability,
+        Self::Dimensions,
+        Self::Length,
+    ];
+
+    /// The name the settings save a turned-off field under.
+    pub(in crate::window) fn key(self) -> &'static str {
+        match self {
+            Self::Type => "Type",
+            Self::Size => "Size",
+            Self::Modified => "Modified",
+            Self::Created => "Created",
+            Self::Availability => "Availability",
+            Self::Dimensions => "Dimensions",
+            Self::Length => "Length",
+        }
+    }
+
+    /// The row's name, as Windows' Details pane writes it.
+    pub(in crate::window) fn label(self) -> &'static str {
+        let label = match self {
+            Self::Type => message_id("Type"),
+            Self::Size => message_id("Size"),
+            Self::Modified => message_id("Date modified"),
+            Self::Created => message_id("Date created"),
+            Self::Availability => message_id("Availability"),
+            Self::Dimensions => message_id("Dimensions"),
+            Self::Length => message_id("Length"),
+        };
+        ox_core::i18n::gettext_static(label)
+    }
+}
+
+/// One row of the pane's list.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::window) struct Property {
-    /// The row's key, which the pane's menu turns it off by.
-    pub key: &'static str,
-    /// What the row describes, as shown, such as "Date modified".
-    pub name: String,
+    /// What the row describes.
+    pub field: Field,
     /// The value as the pane shows it.
     pub value: String,
 }
 
 impl Property {
-    fn new(key: &'static str, name: &'static str, value: String) -> Self {
-        Self {
-            key,
-            name: ox_core::i18n::gettext_static(name).to_owned(),
-            value,
-        }
+    fn new(field: Field, value: String) -> Self {
+        Self { field, value }
     }
 }
 
 /// Everything the pane shows.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::window) struct PaneContent {
-    /// The picture at the top, and the small art beside the name.
+    /// The picture at the top.
     pub preview: Preview,
-    /// The item's name, "N items selected" or "N items".
+    /// The item's or folder's name, or "N items selected".
     pub name: String,
-    /// Some item is selected: Share may be offered for it.
-    pub has_selection: bool,
-    /// Properties can open for what the pane shows: not on a landing
-    /// page with nothing selected.
-    pub has_properties: bool,
-    /// The Details rows, in display order.
+    /// The line under a folder's name, "N items"; empty for a selection.
+    pub summary: String,
+    /// The rows, in display order.
     pub properties: Vec<Property>,
     /// The content preview of one selected file.
     pub media: Option<MediaPreview>,
@@ -198,8 +228,7 @@ pub(in crate::window) struct PaneFacts<'a> {
     pub selection: &'a [FileItem],
     /// The folder or page the tab shows.
     pub folder_uri: &'a str,
-    /// Items the list shows: the folder's, hidden ones while they are
-    /// shown, or a search's results.
+    /// Items the folder lists, as its status bar counts them.
     pub folder_item_count: u32,
     /// Display names for devices and the home folder.
     pub locations: &'a LocationContext,
@@ -214,114 +243,91 @@ pub(in crate::window) fn pane_content(facts: &PaneFacts<'_>) -> PaneContent {
     match facts.selection {
         [] => folder_content(facts),
         [item] => item_content(item, facts),
-        several => several_content(several, facts),
+        several => several_content(several),
     }
 }
 
 fn item_content(item: &FileItem, facts: &PaneFacts<'_>) -> PaneContent {
     let entry = item.entry();
-    let dates = |seconds: Option<u64>| date_text(seconds, facts.condensed_dates);
-    // Windows' pane names no size for a folder, and nothing is counted
-    // for it.
-    let size = if entry.is_dir {
-        String::new()
-    } else {
-        entry.size.map(format::pretty_bytes).unwrap_or_default()
-    };
     let mut properties = vec![
-        Property::new(keys::TYPE, message_id("Type"), entry.type_label.clone()),
-        Property::new(keys::SIZE, message_id("Size"), size),
-        Property::new(
-            keys::LOCATION,
-            message_id("File location"),
-            container_text(&entry.uri, facts.locations),
-        ),
-        Property::new(keys::MODIFIED, message_id("Date modified"), dates(entry.modified)),
-        Property::new(
-            keys::CREATED,
-            message_id("Date created"),
-            dates(entry.meta.created),
-        ),
+        Property::new(Field::Type, entry.type_label.clone()),
+        Property::new(Field::Size, size_text(item)),
+        Property::new(Field::Modified, date_text(entry.modified, facts.condensed_dates)),
     ];
-    properties.retain(|property| !property.value.is_empty());
+    if entry.meta.created.is_some() {
+        properties.push(Property::new(
+            Field::Created,
+            date_text(entry.meta.created, facts.condensed_dates),
+        ));
+    }
+    if entry.uri.starts_with("file:") {
+        properties.push(Property::new(
+            Field::Availability,
+            ox_core::i18n::gettext_static(AVAILABLE_HERE).to_owned(),
+        ));
+    }
     PaneContent {
         preview: Preview::Art(item.art()),
         name: entry.name.clone(),
-        has_selection: true,
-        // Items inside a ZIP have no file of their own to describe.
-        has_properties: !ox_core::location::is_archive_location(facts.folder_uri),
+        summary: String::new(),
         properties,
         media: MediaPreview::of(item),
         metadata: MetadataRequest::of(item),
     }
 }
 
-/// "N items selected", their total size, the range of their dates and,
-/// when they share one, their folder, as Windows' pane sums a selection.
-fn several_content(items: &[FileItem], facts: &PaneFacts<'_>) -> PaneContent {
-    let count = ox_core::format::group_digits(items.len() as u64);
-    let name = ox_core::i18n::format_message("{selected} items selected", &[("selected", &count)]);
-    let mut properties = Vec::new();
-    if let Some(size) = total_size_text(items) {
-        properties.push(Property::new(keys::SIZE, message_id("Total size"), size));
-    }
-    let modified = date_range_text(items.iter().filter_map(|item| item.entry().modified));
-    if let Some(modified) = modified {
-        properties.push(Property::new(
-            keys::MODIFIED,
-            message_id("Date modified"),
-            modified,
-        ));
-    }
-    let first_folder = parent_location(&items[0].entry().uri);
-    let one_folder = items
-        .iter()
-        .all(|item| parent_location(&item.entry().uri) == first_folder);
-    if let Some(folder) = first_folder.filter(|_| one_folder) {
-        properties.push(Property::new(
-            keys::LOCATION,
-            message_id("File location"),
-            facts.locations.display_location(&folder),
-        ));
-    }
+fn folder_content(facts: &PaneFacts<'_>) -> PaneContent {
+    let uri = facts.folder_uri;
+    // A ZIP's own top, open like a folder, has the ZIP's picture.
+    let art = if is_zip_top(uri) {
+        Art::ZipFolder
+    } else {
+        folder_art(facts)
+    };
     PaneContent {
-        preview: Preview::Several,
+        preview: Preview::Art(art),
+        name: facts.locations.title_for(uri),
+        summary: count_text(facts.folder_item_count),
+        properties: Vec::new(),
+        media: None,
+        metadata: None,
+    }
+}
+
+/// "N items selected" with the art of the first few stacked, and their
+/// total size while every one is a file, as Windows' status bar adds it.
+fn several_content(selection: &[FileItem]) -> PaneContent {
+    let selected = selection.len() as u64;
+    let name = ox_core::i18n::format_message(
+        "{selected} items selected",
+        &[("selected", &format::group_digits(selected))],
+    );
+    let arts = selection.iter().take(STACKED_ITEMS).map(FileItem::art).collect();
+    let mut total = Some(0_u64);
+    for item in selection {
+        let entry = item.entry();
+        total = total
+            .zip(entry.size.filter(|_| !entry.is_dir))
+            .map(|(sum, size)| sum.saturating_add(size));
+    }
+    let properties = total
+        .map(|bytes| Property::new(Field::Size, format::pretty_bytes(bytes)))
+        .into_iter()
+        .collect();
+    PaneContent {
+        preview: Preview::Stack(arts),
         name,
-        has_selection: true,
-        has_properties: !ox_core::location::is_archive_location(facts.folder_uri),
+        summary: String::new(),
         properties,
         media: None,
         metadata: None,
     }
 }
 
-/// Nothing selected: the folder's picture and its item count, as
-/// Windows' pane shows "N items".
-fn folder_content(facts: &PaneFacts<'_>) -> PaneContent {
-    let uri = facts.folder_uri;
-    let on_page = Page::from_uri(uri).is_some();
-    let count = u64::from(facts.folder_item_count);
-    let name = ox_core::i18n::format_message(
-        &ox_core::i18n::ngettext("{count} item", "{count} items", count),
-        &[("count", &ox_core::format::group_digits(count))],
-    );
-    let mut properties = Vec::new();
-    if !on_page {
-        properties.push(Property::new(
-            keys::LOCATION,
-            message_id("Folder"),
-            facts.locations.display_location(uri),
-        ));
-    }
-    PaneContent {
-        preview: Preview::Art(folder_art(facts)),
-        name,
-        has_selection: false,
-        has_properties: !on_page && !ox_core::location::is_archive_location(uri),
-        properties,
-        media: None,
-        metadata: None,
-    }
+/// "1 item" or "12 items", as the status bar counts them.
+fn count_text(count: u32) -> String {
+    ox_core::i18n::ngettext("{count} item", "{count} items", u64::from(count))
+        .replace("{count}", &format::group_digits(u64::from(count)))
 }
 
 /// Whether `uri` is the top of a ZIP opened like a folder (ARC-026).
@@ -329,65 +335,35 @@ fn is_zip_top(uri: &str) -> bool {
     ArchiveLocation::from_uri(uri).is_some_and(|location| location.parent().is_none())
 }
 
-/// The picture of the folder itself: a ZIP's top as a compressed folder,
-/// on an SMB share the art its tab shows, else the folder.
+/// The picture of the folder itself: on an SMB share the art its tab
+/// shows, else the folder.
 fn folder_art(facts: &PaneFacts<'_>) -> Art {
-    if is_zip_top(facts.folder_uri) {
-        Art::ZipFolder
-    } else if is_smb_location(facts.folder_uri) {
+    if is_smb_location(facts.folder_uri) {
         Art::for_smb_location(facts.folder_uri, facts.network)
     } else {
         Art::Folder
     }
 }
 
-/// The folder the item at `uri` is in, as its path or display name.
-fn container_text(uri: &str, locations: &LocationContext) -> String {
-    let container = parent_location(uri).unwrap_or_else(|| uri.to_owned());
-    locations.display_location(&container)
-}
-
-/// The total size of the files among `items`, as Windows' pane sums a
-/// selection: folders are left out and never counted; `None` when no
-/// file has a known size.
-fn total_size_text(items: &[FileItem]) -> Option<String> {
-    let sizes = items
-        .iter()
-        .map(FileItem::entry)
-        .filter(|entry| !entry.is_dir)
-        .filter_map(|entry| entry.size);
-    let (bytes, known) = sizes.fold((0_u64, false), |(bytes, _), size| {
-        (bytes.saturating_add(size), true)
-    });
-    known.then(|| format::pretty_bytes(bytes))
-}
-
-/// A date row: the day and the time without seconds, as the Date
-/// modified column writes it; the day only with condensed dates; empty
-/// without a date.
-fn date_text(seconds: Option<u64>, condensed: bool) -> String {
-    if seconds.is_none() {
-        String::new()
-    } else if condensed {
-        format::date_text(seconds)
-    } else {
-        format::date_short_time_text(seconds)
+/// The size line: a file's size, a folder's measured size, or "Not
+/// scanned" for a folder never measured (PROP-027).
+fn size_text(item: &FileItem) -> String {
+    let entry = item.entry();
+    match (entry.is_dir, item.folder_size(), entry.size) {
+        (true, Some(measured), _) => measured.size_text(),
+        (true, None, _) => ox_core::i18n::gettext_static(NOT_SCANNED).to_owned(),
+        (false, _, Some(size)) => format::pretty_bytes(size),
+        (false, _, None) => String::new(),
     }
 }
 
-/// The days of the earliest and latest of `dates`, as `first - last`,
-/// or the one day when they fall on it: a range shows no time.
-fn date_range_text(dates: impl Iterator<Item = u64>) -> Option<String> {
-    let (first, last) = dates.fold(None, |range: Option<(u64, u64)>, date| {
-        Some(range.map_or((date, date), |(first, last)| (first.min(date), last.max(date))))
-    })?;
-    let first = format::date_text(Some(first));
-    let last = format::date_text(Some(last));
-    Some(if first == last {
-        first
+/// A date row: the day, or the day and time.
+fn date_text(time: Option<u64>, condensed: bool) -> String {
+    if condensed {
+        format::date_text(time)
     } else {
-        ox_core::i18n::format_message("{first} - {last}", &[("first", &first), ("last", &last)])
-    })
+        format::date_time_text(time)
+    }
 }
 
 #[cfg(test)]
@@ -395,6 +371,7 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
+    use crate::locations::Page;
     use crate::test_support::{file_entry, folder_entry, studio_nas_mapped_drive};
 
     fn context() -> LocationContext {
@@ -413,64 +390,71 @@ mod tests {
             folder_item_count: 7,
             locations: &locations,
             network: &network,
-            condensed_dates: false,
+            condensed_dates: true,
         })
     }
 
-    fn property<'a>(content: &'a PaneContent, key: &str) -> Option<&'a str> {
+    fn property(content: &PaneContent, field: Field) -> Option<&str> {
         content
             .properties
             .iter()
-            .find(|property| property.key == key)
+            .find(|property| property.field == field)
             .map(|property| property.value.as_str())
     }
 
-    fn names(content: &PaneContent) -> Vec<&str> {
-        content
-            .properties
-            .iter()
-            .map(|property| property.name.as_str())
-            .collect()
-    }
-
-    /// One file shows Windows 11's rows, in its order and wording.
-    ///
     /// parity: PROP-009
     #[test]
-    fn a_file_shows_its_type_size_location_and_dates() {
+    fn a_file_shows_windows_rows_under_its_name() {
         let mut entry = file_entry("Notes.txt");
         entry.size = Some(2048);
-        entry.modified = Some(1_790_000_000);
         entry.meta.created = Some(1_780_000_000);
         let content = content_for(&[FileItem::new(entry.clone())], "file:///tmp/ox-test");
+        let fields: Vec<Field> = content.properties.iter().map(|property| property.field).collect();
         assert_eq!(
-            names(&content),
-            ["Type", "Size", "File location", "Date modified", "Date created"]
+            fields,
+            [
+                Field::Type,
+                Field::Size,
+                Field::Modified,
+                Field::Created,
+                Field::Availability
+            ]
         );
         assert_eq!(content.name, "Notes.txt");
         assert_eq!(
-            property(&content, keys::SIZE),
+            content.summary, "",
+            "the type is a row, not a line under the name"
+        );
+        assert_eq!(
+            property(&content, Field::Size),
             Some(format::pretty_bytes(2048).as_str())
         );
         assert_eq!(
-            property(&content, keys::MODIFIED),
-            Some(format::date_short_time_text(entry.modified).as_str()),
-            "the day and the time, as the Date modified column"
+            property(&content, Field::Modified),
+            Some(format::date_text(entry.modified).as_str())
         );
-        assert_eq!(property(&content, keys::LOCATION), Some("/tmp/ox-test"));
-        assert!(content.has_selection && content.has_properties);
-        assert_eq!(content.metadata, None, "a text file has no media details");
+        assert_eq!(
+            property(&content, Field::Created),
+            Some(format::date_text(entry.meta.created).as_str())
+        );
+        assert_eq!(
+            property(&content, Field::Availability),
+            Some("Available on this device")
+        );
     }
 
-    /// A date the backend does not give leaves its row out.
+    /// An item off this computer says nothing of its availability, and an
+    /// unknown creation time leaves out its row.
     ///
     /// parity: PROP-009
     #[test]
-    fn a_missing_date_leaves_its_row_out() {
+    fn a_shared_file_has_no_availability_or_unknown_creation_row() {
         let mut entry = file_entry("Notes.txt");
+        entry.uri = "smb://nas/work/Notes.txt".to_owned();
         entry.meta.created = None;
-        let content = content_for(&[FileItem::new(entry)], "file:///tmp/ox-test");
-        assert_eq!(property(&content, keys::CREATED), None);
+        let content = content_for(&[FileItem::new(entry)], "smb://nas/work");
+        assert_eq!(property(&content, Field::Availability), None);
+        assert_eq!(property(&content, Field::Created), None);
     }
 
     /// Condensed dates give the day only; otherwise the time follows.
@@ -480,14 +464,13 @@ mod tests {
     fn condensed_dates_drop_the_time() {
         let modified = Some(1_790_000_000);
         assert_eq!(date_text(modified, true), format::date_text(modified));
-        assert_eq!(date_text(modified, false), format::date_short_time_text(modified));
+        assert_eq!(date_text(modified, false), format::date_time_text(modified));
         assert!(date_text(modified, false).starts_with(&date_text(modified, true)));
     }
 
-    /// Only a local file has a content preview, chosen by its type; a
-    /// picture, video or audio file, local or not, has its details read.
+    /// Only a local file has a content preview, chosen by its type.
     ///
-    /// parity: PROP-011, PROP-009
+    /// parity: PROP-011
     #[test]
     fn a_local_file_is_previewed_by_its_type() {
         let mut photo = file_entry("Beach.png");
@@ -500,15 +483,6 @@ mod tests {
             Some(MediaPreview::Image {
                 path: PathBuf::from("/tmp/ox-test/Beach.png"),
                 size: 10
-            })
-        );
-        assert_eq!(
-            content.metadata,
-            Some(MetadataRequest {
-                uri: photo.uri.clone(),
-                kind: MediaKind::Picture,
-                size: Some(10),
-                modified: photo.modified,
             })
         );
         photo.content_type = Some("video/mp4".to_owned());
@@ -525,96 +499,74 @@ mod tests {
         assert_eq!(content_for(&[], "file:///tmp/ox-test").media, None);
     }
 
-    /// parity: PROP-009
+    /// parity: PROP-009, PROP-027
     #[test]
-    fn a_folder_has_no_size_and_no_media_details() {
+    fn a_folder_is_not_scanned_until_measured() {
         let item = FileItem::new(folder_entry("Projects"));
-        let uri = item.entry().uri.clone();
         let content = content_for(&[item], "file:///tmp/ox-test");
-        assert_eq!(property(&content, keys::SIZE), None, "Windows names no size");
-        assert_eq!(
-            content.media,
-            Some(MediaPreview::Folder { uri: uri.clone() }),
-            "a local folder's own picture is looked up"
-        );
-        assert!(content.media.as_ref().is_some_and(|media| media.is_of(&uri)));
-        assert_eq!(content.metadata, None);
+        assert_eq!(property(&content, Field::Size), Some("Not scanned"));
     }
 
-    /// Nothing selected: the folder's item count, as Windows' pane says.
-    ///
     /// parity: PROP-009
     #[test]
-    fn no_selection_counts_the_folders_items() {
+    fn no_selection_names_the_folder_and_counts_its_items() {
         let content = content_for(&[], "file:///home/demo");
-        assert_eq!(content.name, "7 items");
+        assert_eq!(
+            (content.name.as_str(), content.summary.as_str()),
+            ("Home", "7 items")
+        );
         assert_eq!(content.preview, Preview::Art(Art::Folder));
-        assert_eq!(names(&content), ["Folder"]);
-        assert_eq!(property(&content, keys::LOCATION), Some("/home/demo"));
-        assert!(!content.has_selection, "nothing to share");
-        assert!(content.has_properties, "the folder's own Properties");
+        assert!(content.properties.is_empty());
+        let landing = content_for(&[], Page::ThisPc.uri());
+        assert_eq!(landing.summary, "7 items");
     }
 
-    /// A ZIP opened like a folder is pictured as a compressed folder at
-    /// its top, and its items offer no Properties, as Properties is off
-    /// there.
+    /// A ZIP opened like a folder has the ZIP's picture at its top, and its
+    /// folders are folders.
     ///
     /// parity: PROP-009, ARC-026
     #[test]
-    fn the_top_of_a_zip_is_a_compressed_folder() {
+    fn the_top_of_a_zip_has_the_zip_picture() {
         let top = ArchiveLocation::root("file:///tmp/ox-test/Bundle.zip");
         let content = content_for(&[], &top.uri());
         assert_eq!(content.preview, Preview::Art(Art::ZipFolder));
         let inside = content_for(&[], &top.member("Docs/").uri());
         assert_eq!(inside.preview, Preview::Art(Art::Folder));
-        let member = FileItem::new(file_entry("Read me.txt"));
-        let content = content_for(&[member], &top.uri());
-        assert!(!content.has_properties, "a ZIP's item has no Properties");
     }
 
-    /// Several items: "N items selected", their total size, their dates
-    /// and the folder they share.
-    ///
     /// parity: PROP-009
     #[test]
-    fn several_items_are_counted_and_summed() {
-        let mut first = file_entry("a");
+    fn several_items_are_counted_stacked_and_summed() {
+        let mut first = file_entry("a.txt");
         first.size = Some(1000);
-        first.modified = Some(1_790_000_000);
-        let mut second = file_entry("b");
-        second.size = Some(2000);
-        second.modified = Some(1_790_000_000 - 30 * 86_400);
-        let selection = [FileItem::new(first.clone()), FileItem::new(second.clone())];
-        let content = content_for(&selection, "file:///tmp/ox-test");
+        let mut second = file_entry("b.txt");
+        second.size = Some(24);
+        let files = [FileItem::new(first), FileItem::new(second)];
+        let content = content_for(&files, "smb://nas/media");
         assert_eq!(content.name, "2 items selected");
-        assert_eq!(content.preview, Preview::Several);
-        assert_eq!(names(&content), ["Total size", "Date modified", "File location"]);
+        assert_eq!(content.summary, "");
         assert_eq!(
-            property(&content, keys::SIZE),
-            Some(format::pretty_bytes(3000).as_str())
+            content.preview,
+            Preview::Stack(files.iter().map(FileItem::art).collect())
         );
-        let range = format!(
-            "{} - {}",
-            format::date_text(second.modified),
-            format::date_text(first.modified)
+        assert_eq!(
+            property(&content, Field::Size),
+            Some(format::pretty_bytes(1024).as_str())
         );
-        assert_eq!(property(&content, keys::MODIFIED), Some(range.as_str()));
-
-        let with_folder = [FileItem::new(first), FileItem::new(folder_entry("Projects"))];
+        let with_folder = [files[0].clone(), FileItem::new(folder_entry("Projects"))];
         let content = content_for(&with_folder, "file:///tmp/ox-test");
         assert_eq!(
-            property(&content, keys::SIZE),
-            Some(format::pretty_bytes(1000).as_str()),
-            "only the files are summed, as in Windows"
+            property(&content, Field::Size),
+            None,
+            "a folder's size is not known"
         );
-        let folders = [
-            FileItem::new(folder_entry("Projects")),
-            FileItem::new(folder_entry("Drafts")),
-        ];
-        assert_eq!(
-            property(&content_for(&folders, "file:///tmp/ox-test"), keys::SIZE),
-            None
-        );
+        let many: Vec<FileItem> = (0..5)
+            .map(|n| FileItem::new(file_entry(&format!("{n}.txt"))))
+            .collect();
+        let Preview::Stack(arts) = content_for(&many, "file:///tmp/ox-test").preview else {
+            panic!("several items are stacked");
+        };
+        assert_eq!(arts.len(), STACKED_ITEMS);
     }
 
     /// parity: LOOK-016
@@ -628,13 +580,5 @@ mod tests {
         assert_eq!(inside.preview, Preview::Art(Art::SHARE));
         let local = content_for(&[], "file:///home/demo");
         assert_eq!(local.preview, Preview::Art(Art::Folder));
-    }
-
-    /// parity: PROP-009
-    #[test]
-    fn landing_pages_offer_no_properties() {
-        let content = content_for(&[], Page::ThisPc.uri());
-        assert!(!content.has_properties);
-        assert!(content.properties.is_empty());
     }
 }
