@@ -1,4 +1,4 @@
 STATUS: DONE
-HEAD: properties-width 2b4c3a4286dd228a4d8d6a51d317ff3436bed054
+HEAD: properties-width 7f0a60a97af843ce6058cd7f6e95431956583877
 NOTE: ready for PR
 NOTE: Merged upstream main 3fd8f2a4; check.py (74 executables) and parity pass; merges cleanly with open #233.
