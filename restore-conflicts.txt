@@ -1,3 +1,3 @@
 STATUS: DONE
-HEAD: restore-conflicts e3eb7464b67483f3f5fa6af47531f941bfc1b65a
-NOTE: More details keeps its remembered state; while Replace or Skip Files asks, it compares both files instead of an empty body. All checks pass except two Python 3.13 environment fixtures.
+HEAD: restore-conflicts f2727b31699390ab676c1a430c9a5fe6c2fce540
+NOTE: ready for PR
