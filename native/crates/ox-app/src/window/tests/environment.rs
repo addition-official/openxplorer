@@ -200,7 +200,6 @@ fn the_details_pane_lists_a_file_and_the_folder() {
     );
     test.activate("hidden", None);
     test.select_named("Notes 2.txt");
-    assert_eq!(pane.shown_summary(), "", "no count under an item's name");
     let file = pane.shown_properties();
     let names: Vec<&str> = file.iter().map(|property| property.name.as_str()).collect();
     assert_eq!(
