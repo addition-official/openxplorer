@@ -1,3 +1,7 @@
-STATUS: WORKING
-HEAD: test-combined-6 (merging)
-NOTE: Merging four fork heads and five upstream PRs onto upstream main 60a24691.
+STATUS: DONE
+HEAD: test-combined-6 3dfe6cba2a45beffb0fd97f9fe88e3d2b24b3faf
+DEB: claude/test-combined-6-deb f2fdf199ad55502f900772162e32d58d9ef50d79 3bd172ca0211046c10dc94f5a5b61afc74b7c8b22d868631ba7dff0a7bc74344
+NOTE: Heads: upstream main 60a24691; send-to 791c22da, right-drag-menu 1827efa6, replace-or-skip f8dbbd54, flyout-submenus 34135890, #210 065f8d78, #212 39450441, #213 03fbe789, #214 e3ae4ad5, #215 4e4a38a9.
+Conflicts: right-drag-menu - context_menus.rs kept both tests, ops.rs and links.rs use send-to's shortcuts module (right-drag's shortcut.rs dropped), ui-spec.md kept both rows. replace-or-skip - file_ops.rs is_busy keeps send-to's crate visibility and job_count with replace-or-skip's body (no planning flag), transfer.rs keeps send-to's signature with replace-or-skip's comment, location.rs imports both, interface docs take both sentence edits. flyout-submenus - menu_popover.rs keeps open_submenu_labelled as a wrapper over the flyout. #210 - window.rs drops quick_look (owner's PR) and keeps quiet_tooltips. #212 - location.rs imports both. #213 - features.toml line takes both edits. #215 - icon.rs keeps Bluetooth and #215's Braces note, DocumentCopy comment names Duplicate, Compare files and Compare info; features.toml takes both edits; docs.json takes #215's New paragraph and the F3 keys line.
+Test adaptations: Send to and View > Show rows read from their flyouts; a share row read once the flyout shows. ox_app 1839 passed, ox-core 70 binaries passed, clippy clean.
+Version: program 2.0.14, package 2.0.14+test6 (dpkg sorts it above 2.0.14; the in-app check offers only newer than 2.0.14). verify_deb passes on the 2.0.14 build; the repack fails only its package-version check and the old 1.1.x updater's name check.
