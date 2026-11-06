@@ -1,4 +1,4 @@
 STATUS: BLOCKED
 HEAD: grouping-lost 59f5a13a8caa8ebaaf01e84641cbeac7d1177ad0
 QUESTION: When Downloads shows ungrouped, is Sort > Group by still on Date modified or on (None), and does it stay ungrouped after reopening the app? Does the user use split view or several tabs, and is Downloads a symlink? Send the Downloads view settings privately.
-NOTE: Fixed and tested: split view dropped Downloads groups in the inactive pane. Back/Forward, sidebar, outside saves and Save As keep the groups on main and deb 6 code in tests and the real app.
+NOTE: Fixed and tested: split view dropped Downloads groups in the inactive pane. Back/Forward, sidebar, outside saves and Save As keep the groups in tests on main and deb 6 code; Back/Forward also in the real app.
