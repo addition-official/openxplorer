@@ -1,3 +1,0 @@
-STATUS: DONE
-HEAD: see-more-menu f32447913a2235c38fe0b4758a3174ebdf63c111
-NOTE: The slow-location test timeout from CI did not reproduce: 20 of 20 runs passed on this head and on main; no change pushed.

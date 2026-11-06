@@ -1,4 +1,0 @@
-STATUS: DONE
-HEAD: compress-progress 1e19c62d051b78a83477cc6f81ba6cb369dba024
-NOTE: Fixed the CI failure in archive_progress; added a test.
-NOTE: Quick check and archive tests pass with fatal criticals.

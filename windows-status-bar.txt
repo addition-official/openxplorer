@@ -1,3 +1,0 @@
-STATUS: DONE
-HEAD: windows-status-bar abfaafa0191c3c467844d2bcdcadbe584e284cb7
-NOTE: Zoom slider removed from the status bar per review; icon size stays on Ctrl+wheel, the View menu and Ctrl+Shift+1..4. Large icons and narrow strips recaptured; full ox_app tests pass.
