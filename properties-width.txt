@@ -1,4 +1,4 @@
 STATUS: DONE
-HEAD: properties-width 3880b655ed182e87b3fd780a845d9a7d4afcf263
-NOTE: Properties keeps one width and height for every item; long names end in an ellipsis, Location and Object name are one line.
-NOTE: Cut from upstream main 2d1f88f; check.py (74 executables) and parity pass.
+HEAD: properties-width 2b4c3a4286dd228a4d8d6a51d317ff3436bed054
+NOTE: ready for PR
+NOTE: Merged upstream main 3fd8f2a4; check.py (74 executables) and parity pass; merges cleanly with open #233.
