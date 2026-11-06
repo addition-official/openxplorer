@@ -1,3 +1,3 @@
-STATUS: WORKING
-HEAD: details-pane 4241a0c3bf3b4a4f817ec7671bc372a2e5356756
-NOTE: Merged upstream main 60a2469; fixed a GTK focus critical the merge exposed (labels no Tab stops). Full checks and recaptures running.
+STATUS: DONE
+HEAD: details-pane b5d2171edf25ad97b2f88fefee0dff361d59e953
+NOTE: Merged upstream main 60a2469 (no rebase, no force); fixed two GTK focus issues the merge exposed. check.py (3812 tests) and parity pass; 8 recaptures in the chat report.
