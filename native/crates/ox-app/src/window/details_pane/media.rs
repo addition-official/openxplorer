@@ -19,7 +19,7 @@ use ox_core::entry::{thumbnail_path, THUMBNAIL_ATTRIBUTES};
 
 use super::content::MediaPreview;
 use super::DetailsPane;
-use crate::folder_view::cells::CUSTOM_ICON;
+use crate::folder_view::cells::{folder_picture_of, CUSTOM_ICON};
 use crate::icons::{Art, ArtImage};
 
 /// Images larger than this are not decoded for the pane.
@@ -214,14 +214,15 @@ impl DetailsPane {
 /// custom icon (PROP-016, `metadata::custom-icon`, which the file list
 /// draws too), read at low priority.
 ///
-/// Shared hook (PROP-037): the Customize tab's folder picture, read by
-/// `folder_view::cells::folder_picture_of` on the customize-tab branch,
-/// comes first once both branches are merged:
-/// `if let Some(picture) = folder_picture_of(uri).await { return Some(picture); }`.
-/// Both are announced the same way: OK or Apply on the Customize tab
-/// calls `BrowserWindow::refresh_item_icon` in every window, which has
-/// the pane read its picture again ([`DetailsPane::reread_picture_of`]).
+/// The Customize tab's folder picture (PROP-037), read by
+/// [`folder_picture_of`], comes first. Both are announced the same way:
+/// OK or Apply on the Customize tab calls
+/// `BrowserWindow::refresh_item_icon` in every window, which has the pane
+/// read its picture again ([`DetailsPane::reread_picture_of`]).
 async fn folder_picture(uri: &str) -> Option<String> {
+    if let Some(picture) = folder_picture_of(uri).await {
+        return Some(picture);
+    }
     let info = gio::File::for_uri(uri)
         .query_info_future(CUSTOM_ICON, gio::FileQueryInfoFlags::NONE, glib::Priority::LOW)
         .await
