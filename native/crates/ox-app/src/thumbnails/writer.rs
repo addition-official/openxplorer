@@ -24,7 +24,7 @@ use gtk::prelude::*;
 use gtk::{gio, glib};
 use ox_core::entry::{thumbnail_file, ThumbnailFlavor};
 
-use crate::picture_guard::{self, Limits};
+use crate::picture_guard::{self, Limits, Refusal};
 
 /// What the thumbnail is made of.
 #[derive(Debug, Clone)]
@@ -45,6 +45,11 @@ pub(super) enum Failure {
     /// The picture could not be read or decoded: the app has no loader
     /// for its type, or its bytes are no picture.
     Unreadable,
+    /// The picture was refused for its size or its time
+    /// ([`picture_guard`]: more pixels than the cap, read from its header,
+    /// or slower than the time limit). A desktop thumbnailer would have to
+    /// decode the same pixels, so none is asked: the item keeps its icon.
+    Refused,
     /// The picture was read, but the cache would not take its thumbnail:
     /// the item is a thumbnail of the cache itself, whose pictures of
     /// pictures would grow it from within, or the folder could not be
@@ -63,14 +68,12 @@ pub(super) fn write_thumbnail(
     flavor: ThumbnailFlavor,
     cancellation: &gio::Cancellable,
 ) -> Result<PathBuf, Failure> {
-    let Some(pixbuf) = scaled_picture(&source.uri, flavor.pixels(), cancellation) else {
+    let pixbuf = match scaled_picture(&source.uri, flavor.pixels(), cancellation) {
+        Ok(pixbuf) => pixbuf,
         // A read that stopped because it was cancelled is no reason to
         // fall back to another thumbnailer.
-        return Err(if cancellation.is_cancelled() {
-            Failure::Cancelled
-        } else {
-            Failure::Unreadable
-        });
+        Err(_) if cancellation.is_cancelled() => return Err(Failure::Cancelled),
+        Err(refusal) => return Err(failure_for(refusal)),
     };
     if cancellation.is_cancelled() {
         return Err(Failure::Cancelled);
@@ -165,7 +168,7 @@ pub(super) fn fit_thumbnail(pixbuf: &Pixbuf, edge: i32) -> Pixbuf {
     if pixbuf.width() <= edge && pixbuf.height() <= edge {
         return pixbuf.clone();
     }
-    let (width, height) = fit(pixbuf.width(), pixbuf.height(), edge);
+    let (width, height) = picture_guard::fit_within(pixbuf.width(), pixbuf.height(), (edge, edge));
     pixbuf
         .scale_simple(width, height, gtk::gdk_pixbuf::InterpType::Bilinear)
         .unwrap_or_else(|| pixbuf.clone())
@@ -176,11 +179,21 @@ pub(super) fn fit_thumbnail(pixbuf: &Pixbuf, edge: i32) -> Pixbuf {
 /// in memory at full size, and a picture over the pixel limit, damaged,
 /// slow or animated is refused or cut to its first frame
 /// ([`picture_guard`]).
-fn scaled_picture(uri: &str, edge: i32, cancellation: &gio::Cancellable) -> Option<Pixbuf> {
+fn scaled_picture(uri: &str, edge: i32, cancellation: &gio::Cancellable) -> Result<Pixbuf, Refusal> {
     let file = gio::File::for_uri(uri);
     picture_guard::decode_to_fit(&file, edge, edge, Limits::DISPLAY, Some(cancellation))
-        .ok()
         .map(|decoded| decoded.pixbuf)
+}
+
+/// The [`Failure`] of a picture [`picture_guard`] refused: only one it
+/// could not read may go to a desktop thumbnailer; one refused for its
+/// size or its time may not.
+pub(super) fn failure_for(refusal: Refusal) -> Failure {
+    match refusal {
+        Refusal::Unreadable => Failure::Unreadable,
+        Refusal::TooLarge { .. } | Refusal::TimedOut => Failure::Refused,
+        Refusal::Cancelled => Failure::Cancelled,
+    }
 }
 
 #[cfg(test)]

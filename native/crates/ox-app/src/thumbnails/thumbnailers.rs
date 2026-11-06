@@ -30,13 +30,13 @@ use std::sync::{Arc, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use gtk::gdk_pixbuf::Pixbuf;
 use gtk::prelude::*;
 use gtk::{gio, glib};
 use ox_core::entry::{thumbnail_file, ThumbnailFlavor};
 use rustix::process::{kill_process_group, Pid, Signal};
 
 use super::writer::{self, Source};
+use crate::picture_guard::{self, Limits};
 
 /// The group every thumbnailer file keeps its keys in.
 const GROUP: &str = "Thumbnailer Entry";
@@ -396,10 +396,18 @@ pub(super) fn write_thumbnail(
     // A stopped thumbnailer left no picture; one that failed on its own may
     // still have written a good one, so the picture alone decides. A
     // thumbnailer writes at the size it was asked for, and one that ignores
-    // `%s` is brought within the flavor.
+    // `%s` is brought within the flavor. Its PNG is read as every picture
+    // is ([`picture_guard`]): the size from its header first, refused over
+    // the pixel cap or the time limit before anything is decoded, and
+    // decoded straight to the flavor's size.
+    let edge = job.flavor.pixels();
     let picture = (!stopped)
-        .then(|| Pixbuf::from_file(&output).ok())
+        .then(|| {
+            let file = gio::File::for_path(&output);
+            picture_guard::decode_to_fit(&file, edge, edge, Limits::DISPLAY, Some(cancellation)).ok()
+        })
         .flatten()
+        .map(|decoded| decoded.pixbuf)
         .filter(|picture| picture.width() > 0 && picture.height() > 0)
         .map(|picture| writer::fit_thumbnail(&picture, job.flavor.pixels()));
     let _ = fs::remove_file(&output);
@@ -496,6 +504,8 @@ fn stop(child: &mut std::process::Child) {
 #[cfg(test)]
 mod tests {
     use std::time::SystemTime;
+
+    use gtk::gdk_pixbuf::Pixbuf;
 
     use super::*;
 
@@ -919,6 +929,47 @@ mod tests {
             );
             assert!(started.exists(), "the program ran for {placeholder}");
         }
+    }
+
+    /// The PNG a desktop thumbnailer writes is read as every picture is:
+    /// one whose header says 30,000 × 30,000 pixels is refused before any
+    /// decoding, and no thumbnail is written into the cache.
+    ///
+    /// parity: VIEW-057
+    #[gtk::test]
+    fn a_huge_picture_from_a_thumbnailer_is_refused_from_its_header() {
+        let folder = tempfile::tempdir().expect("a temporary folder");
+        let huge = crate::picture_guard::huge_png(&folder.path().join("huge.png"));
+        let script = folder.path().join("ox-test-thumbnailer");
+        fs::write(&script, format!("#!/bin/sh\ncp '{}' \"$2\"\n", huge.display())).expect("the script");
+        fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).expect("the mode");
+        let (_data, dirs) = data_dir(&[(
+            "ox-test.thumbnailer",
+            &format!(
+                "[Thumbnailer Entry]\nTryExec={script}\nExec={script} %i %o %s\nMimeType={BUNDLE};\n",
+                script = script.display()
+            ),
+        )]);
+        let item = folder.path().join("Sprite.ab");
+        fs::write(&item, b"an asset bundle of no interest to the test").expect("the item");
+        let cache = folder.path().join("cache");
+        let job = Job {
+            cache_dir: cache.clone(),
+            uri: gio::File::for_path(&item).uri().to_string(),
+            content_type: BUNDLE.to_owned(),
+            modified: 1_700_000_000,
+            flavor: ThumbnailFlavor::Normal,
+        };
+        let started = Instant::now();
+
+        let written = write_thumbnail(&job, &Catalogue::of(&dirs), &gio::Cancellable::new());
+
+        assert_eq!(written, None, "no thumbnail of a 900-megapixel picture");
+        assert!(started.elapsed() < Duration::from_secs(5), "refused at once");
+        assert!(
+            !thumbnail_file(&cache, &job.uri, ThumbnailFlavor::Normal).exists(),
+            "nothing is written into the cache"
+        );
     }
 
     /// A program for a test's thumbnailer: it touches `started`, writes its
