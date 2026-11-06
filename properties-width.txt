@@ -1,3 +1,4 @@
-STATUS: WORKING
-HEAD: properties-width 2d1f88fae0f1e7d78f8623db72ddfd6bd7021644
-NOTE: Fixing the Properties window width so long names and paths never widen it.
+STATUS: DONE
+HEAD: properties-width 3880b655ed182e87b3fd780a845d9a7d4afcf263
+NOTE: Properties keeps one width and height for every item; long names end in an ellipsis, Location and Object name are one line.
+NOTE: Cut from upstream main 2d1f88f; check.py (74 executables) and parity pass.
