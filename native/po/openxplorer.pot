@@ -4585,7 +4585,7 @@ msgstr ""
 msgid "Bitmap image"
 msgstr ""
 
-#: crates/ox-app/src/window/command_bar/menus.rs
+#: crates/ox-app/src/window/command_bar/menus.rs crates/ox-core/src/entry/type_label.rs
 msgid "Compressed (zipped) Folder"
 msgstr ""
 
@@ -4709,7 +4709,7 @@ msgstr ""
 msgid "Terminal"
 msgstr ""
 
-#: crates/ox-app/src/window/command_bar/menus.rs
+#: crates/ox-app/src/window/command_bar/menus.rs crates/ox-core/src/entry/type_label.rs
 msgid "Text Document"
 msgstr ""
 
@@ -7514,27 +7514,56 @@ msgid "Only folders and network shares can be pinned to Quick access."
 msgstr ""
 
 #: crates/ox-core/src/entry/type_label.rs
-msgid "Compressed folder"
+msgid "Application"
 msgstr ""
 
 #: crates/ox-core/src/entry/type_label.rs
-msgid "Excel worksheet"
+msgid "Microsoft Excel 97-2003 Worksheet"
 msgstr ""
 
 #: crates/ox-core/src/entry/type_label.rs
-msgid "MP4 video"
+msgid "Microsoft Excel Worksheet"
 msgstr ""
 
 #: crates/ox-core/src/entry/type_label.rs
-msgid "PowerPoint presentation"
-msgstr ""
-
-#: crates/ox-core/src/entry/type_label.rs crates/ox-core/src/ops/templates.rs
-msgid "Text document"
+msgid "Microsoft PowerPoint 97-2003 Presentation"
 msgstr ""
 
 #: crates/ox-core/src/entry/type_label.rs
-msgid "Word document"
+msgid "Microsoft PowerPoint Presentation"
+msgstr ""
+
+#: crates/ox-core/src/entry/type_label.rs
+msgid "Microsoft Word 97 - 2003 Document"
+msgstr ""
+
+#: crates/ox-core/src/entry/type_label.rs
+msgid "Microsoft Word Document"
+msgstr ""
+
+#: crates/ox-core/src/entry/type_label.rs
+msgid "OpenDocument Presentation"
+msgstr ""
+
+#: crates/ox-core/src/entry/type_label.rs
+msgid "OpenDocument Spreadsheet"
+msgstr ""
+
+#: crates/ox-core/src/entry/type_label.rs
+msgid "OpenDocument Text"
+msgstr ""
+
+#: crates/ox-core/src/entry/type_label.rs
+msgid "PDF Document"
+msgstr ""
+
+#: crates/ox-core/src/entry/type_label.rs
+msgid "PDF File"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-core/src/entry/type_label.rs
+msgid "{extension} File"
 msgstr ""
 
 #: crates/ox-core/src/folder_locations.rs
@@ -8788,6 +8817,10 @@ msgstr ""
 
 #: crates/ox-core/src/ops/templates.rs
 msgid "Markdown document"
+msgstr ""
+
+#: crates/ox-core/src/ops/templates.rs
+msgid "Text document"
 msgstr ""
 
 #: crates/ox-core/src/ops/undo.rs
