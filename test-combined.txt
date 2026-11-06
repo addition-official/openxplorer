@@ -1,4 +1,12 @@
 STATUS: DONE
+HEAD: test-combined-10 b745b784d69a9be0f8714261e7f04243e270536d
+DEB: claude/test-combined-10-deb 948130b7372158c06399a849c28251383ee7bbd5 4df236c43a9ec2f4096d8527cc824f34ebb8df9bfcafa7542dddc196ff3c9739
+NOTE: Base upstream main 3fd8f2a4 via test-combined-9 a566fe82 (same base and heads, so the same resolutions and glue). Fork heads: customize-tab 746338a0, details-pane 1f7cd717, one-update-button c117af71, rename-selection 8dbb14af, save-name-focus 70e9203d, restore-conflicts e3eb7464, properties-width 3880b655, grouping-lost 4527dee7, nav-pane 96fd63b4, thumbnail-safety 4dab0f9d. Upstream PRs (test build only): #232 64249190, #233 c8e6851a, #234 29e5b35a, #235 504a5f79, #236 4a21115b, #237 a3a13a56, #238 f5426bfb, #239 1deb3a1f, #240 a87afa4f then its newer head ff51be47.
+NOTE: #233 vs details-pane: #233 layout (header with close, no card, no Share or Properties buttons, no File location row, Availability row, stacked pictures, its type names and Size wording); kept from ours: photo metadata rows, folder picture hook and refresh, search-result counts, picture_guard cap in media.rs, labels with no Tab stop (also on #233 name label), NOT_SCANNED restored. #233 vs rename-selection: #233 type names, symlinks still typed Shortcut. #238 vs thumbnail-safety: size or timeout refusal is Failure::Refused (no external thumbnailer, type icon); only Unreadable falls back; thumbnailer PNG decoded through picture_guard. #239 vs #240 clipboard.rs: both kept. #234 merged cleanly.
+NOTE: Version 2.0.14+test10. 4029 tests pass after one glue fix; the GTK sequence crash (address_bar a_long_path_collapses...) is unchanged and the test passes alone.
+
+Earlier record (deb 9 and deb 8), kept:
+STATUS: DONE
 HEAD: test-combined-9 a566fe82a009a3c3adacd2f5ae109c8b1895eb6d
 DEB: claude/test-combined-9-deb 771387fa0ee9cfd92b9961447a877b46ac095426 b79565acbbe91f3db1c3c837ad98e59e95988b01a714fdc15dd600853a3c183a
 NOTE: Base upstream main 3fd8f2a4 (#227 and #228 already merged there, skipped). Merged customize-tab 746338a0, details-pane 1f7cd717, one-update-button c117af71, rename-selection 8dbb14af, save-name-focus 70e9203d, restore-conflicts e3eb7464, properties-width 3880b655, grouping-lost 4527dee7, nav-pane 96fd63b4, thumbnail-safety 4dab0f9d.
