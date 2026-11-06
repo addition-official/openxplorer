@@ -9,7 +9,7 @@ use gtk::prelude::*;
 use super::item_dialogs::general;
 use crate::properties::PropertiesWindow;
 use crate::test_support::harness::{
-    capture_dialog, descendants, wait_for_frames, Fixture, TestWindow, ThemeGuard,
+    capture_dialog, descendants, wait_for_frames, wait_until, Fixture, TestWindow, ThemeGuard,
 };
 
 /// A fictional name far longer than the window is wide.
@@ -77,7 +77,16 @@ fn assert_every_tab_keeps(window: &PropertiesWindow, width: i32, what: &str) {
 /// Opens Properties of the selection in `test`, titled `title`.
 fn properties_of_selection(test: &TestWindow, title: &str) -> PropertiesWindow {
     test.activate("properties", None);
-    test.wait_for_properties(title)
+    let window = test.wait_for_properties(title);
+    // Its size is read once the first tab has laid out its rows.
+    wait_until("the first tab's rows to be laid out", || {
+        let names: Vec<gtk::Label> = descendants::<gtk::Label>(&window)
+            .into_iter()
+            .filter(|label| label.has_css_class("property-name") && label.is_drawable())
+            .collect();
+        !names.is_empty() && names.iter().all(|label| label.height() > 0)
+    });
+    window
 }
 
 /// A long name, a long location and several items with long names give a
