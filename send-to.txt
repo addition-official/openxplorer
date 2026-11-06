@@ -1,3 +1,0 @@
-STATUS: DONE
-HEAD: send-to 96c455825b201b26d036c91bbb73c36e0a0831a1
-NOTE: Addressed the three review findings with tests: Recent rows send their file, copies and the shortcut wait for room with a reason, long names are shortened to fit.
