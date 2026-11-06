@@ -141,7 +141,9 @@ fn a_long_name_or_location_never_widens_properties() {
     test.show(&fixture.uri());
     test.wait_for_listing("the fixture");
     super::file_ops_support::select_names(&test, &[LONG_NAME, &file_name]);
-    let several = properties_of_selection(&test, "2 items Properties");
+    // Titled with the first two names, as upstream #229 titles several
+    // items' Properties in Windows 11's words.
+    let several = properties_of_selection(&test, &format!("{LONG_NAME}, {file_name} Properties"));
     wait_for_frames(&several, 6);
     assert_eq!(several.width(), width, "several items with long names");
     assert_every_tab_keeps(&several, width, "several items");
