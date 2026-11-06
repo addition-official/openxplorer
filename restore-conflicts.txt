@@ -1,0 +1,3 @@
+STATUS: WORKING
+HEAD: restore-conflicts a24632b
+NOTE: Branch cut from replace-or-skip and merged with upstream main. Wiring Recycle Bin restore conflicts into the Replace or Skip dialog.
