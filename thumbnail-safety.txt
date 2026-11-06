@@ -1,0 +1,3 @@
+STATUS: WORKING
+HEAD: thumbnail-safety (not started)
+NOTE: Queued after nav-pane.

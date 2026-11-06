@@ -1,0 +1,3 @@
+STATUS: WORKING
+HEAD: nav-pane 37fbecc2acdfd3249e1b6dbbe633e9a5d623cc0f
+NOTE: Reordering the navigation pane like Windows 11 on upstream main; Gallery has no view here, so it is left out.
