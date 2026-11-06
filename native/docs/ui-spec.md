@@ -580,13 +580,15 @@ where it differs; ✓ means the target equals the current app.
 |---|---|---|---|
 | Default | Closed for a new user; Details or Alt+Shift+P opens it, and the choice is saved | Windows 11 Explorer opens with the Details and Preview panes closed | Keep. |
 | Pane | width **262** (235 at ≤ 1190, hidden at ≤ 960); `border-left: 1px solid @ox_border`; padding `22 22 16`; background `@ox_bg` | Explorer details pane about 260–320 (observed, unverified) | Keep. |
-| Header | "Details" at 13 px; close button 24 × 24, glyph 12; 20 px below | — | Keep. |
-| Preview | min height 148; background `@ox_chrome`; 1 px `@ox_border`; radius 7 ✓ (R09); icon 83 with `drop-shadow(0 4px 4px alpha(black, .04))`; 18 px below; thumbnails when available (gain) | — | safe |
-| Name | 16 / 600, line height 1.4, selectable, wraps anywhere; 4 px below | — | Keep. |
-| Type | 12 px `@ox_muted`; 17 px below | — | Keep. |
-| Action button | "Open", or "Pin to Quick access" for folders: full width, 32 high, E06 border, background `@ox_control_fill`, 12 px, glyph 14; 24 px below | ButtonPadding `11,5,11,6` (BT#L152) | safe |
-| Properties | heading 12 / 600, 17 px below; grid with a 73 px key column, row gap 15, column gap 8; keys `@ox_muted`; values selectable; text **12** px (11) | — | text visible, P2 |
-| Note | 12 px (11) `@ox_muted`, line height 1.65, `border-top: 1px solid @ox_border`, `padding-top: 17`, `margin-top: 23`; info glyph 14 in `@ox_accent` | — | text visible, P2 |
+| Order | preview, small icon and name, Share, "Details" heading over the rows, Properties: Windows 11's Details pane (View › Show › Details pane, Alt+Shift+P) | Windows 11 Explorer's Details pane (observed, unverified) | safe |
+| Close | none: View › Details pane, the command bar's Details toggle and Alt+Shift+P hide the pane | Explorer's pane has no close button (observed, unverified) | safe |
+| Preview | min height 162 with its border; background `@ox_chrome`; 1 px `@ox_border`; radius 7 ✓ (R09); large icon 96 (copy glyph 80 for several items) with `drop-shadow(0 4px 4px alpha(black, .04))`; a photo, a document's thumbnail or a player fills the width, at most 180 high | Windows' pane shows the picture itself or the large icon (observed, unverified) | safe |
+| Icon and name | icon 20 beside the name, 8 apart; name 14 / 600, selectable, wraps anywhere; 14 px above and below | — | safe |
+| Share | bordered button 32 high with glyph 16, as wide as its text; only where the desktop can share (CMD-037) and something is selected; 18 px below | — | safe |
+| Details | heading 13 / 600, 10 px below; grid with an 88 px name column, row gap 10, column gap 12; names `@ox_muted`; values selectable with the pointer, each read as "Name: value"; no label is a Tab stop, the buttons are | — | safe |
+| Rows | a file: Type, Size, File location, Date modified, Date created (date and time, as the Date modified column); a folder: Type, File location, Date modified, its name without the small icon; then a photo's Date taken, Dimensions, Rating, Title, Tags, Authors, Camera maker, Camera model, F-stop, Exposure time, ISO speed, Exposure bias, Focal length, Flash mode, or a recording's Length, bit rates and artists, as Properties' Details tab words them; several: "N items selected" with Total size (files only), Date modified (first – last, days) and File location; none: "Downloads (2 items)" (the folder\'s name and the items the list shows: a search\'s results while searching), then the hint box, no rows, Share or Properties | — | safe |
+| Hint | with nothing selected: the (i) glyph 16 and "Select a single file to get more information and share your cloud content." in a box with `@ox_chrome`, 1 px `@ox_border`, radius 7, padding `10 12` | Windows 11's pane with nothing selected (the user's VM, 2026-11-06) | safe |
+| Properties | bordered button 32 high with the wrench glyph 16 (`wrench_20_regular`, as Windows' pane); 20 px below the rows; not with nothing selected | — | safe |
 
 ### 4.9 Menus and context menus
 
