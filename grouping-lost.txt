@@ -1,3 +1,3 @@
 STATUS: WORKING
-HEAD: grouping-lost 881e69850244c2b23105fc232ad484c9a5101a60
-NOTE: Back/Forward, sidebar, outside writes and the Save dialog keep the groups on main in tests; split view drops them in the inactive pane, fixing. Checking the deb 6 code next.
+HEAD: grouping-lost 59f5a13a8caa8ebaaf01e84641cbeac7d1177ad0
+NOTE: Split view dropped Downloads groups in the inactive pane; fixed with a failing-then-passing test. Back/Forward, sidebar, outside writes and Save As keep the groups on main and deb 6 code; running checks.
