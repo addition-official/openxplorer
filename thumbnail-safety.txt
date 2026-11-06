@@ -1,3 +1,3 @@
 STATUS: WORKING
-HEAD: thumbnail-safety (not started)
-NOTE: Queued after nav-pane.
+HEAD: thumbnail-safety 4dab0f9df62149f35859d776210b36773bd84878
+NOTE: 64-megapixel cap read from the header, first GIF frame only, 10 s limit; type icon on failure. Full check.py running.

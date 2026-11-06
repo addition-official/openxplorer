@@ -1,3 +1,4 @@
-STATUS: WORKING
-HEAD: nav-pane 37fbecc2acdfd3249e1b6dbbe633e9a5d623cc0f
-NOTE: Reordering the navigation pane like Windows 11 on upstream main; Gallery has no view here, so it is left out.
+STATUS: DONE
+HEAD: nav-pane 96fd63b4e64585313087666c514c0ace66554fa7
+NOTE: Windows 11 order (Home | pins | This PC and Network) with one icon column; saved searches, Recent files, Recent locations and Recycle Bin in a last group after Network. Gallery needs its own job.
+NOTE: check.py (74 executables, 3905 tests) and parity pass; captures in the chat report.
