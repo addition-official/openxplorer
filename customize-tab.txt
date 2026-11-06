@@ -1,4 +1,4 @@
 STATUS: DONE
-HEAD: customize-tab 746338a06926bcfb47d8675d5d90e4c5290cba22
-NOTE: Apply/OK reaches every open window (template, folder picture, icon); small icons show the folder picture; folder_picture_of hook for details-pane.
-NOTE: Merged upstream main 60a2469 with no conflicts; check.py (73 executables) and parity pass on the merged tree.
+HEAD: customize-tab ded4bc71c96521b1c008d6064e272d5f0847f0ea
+NOTE: ready for PR
+NOTE: Merged upstream main 3fd8f2a4 (Change Icon dialog kept); check.py (74 executables) and parity pass; merges cleanly with open #233.
