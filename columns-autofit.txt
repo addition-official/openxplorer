@@ -1,6 +1,7 @@
-STATUS: DONE
-HEAD: columns-autofit 62c9b39628b96c37c655b7be0f4bd6a7ca714974
+STATUS: PR-READY
+HEAD: columns-autofit 9cacfc7d61fdfe6370985836a45b304b6873fff0
 QUESTION: none
+NOTE: Approved in deb 20. Upstream main bab3fb5 (16 new commits, #252-#264, #270-#274) merged in as 9cacfc7, no force-push. The only conflict was the generated apps/web/public/assets/markdown.json, regenerated with tools/sync-docs.py from the merged docs.json; actions.rs, features.toml, docs.json, interface.md and openxplorer.pot auto-merged and keep both sides. After the merge: rustfmt, parity, i18n and sync-docs pass; clippy finds nothing new (same pre-existing Rust 1.97 lints in untouched files); the same named tests: 201 passed, 3 failed as root as on the base, 2 of them pass as an unprivileged user, the third needs the Python 1.x checkout. Real-input QC rerun on the merged build (light 1x and dark 2x): 30/30 PASS, same checklist as below; the captures on this branch are from the pre-merge run.
 NOTE: Branched from upstream main 8fea905c (3 commits). Windows source: Microsoft Support, Keyboard shortcuts in Windows, File Explorer section: 'Ctrl+Plus (+)': 'Resize all columns to fit text.' 'This shortcut requires using a numeric keypad.' (support.microsoft.com/en-us/windows/keyboard-shortcuts-in-windows-dcc61a57-8ff0-cffe-9796-cb9706c75eec).
 NOTE: Ctrl+KP_Add is now win.fit-all-columns (Details only; no-op in Icons, List, Tiles, Content and on non-listing pages). KP_Add was removed from Ctrl text-larger; Ctrl+plus and Ctrl+= on the main keyboard keep text-larger. Ctrl+KP_Subtract still makes text smaller (Windows documents nothing for it).
 NOTE: The app had no Size all columns to fit. The column titles' menu now starts like Windows 11's: Size column to fit (the right-clicked column), Size all columns to fit, divider, columns. Windows' trailing More... (column chooser dialog) is not added. zh_CN strings added.
