@@ -11,7 +11,7 @@ This PR makes two changes so Replace or Skip Files in the progress window behave
 - While the window's one action asks Replace or Skip Files, the toggle is insensitive: grayed, out of Tab's reach and not clickable. It reads "More details" (Expanded false), and the action's details stay hidden whatever state was remembered.
 - The comparison box under the question is removed (`compared_files`, `compare_in_details`, `forget_comparison`), together with its now unused strings.
 - Once the question is answered and progress shows again, the toggle and the remembered More details / Fewer details state come back.
-- The "There is not enough space" question is unchanged: no source shows Windows graying More details there. The failed-item questions, which use More details for source and destination, are also left alone.
+- The "There is not enough space" question is unchanged: no source shows Windows graying More details there. The failed-item questions that #263 moved into the progress window keep the toggle too, since there More details shows the item's source and destination.
 
 **Closing the File Conflict window goes back to the question.** On Windows 11, **Cancel**, the close button (X) and **Esc** in the File Conflict window close only that window. The copy keeps waiting at the same Replace or Skip Files question, unanswered. OpenXplorer stopped the whole action instead.
 
@@ -27,8 +27,8 @@ This PR makes two changes so Replace or Skip Files in the progress window behave
 - `progress_window::tests::a_full_drive_leaves_more_details_offered` (new)
 - `restore_conflicts::the_question_greys_more_details_and_compares_the_files_only_in_the_file_conflict_window` replaces the test that expected the comparison box.
 - The capture tests that closed the File Conflict window to end a copy now answer Skip after it.
-- Results: 91 named progress window, transfer panel, conflict window, name-conflict, restore-conflict, capture and clipboard tests ran under Xvfb. 89 pass.
-  - Two clipboard failed-item tests fail the same way on unmodified main in this environment. The tests ran as root, which bypasses the permission denial those tests set up.
+- Results after merging the newest main: 65 named progress window, transfer panel, conflict window, name-conflict, restore-conflict, capture and failed-item question tests ran under Xvfb. 63 pass, including the real-input test.
+  - Two administrator-folder tests in `worker_questions` fail the same way on unmodified main in this environment. The tests ran as root, which bypasses the permission denial those tests set up.
 - rustfmt and the parity, i18n and docs checks pass. With the local Clippy 1.97, Clippy warns only in files this change does not touch.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
