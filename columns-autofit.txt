@@ -1,0 +1,4 @@
+STATUS: IN-PROGRESS
+HEAD: columns-autofit e64562b2e22843d577a55e50d77ce3776db9d5d3
+QUESTION: none
+NOTE: Implemented on upstream main 8fea905c; real-input QC under Xvfb running next.
