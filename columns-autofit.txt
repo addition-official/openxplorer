@@ -1,4 +1,71 @@
-STATUS: IN-PROGRESS
-HEAD: columns-autofit e64562b2e22843d577a55e50d77ce3776db9d5d3
+STATUS: DONE
+HEAD: columns-autofit 62c9b39628b96c37c655b7be0f4bd6a7ca714974
 QUESTION: none
-NOTE: Implemented on upstream main 8fea905c; real-input QC under Xvfb running next.
+NOTE: Branched from upstream main 8fea905c (3 commits). Windows source: Microsoft Support, Keyboard shortcuts in Windows, File Explorer section: 'Ctrl+Plus (+)': 'Resize all columns to fit text.' 'This shortcut requires using a numeric keypad.' (support.microsoft.com/en-us/windows/keyboard-shortcuts-in-windows-dcc61a57-8ff0-cffe-9796-cb9706c75eec).
+NOTE: Ctrl+KP_Add is now win.fit-all-columns (Details only; no-op in Icons, List, Tiles, Content and on non-listing pages). KP_Add was removed from Ctrl text-larger; Ctrl+plus and Ctrl+= on the main keyboard keep text-larger. Ctrl+KP_Subtract still makes text smaller (Windows documents nothing for it).
+NOTE: The app had no Size all columns to fit. The column titles' menu now starts like Windows 11's: Size column to fit (the right-clicked column), Size all columns to fit, divider, columns. Windows' trailing More... (column chooser dialog) is not added. zh_CN strings added.
+NOTE: Two bugs found by real input and fixed: (1) a real right-click on a column title never opened the titles' menu, on the base too (its gesture was in the bubble phase; now capture); the old test called show_column_menu directly. (2) GTK reports a title's natural width as the column's fixed width, so fitting never shrank a column; the title room is now its label plus padding. Fitted columns are never narrower than their titles (also double-click on an edge).
+NOTE: Differences from Windows, left as is: a right-click to the right of fitted titles lands on the list (GTK draws no header there), so the folder menu opens, not the header menu; fitting keeps the existing column minimums (Name 140, Date 100, Type 80, Size 70) and the 2,000-item measuring limit. Ctrl+Shift+1..8 view keys did not switch views under xdotool on Xvfb (base too, not investigated), so QC switched views with the View menu.
+NOTE: Checks: rustfmt clean; clippy clean on changed code (Rust 1.97 clippy flags duration_suboptimal_units in ox-core and map_unwrap_or in group_day.rs, untouched upstream files); parity/check.py, i18n check, sync-docs --check pass. Named tests under check.py's isolation (Xvfb, private D-Bus): column_fitting (7, two with real XTEST pointer/keys), column_fit, column_choice, column_widths, text_size, view_options, views, view_styles, group_by, explorer_keys, accessibility, details, narrow_windows, details_pane, context_menus, panes_layout, right_drag, split_view, sidebar: 200 passed, 3 failed as root; those 3 fail the same on the base; 2 of them pass as an unprivileged user, the third needs the Python 1.x checkout. The real right-click test fails without the fix. Full native/tools/check.py not run.
+NOTE: QC: the built app run as unprivileged user qc under Xvfb (no WM), real xdotool pointer and keys, fictional ~/Documents/Garden project, light and dark, GDK_SCALE 1 and 2; values read back from the saved settings. Captures: columns-autofit-<step>-<theme>-<scale>.png (black margins = no compositor). 60 checks, 60 PASS:
+PASS K1 [light 1x] Ctrl+Numpad+ in Details fits long name (Name>=400) and shrinks short columns (Date<176, Size<90), text size unchanged
+PASS K2 [light 1x] main-keyboard Ctrl+Plus still makes text larger (110) and leaves the widths
+PASS K3 [light 1x] main-keyboard Ctrl+= makes text larger (next level, 125), widths unchanged
+PASS K4 [light 1x] Ctrl+0 resets text to 100
+PASS K5 [light 1x] Ctrl+Numpad+ in a folder of short names fits Name to its 140 px minimum
+PASS K6-icons [light 1x] Ctrl+Numpad+ in icons view changes nothing (view, text size, saved widths)
+PASS K6-compact [light 1x] Ctrl+Numpad+ in compact view changes nothing (view, text size, saved widths)
+PASS K6-tiles [light 1x] Ctrl+Numpad+ in tiles view changes nothing (view, text size, saved widths)
+PASS K6-content [light 1x] Ctrl+Numpad+ in content view changes nothing (view, text size, saved widths)
+PASS M1 [light 1x] header menu Size column to fit (right-clicked Type) fits only Type
+PASS M2 [light 1x] header menu Size all columns to fit fits every column
+PASS M3 [light 1x] right-click right of the fitted titles (no header drawn there) opens the folder's own menu and changes no width
+PASS G1 [light 1x] grouped by Type (Sort > Group by > Type) then Ctrl+Numpad+ fits columns
+PASS D1 [light 1x] with the Details pane open, Ctrl+Numpad+ fits columns
+PASS D2 [light 1x] narrow window with Details pane: Ctrl+Numpad+ keeps the fitted widths (columns scroll sideways)
+PASS K1 [light 2x] Ctrl+Numpad+ in Details fits long name (Name>=400) and shrinks short columns (Date<176, Size<90), text size unchanged
+PASS K2 [light 2x] main-keyboard Ctrl+Plus still makes text larger (110) and leaves the widths
+PASS K3 [light 2x] main-keyboard Ctrl+= makes text larger (next level, 125), widths unchanged
+PASS K4 [light 2x] Ctrl+0 resets text to 100
+PASS K5 [light 2x] Ctrl+Numpad+ in a folder of short names fits Name to its 140 px minimum
+PASS K6-icons [light 2x] Ctrl+Numpad+ in icons view changes nothing (view, text size, saved widths)
+PASS K6-compact [light 2x] Ctrl+Numpad+ in compact view changes nothing (view, text size, saved widths)
+PASS K6-tiles [light 2x] Ctrl+Numpad+ in tiles view changes nothing (view, text size, saved widths)
+PASS K6-content [light 2x] Ctrl+Numpad+ in content view changes nothing (view, text size, saved widths)
+PASS M1 [light 2x] header menu Size column to fit (right-clicked Type) fits only Type
+PASS M2 [light 2x] header menu Size all columns to fit fits every column
+PASS M3 [light 2x] right-click right of the fitted titles (no header drawn there) opens the folder's own menu and changes no width
+PASS G1 [light 2x] grouped by Type (Sort > Group by > Type) then Ctrl+Numpad+ fits columns
+PASS D1 [light 2x] with the Details pane open, Ctrl+Numpad+ fits columns
+PASS D2 [light 2x] narrow window with Details pane: Ctrl+Numpad+ keeps the fitted widths (columns scroll sideways)
+PASS K1 [dark 1x] Ctrl+Numpad+ in Details fits long name (Name>=400) and shrinks short columns (Date<176, Size<90), text size unchanged
+PASS K2 [dark 1x] main-keyboard Ctrl+Plus still makes text larger (110) and leaves the widths
+PASS K3 [dark 1x] main-keyboard Ctrl+= makes text larger (next level, 125), widths unchanged
+PASS K4 [dark 1x] Ctrl+0 resets text to 100
+PASS K5 [dark 1x] Ctrl+Numpad+ in a folder of short names fits Name to its 140 px minimum
+PASS K6-icons [dark 1x] Ctrl+Numpad+ in icons view changes nothing (view, text size, saved widths)
+PASS K6-compact [dark 1x] Ctrl+Numpad+ in compact view changes nothing (view, text size, saved widths)
+PASS K6-tiles [dark 1x] Ctrl+Numpad+ in tiles view changes nothing (view, text size, saved widths)
+PASS K6-content [dark 1x] Ctrl+Numpad+ in content view changes nothing (view, text size, saved widths)
+PASS M1 [dark 1x] header menu Size column to fit (right-clicked Type) fits only Type
+PASS M2 [dark 1x] header menu Size all columns to fit fits every column
+PASS M3 [dark 1x] right-click right of the fitted titles (no header drawn there) opens the folder's own menu and changes no width
+PASS G1 [dark 1x] grouped by Type (Sort > Group by > Type) then Ctrl+Numpad+ fits columns
+PASS D1 [dark 1x] with the Details pane open, Ctrl+Numpad+ fits columns
+PASS D2 [dark 1x] narrow window with Details pane: Ctrl+Numpad+ keeps the fitted widths (columns scroll sideways)
+PASS K1 [dark 2x] Ctrl+Numpad+ in Details fits long name (Name>=400) and shrinks short columns (Date<176, Size<90), text size unchanged
+PASS K2 [dark 2x] main-keyboard Ctrl+Plus still makes text larger (110) and leaves the widths
+PASS K3 [dark 2x] main-keyboard Ctrl+= makes text larger (next level, 125), widths unchanged
+PASS K4 [dark 2x] Ctrl+0 resets text to 100
+PASS K5 [dark 2x] Ctrl+Numpad+ in a folder of short names fits Name to its 140 px minimum
+PASS K6-icons [dark 2x] Ctrl+Numpad+ in icons view changes nothing (view, text size, saved widths)
+PASS K6-compact [dark 2x] Ctrl+Numpad+ in compact view changes nothing (view, text size, saved widths)
+PASS K6-tiles [dark 2x] Ctrl+Numpad+ in tiles view changes nothing (view, text size, saved widths)
+PASS K6-content [dark 2x] Ctrl+Numpad+ in content view changes nothing (view, text size, saved widths)
+PASS M1 [dark 2x] header menu Size column to fit (right-clicked Type) fits only Type
+PASS M2 [dark 2x] header menu Size all columns to fit fits every column
+PASS M3 [dark 2x] right-click right of the fitted titles (no header drawn there) opens the folder's own menu and changes no width
+PASS G1 [dark 2x] grouped by Type (Sort > Group by > Type) then Ctrl+Numpad+ fits columns
+PASS D1 [dark 2x] with the Details pane open, Ctrl+Numpad+ fits columns
+PASS D2 [dark 2x] narrow window with Details pane: Ctrl+Numpad+ keeps the fitted widths (columns scroll sideways)
+NOTE: PR title and body in columns-autofit-pr.md. No PR, no deb.
