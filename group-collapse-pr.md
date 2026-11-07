@@ -31,7 +31,23 @@ Implementation:
 - When the list takes the keyboard, it starts on an item, not on the first heading.
 - Hover, focus and fill are drawn on a heading's cells from the model's own state, not from GTK's row states.
 
-Sources: Microsoft Learn, Win32 list view (`LVGROUP` states `LVGS_COLLAPSED`, `LVGS_FOCUSED`, `LVGS_SELECTED`; `LVHT_EX_GROUP_HEADER` and `LVHT_EX_GROUP_COLLAPSE`). Microsoft Support, Keyboard shortcuts in Windows (Ctrl+Plus on the numeric keypad). ElevenForum, "Expand or Collapse Group in File Explorer in Windows 11". The pointer, keyboard and fill details were also checked on a Windows 11 VM.
+Checked on a Windows 11 VM (File Explorer, Tiles and Details, grouped by Date modified), and matched here:
+
+- The pointer over a heading lights the whole row, with rounded corners, and the whole row is the target.
+- A single click selects every item of the group in place of the selection. The heading then shows a 1px outline and no fill; a second click later changes nothing.
+- A double-click folds or unfolds the group and changes neither the selection nor the focus.
+- A click on the chevron folds or unfolds at once, with no change to the selection or focus.
+- With the keyboard on a heading, Left folds and Right unfolds.
+- The arrows reach headings, Up from a group's first item and Down from the previous group's last, and moving onto a heading selects its group's items, hidden ones included.
+- Down from an expanded heading selects its first item alone; Down from a collapsed heading goes to the next heading.
+- A folded heading whose items are selected shows a gray fill and the outline; an expanded one shows the outline only.
+- A collapsed group's items stay selected (the status bar counts them).
+- A right-click on a heading selects the group and opens the items' menu, headed by Collapse group (shown with "Left") or Expand group, Expand all groups and Collapse all groups.
+- Headings show no item count.
+
+Not settled on the VM: whether Ctrl+click on a heading adds its group (here it does, or takes a selected group out) and what Enter does on a heading (here it selects the group's items, as Space does).
+
+Sources: Microsoft Learn, Win32 list view (`LVGROUP` states `LVGS_COLLAPSED`, `LVGS_FOCUSED`, `LVGS_SELECTED`; `LVHT_EX_GROUP_HEADER` and `LVHT_EX_GROUP_COLLAPSE`). Microsoft Support, Keyboard shortcuts in Windows (Ctrl+Plus on the numeric keypad). ElevenForum, "Expand or Collapse Group in File Explorer in Windows 11".
 
 ## Validation
 
@@ -48,7 +64,7 @@ Sources: Microsoft Learn, Win32 list view (`LVGROUP` states `LVGS_COLLAPSED`, `L
   - a fold of a selected group, and a selection of a folded group
   - 600 pointer moves over the headings, after which the next key was answered within 0.1 s
 - Heading and gap sizes were measured from the screen's pixels at 1x and 2x.
-- Not run here: a Wayland session (testing with built packages on KDE Plasma, Wayland, was done separately and is not part of this list), and the full suite (`python3 native/tools/check.py`).
+- Not run here: a Wayland session, and the full suite (`python3 native/tools/check.py`). Built packages were tested separately on KDE Plasma (Wayland) at 100%: one outline after a click, the keys, double-click, and the fill of a folded, selected heading all passed; those checks are not part of the commands above.
 
 ## Compatibility and release impact
 
