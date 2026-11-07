@@ -1,0 +1,4 @@
+STATUS: IN-PROGRESS
+HEAD: 38be8aeaf6a6b600e0fbeabb1981d4182ada5198
+QUESTION: none
+NOTE: Change pushed to menu-no-tooltips; real-input QC under Xvfb running (1x light, 2x dark).
