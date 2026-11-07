@@ -1,0 +1,3 @@
+STATUS: WORKING (building)
+HEAD: test-combined-23 (merging)
+NOTE: Deb 23 (2.0.14+test23), fresh from upstream main e4520a37 (since deb 22 it merged #267, #268, #273, #277, #278). Merging the newest heads: owner's open PR #291 664a4dd8 (CI); ours #262 72e15be7, #265 4fefa2fe, #266 3c0c6717, #269 2d8b749a, #280 4e054268, #281 8cae6355, #282 32f15e0b, #283 24c2a5a7, #289 group-collapse f68757cc, #287 context-menu-match caf0fec9, #286 d7934546, #284 1b852989, #285 24939c63, #288 address-tab-order d96547b6, #290 replace-overwrite-setting ac4323fe, #292 readme-intro 2545cbf2; fork branches address-suggest-highlight 236eae5d, dialog-name-width 4835b722. Skipped: #275 (release), dependabot #276 and #279, command-bar-menu-switch (never).
