@@ -1,4 +1,4 @@
-STATUS: done - pushed to nav-tooltips, ready for the combined deb test
-HEAD: 4f18b149ab0257fa4711ff4edeb746b3701d4732 (on upstream main bf99358)
+STATUS: PR-READY
+HEAD: 378009ec2f89eb23bc729cf6886d2efaf0152a16 (merges upstream main 8fea905)
 QUESTION: none
-NOTE: Back, Forward, Up and Refresh tooltips now name only the target ("Back to Downloads", "Up to "Desktop"", "Refresh "Documents""), or just "Back"/"Forward"/"Up"/"Refresh" with no target. Keys unchanged (Alt+Left/Right/Up, F5, Ctrl+R). Updated NAV-001, NAV-010, NAV-013, CMD-016, openxplorer.pot, history.rs and slow_locations.rs tests (two test names renamed). Ran: cargo fmt, clippy on ox-app (no warnings in touched files; new-toolchain lints elsewhere are pre-existing), history and slow_locations tests (35 passed), i18n.py check, parity/check.py. Back tooltip captured light and dark at 2x in an isolated session. zh_CN.po keeps its now-unused "Refresh (F5)" entry, like its older stale ones.
+NOTE: Upstream main 8fea905 merged without conflicts. After the merge: cargo fmt check, clippy on ox-app (no warnings in touched files), history and slow_locations tests (35 passed), i18n.py check and parity/check.py pass. PR title and body in nav-tooltips-pr.md. zh_CN.po keeps its now-unused "Refresh (F5)" entry, like its older stale ones.
