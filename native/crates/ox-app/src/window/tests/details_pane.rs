@@ -301,3 +301,52 @@ fn a_folders_new_picture_shows_in_the_pane_at_once() {
     });
     assert_eq!(test.selected_names(), ["Documents"], "without selecting again");
 }
+
+/// A folder picture chosen on the Customize tab shows in the pane in
+/// place of the folder's art, and at once when OK or Apply announces it,
+/// as Windows' Details pane shows a customized folder.
+///
+/// parity: PROP-037
+#[gtk::test]
+fn a_folders_chosen_picture_shows_in_the_pane_at_once() {
+    let fixture = Fixture::standard();
+    let pixels = gtk::glib::Bytes::from_owned(vec![0x60_u8; 8 * 8 * 4]);
+    let texture = gtk::gdk::MemoryTexture::new(8, 8, gtk::gdk::MemoryFormat::R8g8b8a8, &pixels, 32);
+    texture
+        .save_to_png(fixture.path("Harbour.png"))
+        .expect("a picture");
+    let test = window_with_pane(&fixture);
+    let pane = test.window.details_pane();
+    test.select_named("Documents");
+    wait_for(Duration::from_millis(300));
+    assert!(
+        crate::test_support::harness::descendants::<gtk::Picture>(pane).is_empty(),
+        "a plain folder shows its art"
+    );
+
+    let folder = fixture.uri_of("Documents");
+    let done = std::rc::Rc::new(std::cell::Cell::new(false));
+    let finished = std::rc::Rc::clone(&done);
+    let (target, picture) = (folder.clone(), fixture.uri_of("Harbour.png"));
+    gtk::glib::spawn_future_local(async move {
+        let info = gtk::gio::FileInfo::new();
+        info.set_attribute_string(crate::folder_view::FOLDER_PICTURE, &picture);
+        gtk::gio::File::for_uri(&target)
+            .set_attributes_future(
+                &info,
+                gtk::gio::FileQueryInfoFlags::NONE,
+                gtk::glib::Priority::DEFAULT,
+            )
+            .await
+            .expect("the metadata is stored");
+        finished.set(true);
+    });
+    wait_until("the change", || done.get());
+    // As OK or Apply on the Customize tab announces it.
+    test.window.announce_item_icon(&folder);
+
+    wait_until("the folder picture in the pane", || {
+        !crate::test_support::harness::descendants::<gtk::Picture>(pane).is_empty()
+    });
+    assert_eq!(test.selected_names(), ["Documents"], "without selecting again");
+}
