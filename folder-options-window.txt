@@ -1,10 +1,15 @@
 STATUS: DONE
-HEAD: folder-options-window 0978be4c484a69d1845c79a3d5ca97d81c1ca74b
+HEAD: folder-options-window e9e386ad77f2f7689bfac9436b8cc9cbc776158c
 QUESTION: none
-NOTE: Folder Options rebuilt compact, on the Properties window: 380 px wide and about 480 tall at 1x (Windows: about 380 x 483). Classic tabs top left, "Open File Explorer to:" with its list beside it, and group boxes with titles on the top line and a 32 px picture at the left. Option rows are 16 px apart, sub-choices indented 16, Windows push buttons (75x23), Restore Defaults at each tab's bottom right, then OK / Cancel / Apply. Apply is greyed until something changes. On View, the Advanced settings list fills the tab. Still a separate window, modal to its own Explorer window only. The app never had account, Office.com or recommended rows, so none were removed. Captures (2x, light and dark, under Openbox on Xvfb): general, view and search tabs, plus the screen with Folder Options moved partly off its parent. rustfmt clean; clippy still at 24 warnings, none in changed files. Named tests pass: folder_options 14, view_styles 18, file_name_extensions 5, group_by 22, dialog:: 11, modal:: 3, dialogs:: 64. properties:: 56 of 57; the mount-assistant test also fails on upstream main in this container. Remaining differences from Windows 11:
-(1) Font: the app's font (Segoe UI, then Noto Sans, then Arial) is wider than Segoe UI 9 pt where Segoe is missing. Captured with a fallback font, so 3 General rows and 1 View row wrap to two lines where Windows uses one. Not checked with Noto Sans on Plasma.
-(2) On a wrapped row, GTK centers the radio or check mark on both lines; Windows puts it beside the first line.
-(3) Group pictures are the app's one-color Fluent icons, not Windows' color illustrations.
-(4) "More settings…" (opens the app's Settings) sits left of Restore Defaults on General; Windows has no such button.
-(5) Options the app can't honor are left out: Windows' "Open desktop folders and external folder links in new tab", the Office.com and account rows, and Search's "How to search" and system-directory options. Advanced settings shows only the "Files and Folders" node and draws no tree icons.
-(6) Windows draws this dialog light even in dark mode; the app follows its theme, as asked.
+NOTE: Follow-ups done:
+(1) Every row now fits on one line on all three tabs, and the window stays 380 x about 484 at 1x (Windows: about 380 x 483). Cause: the 12 px (9 pt) size meant for Properties never applied, because `window.ox` (13 px) outranks the bare `.ox-properties` class. Folder Options now gets 11 px under a selector that wins. At 12 px, two Click-items rows still wrapped with this container's fallback font, which is as wide as Noto Sans. The tab pages keep one height, as Windows' property sheet pages do.
+(2) The app calls itself OpenXplorer in Settings, so: "Open OpenXplorer to:" and "Clear OpenXplorer history". The zh_CN translations of these two now show English until a translator updates them (machine translations are not accepted).
+(3) "More settings…" removed. Settings is still reachable from the command bar's gear and Ctrl+,, so Folder Options was not the only way in. Its test was removed, and the manual, web guides (docs.json, regenerated), UI spec and parity notes were updated.
+Captures: general, view, search and screen, light and dark, 2x, under Openbox on Xvfb. rustfmt clean; clippy at 24 warnings, the same as upstream, none in changed files. parity check, i18n check and the docs sync check pass. Named tests pass: folder_options 13, view_styles 17, file_name_extensions 5, group_by 22, dialog:: 11, modal:: 3, dialogs:: 64, theme:: 40. These fail the same way on upstream main in this container: settings 5 (4 need the retired Python app, 1 sidebar width) and properties 1 (mount assistant).
+Side finding, not changed: every Properties window draws 13 px text, not the 12 px fonts.rs intends, for the same `window.ox` reason. Fixing it would change Properties' look, so I'm leaving it for a separate decision.
+Remaining differences from Windows 11:
+(a) Text is 11 px instead of Segoe UI 9 pt (12 px), since the app's fonts are wider.
+(b) On wrapped rows (none now at the default text size), GTK centers the mark across both lines.
+(c) Group pictures are the app's one-color Fluent icons, not Windows' color illustrations.
+(d) Options the app can't honor are left out (Windows' new-tab check box, the Office.com and account rows, the Search tab's index options). Advanced settings shows only the "Files and Folders" node, without tree icons.
+(e) Windows draws the dialog light in dark mode; the app follows its theme.
