@@ -1,9 +1,37 @@
-STATUS: DONE
-HEAD: drive-paste-shortcut a2d7b267a370a80e0dbc1b2a35f4e9381f11c780
+STATUS: PR-READY
+HEAD: drive-paste-shortcut c0fe57e1a43d7e5888c66312d9bddedb8864916f
 QUESTION: none
-NOTE: Branched from this-pc-menu 551cbdc, which already contains upstream main 8fea905, so no merge was needed and nothing was force-pushed. Copy (Ctrl+C, the menus' strip and classic row, and the command bar with a This PC tile selected) is enabled on drives, and Cut stays unavailable. Paste and every drop turn each drive This PC lists into a shortcut, the app's existing symlink shortcut named 'Local Disk - Shortcut', then '(2)', so a drive's contents are never copied. Windows' 'Local Disk (C:)' becomes 'Local Disk' because the app shows no drive letters. Dragging a drive shows 'Create link in <folder>', and a right-drag offers only 'Create shortcuts here'. Sources: dragging a drive defaults to a link (MakeUseOf guide; ReactOS CFSDropTarget 'Don't copy a drive by default', bug CORE-17871); the 'can't create a shortcut here, place it on the desktop' question belongs to Create shortcut inside This PC (KB 179513; Microsoft Q&A for Windows 11), not to a paste into a folder, so nothing is asked. No published source confirms that a plain paste of a copied drive makes a shortcut (an informal Windows 10 report says nothing happens), so the task's stated Windows 11 behavior was followed. Existing behavior, not changed: clicking a sidebar row moves keyboard focus to the file list, so Ctrl+C on a sidebar drive works with the row focused (Tab, F6 or Shift+F6); opening the shortcut browses the drive under the link's path instead of jumping to the drive. A separate bug found in QC: after a drop into the file list and a visit to This PC, the file list ignores the next drag (GTK 'self->drop == drop'). It reproduces with an ordinary folder, so the right-drag check runs from a fresh start. Tests: rustfmt and clippy clean on Rust 1.92.0 (-D warnings) and stable; parity/check.py passes; ox-core lib 1180/1180 (10 of them in check.py's isolated session); ox-app lib in check.py's isolated session as an unprivileged user 1971 passed, 2 failed (both home-directory artifacts of running as user qa, and both pass isolated as root). Two earlier full runs were stopped by a crash on a GLib worker thread (a libgtk segfault and a GLib trap); it did not recur in the final full run or in window::tests, and its cause is unknown. Captures: drive-paste-shortcut-<step>-<1x|2x>-<light|dark>.png.
+NOTE: The user approved this in deb 20. The newest this-pc-menu (efcba14) and upstream main (bab3fb5, AKolenda/openxplorer#274) are merged in, with no force-push. Conflicts were in landing.rs and sidebar.rs (Select all on This PC tiles, #259, and the sidebar's focused-entry change) and in parity/features.toml; all are resolved. Changes the merge called for: Copy now copies every selected drive tile, so Select all, then Copy and Paste make one shortcut per drive (new test every_selected_drive_pastes_as_its_own_shortcut). The pinned-drive menu tests expect Copy enabled. The tile boxes now select several tiles, and their rubber band was taking drags that started on a tile, so a dragged drive tile made no shortcut (a real-input FAIL after the merge). The drive drag source now sits on the This PC page in the capture phase; a drag from empty space still draws the band, and a click still selects. Checks: rustfmt and clippy clean on Rust 1.92.0 (-D warnings); parity/check.py passes; the translation template is unchanged; named tests pass in check.py's isolated session as an unprivileged user (ox-core ops::shortcuts 8/8; ox-app drive_shortcuts, file_ops::availability, place_menus, tests::landing_pages, tests::sidebar, tests::drag_and_drop, tests::right_drag, tests::clipboard and file_drop 177/177). The real-input checklist passes again at 1x light and 2x dark (26/26, lines below). The full suite was not rerun after the merge. The existing stuck-drop bug also leaves GTK's drop highlight around the sidebar after a drop on it; it reproduces with an ordinary file, so this branch does not cause it. pr.md is updated.
 
-QC checklist (real input under Xvfb: xdotool pointer and keys, app run as unprivileged user qa, fictional files in ~/Documents/Projects):
+QC after merging upstream bab3fb5 and this-pc-menu efcba14 (real input under Xvfb, app run as unprivileged user qa, fictional files):
+PASS [1x-light] This PC tile, command bar Copy, Ctrl+V in Projects: "Local Disk - Shortcut" -> / (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [1x-light] Paste twice: second is "Local Disk - Shortcut (2)" (~/Documents/Projects: ['Local Disk - Shortcut', 'Local Disk - Shortcut (2)'])
+PASS [1x-light] Opening the shortcut shows the drive (root listing)
+PASS [1x-light] This PC tile selected, Ctrl+C, Ctrl+V: shortcut (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [1x-light] Tile menu: Copy in the strip, Rename greyed, no Cut (see capture) (visual)
+PASS [1x-light] Tile menu strip Copy, then Ctrl+V: shortcut (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [1x-light] Sidebar Local Disk menu, strip Copy, then Ctrl+V: shortcut (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [1x-light] Sidebar Local Disk row focused (Shift+F6), Ctrl+C, Ctrl+V: shortcut (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [1x-light] Cut on a drive does nothing: command bar Cut and Ctrl+X leave the clipboard (['Garden Plans', 'budget-2026 - Copy.txt', 'budget-2026.txt'])
+PASS [1x-light] Drag sidebar Local Disk into Projects: shortcut, nothing copied (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [1x-light] Drag This PC tile onto sidebar Documents: shortcut in Documents (~/Documents: ['Local Disk - Shortcut', 'Projects'])
+PASS [1x-light] Right-drag Local Disk (fresh start): menu offers only Create shortcuts here; it makes one (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [1x-light] Copying a normal folder is unchanged: a real copy, not a shortcut (islink=False)
+PASS [2x-dark] This PC tile, command bar Copy, Ctrl+V in Projects: "Local Disk - Shortcut" -> / (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [2x-dark] Paste twice: second is "Local Disk - Shortcut (2)" (~/Documents/Projects: ['Local Disk - Shortcut', 'Local Disk - Shortcut (2)'])
+PASS [2x-dark] Opening the shortcut shows the drive (root listing)
+PASS [2x-dark] This PC tile selected, Ctrl+C, Ctrl+V: shortcut (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [2x-dark] Tile menu: Copy in the strip, Rename greyed, no Cut (see capture) (visual)
+PASS [2x-dark] Tile menu strip Copy, then Ctrl+V: shortcut (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [2x-dark] Sidebar Local Disk menu, strip Copy, then Ctrl+V: shortcut (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [2x-dark] Sidebar Local Disk row focused (Shift+F6), Ctrl+C, Ctrl+V: shortcut (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [2x-dark] Cut on a drive does nothing: command bar Cut and Ctrl+X leave the clipboard (['Garden Plans', 'budget-2026 - Copy.txt', 'budget-2026.txt'])
+PASS [2x-dark] Drag sidebar Local Disk into Projects: shortcut, nothing copied (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [2x-dark] Drag This PC tile onto sidebar Documents: shortcut in Documents (~/Documents: ['Local Disk - Shortcut', 'Projects'])
+PASS [2x-dark] Right-drag Local Disk (fresh start): menu offers only Create shortcuts here; it makes one (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [2x-dark] Copying a normal folder is unchanged: a real copy, not a shortcut (islink=False)
+
+Earlier QC checklist (real input under Xvfb: xdotool pointer and keys, app run as unprivileged user qa, fictional files in ~/Documents/Projects):
 PASS [1x-light] This PC tile, command bar Copy, Ctrl+V in Projects: "Local Disk - Shortcut" -> / (~/Documents/Projects: ['Local Disk - Shortcut'])
 PASS [1x-light] Paste twice: second is "Local Disk - Shortcut (2)" (~/Documents/Projects: ['Local Disk - Shortcut', 'Local Disk - Shortcut (2)'])
 PASS [1x-light] Opening the shortcut shows the drive (root listing)
