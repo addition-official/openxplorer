@@ -1,4 +1,4 @@
 STATUS: DONE
-HEAD: access-denied-continue 53b4e5d31f25e658fbcc97d38b8b757d605070c1
+HEAD: access-denied-continue 67876d29033d8a96d89f387b325c24a390fefa0e
 QUESTION: none
-NOTE: review fixes done. All four review items addressed in one follow-up commit with tests; rustfmt and clippy (1.92.0) clean; named transfer, delete, core and app tests pass as a normal user. Earlier captures (access-denied-continue-*.png) still show the current questions. Ready for the deb.
+NOTE: deb 15 feedback done. The item's name and More details in the progress window's questions are plain, unselected text, and the keyboard starts on the first button (Continue or Try Again). Captures access-denied-continue-focus-light.png and -dark.png. rustfmt and clippy (1.92.0) clean; named app tests pass as a normal user. Ready for the deb.
