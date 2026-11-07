@@ -1,4 +1,4 @@
-STATUS: DONE
-HEAD: tiles-content-fix 1ddc51a2280ef68f8228fc025b81c8bff0b4d85b
-QUESTION: Windows heads each group with a chevron that collapses it; Details has no chevron or collapsing yet, so Tiles and Content match Details (title, count, line). Add collapsible chevrons to all three in a follow-up?
-NOTE: Tiles and Content keep the folder's groups (heading row per group, keys cross headings, Shift/Ctrl as in Details). Content rows 48 px, 16 px side padding, folders show the name alone; tiles 8 px padding, 8 px across, 6 px down. Named tests pass except views::listed_links_and_read_only_files_carry_their_emblems, which fails only because the container runs as root (a 0444 file stays writable). Captures in the report.
+STATUS: PR-READY
+HEAD: tiles-content-fix 2d3663e9584a6d8c72c8f5f09a29a61054b88d81
+QUESTION: none
+NOTE: Merged upstream main 8fea905 (no rebase, no force-push); conflicts in cell_owners.rs (kept upstream's row fallback, ported to the position map), cells.rs imports and generated docs (regenerated). PR title and body in tiles-content-fix-pr.md. Overlap: #253 edits ItemLines, the same Tiles/Content test and the VIEW-071 note. Named tests: 298 pass, 1 root-only failure (read-only emblem).
