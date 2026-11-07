@@ -1,0 +1,27 @@
+STATUS: DONE
+HEAD: address-tab-order 90d09f2e77d8a17eba509675bc7efd5ca3c5a81e (on AKolenda main bab3fb5, #257 merged; carries c2d1e99 = the address-tab-fix change, plus 90d09f2)
+QUESTION: none
+NOTE: Root cause of "no visible focus" found: in Large icons (and every icon view) Esc left the keyboard on the GtkGridView itself, which draws nothing, because GTK's grid view takes focus on itself until a tile has had it. Details focused a row, which is why the earlier test (Details only) passed. Now the keyboard goes to the selected item, else the first, when it enters a list where no item had it (after Esc and after Tab). Reproduced and checked with real keys in the real app: before the fix, Esc left nothing ringed and Tab 1 went to the Details view button; after it, Esc rings the first tile. Checked under Xvfb with Openbox (xdotool) and under Wayland (weston, keys sent through an RDP client); KWin was not available, so not checked under KWin. Map network drive is now a Tab stop only where the navigation pane has its footer (works with #268). Esc moving focus to the file list is kept; no Microsoft source confirms what Esc does in Windows 11's address bar, so that part is unverified. Windows' documented Tab order (address bar, search, toolbar, navigation pane, file list) is followed; the tab row and Back/Forward/Up/Refresh sit just before the address bar, which no source documents. Checks: rustfmt and clippy -D warnings (Rust 1.92.0) clean; parity, i18n and docs sync pass. Whole ox-app test binary run under check.py's isolation: both new tests and all 14 focus tests pass; 14 others fail as root, 9 of them pass as an unprivileged user, and the other 5 need OX_PYTHON_APP (retired Python app sources), unrelated. PR text in address-tab-order-pr.md. No PR opened, no deb.
+
+TAB STOPS (real Tab key, private X display, Large icons and Details, light and dark; each stop's pixels must change when it takes the keyboard)
+00 Esc: first tile / first row of the file list ............ PASS (was FAIL in Large icons: nothing ringed)
+01 status bar: Details view button .......................... PASS
+02 status bar: Large icons button ........................... PASS
+03 tab in front ............................................. PASS
+04 tab's Close button ....................................... PASS
+05 New tab .................................................. PASS
+06 Up (Back and Forward disabled, skipped) .................. PASS
+07 Refresh .................................................. PASS
+08 address bar: first chevron ............................... PASS
+09-16 address bar: each crumb (8 in the test path) .......... PASS
+17 address bar: history chevron ............................. PASS
+18 search box ............................................... PASS
+19-24 command bar: New, Sort, View, See more, Settings, Details PASS
+25 navigation pane (one stop, current row) .................. PASS
+26 Map network drive (only where the pane has its footer) ... PASS
+27 file list (one stop, current item) ....................... PASS
+narrow window: « in place of the chevron, then first crumb shown PASS
+Shift+Tab from the chevron back to the navigation buttons ... PASS
+empty folder: "This folder is empty." ringed ................ PASS
+
+Captures (2x): address-tab-order-{light,dark}-{large,details}-NN-<stop>.png, -narrow-overflow, {light,dark}-empty-list; real app under Wayland (weston) before and after the fix: address-tab-order-wayland-{before,after}-*.png.
