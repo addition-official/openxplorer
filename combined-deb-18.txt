@@ -1,3 +1,4 @@
-STATUS: WORKING
-HEAD: test-combined-18 (merging)
-NOTE: Deb 18 (2.0.14+test18), fresh from upstream main 8fea905c. Merging, none moved: upstream #252-#261 as listed; fork restore-replace-fix 05f2f26f, mount-point-folder 4cf9d167, tiles-content-fix 2d3663e9, group-collapse e9314204, access-denied-continue a1373665, nav-tooltips 378009ec, list-focus-outline 37487ae1, paste-picture-opt-in 61cfa7ba, this-pc-menu 551cbdcd, folder-options-window 2f0cfd6e, dialog-child-windows 4012116e, properties-width e66cac92, replace-skip-details bbe218b4. address-tab-fix not on the fork at start (checked again before #257). Deb pushed first once the release build succeeds; clippy and conflict-file tests after.
+STATUS: DEB PUSHED (checks running)
+HEAD: test-combined-18 c8abeac0
+DEB: claude/test-combined-18-deb b095c522 a51944f8bdf23ca2a3329a3f1bb644e56e4f32ce4d6d6d81b80bd2ec2d363f22
+NOTE: Deb 18 (2.0.14+test18; the program reports 2.0.14). Release build succeeded. Clippy and conflict-file tests running now; results follow in this file.
