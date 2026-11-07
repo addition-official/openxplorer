@@ -71,6 +71,8 @@ const CHEVRON: i32 = 16;
 const MOST_TILES_PER_ROW: u32 = 32;
 /// The class This PC's page carries, for its tighter padding.
 const THIS_PC_CLASS: &str = "this-pc";
+/// The class of a mounted drive's tile, which Copy copies when selected.
+const DRIVE_TILE_CLASS: &str = "drive-tile";
 
 /// How full a file system is, in bytes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -285,6 +287,11 @@ fn drive_tile(row: &VolumeRow, cell: CellSize) -> Tile {
         VolumeState::Mounted { uri, controls } => {
             show_capacity(&lines, uri, true);
             gestures::open_folder_on_middle_click(&child, uri);
+            // What Copy copies while the tile is selected, and what a drag
+            // of it carries: a shortcut to the drive, never its contents
+            // ([`super::drive_shortcuts`]).
+            child.add_css_class(DRIVE_TILE_CLASS);
+            super::file_drag::attach_drive_tile_drag(&child, uri);
             Tile {
                 child,
                 open: Opening {
@@ -946,14 +953,27 @@ pub(super) fn change_tile_selection(page: &gtk::Box, change: SelectionChange) ->
     true
 }
 
+/// The drive whose tile is selected on `page`, if a mounted drive's is:
+/// what Copy copies on This PC.
+pub(super) fn selected_drive(page: &gtk::Box) -> Option<String> {
+    tile_boxes(page)
+        .flat_map(|flow| flow.selected_children())
+        .find(|child| child.has_css_class(DRIVE_TILE_CLASS))
+        .map(|child| child.widget_name().to_string())
+}
+
 /// A click or an arrow selects in one group at a time, as in one item
-/// view: selecting a tile in one group clears the others.
+/// view: selecting a tile in one group clears the others. The window's
+/// commands follow the selection, as Copy copies a selected drive.
 fn select_one_group(page: &gtk::Box) {
     for flow in tile_boxes(page) {
         flow.connect_selected_children_changed(glib::clone!(
             #[weak]
             page,
             move |flow| {
+                if let Some(window) = page.root().and_downcast::<BrowserWindow>() {
+                    window.update_file_commands();
+                }
                 if ACROSS_GROUPS.get() || flow.selected_children().is_empty() {
                     return;
                 }
