@@ -1,0 +1,4 @@
+STATUS: DONE
+HEAD: group-collapse e401048d622656071b9a97925dab9fc169a88b9d
+QUESTION: Ctrl+Numpad- / Ctrl+Numpad+ are left on text size: Microsoft documents Ctrl+Numpad+ in File Explorer as "resize all columns to fit", and the collapse/expand-all shortcuts usually cited are Outlook's. Bind them to groups anyway?
+NOTE: Chevron headings collapse/expand groups in Details, Tiles and Content (click; Left/Right/Enter/Space on a focused heading; heading menu with Collapse/Expand group and all groups). Details now draws headings as rows via GroupedSelection. Hidden items stay selected, Select all includes them, arrows/Shift/type-ahead skip them. Kept per folder while open, not saved (no source found that Windows saves it). Merged upstream main (thumbnailers). Named tests pass except two root-only permission tests. Captures: group-collapse-{details,tiles,content}-{light,dark}.png.
