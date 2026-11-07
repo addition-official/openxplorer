@@ -16,15 +16,15 @@ This continues the paused thumbnail-safety work on top of #238 (desktop thumbnai
   The item keeps its type icon, and the details pane still lists the picture's dimensions.
 - **No fallback for refused pictures.** A picture refused this way does not start a desktop thumbnailer, which would read the same file. A picture that timed out is tried again later.
 - **Thumbnailer resource limits.**
-  - Desktop thumbnailers run in a systemd user scope when one is available: 2 GiB of memory, 64 tasks and one processor's worth of CPU for all their processes together.
+  - Desktop thumbnailers run in a systemd user scope when one is available, whether or not `prlimit` and `nice` are installed: 2 GiB of memory, 64 tasks and one processor's worth of CPU for all their processes together.
   - They also start through `prlimit` and `nice`: 2 GiB of data memory, 64 MiB per file written, 60 s of CPU time per process, at most 64 processes beyond those the user already runs, no core dumps, and a niceness 10 above the app's.
-  - Each step falls back when it is not available. A warning is logged when thumbnailers run without limits, or when bubblewrap cannot make its sandbox.
-- **Leftover temporary folders.** If the app closes while a thumbnailer is still running, its temporary folder stays behind. The next run removes such folders once they are older than any live one can be.
+  - Each step falls back when it is not available, and either `prlimit` or `nice` is used alone when it is the only one installed. A warning is logged whenever thumbnailers run without any limits, or when bubblewrap cannot make its sandbox.
+- **Leftover temporary folders.** If the app closes while a thumbnailer is still running, its temporary folder stays behind. The next run removes such folders once they are older than any live one can be. Only folders named exactly as the app names them (its prefix and eight hexadecimal digits) are removed.
 - **Network files listed elsewhere.** With "Also in network folders" off, these files keep their icon wherever they are listed, including Recent, search results and links:
   - items whose URI or target is on a server or device (smb, sftp, mtp, ...)
   - files on a network file system: NFS, CIFS/SMB, AFS, Ceph, or a FUSE network client such as sshfs, rclone or the GVfs mounts
 
-  The file system is checked off the main thread.
+  A Recently used files row is judged by the file it stands for. The file system is checked off the main thread.
 - Docs (`docs.json` and the generated Markdown) and the parity notes for VIEW-057, VIEW-058 and PROP-011 are updated.
 
 #238 and #251 already cover the sandbox, the timeout and cancellation, cleanup of the thumbnailer's temporary folder during a run, the checks on its output PNG and the cleared environment, so none of that is changed here.

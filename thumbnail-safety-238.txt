@@ -1,11 +1,23 @@
 STATUS: PR-READY
-HEAD: thumbnail-safety-238 9c836b064bceb1a65eb4018ff449719b6a3b28db
+HEAD: thumbnail-safety-238 33c311e6dedb702f2a275d2deaf41b337b902323
+CODEX native/crates/ox-app/src/thumbnails/thumbnailers.rs:1103 FIXED 33c311e
+CODEX native/crates/ox-app/src/thumbnails.rs:136 FIXED 33c311e
+CODEX native/crates/ox-app/src/thumbnails/thumbnailers.rs:728 FIXED 33c311e
+CODEX native/crates/ox-app/src/thumbnails/thumbnailers.rs:584 FIXED 33c311e
 QUESTION: none
 NOTE: review fixes done.
+NOTE: Codex findings on #285 (all four real) fixed in 33c311e with tests: workspaces_an_earlier_run_left_are_removed (look-alike names kept), previews_follow_the_settings (Recent rows' file from entry.meta.recent_target, SMB and MTP), a_thumbnailer_is_limited_in_a_scope_or_per_process (scope without prlimit/nice, nice alone, nothing). No newer upstream main to merge (still bab3fb5). The earlier round's unit test for Recent rows set the wrong field (target_uri), which is why it missed this.
 NOTE: Newest upstream main (bab3fb5, 16 new commits) merged without force-push; the only conflict was the generated apps/web/public/assets/markdown.json, regenerated with tools/sync-docs.py.
 NOTE: Ubuntu/Kubuntu 24.04 and later with AppArmor's user-namespace restriction on (the default): bubblewrap cannot make its sandbox for an app without its own AppArmor profile (Ubuntu ships one for nautilus, none for bwrap or OpenXplorer), so the desktop's thumbnailers (PDF, video and the like) are not started and those items keep their icons. The app's own picture thumbnails and the thumbnailer service, when installed, still work, and a warning is now logged. This is the same as upstream main since #238, not a change of this branch. A deb-shipped AppArmor profile granting userns, as Ubuntu does for nautilus, would lift it; that is left to the manager. Not reproduced on a real 26.04 install here: this container's kernel has no AppArmor, so this is from Ubuntu's shipped profiles.
 NOTE: Not exercised here: the systemd user scope (this container runs no systemd user manager, so the probe falls back to prlimit limits, which the tests and QC verified); Recent files did not open at all in this Xvfb session (with or without a share item), so the per-item check was shown with a link to a share file and covered for recent items by unit tests.
 NOTE: Tests: rustfmt --check clean; clippy reports nothing in the changed files (the toolchain here, 1.97, still flags duration_suboptimal_units in upstream code); parity/check.py passes. Run by name in check.py's isolated environment as a normal user: thumbnails, picture_guard, network_fs, a_picture_too_large_to_preview_keeps_its_icon_and_lists_its_dimensions, the_details_pane_previews_an_image_and_names_its_dimensions, always_show_icons_turns_thumbnails_off_everywhere, a_custom_icon_shows_in_the_view_until_the_default_is_restored, a_folders_new_picture_shows_in_the_pane_at_once (now 2000x2000): 35 pass; a_sandboxed_thumbnailer_sees_only_its_item (existing upstream test) and a_sandboxed_thumbnailer_runs_within_its_limits fail only because that environment's TMPDIR is under /tmp, which the sandbox's own /tmp hides; both pass with TMPDIR=~/tmp (upstream's fails the same way on unchanged main). Full check.py not run.
+QC round 3 (after the Codex fixes; same setup):
+PASS Large icons 1x light and 2x dark: thumbnails as in round 2
+PASS Hanging thumbnailer: View menu opens in 0.75 s while it hangs; killed within 30 s; icon kept
+PASS Stale cleanup: an old leftover workspace (eight hex digits) is removed at start; an old folder openxplorer-thumbnailer-backup with a file in it stays untouched
+PASS No leftovers after a normal close (no workspace, no cache temp file, no thumbnailer process)
+NOT RUN Recent files: it still only highlights without opening in this Xvfb session, so Recent rows are covered by the unit test above
+Tests round 3: rustfmt --check clean; clippy reports nothing in the changed files; parity passes; named thumbnail tests 35 pass in check.py's isolated environment, the two sandbox tests failing only because its TMPDIR is under /tmp and passing with TMPDIR=~/tmp (with workspaces_an_earlier_run_left_are_removed, a_thumbnailer_is_limited_in_a_scope_or_per_process and previews_follow_the_settings).
 QC round 2 (Xvfb, xdotool, app as unprivileged user oxqc, fictional files, real bubblewrap, evince and ffmpegthumbnailer, Samba on 127.0.0.1 via GVfs and its FUSE folder):
 PASS Large icons 1x light and 2x dark: JPEG, PNG, GIF, PDF and MP4 thumbnails; also a 12000x8000 (96 MP) JPEG and a PNG with bytes after IEND now get thumbnails
 PASS Hanging thumbnailer: data 2 GiB, fsize 64 MiB, core 0, nice 10 (prlimit fallback); View menu opens in 0.78 s while it hangs; killed at 31 s; icon kept
