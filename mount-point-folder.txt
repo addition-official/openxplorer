@@ -1,4 +1,6 @@
-STATUS: DONE
-HEAD: mount-point-folder be1d7cceb24807e2ccaa5e42f99efe89d59cd3b3
-NOTE: A mount point reached as a folder (tmpfs /tmp) shows folder Properties; the root and This PC drives keep the drive page.
-NOTE: Cut from upstream main c97404e0; rustfmt, clippy, parity and the named Properties tests pass; merges cleanly with properties-width.
+STATUS: PR-READY
+HEAD: mount-point-folder 4cf9d167360350d1f4cb51c36cd3e3627416797d
+NOTE: Upstream main 8fea905c merged in (no force-push). Title and body in mount-point-folder-pr.md. A mount point reached as a folder (tmpfs /tmp) shows folder Properties; the root and This PC drives keep the drive page.
+NOTE: rustfmt, clippy (rustc 1.97, 3 pre-existing newer-toolchain lints allowed) and 56 named Properties tests pass after the merge; parity/check.py passes.
+NOTE: Merges cleanly with properties-width, but then that branch's another_drive_has_customize_and_its_tabs_share_the_rows fails (/dev/shm opens as a folder); whichever lands second needs a small test change. #256 conflicts only in window/tests/item_dialogs.rs (both add tests); #255 merges cleanly.
+NOTE: The pr.md has no "Model:" first line: this session's instructions forbid model identifiers in anything pushed to a repository. Add it when opening the PR if wanted.
