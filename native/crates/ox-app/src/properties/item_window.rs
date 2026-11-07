@@ -5,9 +5,11 @@
 //! on this computer adds Sharing (where Samba user shares can be used)
 //! and Customize, and a standard folder Location, in Windows 11's order:
 //! General, Sharing, Security, Location, Details, Previous Versions,
-//! Customize. A drive, a folder the kernel mounts a file system at, has
-//! Windows' drive General tab instead of a folder's, and a Hardware tab
-//! after it ([`super::drive_tab`]). The item's properties are read once,
+//! Customize. A drive, a folder the kernel mounts a file system at that
+//! This PC lists or the root, has Windows' drive General tab instead of a
+//! folder's, and a Hardware tab after it ([`super::drive_tab`]); any other
+//! mount point is a Mounted Volume, a folder whose General tab names the
+//! volume, as Windows shows a drive mounted in a folder. The item's properties are read once,
 //! off the main thread, when the window opens; the versions and a file's
 //! media details are read the first time their tab is shown, and a
 //! folder's size is counted from the start, never a drive's.
@@ -92,7 +94,7 @@ pub(crate) fn open_item_properties(
     initial: PropertiesTab,
 ) -> PropertiesWindow {
     let local_folder = local_folder(&target);
-    let is_drive = local_folder.is_some() && is_mount_point(&target.uri);
+    let is_drive = target.as_drive && local_folder.is_some() && is_mount_point(&target.uri);
     let art = if is_drive {
         Some(DRIVE_ART)
     } else {
@@ -100,6 +102,7 @@ pub(crate) fn open_item_properties(
     };
     let window = PropertiesWindow::new(&target.dialog_title(), art, Some(opener));
     window.set_widget_name(&target.uri);
+    window.set_shows_drive(target.as_drive);
     let general = page();
     general.append(&quiet_text(ox_core::i18n::gettext_static(READING)));
     window.add_tab(
@@ -350,7 +353,7 @@ impl ItemPages {
             }
             return;
         }
-        if let Some(mount) = &properties.mount {
+        if let Some(mount) = properties.mount.as_ref().filter(|_| self.target.as_drive) {
             window.set_art(DRIVE_ART);
             clear(&self.general);
             let general = drive_general_tab(&properties.entry.uri, mount, &self.context.locations);
