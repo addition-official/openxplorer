@@ -9,7 +9,7 @@ Nothing changes by default. This adds two switches, both on, that let users turn
 - Copy and Cut also put the items' paths on the clipboard as plain text (#239, CLIP-004).
 - Paste writes a picture on the clipboard, such as a screenshot, as a new image file (#240, CLIP-015).
 
-The switches are in Settings > Files & folders > Clipboard, a page whose heading reads "Your OpenXplorer, your way.":
+The switches are in Settings > Files & folders > Clipboard. The Settings page's subtitle reads "Your explorer, your way.":
 
 - **Paste a picture from the clipboard as a new file** (`pastePicturesAsFiles`). On: unchanged. Off: a picture is not read, so Paste and Paste into folder are unavailable and Ctrl+V does nothing, as in Windows 11 File Explorer. Paste follows the switch at once, without copying again.
 - **Also copy file paths as text when copying files** (`copyPathsAsText`). On: unchanged. Off: Copy and Cut publish only the file formats, as Windows 11 File Explorer does, where paths come from Copy as path (Ctrl+Shift+C).
