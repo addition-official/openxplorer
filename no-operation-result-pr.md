@@ -2,7 +2,7 @@ Model: claude-opus-5-5
 
 # fix(transfers): Ask about every failed item in the progress window and remove the Operation result dialog
 
-Builds on #263 (access-denied-continue), which moved the failed-item questions into the progress window; please merge #263 first.
+Builds on #263 (access-denied-continue), which moved the failed-item questions into the progress window, and is merged with newest main (#252, #254, #272 included).
 
 ## Summary
 
@@ -42,6 +42,31 @@ The following never produced the report and are unchanged: single rename, New fo
 
 - The question wording comes from the run's mode. A rename failure that falls into "Interrupted Action" says "...keeping you from moving the file", where Windows says "renaming".
 - A restore's question asks without Continue as administrator. There is no administrator Recycle Bin path.
+
+## Restore with Replace (deb 20 report)
+
+The report: restoring Twin.txt (A) over an existing Twin.txt (B) with **Replace the file in the destination** seemed not to restore, and the Recycle Bin still listed a Twin.txt. It does not reproduce on this branch after merging newest main (#252, #254, #272). By real input under Xvfb:
+
+- OX-Test/Twin.txt ends with content A and A's own older modification time.
+- A leaves the Recycle Bin.
+- The one "Twin" the Recycle Bin still lists is **B**, deleted at the moment of the Replace.
+
+This also holds with the folder on a separate ext4 volume with its own `.Trash-<uid>`. The GTK test `restoring_onto_a_taken_name_asks_replace_or_skip_files` now checks all of this.
+
+**What happens to B:** in this app, Replace on a restore sends the file in the way to the Recycle Bin, as Replace does elsewhere (#248, #252). That is why a "Twin" is still listed. For Windows 11 I found no Microsoft source:
+
+- The only Microsoft article on the question, [KB 267422](https://ftp.zx.net.nz/pub/archive/ftp.microsoft.com/MISC/KB/en-us/267/422.HTM) (Windows 98/Me/2000), says "As soon as the file is replaced, the old file is written to the Recycle Bin."
+- Community sources for current Windows say the replaced file is overwritten and is not in the Recycle Bin, e.g. [Total Commander forum](https://www.ghisler.ch/board/viewtopic.php?p=310543) and [Directory Opus forum](https://resource.dopus.com/t/move-overwritten-files-to-the-recycle-bin/59870).
+
+So current Windows most likely overwrites B. Keeping B in the Recycle Bin is this project's deliberate safety difference. Whether to switch to overwriting is left to the maintainer.
+
+| Check (real input, Xvfb, 2x, unprivileged user) | Light | Dark |
+|---|---|---|
+| Restore A over B, Replace: A on disk with its date, A out of the bin, B in the bin, no dialog | PASS | PASS |
+| Same, folder on a separate ext4 volume | PASS | — |
+| Restore two items from one place: Replace or Skip Files, Skip silent | PASS | PASS |
+| Delete a Recycle Bin item removed meanwhile: Item Not Found, Skip silent | PASS | PASS |
+| Copy an unreadable file: File Access Denied, Skip copies the other, silent | PASS | PASS |
 
 ## Testing
 
