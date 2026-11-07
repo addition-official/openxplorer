@@ -5976,19 +5976,19 @@ msgstr ""
 msgid "Show hidden folders"
 msgstr ""
 
-#: crates/ox-app/src/window/group_headings.rs
+#: crates/ox-app/src/window/group_headings.rs crates/ox-app/src/window/landing.rs
 msgid "Collapse all groups"
 msgstr ""
 
-#: crates/ox-app/src/window/group_headings.rs
+#: crates/ox-app/src/window/group_headings.rs crates/ox-app/src/window/landing.rs
 msgid "Collapse group"
 msgstr ""
 
-#: crates/ox-app/src/window/group_headings.rs
+#: crates/ox-app/src/window/group_headings.rs crates/ox-app/src/window/landing.rs
 msgid "Expand all groups"
 msgstr ""
 
-#: crates/ox-app/src/window/group_headings.rs
+#: crates/ox-app/src/window/group_headings.rs crates/ox-app/src/window/landing.rs
 msgid "Expand group"
 msgstr ""
 
@@ -6035,27 +6035,11 @@ msgid "Click to connect"
 msgstr ""
 
 #: crates/ox-app/src/window/landing.rs
-msgid "Collapse all groups"
-msgstr ""
-
-#: crates/ox-app/src/window/landing.rs
-msgid "Collapse group"
-msgstr ""
-
-#: crates/ox-app/src/window/landing.rs
 msgid "Connect on open"
 msgstr ""
 
 #: crates/ox-app/src/window/landing.rs
 msgid "Devices and drives"
-msgstr ""
-
-#: crates/ox-app/src/window/landing.rs
-msgid "Expand all groups"
-msgstr ""
-
-#: crates/ox-app/src/window/landing.rs
-msgid "Expand group"
 msgstr ""
 
 #: crates/ox-app/resources/manual.md crates/ox-app/src/window/landing.rs
