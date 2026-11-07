@@ -22,7 +22,7 @@ Follows up #243, which kept Properties at Windows' width for one item, however l
 - Clippy (`--workspace --all-targets -D warnings`) is clean for this change. It was run with Rust 1.97, not the CI toolchain 1.92. Three pre-existing lints that only the newer Clippy raises (`duration_suboptimal_units` in ox-core, `map_unwrap_or` in `window/group_day.rs`) were allowed for that run.
 - Under `xvfb-run` and `dbus-run-session` with a temporary HOME, after merging main at 8fea905c: 63 tests passed. These were the `tab_rows` unit tests, `metadata::only_a_local_writable_drive_other_than_the_root_is_customized`, every `properties_width` test, every `item_dialogs` test, and the Customize tests. The new window tests are:
   - `wrapped_tabs_share_the_rows_evenly`: a window with Windows' seven drive tabs takes rows of three and four, each stretched to the full width, and the row of the tab shown moves next to the page;
-  - `another_drive_has_customize_and_its_tabs_share_the_rows`: `/dev/shm`, when the machine has it as a writable mount, shows Customize last, with its six tabs in two rows of three, at the same width;
+  - `another_drive_has_customize_and_its_tabs_share_the_rows`: a writable local mount root other than the root (a disk's file system first, else a memory drive such as `/dev/shm`), listed on This PC, shows Customize last, with its six tabs in two rows of three, at the same width. The test is skipped when the machine has no such mount;
   - `every_kind_of_properties_keeps_the_width`: the root has no Customize tab and its tabs fit one row.
 - `every_kind_of_properties_is_captured` writes light and dark captures of a folder, a file, several items, the root, another drive and the seven-tab window, for review with `OX_NATIVE_CAPTURE_DIR` and `GDK_SCALE=2`.
 - `a_long_name_or_location_never_widens_properties` (from #243) fails now and then on its height check, also without this change. It failed 8 of 14 runs on the base.
@@ -30,7 +30,7 @@ Follows up #243, which kept Properties at Windows' width for one item, however l
 
 ## Overlap with other pull requests
 
-- The fork branch `mount-point-folder` (proposed separately) shows a mount point reached as a folder with folder Properties, and only the root and This PC's drives as drives. The two merge without conflicts. With both merged, `another_drive_has_customize_and_its_tabs_share_the_rows` fails, because it opens `/dev/shm` through `properties-of`, which then shows it as a folder. Whichever lands second needs a small test change: open the other drive the way This PC does, or skip when it shows as a folder.
+- `mount-point-folder` (a mount point reached as a folder shows folder Properties) merges cleanly with this change in either order, and the merged tree passes the same named tests (65, including its `a_mount_point_reached_as_a_folder_shows_as_a_folder`). This change's other-drive test lists its drive on This PC before opening it, as the volume monitor would.
 - #255 (folder templates) merges cleanly.
 - #256 (Read-only and the Security tab) merges cleanly. Both change `general_tab.rs` and `selection_attributes.rs`, but this change only adds wrapping to the check boxes there.
 

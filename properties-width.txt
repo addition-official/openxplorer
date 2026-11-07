@@ -1,6 +1,6 @@
 STATUS: PR-READY
-HEAD: properties-width 3203e4d876ae84be5893575e2144672034ea7f28
+HEAD: properties-width f4ca097e566686764f277b1c84bd67eb0712dcbe
 NOTE: Upstream main 8fea905c merged in (no force-push). Title and body in properties-width-pr.md. Follow-up to #243: even tab rows, no Customize on the system drive (Customize only on writable local drives other than the root), width kept for drives and several items.
-NOTE: rustfmt, clippy (rustc 1.97, 3 pre-existing newer-toolchain lints allowed) and 63 named Properties tests pass after the merge; parity/check.py passes.
-NOTE: With mount-point-folder also merged, another_drive_has_customize_and_its_tabs_share_the_rows fails (/dev/shm then opens as a folder); whichever PR lands second needs a small test change. #255 and #256 merge cleanly.
+NOTE: another_drive_has_customize_and_its_tabs_share_the_rows no longer depends on /dev/shm being opened as a drive: it picks a writable local mount root other than / (a disk file system first, a memory drive only when there is none, which is the case in this container) and lists it on This PC before opening it. A trial merge with mount-point-folder is clean in either order (same tree), and passes rustfmt, clippy, parity/check.py and 65 named Properties tests (properties_width, tab_rows, metadata, item_dialogs, customize).
+NOTE: clippy ran on rustc 1.97 with 3 pre-existing newer-toolchain lints allowed. #255 and #256 merge cleanly.
 NOTE: The pr.md has no "Model:" first line: this session's instructions forbid model identifiers in anything pushed to a repository. Add it when opening the PR if wanted.
