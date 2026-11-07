@@ -26,6 +26,13 @@ window.ox.ox-properties:backdrop .properties-titlebar { color: @ox_text_tertiary
    Neighbouring tabs overlap by a pixel, so they share one border line. */
 .ox-properties .properties-tab-area { margin: 6px 11px 0 11px; }
 .ox-properties notebook.properties-notebook { margin: 0; background: none; }
+/* The tab area holds the margin around the tabs and their page; a rule
+   that gives the notebook its own margin, such as a dialog's narrower
+   one, must not add a second one and widen the window. */
+.ox-properties .properties-tab-area notebook.properties-notebook { margin: 0; }
+/* Folder Options (src/window/folder_options.rs), which Windows draws
+   narrower, has a narrower margin. */
+.ox-folder-options .properties-tab-area { margin: 6px 8px 0 8px; }
 .ox-properties tabrows.properties-tabs > button.properties-tab {
   min-height: 20px;
   min-width: 0;
@@ -291,9 +298,6 @@ window.ox.ox-properties:backdrop .properties-titlebar { color: @ox_text_tertiary
    100 %: about 380 by 483 pixels, group boxes with a 32-pixel picture at
    their left, option rows about 16 pixels apart, sub-choices indented 16,
    and Restore Defaults at the bottom right of each tab. */
-/* The tabs and their page sit in .properties-tab-area, which holds the
-   margin Properties gives them (11 px); Folder Options' is narrower. */
-.ox-folder-options .properties-tab-area { margin: 6px 8px 0 8px; }
 /* Windows' property sheet pages keep one height whatever they hold, which
    makes Folder Options about 483 pixels tall with its title bar. */
 .ox-folder-options notebook.properties-notebook > stack { min-height: 360px; }
