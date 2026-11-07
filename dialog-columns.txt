@@ -1,0 +1,4 @@
+STATUS: DONE
+HEAD: dialog-columns 2802a6a36bca0f1015029f4eb9146f8b3f62a405
+QUESTION: none
+NOTE: Branched from upstream main e4520a37, 1 commit, independent of #282 (it touches column_fit.rs's width handler, which is on main). Details and PASS/FAIL lines (DCOL-1..4) in dialog-name-width.txt. PR text in dialog-columns-pr.md. No PR, no deb.
