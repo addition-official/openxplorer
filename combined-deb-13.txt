@@ -1,3 +1,4 @@
-STATUS: WORKING
-HEAD: test-combined-13 ba819d38c301d636bf78d3da1d632bb77df50b7f
-NOTE: Deb 13 (2.0.14+test13). Base upstream main c97404e0. All 13 heads merged (none moved past the listed SHAs): details-pane, full-row-select, restore-conflicts, save-name-focus, customize-tab, properties-width, mount-point-folder, this-pc-menu, tiles-content-fix, access-denied-continue, nav-tooltips, dialog-child-windows, list-focus-outline. Glue d7d9a030 re-applied. Building the release deb now; deb pushed first, clippy and conflict-file tests after (per the user's speed request).
+STATUS: DEB PUSHED (checks running)
+HEAD: test-combined-13 ba819d38
+DEB: claude/test-combined-13-deb 27ddb0be 768ffdcec8e0ace71c32619f22b439adae259d040606b00e92eb1e82f79ad4c7
+NOTE: Deb 13 (2.0.14+test13; the program reports 2.0.14). Release build succeeded. Clippy and conflict-file tests running now; results follow in this file.
