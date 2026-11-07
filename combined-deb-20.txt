@@ -1,3 +1,4 @@
-STATUS: WORKING (building)
-HEAD: test-combined-20 (merging)
-NOTE: All six jobs DONE or PR-READY at the 07:18 UTC check; building. Base: upstream main 2355cc52 (since deb 19 it merged #252-#261, #263, #264, #270). Open upstream PRs: owner's #273 526307ff, #274 0c4ed2d7; ours #266 tiles-content-fix ef167389, #267 mount-point-folder 51554101, #268 this-pc-menu 551cbdcd, #269 folder-options-window 02a7e650, #271 properties-width 82d50d56, #272 restore-replace-fix 4d65491e. Plus address-tab-fix d7ccbb47 and fork branches group-collapse 3f11fcee, nav-tooltips 378009ec, paste-picture-opt-in 61cfa7ba, replace-skip-details 3c1774d4, no-operation-result 6472b843, context-menu-match ceb052da, columns-autofit 62c9b396, properties-12px 25866d10, menu-no-tooltips 38be8aea, drive-paste-shortcut a2d7b267, thumbnail-safety-238 dfc0bb50. Skipped as already in main: access-denied-continue (#263), list-focus-outline (#264), dialog-child-windows (#270).
+STATUS: DEB PUSHED (checks running)
+HEAD: test-combined-20 ad09e559
+DEB: claude/test-combined-20-deb 5f894c54 b3194943a414f3e55c035127b74611cd09fb69ae3ce41deabab319de91d32662
+NOTE: Deb 20 (2.0.14+test20; the program reports 2.0.14). Release build succeeded at 07:32 UTC. Clippy, conflict-file tests and the real-input smoke test running now; results follow in this file.
