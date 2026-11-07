@@ -1,0 +1,3 @@
+STATUS: WORKING (building)
+HEAD: test-combined-24 (merging)
+NOTE: Deb 24 (2.0.14+test24), fresh from upstream main eebc2432 (since deb 23 it merged #262, #265, #266, #269, #276, #280, #281, #283, #285, #291, #292). Merging the newest heads of our open PRs #282 columns-autofit 32f15e0b, #289 group-collapse 67f1b445, #287 context-menu-match 7de8cf93, #286 no-operation-result 6ec419fa, #284 drive-paste-shortcut 57eb4236, #288 address-tab-order 95447ba2, #290 replace-overwrite-setting a0f867c4, #293 address-suggest-highlight 9ba5b434, and fork branch dialog-columns 2802a6a3. The owner has no open PR other than #275 (release, skipped); dependabot #279 skipped; dialog-name-width left out (the user dropped it); command-bar-menu-switch never.
