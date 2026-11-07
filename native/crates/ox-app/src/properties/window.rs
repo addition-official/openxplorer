@@ -470,7 +470,11 @@ impl PropertiesWindow {
 
     /// Gives the window `width` instead of Properties' own, for a dialog
     /// Windows draws narrower, as Folder Options. Call before adding tabs.
+    /// Such a dialog has its own size in Windows, not a property sheet's,
+    /// so it takes its content's height instead of every Properties
+    /// window's fixed one.
     pub(crate) fn set_window_width(&self, width: i32) {
+        self.fit_content();
         self.imp().width.set(Some(width));
         self.set_default_width(width);
         if let Some(holder) = self.child().and_downcast::<super::fixed_width::FixedWidth>() {
