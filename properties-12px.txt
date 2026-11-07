@@ -1,378 +1,471 @@
 STATUS: PR-READY
-HEAD: properties-12px 22e58148fe369ecef8b78fbdde70bdbe4f4cca19
+HEAD: properties-12px 4e0542688199abf676b6e7c744ddf6e92400e4c0
 QUESTION: none
-NOTE: PR-READY (after deb 20 approval): merged upstream main bab3fb5 (#271 is in main as squash 91f2bf9). Conflicts were only between #271's squash and properties-width's own commits; resolved by taking main's files and reapplying this branch's change, so the diff against main is exactly the 5 files of 25866d1 (+137/-4). After the merge: rustfmt clean; clippy shows the same 12 pre-existing warnings, none in changed files; named tests 185 of 186 at 1x and at 2x (only mount_assistant::the_assistant_prepares_a_command_and_hands_over_the_linux_folder fails, as before); every_kind_of_properties_has_one_size, every_kind_of_properties_draws_windows_dialog_text and properties_windows_draw_windows_dialog_text pass at both scales. Xvfb/xdotool QC and captures are from 25866d1 (before the merge) and were not rerun.
-NOTE: Trial merge with folder-options-window (#269) on the new HEAD: #269 now conflicts with main in apps/web docs, docs/interface.md, dialogs/network_map.rs, native/docs/ui-spec.md and parity/features.toml, none of them files this branch touches; fonts.rs, properties.css and properties/window.rs merge cleanly.
-NOTE: properties-12px-pr.md now follows up #271 and has the title as a '# ' heading. It still has no 'Model: claude-opus-5-5' first line: this session's instructions forbid model identifiers in anything pushed to a repository (the manager asked for it again; I kept to the session rule). Add the line when opening the PR.
-NOTE: Fix: new rule `window.ox.ox-properties:not(.ox-folder-options)` at 12 px (scaled with text size). File, several, folder, drive, shortcut Properties and their dialogs now draw 12 px; Folder Options untouched. Source: Microsoft Windows UX guidelines, Fonts (learn.microsoft.com/en-us/windows/win32/uxguide/vis-fonts): normal text is 9 pt Segoe UI, and Segoe UI should be 9 pt or larger; 9 pt at 96 dpi = 12 px (arithmetic, not stated on the page).
-NOTE: Two extra changes needed for 'nothing clips': with Noto Sans (what Zorin renders, ui-spec T01), a drive's Customize (442) and Previous Versions (429) pages were taller than the 428-px page under two tab rows and scrolled; on properties-width at 13 px even the folder General scrolled. (1) Group boxes draw their title on the top line as Windows does (properties::group() sets overflow visible; CSS lifts the label 8 px; Folder Options excluded). (2) Previous Versions list minimum height 230 -> 216 (it still fills the tab). Window size stays 402 x 570 everywhere.
-NOTE: Merges cleanly with folder-options-window (#269): the old bare .ox-properties line is kept so #269's 11 px rule beside it does not conflict. On the merge, 181 of 182 named tests pass (only mount_assistant fails, as on main per the properties-width status); Folder Options gets 11 px there.
-NOTE: Measured text per window (GTK test, Noto Sans): font 12 px and one line 17 px high on every kind and tab (was 18 px at 13 px). Measured from Xvfb captures, title-text ink height: file, shortcut, several, folder, drive, mount point and Change Icon all 12 px at 1x, 12.5 logical (25 device) px at 2x; properties-width: 13 px. Folder Options capture is pixel-identical to properties-width in all four variants (508 x 664 on this branch without #269).
-NOTE: rustfmt clean; clippy: no warnings in changed files (12 pre-existing elsewhere with rustc 1.97); parity/check.py passes. The full tools/check.py was not run. Same 36 intended paragraph wraps at 12 px as at 13 px (e.g. 'For special permissions or advanced settings, click Advanced.' on two lines, as in Windows); nothing new wraps.
-NOTE: properties-12px-pr.md has no 'Model:' first line: this session's instructions forbid model identifiers in anything pushed to a repository. Add 'Model: claude-opus-5-5' as the first line when opening the PR if wanted.
-NOTE: Captures: properties-12px-<kind>-<theme>-<scale>x.png are every tab of that kind side by side; plus change-icon and folder-options. QC on properties-width with the same script: 85/88 at 1x, 83/88 at 2x (folder, drive and mount-point General and drive Sharing scroll under the wheel; the Change Icon click misses its moved button).
-PASS: [1x,2x] named tests: 180 of 181 pass; the fail is pre-existing mount_assistant::the_assistant_prepares_a_command_and_hands_over_the_linux_folder
-PASS: [1x,2x] every_kind_of_properties_draws_windows_dialog_text (every label 12 px, none cut, line 17 px on every window)
-PASS: [1x,2x] every_kind_of_properties_has_one_size (402 x 570, every tab fits without scrolling)
-PASS: [-] properties_windows_draw_windows_dialog_text (12 px at 100 %, 24 px at 200 %)
-PASS: [1x] trial merge with folder-options-window: clean, named tests 181 of 182 (same pre-existing fail)
+CODEX native/crates/ox-app/resources/skin/properties.css:165 FIXED f302b46 (group-title lift and room above the box now in em: 0.75em and 0.34em, centred on the line at 80-200 % text; test group_titles_sit_on_the_box_line_at_every_text_size fails with the old -8px)
+NOTE: Merged upstream main e4520a3 (#267, #268, #273, #277, #278) cleanly, with no conflicts; the diff against main is 5 files (+185/-4). #271 on main holds the fixed size at 402 x 598 (WINDOW_HEIGHT 556), not 570; every check below uses 598. Since #267 a mount point opened by path is a folder (5 tabs); the two-row drive is now reached with its Target > Properties.
+NOTE: rustfmt clean; clippy shows the same 12 pre-existing warnings, none in changed files. Named tests (properties tab_rows item_dialogs customize details_tab security sharing dialog_keys late_replies folder_options view_styles theme::): 191 of 192 at 1x and at 2x; only mount_assistant::the_assistant_prepares_a_command_and_hands_over_the_linux_folder fails, as before.
+NOTE: Pre-existing on main, not changed here: at 200 % text an open Properties grows (main bab3fb5: 589 x 618; this branch: 546 x 618, 548 at 2x), because the holder takes its content's minimum width and 24 px tab titles do not fit 402. Only 80, 100 and 200 % were checked with real keys; 80 and 100 hold 402 x 598.
+NOTE: Also changed: every_kind_of_properties_draws_windows_dialog_text now lets a path in Details end in '…' (it did so once at 2x with a long random temp folder).
+NOTE: properties-12px-pr.md: title as '# ' heading, follows up #271. Still no 'Model: claude-opus-5-5' first line: this session's instructions forbid model identifiers in anything pushed to a repository; please add it when opening or editing the PR.
+NOTE: Captures (from 4e05426, merged build): properties-12px-<kind>-<theme>-<scale>x.png (all tabs side by side; kinds file, shortcut, several, folder, drive, mount-point, other-drive), change-icon, folder-options, and properties-12px-textsize-<customize|sharing>-<theme>-<scale>x.png (80 %, 100 %, 200 % side by side).
+PASS: [1x,2x] named tests 191 of 192 (pre-existing mount_assistant failure)
+PASS: [1x,2x] every_kind_of_properties_has_one_size
+PASS: [1x,2x] every_kind_of_properties_draws_windows_dialog_text
+PASS: [1x,2x] group_titles_sit_on_the_box_line_at_every_text_size (80-200 %)
+PASS: [-] properties_windows_draw_windows_dialog_text
 PASS: [1x light] the browser window opens on Example projects
 PASS: [1x light] file: Alt+Enter opens "Packing list.txt Properties"
-PASS: [1x light] file general: window keeps 402 x 570 (402 x 570)
+PASS: [1x light] file general: window keeps 402 x 598 (402 x 598)
 PASS: [1x light] file general: the wheel does not scroll the page (all fits)
-PASS: [1x light] file security: window keeps 402 x 570 (402 x 570)
+PASS: [1x light] file security: window keeps 402 x 598 (402 x 598)
 PASS: [1x light] file security: Ctrl+Tab shows a new tab
 PASS: [1x light] file security: the wheel does not scroll the page (all fits)
-PASS: [1x light] file details: window keeps 402 x 570 (402 x 570)
+PASS: [1x light] file details: window keeps 402 x 598 (402 x 598)
 PASS: [1x light] file details: Ctrl+Tab shows a new tab
 PASS: [1x light] file details: the wheel does not scroll the page (all fits)
-PASS: [1x light] file versions: window keeps 402 x 570 (402 x 570)
+PASS: [1x light] file versions: window keeps 402 x 598 (402 x 598)
 PASS: [1x light] file versions: Ctrl+Tab shows a new tab
 PASS: [1x light] file versions: the wheel does not scroll the page (all fits)
 PASS: [1x light] file: Esc closes it
 PASS: [1x light] shortcut: Alt+Enter opens "Tickets.txt - Shortcut Properties"
-PASS: [1x light] shortcut general: window keeps 402 x 570 (402 x 570)
+PASS: [1x light] shortcut general: window keeps 402 x 598 (402 x 598)
 PASS: [1x light] shortcut general: the wheel does not scroll the page (all fits)
-PASS: [1x light] shortcut security: window keeps 402 x 570 (402 x 570)
+PASS: [1x light] shortcut security: window keeps 402 x 598 (402 x 598)
 PASS: [1x light] shortcut security: Ctrl+Tab shows a new tab
 PASS: [1x light] shortcut security: the wheel does not scroll the page (all fits)
-PASS: [1x light] shortcut details: window keeps 402 x 570 (402 x 570)
+PASS: [1x light] shortcut details: window keeps 402 x 598 (402 x 598)
 PASS: [1x light] shortcut details: Ctrl+Tab shows a new tab
 PASS: [1x light] shortcut details: the wheel does not scroll the page (all fits)
-PASS: [1x light] shortcut versions: window keeps 402 x 570 (402 x 570)
+PASS: [1x light] shortcut versions: window keeps 402 x 598 (402 x 598)
 PASS: [1x light] shortcut versions: Ctrl+Tab shows a new tab
 PASS: [1x light] shortcut versions: the wheel does not scroll the page (all fits)
 PASS: [1x light] shortcut: Esc closes it
 PASS: [1x light] several: Alt+Enter opens "Packing list.txt, Tickets.txt Properties"
-PASS: [1x light] several general: window keeps 402 x 570 (402 x 570)
+PASS: [1x light] several general: window keeps 402 x 598 (402 x 598)
 PASS: [1x light] several general: the wheel does not scroll the page (all fits)
-PASS: [1x light] several security: window keeps 402 x 570 (402 x 570)
+PASS: [1x light] several security: window keeps 402 x 598 (402 x 598)
 PASS: [1x light] several security: Ctrl+Tab shows a new tab
 PASS: [1x light] several security: the wheel does not scroll the page (all fits)
 PASS: [1x light] several: Esc closes it
 PASS: [1x light] folder: Alt+Enter opens "Holiday 2025 Properties"
-PASS: [1x light] folder general: window keeps 402 x 570 (402 x 570)
+PASS: [1x light] folder general: window keeps 402 x 598 (402 x 598)
 PASS: [1x light] folder general: the wheel does not scroll the page (all fits)
-PASS: [1x light] folder sharing: window keeps 402 x 570 (402 x 570)
+PASS: [1x light] folder sharing: window keeps 402 x 598 (402 x 598)
 PASS: [1x light] folder sharing: Ctrl+Tab shows a new tab
 PASS: [1x light] folder sharing: the wheel does not scroll the page (all fits)
-PASS: [1x light] folder security: window keeps 402 x 570 (402 x 570)
+PASS: [1x light] folder security: window keeps 402 x 598 (402 x 598)
 PASS: [1x light] folder security: Ctrl+Tab shows a new tab
 PASS: [1x light] folder security: the wheel does not scroll the page (all fits)
-PASS: [1x light] folder versions: window keeps 402 x 570 (402 x 570)
+PASS: [1x light] folder versions: window keeps 402 x 598 (402 x 598)
 PASS: [1x light] folder versions: Ctrl+Tab shows a new tab
 PASS: [1x light] folder versions: the wheel does not scroll the page (all fits)
-PASS: [1x light] folder customize: window keeps 402 x 570 (402 x 570)
+PASS: [1x light] folder customize: window keeps 402 x 598 (402 x 598)
 PASS: [1x light] folder customize: Ctrl+Tab shows a new tab
 PASS: [1x light] folder customize: the wheel does not scroll the page (all fits)
 PASS: [1x light] folder customize: clicking Change Icon... opens its dialog
 PASS: [1x light] Change Icon: Esc closes it
 PASS: [1x light] folder: Esc closes it
 PASS: [1x light] drive: Alt+Enter opens "Local Disk Properties"
-PASS: [1x light] drive general: window keeps 402 x 570 (402 x 570)
+PASS: [1x light] drive general: window keeps 402 x 598 (402 x 598)
 PASS: [1x light] drive general: the wheel does not scroll the page (all fits)
-PASS: [1x light] drive hardware: window keeps 402 x 570 (402 x 570)
+PASS: [1x light] drive hardware: window keeps 402 x 598 (402 x 598)
 PASS: [1x light] drive hardware: Ctrl+Tab shows a new tab
 PASS: [1x light] drive hardware: the wheel does not scroll the page (all fits)
-PASS: [1x light] drive sharing: window keeps 402 x 570 (402 x 570)
+PASS: [1x light] drive sharing: window keeps 402 x 598 (402 x 598)
 PASS: [1x light] drive sharing: Ctrl+Tab shows a new tab
 PASS: [1x light] drive sharing: the wheel does not scroll the page (all fits)
-PASS: [1x light] drive security: window keeps 402 x 570 (402 x 570)
+PASS: [1x light] drive security: window keeps 402 x 598 (402 x 598)
 PASS: [1x light] drive security: Ctrl+Tab shows a new tab
 PASS: [1x light] drive security: the wheel does not scroll the page (all fits)
-PASS: [1x light] drive versions: window keeps 402 x 570 (402 x 570)
+PASS: [1x light] drive versions: window keeps 402 x 598 (402 x 598)
 PASS: [1x light] drive versions: Ctrl+Tab shows a new tab
 PASS: [1x light] drive versions: the wheel does not scroll the page (all fits)
 PASS: [1x light] drive: Esc closes it
 PASS: [1x light] mount-point: Alt+Enter opens "shm Properties"
-PASS: [1x light] mount-point general: window keeps 402 x 570 (402 x 570)
+PASS: [1x light] mount-point general: window keeps 402 x 598 (402 x 598)
 PASS: [1x light] mount-point general: the wheel does not scroll the page (all fits)
-PASS: [1x light] mount-point hardware: window keeps 402 x 570 (402 x 570)
-PASS: [1x light] mount-point hardware: Ctrl+Tab shows a new tab
-PASS: [1x light] mount-point hardware: the wheel does not scroll the page (all fits)
-PASS: [1x light] mount-point sharing: window keeps 402 x 570 (402 x 570)
+PASS: [1x light] mount-point sharing: window keeps 402 x 598 (402 x 598)
 PASS: [1x light] mount-point sharing: Ctrl+Tab shows a new tab
 PASS: [1x light] mount-point sharing: the wheel does not scroll the page (all fits)
-PASS: [1x light] mount-point security: window keeps 402 x 570 (402 x 570)
+PASS: [1x light] mount-point security: window keeps 402 x 598 (402 x 598)
 PASS: [1x light] mount-point security: Ctrl+Tab shows a new tab
 PASS: [1x light] mount-point security: the wheel does not scroll the page (all fits)
-PASS: [1x light] mount-point versions: window keeps 402 x 570 (402 x 570)
+PASS: [1x light] mount-point versions: window keeps 402 x 598 (402 x 598)
 PASS: [1x light] mount-point versions: Ctrl+Tab shows a new tab
 PASS: [1x light] mount-point versions: the wheel does not scroll the page (all fits)
-PASS: [1x light] mount-point customize: window keeps 402 x 570 (402 x 570)
+PASS: [1x light] mount-point customize: window keeps 402 x 598 (402 x 598)
 PASS: [1x light] mount-point customize: Ctrl+Tab shows a new tab
 PASS: [1x light] mount-point customize: the wheel does not scroll the page (all fits)
+PASS: [1x light] other-drive: Alt+Enter opens "Local Disk Properties"
+PASS: [1x light] other-drive general: window keeps 402 x 598 (402 x 598)
+PASS: [1x light] other-drive general: the wheel does not scroll the page (all fits)
+PASS: [1x light] other-drive hardware: window keeps 402 x 598 (402 x 598)
+PASS: [1x light] other-drive hardware: Ctrl+Tab shows a new tab
+PASS: [1x light] other-drive hardware: the wheel does not scroll the page (all fits)
+PASS: [1x light] other-drive sharing: window keeps 402 x 598 (402 x 598)
+PASS: [1x light] other-drive sharing: Ctrl+Tab shows a new tab
+PASS: [1x light] other-drive sharing: the wheel does not scroll the page (all fits)
+PASS: [1x light] other-drive security: window keeps 402 x 598 (402 x 598)
+PASS: [1x light] other-drive security: Ctrl+Tab shows a new tab
+PASS: [1x light] other-drive security: the wheel does not scroll the page (all fits)
+PASS: [1x light] other-drive versions: window keeps 402 x 598 (402 x 598)
+PASS: [1x light] other-drive versions: Ctrl+Tab shows a new tab
+PASS: [1x light] other-drive versions: the wheel does not scroll the page (all fits)
+PASS: [1x light] other-drive customize: window keeps 402 x 598 (402 x 598)
+PASS: [1x light] other-drive customize: Ctrl+Tab shows a new tab
+PASS: [1x light] other-drive customize: the wheel does not scroll the page (all fits)
+PASS: [1x light] other-drive: Esc closes it
 PASS: [1x light] mount-point: Esc closes it
 PASS: [1x light] Folder Options opens from "..." > Options
 PASS: [1x light] Folder Options: Esc closes it
 PASS: [1x dark] the browser window opens on Example projects
 PASS: [1x dark] file: Alt+Enter opens "Packing list.txt Properties"
-PASS: [1x dark] file general: window keeps 402 x 570 (402 x 570)
+PASS: [1x dark] file general: window keeps 402 x 598 (402 x 598)
 PASS: [1x dark] file general: the wheel does not scroll the page (all fits)
-PASS: [1x dark] file security: window keeps 402 x 570 (402 x 570)
+PASS: [1x dark] file security: window keeps 402 x 598 (402 x 598)
 PASS: [1x dark] file security: Ctrl+Tab shows a new tab
 PASS: [1x dark] file security: the wheel does not scroll the page (all fits)
-PASS: [1x dark] file details: window keeps 402 x 570 (402 x 570)
+PASS: [1x dark] file details: window keeps 402 x 598 (402 x 598)
 PASS: [1x dark] file details: Ctrl+Tab shows a new tab
 PASS: [1x dark] file details: the wheel does not scroll the page (all fits)
-PASS: [1x dark] file versions: window keeps 402 x 570 (402 x 570)
+PASS: [1x dark] file versions: window keeps 402 x 598 (402 x 598)
 PASS: [1x dark] file versions: Ctrl+Tab shows a new tab
 PASS: [1x dark] file versions: the wheel does not scroll the page (all fits)
 PASS: [1x dark] file: Esc closes it
 PASS: [1x dark] shortcut: Alt+Enter opens "Tickets.txt - Shortcut Properties"
-PASS: [1x dark] shortcut general: window keeps 402 x 570 (402 x 570)
+PASS: [1x dark] shortcut general: window keeps 402 x 598 (402 x 598)
 PASS: [1x dark] shortcut general: the wheel does not scroll the page (all fits)
-PASS: [1x dark] shortcut security: window keeps 402 x 570 (402 x 570)
+PASS: [1x dark] shortcut security: window keeps 402 x 598 (402 x 598)
 PASS: [1x dark] shortcut security: Ctrl+Tab shows a new tab
 PASS: [1x dark] shortcut security: the wheel does not scroll the page (all fits)
-PASS: [1x dark] shortcut details: window keeps 402 x 570 (402 x 570)
+PASS: [1x dark] shortcut details: window keeps 402 x 598 (402 x 598)
 PASS: [1x dark] shortcut details: Ctrl+Tab shows a new tab
 PASS: [1x dark] shortcut details: the wheel does not scroll the page (all fits)
-PASS: [1x dark] shortcut versions: window keeps 402 x 570 (402 x 570)
+PASS: [1x dark] shortcut versions: window keeps 402 x 598 (402 x 598)
 PASS: [1x dark] shortcut versions: Ctrl+Tab shows a new tab
 PASS: [1x dark] shortcut versions: the wheel does not scroll the page (all fits)
 PASS: [1x dark] shortcut: Esc closes it
 PASS: [1x dark] several: Alt+Enter opens "Packing list.txt, Tickets.txt Properties"
-PASS: [1x dark] several general: window keeps 402 x 570 (402 x 570)
+PASS: [1x dark] several general: window keeps 402 x 598 (402 x 598)
 PASS: [1x dark] several general: the wheel does not scroll the page (all fits)
-PASS: [1x dark] several security: window keeps 402 x 570 (402 x 570)
+PASS: [1x dark] several security: window keeps 402 x 598 (402 x 598)
 PASS: [1x dark] several security: Ctrl+Tab shows a new tab
 PASS: [1x dark] several security: the wheel does not scroll the page (all fits)
 PASS: [1x dark] several: Esc closes it
 PASS: [1x dark] folder: Alt+Enter opens "Holiday 2025 Properties"
-PASS: [1x dark] folder general: window keeps 402 x 570 (402 x 570)
+PASS: [1x dark] folder general: window keeps 402 x 598 (402 x 598)
 PASS: [1x dark] folder general: the wheel does not scroll the page (all fits)
-PASS: [1x dark] folder sharing: window keeps 402 x 570 (402 x 570)
+PASS: [1x dark] folder sharing: window keeps 402 x 598 (402 x 598)
 PASS: [1x dark] folder sharing: Ctrl+Tab shows a new tab
 PASS: [1x dark] folder sharing: the wheel does not scroll the page (all fits)
-PASS: [1x dark] folder security: window keeps 402 x 570 (402 x 570)
+PASS: [1x dark] folder security: window keeps 402 x 598 (402 x 598)
 PASS: [1x dark] folder security: Ctrl+Tab shows a new tab
 PASS: [1x dark] folder security: the wheel does not scroll the page (all fits)
-PASS: [1x dark] folder versions: window keeps 402 x 570 (402 x 570)
+PASS: [1x dark] folder versions: window keeps 402 x 598 (402 x 598)
 PASS: [1x dark] folder versions: Ctrl+Tab shows a new tab
 PASS: [1x dark] folder versions: the wheel does not scroll the page (all fits)
-PASS: [1x dark] folder customize: window keeps 402 x 570 (402 x 570)
+PASS: [1x dark] folder customize: window keeps 402 x 598 (402 x 598)
 PASS: [1x dark] folder customize: Ctrl+Tab shows a new tab
 PASS: [1x dark] folder customize: the wheel does not scroll the page (all fits)
 PASS: [1x dark] folder customize: clicking Change Icon... opens its dialog
 PASS: [1x dark] Change Icon: Esc closes it
 PASS: [1x dark] folder: Esc closes it
 PASS: [1x dark] drive: Alt+Enter opens "Local Disk Properties"
-PASS: [1x dark] drive general: window keeps 402 x 570 (402 x 570)
+PASS: [1x dark] drive general: window keeps 402 x 598 (402 x 598)
 PASS: [1x dark] drive general: the wheel does not scroll the page (all fits)
-PASS: [1x dark] drive hardware: window keeps 402 x 570 (402 x 570)
+PASS: [1x dark] drive hardware: window keeps 402 x 598 (402 x 598)
 PASS: [1x dark] drive hardware: Ctrl+Tab shows a new tab
 PASS: [1x dark] drive hardware: the wheel does not scroll the page (all fits)
-PASS: [1x dark] drive sharing: window keeps 402 x 570 (402 x 570)
+PASS: [1x dark] drive sharing: window keeps 402 x 598 (402 x 598)
 PASS: [1x dark] drive sharing: Ctrl+Tab shows a new tab
 PASS: [1x dark] drive sharing: the wheel does not scroll the page (all fits)
-PASS: [1x dark] drive security: window keeps 402 x 570 (402 x 570)
+PASS: [1x dark] drive security: window keeps 402 x 598 (402 x 598)
 PASS: [1x dark] drive security: Ctrl+Tab shows a new tab
 PASS: [1x dark] drive security: the wheel does not scroll the page (all fits)
-PASS: [1x dark] drive versions: window keeps 402 x 570 (402 x 570)
+PASS: [1x dark] drive versions: window keeps 402 x 598 (402 x 598)
 PASS: [1x dark] drive versions: Ctrl+Tab shows a new tab
 PASS: [1x dark] drive versions: the wheel does not scroll the page (all fits)
 PASS: [1x dark] drive: Esc closes it
 PASS: [1x dark] mount-point: Alt+Enter opens "shm Properties"
-PASS: [1x dark] mount-point general: window keeps 402 x 570 (402 x 570)
+PASS: [1x dark] mount-point general: window keeps 402 x 598 (402 x 598)
 PASS: [1x dark] mount-point general: the wheel does not scroll the page (all fits)
-PASS: [1x dark] mount-point hardware: window keeps 402 x 570 (402 x 570)
-PASS: [1x dark] mount-point hardware: Ctrl+Tab shows a new tab
-PASS: [1x dark] mount-point hardware: the wheel does not scroll the page (all fits)
-PASS: [1x dark] mount-point sharing: window keeps 402 x 570 (402 x 570)
+PASS: [1x dark] mount-point sharing: window keeps 402 x 598 (402 x 598)
 PASS: [1x dark] mount-point sharing: Ctrl+Tab shows a new tab
 PASS: [1x dark] mount-point sharing: the wheel does not scroll the page (all fits)
-PASS: [1x dark] mount-point security: window keeps 402 x 570 (402 x 570)
+PASS: [1x dark] mount-point security: window keeps 402 x 598 (402 x 598)
 PASS: [1x dark] mount-point security: Ctrl+Tab shows a new tab
 PASS: [1x dark] mount-point security: the wheel does not scroll the page (all fits)
-PASS: [1x dark] mount-point versions: window keeps 402 x 570 (402 x 570)
+PASS: [1x dark] mount-point versions: window keeps 402 x 598 (402 x 598)
 PASS: [1x dark] mount-point versions: Ctrl+Tab shows a new tab
 PASS: [1x dark] mount-point versions: the wheel does not scroll the page (all fits)
-PASS: [1x dark] mount-point customize: window keeps 402 x 570 (402 x 570)
+PASS: [1x dark] mount-point customize: window keeps 402 x 598 (402 x 598)
 PASS: [1x dark] mount-point customize: Ctrl+Tab shows a new tab
 PASS: [1x dark] mount-point customize: the wheel does not scroll the page (all fits)
+PASS: [1x dark] other-drive: Alt+Enter opens "Local Disk Properties"
+PASS: [1x dark] other-drive general: window keeps 402 x 598 (402 x 598)
+PASS: [1x dark] other-drive general: the wheel does not scroll the page (all fits)
+PASS: [1x dark] other-drive hardware: window keeps 402 x 598 (402 x 598)
+PASS: [1x dark] other-drive hardware: Ctrl+Tab shows a new tab
+PASS: [1x dark] other-drive hardware: the wheel does not scroll the page (all fits)
+PASS: [1x dark] other-drive sharing: window keeps 402 x 598 (402 x 598)
+PASS: [1x dark] other-drive sharing: Ctrl+Tab shows a new tab
+PASS: [1x dark] other-drive sharing: the wheel does not scroll the page (all fits)
+PASS: [1x dark] other-drive security: window keeps 402 x 598 (402 x 598)
+PASS: [1x dark] other-drive security: Ctrl+Tab shows a new tab
+PASS: [1x dark] other-drive security: the wheel does not scroll the page (all fits)
+PASS: [1x dark] other-drive versions: window keeps 402 x 598 (402 x 598)
+PASS: [1x dark] other-drive versions: Ctrl+Tab shows a new tab
+PASS: [1x dark] other-drive versions: the wheel does not scroll the page (all fits)
+PASS: [1x dark] other-drive customize: window keeps 402 x 598 (402 x 598)
+PASS: [1x dark] other-drive customize: Ctrl+Tab shows a new tab
+PASS: [1x dark] other-drive customize: the wheel does not scroll the page (all fits)
+PASS: [1x dark] other-drive: Esc closes it
 PASS: [1x dark] mount-point: Esc closes it
 PASS: [1x dark] Folder Options opens from "..." > Options
 PASS: [1x dark] Folder Options: Esc closes it
 PASS: [2x light] the browser window opens on Example projects
 PASS: [2x light] file: Alt+Enter opens "Packing list.txt Properties"
-PASS: [2x light] file general: window keeps 402 x 570 (402 x 570)
+PASS: [2x light] file general: window keeps 402 x 598 (402 x 598)
 PASS: [2x light] file general: the wheel does not scroll the page (all fits)
-PASS: [2x light] file security: window keeps 402 x 570 (402 x 570)
+PASS: [2x light] file security: window keeps 402 x 598 (402 x 598)
 PASS: [2x light] file security: Ctrl+Tab shows a new tab
 PASS: [2x light] file security: the wheel does not scroll the page (all fits)
-PASS: [2x light] file details: window keeps 402 x 570 (402 x 570)
+PASS: [2x light] file details: window keeps 402 x 598 (402 x 598)
 PASS: [2x light] file details: Ctrl+Tab shows a new tab
 PASS: [2x light] file details: the wheel does not scroll the page (all fits)
-PASS: [2x light] file versions: window keeps 402 x 570 (402 x 570)
+PASS: [2x light] file versions: window keeps 402 x 598 (402 x 598)
 PASS: [2x light] file versions: Ctrl+Tab shows a new tab
 PASS: [2x light] file versions: the wheel does not scroll the page (all fits)
 PASS: [2x light] file: Esc closes it
 PASS: [2x light] shortcut: Alt+Enter opens "Tickets.txt - Shortcut Properties"
-PASS: [2x light] shortcut general: window keeps 402 x 570 (402 x 570)
+PASS: [2x light] shortcut general: window keeps 402 x 598 (402 x 598)
 PASS: [2x light] shortcut general: the wheel does not scroll the page (all fits)
-PASS: [2x light] shortcut security: window keeps 402 x 570 (402 x 570)
+PASS: [2x light] shortcut security: window keeps 402 x 598 (402 x 598)
 PASS: [2x light] shortcut security: Ctrl+Tab shows a new tab
 PASS: [2x light] shortcut security: the wheel does not scroll the page (all fits)
-PASS: [2x light] shortcut details: window keeps 402 x 570 (402 x 570)
+PASS: [2x light] shortcut details: window keeps 402 x 598 (402 x 598)
 PASS: [2x light] shortcut details: Ctrl+Tab shows a new tab
 PASS: [2x light] shortcut details: the wheel does not scroll the page (all fits)
-PASS: [2x light] shortcut versions: window keeps 402 x 570 (402 x 570)
+PASS: [2x light] shortcut versions: window keeps 402 x 598 (402 x 598)
 PASS: [2x light] shortcut versions: Ctrl+Tab shows a new tab
 PASS: [2x light] shortcut versions: the wheel does not scroll the page (all fits)
 PASS: [2x light] shortcut: Esc closes it
 PASS: [2x light] several: Alt+Enter opens "Packing list.txt, Tickets.txt Properties"
-PASS: [2x light] several general: window keeps 402 x 570 (402 x 570)
+PASS: [2x light] several general: window keeps 402 x 598 (402 x 598)
 PASS: [2x light] several general: the wheel does not scroll the page (all fits)
-PASS: [2x light] several security: window keeps 402 x 570 (402 x 570)
+PASS: [2x light] several security: window keeps 402 x 598 (402 x 598)
 PASS: [2x light] several security: Ctrl+Tab shows a new tab
 PASS: [2x light] several security: the wheel does not scroll the page (all fits)
 PASS: [2x light] several: Esc closes it
 PASS: [2x light] folder: Alt+Enter opens "Holiday 2025 Properties"
-PASS: [2x light] folder general: window keeps 402 x 570 (402 x 570)
+PASS: [2x light] folder general: window keeps 402 x 598 (402 x 598)
 PASS: [2x light] folder general: the wheel does not scroll the page (all fits)
-PASS: [2x light] folder sharing: window keeps 402 x 570 (402 x 570)
+PASS: [2x light] folder sharing: window keeps 402 x 598 (402 x 598)
 PASS: [2x light] folder sharing: Ctrl+Tab shows a new tab
 PASS: [2x light] folder sharing: the wheel does not scroll the page (all fits)
-PASS: [2x light] folder security: window keeps 402 x 570 (402 x 570)
+PASS: [2x light] folder security: window keeps 402 x 598 (402 x 598)
 PASS: [2x light] folder security: Ctrl+Tab shows a new tab
 PASS: [2x light] folder security: the wheel does not scroll the page (all fits)
-PASS: [2x light] folder versions: window keeps 402 x 570 (402 x 570)
+PASS: [2x light] folder versions: window keeps 402 x 598 (402 x 598)
 PASS: [2x light] folder versions: Ctrl+Tab shows a new tab
 PASS: [2x light] folder versions: the wheel does not scroll the page (all fits)
-PASS: [2x light] folder customize: window keeps 402 x 570 (402 x 570)
+PASS: [2x light] folder customize: window keeps 402 x 598 (402 x 598)
 PASS: [2x light] folder customize: Ctrl+Tab shows a new tab
 PASS: [2x light] folder customize: the wheel does not scroll the page (all fits)
 PASS: [2x light] folder customize: clicking Change Icon... opens its dialog
 PASS: [2x light] Change Icon: Esc closes it
 PASS: [2x light] folder: Esc closes it
 PASS: [2x light] drive: Alt+Enter opens "Local Disk Properties"
-PASS: [2x light] drive general: window keeps 402 x 570 (402 x 570)
+PASS: [2x light] drive general: window keeps 402 x 598 (402 x 598)
 PASS: [2x light] drive general: the wheel does not scroll the page (all fits)
-PASS: [2x light] drive hardware: window keeps 402 x 570 (402 x 570)
+PASS: [2x light] drive hardware: window keeps 402 x 598 (402 x 598)
 PASS: [2x light] drive hardware: Ctrl+Tab shows a new tab
 PASS: [2x light] drive hardware: the wheel does not scroll the page (all fits)
-PASS: [2x light] drive sharing: window keeps 402 x 570 (402 x 570)
+PASS: [2x light] drive sharing: window keeps 402 x 598 (402 x 598)
 PASS: [2x light] drive sharing: Ctrl+Tab shows a new tab
 PASS: [2x light] drive sharing: the wheel does not scroll the page (all fits)
-PASS: [2x light] drive security: window keeps 402 x 570 (402 x 570)
+PASS: [2x light] drive security: window keeps 402 x 598 (402 x 598)
 PASS: [2x light] drive security: Ctrl+Tab shows a new tab
 PASS: [2x light] drive security: the wheel does not scroll the page (all fits)
-PASS: [2x light] drive versions: window keeps 402 x 570 (402 x 570)
+PASS: [2x light] drive versions: window keeps 402 x 598 (402 x 598)
 PASS: [2x light] drive versions: Ctrl+Tab shows a new tab
 PASS: [2x light] drive versions: the wheel does not scroll the page (all fits)
 PASS: [2x light] drive: Esc closes it
 PASS: [2x light] mount-point: Alt+Enter opens "shm Properties"
-PASS: [2x light] mount-point general: window keeps 402 x 570 (402 x 570)
+PASS: [2x light] mount-point general: window keeps 402 x 598 (402 x 598)
 PASS: [2x light] mount-point general: the wheel does not scroll the page (all fits)
-PASS: [2x light] mount-point hardware: window keeps 402 x 570 (402 x 570)
-PASS: [2x light] mount-point hardware: Ctrl+Tab shows a new tab
-PASS: [2x light] mount-point hardware: the wheel does not scroll the page (all fits)
-PASS: [2x light] mount-point sharing: window keeps 402 x 570 (402 x 570)
+PASS: [2x light] mount-point sharing: window keeps 402 x 598 (402 x 598)
 PASS: [2x light] mount-point sharing: Ctrl+Tab shows a new tab
 PASS: [2x light] mount-point sharing: the wheel does not scroll the page (all fits)
-PASS: [2x light] mount-point security: window keeps 402 x 570 (402 x 570)
+PASS: [2x light] mount-point security: window keeps 402 x 598 (402 x 598)
 PASS: [2x light] mount-point security: Ctrl+Tab shows a new tab
 PASS: [2x light] mount-point security: the wheel does not scroll the page (all fits)
-PASS: [2x light] mount-point versions: window keeps 402 x 570 (402 x 570)
+PASS: [2x light] mount-point versions: window keeps 402 x 598 (402 x 598)
 PASS: [2x light] mount-point versions: Ctrl+Tab shows a new tab
 PASS: [2x light] mount-point versions: the wheel does not scroll the page (all fits)
-PASS: [2x light] mount-point customize: window keeps 402 x 570 (402 x 570)
+PASS: [2x light] mount-point customize: window keeps 402 x 598 (402 x 598)
 PASS: [2x light] mount-point customize: Ctrl+Tab shows a new tab
 PASS: [2x light] mount-point customize: the wheel does not scroll the page (all fits)
+PASS: [2x light] other-drive: Alt+Enter opens "Local Disk Properties"
+PASS: [2x light] other-drive general: window keeps 402 x 598 (402 x 598)
+PASS: [2x light] other-drive general: the wheel does not scroll the page (all fits)
+PASS: [2x light] other-drive hardware: window keeps 402 x 598 (402 x 598)
+PASS: [2x light] other-drive hardware: Ctrl+Tab shows a new tab
+PASS: [2x light] other-drive hardware: the wheel does not scroll the page (all fits)
+PASS: [2x light] other-drive sharing: window keeps 402 x 598 (402 x 598)
+PASS: [2x light] other-drive sharing: Ctrl+Tab shows a new tab
+PASS: [2x light] other-drive sharing: the wheel does not scroll the page (all fits)
+PASS: [2x light] other-drive security: window keeps 402 x 598 (402 x 598)
+PASS: [2x light] other-drive security: Ctrl+Tab shows a new tab
+PASS: [2x light] other-drive security: the wheel does not scroll the page (all fits)
+PASS: [2x light] other-drive versions: window keeps 402 x 598 (402 x 598)
+PASS: [2x light] other-drive versions: Ctrl+Tab shows a new tab
+PASS: [2x light] other-drive versions: the wheel does not scroll the page (all fits)
+PASS: [2x light] other-drive customize: window keeps 402 x 598 (402 x 598)
+PASS: [2x light] other-drive customize: Ctrl+Tab shows a new tab
+PASS: [2x light] other-drive customize: the wheel does not scroll the page (all fits)
+PASS: [2x light] other-drive: Esc closes it
 PASS: [2x light] mount-point: Esc closes it
 PASS: [2x light] Folder Options opens from "..." > Options
 PASS: [2x light] Folder Options: Esc closes it
 PASS: [2x dark] the browser window opens on Example projects
 PASS: [2x dark] file: Alt+Enter opens "Packing list.txt Properties"
-PASS: [2x dark] file general: window keeps 402 x 570 (402 x 570)
+PASS: [2x dark] file general: window keeps 402 x 598 (402 x 598)
 PASS: [2x dark] file general: the wheel does not scroll the page (all fits)
-PASS: [2x dark] file security: window keeps 402 x 570 (402 x 570)
+PASS: [2x dark] file security: window keeps 402 x 598 (402 x 598)
 PASS: [2x dark] file security: Ctrl+Tab shows a new tab
 PASS: [2x dark] file security: the wheel does not scroll the page (all fits)
-PASS: [2x dark] file details: window keeps 402 x 570 (402 x 570)
+PASS: [2x dark] file details: window keeps 402 x 598 (402 x 598)
 PASS: [2x dark] file details: Ctrl+Tab shows a new tab
 PASS: [2x dark] file details: the wheel does not scroll the page (all fits)
-PASS: [2x dark] file versions: window keeps 402 x 570 (402 x 570)
+PASS: [2x dark] file versions: window keeps 402 x 598 (402 x 598)
 PASS: [2x dark] file versions: Ctrl+Tab shows a new tab
 PASS: [2x dark] file versions: the wheel does not scroll the page (all fits)
 PASS: [2x dark] file: Esc closes it
 PASS: [2x dark] shortcut: Alt+Enter opens "Tickets.txt - Shortcut Properties"
-PASS: [2x dark] shortcut general: window keeps 402 x 570 (402 x 570)
+PASS: [2x dark] shortcut general: window keeps 402 x 598 (402 x 598)
 PASS: [2x dark] shortcut general: the wheel does not scroll the page (all fits)
-PASS: [2x dark] shortcut security: window keeps 402 x 570 (402 x 570)
+PASS: [2x dark] shortcut security: window keeps 402 x 598 (402 x 598)
 PASS: [2x dark] shortcut security: Ctrl+Tab shows a new tab
 PASS: [2x dark] shortcut security: the wheel does not scroll the page (all fits)
-PASS: [2x dark] shortcut details: window keeps 402 x 570 (402 x 570)
+PASS: [2x dark] shortcut details: window keeps 402 x 598 (402 x 598)
 PASS: [2x dark] shortcut details: Ctrl+Tab shows a new tab
 PASS: [2x dark] shortcut details: the wheel does not scroll the page (all fits)
-PASS: [2x dark] shortcut versions: window keeps 402 x 570 (402 x 570)
+PASS: [2x dark] shortcut versions: window keeps 402 x 598 (402 x 598)
 PASS: [2x dark] shortcut versions: Ctrl+Tab shows a new tab
 PASS: [2x dark] shortcut versions: the wheel does not scroll the page (all fits)
 PASS: [2x dark] shortcut: Esc closes it
 PASS: [2x dark] several: Alt+Enter opens "Packing list.txt, Tickets.txt Properties"
-PASS: [2x dark] several general: window keeps 402 x 570 (402 x 570)
+PASS: [2x dark] several general: window keeps 402 x 598 (402 x 598)
 PASS: [2x dark] several general: the wheel does not scroll the page (all fits)
-PASS: [2x dark] several security: window keeps 402 x 570 (402 x 570)
+PASS: [2x dark] several security: window keeps 402 x 598 (402 x 598)
 PASS: [2x dark] several security: Ctrl+Tab shows a new tab
 PASS: [2x dark] several security: the wheel does not scroll the page (all fits)
 PASS: [2x dark] several: Esc closes it
 PASS: [2x dark] folder: Alt+Enter opens "Holiday 2025 Properties"
-PASS: [2x dark] folder general: window keeps 402 x 570 (402 x 570)
+PASS: [2x dark] folder general: window keeps 402 x 598 (402 x 598)
 PASS: [2x dark] folder general: the wheel does not scroll the page (all fits)
-PASS: [2x dark] folder sharing: window keeps 402 x 570 (402 x 570)
+PASS: [2x dark] folder sharing: window keeps 402 x 598 (402 x 598)
 PASS: [2x dark] folder sharing: Ctrl+Tab shows a new tab
 PASS: [2x dark] folder sharing: the wheel does not scroll the page (all fits)
-PASS: [2x dark] folder security: window keeps 402 x 570 (402 x 570)
+PASS: [2x dark] folder security: window keeps 402 x 598 (402 x 598)
 PASS: [2x dark] folder security: Ctrl+Tab shows a new tab
 PASS: [2x dark] folder security: the wheel does not scroll the page (all fits)
-PASS: [2x dark] folder versions: window keeps 402 x 570 (402 x 570)
+PASS: [2x dark] folder versions: window keeps 402 x 598 (402 x 598)
 PASS: [2x dark] folder versions: Ctrl+Tab shows a new tab
 PASS: [2x dark] folder versions: the wheel does not scroll the page (all fits)
-PASS: [2x dark] folder customize: window keeps 402 x 570 (402 x 570)
+PASS: [2x dark] folder customize: window keeps 402 x 598 (402 x 598)
 PASS: [2x dark] folder customize: Ctrl+Tab shows a new tab
 PASS: [2x dark] folder customize: the wheel does not scroll the page (all fits)
 PASS: [2x dark] folder customize: clicking Change Icon... opens its dialog
 PASS: [2x dark] Change Icon: Esc closes it
 PASS: [2x dark] folder: Esc closes it
 PASS: [2x dark] drive: Alt+Enter opens "Local Disk Properties"
-PASS: [2x dark] drive general: window keeps 402 x 570 (402 x 570)
+PASS: [2x dark] drive general: window keeps 402 x 598 (402 x 598)
 PASS: [2x dark] drive general: the wheel does not scroll the page (all fits)
-PASS: [2x dark] drive hardware: window keeps 402 x 570 (402 x 570)
+PASS: [2x dark] drive hardware: window keeps 402 x 598 (402 x 598)
 PASS: [2x dark] drive hardware: Ctrl+Tab shows a new tab
 PASS: [2x dark] drive hardware: the wheel does not scroll the page (all fits)
-PASS: [2x dark] drive sharing: window keeps 402 x 570 (402 x 570)
+PASS: [2x dark] drive sharing: window keeps 402 x 598 (402 x 598)
 PASS: [2x dark] drive sharing: Ctrl+Tab shows a new tab
 PASS: [2x dark] drive sharing: the wheel does not scroll the page (all fits)
-PASS: [2x dark] drive security: window keeps 402 x 570 (402 x 570)
+PASS: [2x dark] drive security: window keeps 402 x 598 (402 x 598)
 PASS: [2x dark] drive security: Ctrl+Tab shows a new tab
 PASS: [2x dark] drive security: the wheel does not scroll the page (all fits)
-PASS: [2x dark] drive versions: window keeps 402 x 570 (402 x 570)
+PASS: [2x dark] drive versions: window keeps 402 x 598 (402 x 598)
 PASS: [2x dark] drive versions: Ctrl+Tab shows a new tab
 PASS: [2x dark] drive versions: the wheel does not scroll the page (all fits)
 PASS: [2x dark] drive: Esc closes it
 PASS: [2x dark] mount-point: Alt+Enter opens "shm Properties"
-PASS: [2x dark] mount-point general: window keeps 402 x 570 (402 x 570)
+PASS: [2x dark] mount-point general: window keeps 402 x 598 (402 x 598)
 PASS: [2x dark] mount-point general: the wheel does not scroll the page (all fits)
-PASS: [2x dark] mount-point hardware: window keeps 402 x 570 (402 x 570)
-PASS: [2x dark] mount-point hardware: Ctrl+Tab shows a new tab
-PASS: [2x dark] mount-point hardware: the wheel does not scroll the page (all fits)
-PASS: [2x dark] mount-point sharing: window keeps 402 x 570 (402 x 570)
+PASS: [2x dark] mount-point sharing: window keeps 402 x 598 (402 x 598)
 PASS: [2x dark] mount-point sharing: Ctrl+Tab shows a new tab
 PASS: [2x dark] mount-point sharing: the wheel does not scroll the page (all fits)
-PASS: [2x dark] mount-point security: window keeps 402 x 570 (402 x 570)
+PASS: [2x dark] mount-point security: window keeps 402 x 598 (402 x 598)
 PASS: [2x dark] mount-point security: Ctrl+Tab shows a new tab
 PASS: [2x dark] mount-point security: the wheel does not scroll the page (all fits)
-PASS: [2x dark] mount-point versions: window keeps 402 x 570 (402 x 570)
+PASS: [2x dark] mount-point versions: window keeps 402 x 598 (402 x 598)
 PASS: [2x dark] mount-point versions: Ctrl+Tab shows a new tab
 PASS: [2x dark] mount-point versions: the wheel does not scroll the page (all fits)
-PASS: [2x dark] mount-point customize: window keeps 402 x 570 (402 x 570)
+PASS: [2x dark] mount-point customize: window keeps 402 x 598 (402 x 598)
 PASS: [2x dark] mount-point customize: Ctrl+Tab shows a new tab
 PASS: [2x dark] mount-point customize: the wheel does not scroll the page (all fits)
+PASS: [2x dark] other-drive: Alt+Enter opens "Local Disk Properties"
+PASS: [2x dark] other-drive general: window keeps 402 x 598 (402 x 598)
+PASS: [2x dark] other-drive general: the wheel does not scroll the page (all fits)
+PASS: [2x dark] other-drive hardware: window keeps 402 x 598 (402 x 598)
+PASS: [2x dark] other-drive hardware: Ctrl+Tab shows a new tab
+PASS: [2x dark] other-drive hardware: the wheel does not scroll the page (all fits)
+PASS: [2x dark] other-drive sharing: window keeps 402 x 598 (402 x 598)
+PASS: [2x dark] other-drive sharing: Ctrl+Tab shows a new tab
+PASS: [2x dark] other-drive sharing: the wheel does not scroll the page (all fits)
+PASS: [2x dark] other-drive security: window keeps 402 x 598 (402 x 598)
+PASS: [2x dark] other-drive security: Ctrl+Tab shows a new tab
+PASS: [2x dark] other-drive security: the wheel does not scroll the page (all fits)
+PASS: [2x dark] other-drive versions: window keeps 402 x 598 (402 x 598)
+PASS: [2x dark] other-drive versions: Ctrl+Tab shows a new tab
+PASS: [2x dark] other-drive versions: the wheel does not scroll the page (all fits)
+PASS: [2x dark] other-drive customize: window keeps 402 x 598 (402 x 598)
+PASS: [2x dark] other-drive customize: Ctrl+Tab shows a new tab
+PASS: [2x dark] other-drive customize: the wheel does not scroll the page (all fits)
+PASS: [2x dark] other-drive: Esc closes it
 PASS: [2x dark] mount-point: Esc closes it
 PASS: [2x dark] Folder Options opens from "..." > Options
 PASS: [2x dark] Folder Options: Esc closes it
-PASS: [1x light] Folder Options capture identical to properties-width (0 pixels differ)
-PASS: [1x dark] Folder Options capture identical to properties-width (0 pixels differ)
-PASS: [2x light] Folder Options capture identical to properties-width (0 pixels differ)
-PASS: [2x dark] Folder Options capture identical to properties-width (0 pixels differ)
+PASS: [1x light] the browser window opens on Example projects
+PASS: [1x light] folder: Alt+Enter opens Holiday 2025 Properties
+PASS: [1x light] folder customize at 100% text (Ctrl+0/minus): window keeps the fixed 402 x 598 (402 x 598)
+PASS: [1x light] folder customize at 80% text (Ctrl+0/minus): window keeps the fixed 402 x 598 (402 x 598)
+PASS: [1x light] folder customize at 200% text (Ctrl+plus x5): window no larger than main's 589 x 618 (546 x 618)
+PASS: [1x light] folder sharing at 100% text (Ctrl+0/minus): window keeps the fixed 402 x 598 (402 x 598)
+PASS: [1x light] folder sharing at 80% text (Ctrl+0/minus): window keeps the fixed 402 x 598 (402 x 598)
+PASS: [1x light] folder sharing at 200% text (Ctrl+plus x5): window no larger than main's 589 x 618 (546 x 618)
+PASS: [1x light] folder: Esc closes it
+PASS: [1x dark] the browser window opens on Example projects
+PASS: [1x dark] folder: Alt+Enter opens Holiday 2025 Properties
+PASS: [1x dark] folder customize at 100% text (Ctrl+0/minus): window keeps the fixed 402 x 598 (402 x 598)
+PASS: [1x dark] folder customize at 80% text (Ctrl+0/minus): window keeps the fixed 402 x 598 (402 x 598)
+PASS: [1x dark] folder customize at 200% text (Ctrl+plus x5): window no larger than main's 589 x 618 (546 x 618)
+PASS: [1x dark] folder sharing at 100% text (Ctrl+0/minus): window keeps the fixed 402 x 598 (402 x 598)
+PASS: [1x dark] folder sharing at 80% text (Ctrl+0/minus): window keeps the fixed 402 x 598 (402 x 598)
+PASS: [1x dark] folder sharing at 200% text (Ctrl+plus x5): window no larger than main's 589 x 618 (546 x 618)
+PASS: [1x dark] folder: Esc closes it
+PASS: [2x light] the browser window opens on Example projects
+PASS: [2x light] folder: Alt+Enter opens Holiday 2025 Properties
+PASS: [2x light] folder customize at 100% text (Ctrl+0/minus): window keeps the fixed 402 x 598 (402 x 598)
+PASS: [2x light] folder customize at 80% text (Ctrl+0/minus): window keeps the fixed 402 x 598 (402 x 598)
+PASS: [2x light] folder customize at 200% text (Ctrl+plus x5): window no larger than main's 589 x 618 (548 x 618)
+PASS: [2x light] folder sharing at 100% text (Ctrl+0/minus): window keeps the fixed 402 x 598 (402 x 598)
+PASS: [2x light] folder sharing at 80% text (Ctrl+0/minus): window keeps the fixed 402 x 598 (402 x 598)
+PASS: [2x light] folder sharing at 200% text (Ctrl+plus x5): window no larger than main's 589 x 618 (548 x 618)
+PASS: [2x light] folder: Esc closes it
+PASS: [2x dark] the browser window opens on Example projects
+PASS: [2x dark] folder: Alt+Enter opens Holiday 2025 Properties
+PASS: [2x dark] folder customize at 100% text (Ctrl+0/minus): window keeps the fixed 402 x 598 (402 x 598)
+PASS: [2x dark] folder customize at 80% text (Ctrl+0/minus): window keeps the fixed 402 x 598 (402 x 598)
+PASS: [2x dark] folder customize at 200% text (Ctrl+plus x5): window no larger than main's 589 x 618 (548 x 618)
+PASS: [2x dark] folder sharing at 100% text (Ctrl+0/minus): window keeps the fixed 402 x 598 (402 x 598)
+PASS: [2x dark] folder sharing at 80% text (Ctrl+0/minus): window keeps the fixed 402 x 598 (402 x 598)
+PASS: [2x dark] folder sharing at 200% text (Ctrl+plus x5): window no larger than main's 589 x 618 (548 x 618)
+PASS: [2x dark] folder: Esc closes it
