@@ -1,4 +1,4 @@
 STATUS: DONE
-HEAD: access-denied-continue d606f530053a1cdb378c08e36768ecbd46587c3b
+HEAD: access-denied-continue 53b4e5d31f25e658fbcc97d38b8b757d605070c1
 QUESTION: none
-NOTE: deb 13 feedback done. The failed-item questions (copy, move and delete) now ask inside the progress window in place of the progress, titled 1 Interrupted Action, and the window shows progress again after the answer; More details is the window's own toggle. Deleting from a folder that needs an administrator shows "You'll need to provide administrator permission to delete this file" with Continue (shield), Skip and Cancel, and Continue deletes through the app's existing administrator delete path; no new privilege mechanism. A Recycle Bin run asks in the same place to delete permanently first. Captures light and dark at 2x: access-denied-continue-*.png on this branch. rustfmt and clippy (1.92.0) clean; named transfer, delete, core and app tests pass as a normal user. Ready for the private review.
+NOTE: review fixes done. All four review items addressed in one follow-up commit with tests; rustfmt and clippy (1.92.0) clean; named transfer, delete, core and app tests pass as a normal user. Earlier captures (access-denied-continue-*.png) still show the current questions. Ready for the deb.
