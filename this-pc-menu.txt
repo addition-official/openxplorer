@@ -1,8 +1,9 @@
 STATUS: DONE
-HEAD: this-pc-menu 3a755d5261a07d97c9ce3700d64c25192ccc1a6e
+HEAD: this-pc-menu 28a3402931fc20b7089f42948356ebedc5995f4e
 QUESTION: none
-NOTE: ready for PR; based on upstream main 46edd3d (after 19512b63).
-NOTE: Removed the navigation pane's Map network drive button (Windows 11 has none). This PC's menu: Collapse/Expand, Open in new tab, Open in new window, Add a network location, Map network drive..., Disconnect network drive, Properties (only with a system information app), then Hide section after a divider. Network's: the same without Add a network location and Properties.
-NOTE: Left out: Rename, Pin to Quick access, Pin to Start, Show more options (the app cannot rename or pin a page). Hide section kept last because it writes the saved hiddenSidebarSections setting.
-NOTE: rustfmt, parity/check.py, i18n check, sync-docs pass; clippy adds no warnings. Named sidebar/menu/snapshot tests: 240 pass, 4 fail the same way on upstream main in this container (root user, no v2.0.0 tag). Full check.py not run; owner CI runs it.
-NOTE: QC captures at 2x, light and dark: sidebar without the button and This PC's menu (not committed).
+NOTE: ready for PR; based on upstream main 46edd3d (after 19512b63). Two commits: 3a755d5 (Windows 11 items, button removed) and 28a3402 (sidebar menus drawn as the file list's menu).
+NOTE: Deb 13 follow-up: every sidebar menu (This PC, Network, drives, pins, Recycle Bin, Recent) is the file list's right-click menu in the same style: the Settings "Right-click menu" choice, Shift for classic, Menu key and Shift+F10 on the focused row. Cause of the different look: the sidebar's ".sidebar list > row" rules also styled the menu's rows; now scoped to "list.places".
+NOTE: Compact strip: This PC, Network, Home, Recent files, Recent locations, Recycle Bin show Rename and Delete greyed (as Windows greys This PC's). Pins, drives and network locations show Cut, Copy, Paste, Rename, Delete on the row's location via the folder tree's actions; Cut/Rename/Delete only for a folder the user pinned (not drives, shares or standard folders). Menus end with "Show more options", which opens the classic menu in place with those commands as rows.
+NOTE: Not changed: the folder tree's own menu (still classic rows); Windows' exact strip for drives and pins could not be checked here, so the app's file-menu strip is used.
+NOTE: rustfmt, parity, i18n pass; clippy adds no warnings. Named tests (sidebar menu snapshot stylesheets fonts focus recycle_bin accessibility folder_tree context high_contrast density): 331 pass, 4 fail the same way on upstream main in this container (root user, no v2.0.0 tag). Full check.py not run.
+NOTE: Captures (2x, light and dark): this-pc-menu-file-vs-<row>-<theme>.png pair the file list's menu (left) with each sidebar menu (right): this-pc, this-pc-classic, network, local-disk, pinned, recycle-bin; this-pc-menu-sidebar-<theme>.png shows the pane without the button.
