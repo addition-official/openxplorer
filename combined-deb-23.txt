@@ -1,3 +1,4 @@
-STATUS: WORKING (building)
-HEAD: test-combined-23 (merging)
-NOTE: Deb 23 (2.0.14+test23), fresh from upstream main e4520a37 (since deb 22 it merged #267, #268, #273, #277, #278). Merging the newest heads: owner's open PR #291 664a4dd8 (CI); ours #262 72e15be7, #265 4fefa2fe, #266 3c0c6717, #269 2d8b749a, #280 4e054268, #281 8cae6355, #282 32f15e0b, #283 24c2a5a7, #289 group-collapse f68757cc, #287 context-menu-match caf0fec9, #286 d7934546, #284 1b852989, #285 24939c63, #288 address-tab-order d96547b6, #290 replace-overwrite-setting ac4323fe, #292 readme-intro 2545cbf2; fork branches address-suggest-highlight 236eae5d, dialog-name-width 4835b722. Skipped: #275 (release), dependabot #276 and #279, command-bar-menu-switch (never).
+STATUS: DEB PUSHED (checks running)
+HEAD: test-combined-23 f204c81e
+DEB: claude/test-combined-23-deb 43019231 2bad5400e925f9d92bf0d5f12e12f645af09286b0856f15a5f8bf971333be195
+NOTE: Deb 23 (2.0.14+test23). Release build succeeded. IDENTITY FLAG: dialog-name-width head commit 4835b722 (on the fork already) has committer "Claude <noreply@anthropic.com>" (author addition-official); it is merged as is; my commits are all addition-official. Clippy, conflict-file tests and the smoke test running now.
