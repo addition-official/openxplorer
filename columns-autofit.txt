@@ -70,3 +70,13 @@ PASS G1 [dark 2x] grouped by Type (Sort > Group by > Type) then Ctrl+Numpad+ fit
 PASS D1 [dark 2x] with the Details pane open, Ctrl+Numpad+ fits columns
 PASS D2 [dark 2x] narrow window with Details pane: Ctrl+Numpad+ keeps the fitted widths (columns scroll sideways)
 NOTE: PR title and body in columns-autofit-pr.md. No PR, no deb.
+NOTE: Deb 21 report (Save dialog, Downloads grouped by date, Large icons -> Details: Name so wide the list scrolls sideways, no Name in columnWidths) NOT reproduced. Three builds (upstream main bab3fb5, columns-autofit 9cacfc7, test-combined-21 319bbe2), app as unprivileged user under Xvfb, real xdotool clicks through View > Large icons and View > Details. The Save dialog was opened by the portal backend's own SaveFile call, made from a connection owning org.freedesktop.portal.Desktop on a private bus. Downloads had a fictional ~90-character "..._files" folder and .html.
+PASS BUG-1 main window 1300 px, Large icons -> Details: Name cut with an ellipsis, all columns visible (main, branch)
+PASS BUG-2 main window 1000 px, same (main, branch)
+PASS BUG-3 Save dialog, Details -> Large icons -> Details (main, branch, tc21)
+PASS BUG-4 Save dialog reopened already in Large icons -> Details (main, branch, tc21)
+PASS BUG-5 27 files over several date groups, long names in an older group, at 1x and 2x (main, branch, tc21)
+PASS BUG-6 same, mouse wheel scrolled through the long-name rows in Details (main, branch, tc21)
+PASS BUG-7 real thumbnails (3200x500, 600x2400, 1600x1200 pictures) in Large icons -> Details (tc21)
+PASS BUG-8 long-named item selected in Large icons -> Details (tc21)
+NOTE: Cause analysis: nothing in columns-autofit sizes a column on its own. Name gets a width only from Ctrl+keypad plus or the titles' menu (#282), or from a double-click on a title edge, Home or Left/Right on a focused title, or a drag (all on main before #282). A fit in the dialog IS saved: Ctrl+keypad plus there wrote name 654 to settings.json, so a fit would have left a Name entry, which the report says is missing. Every Name label in Details ellipsizes, so cell content alone cannot widen it. Not established: what does it on the user's machine. Useful next data: the full settings.json from right after it happens, a screenshot, and whether the view was switched with the View menu, the status bar buttons, Ctrl+Shift+6 or Ctrl+mouse wheel.
