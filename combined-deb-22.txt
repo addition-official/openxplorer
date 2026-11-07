@@ -1,3 +1,4 @@
-STATUS: WORKING (building)
-HEAD: test-combined-22 (merging)
-NOTE: Deb 22 (2.0.14+test22), fresh from upstream main bab3fb5b (unchanged since deb 21). Merging the newest heads: owner's PR #273 526307ff; ours #262 72e15be7, #265 da400025, #266 0e64ced5, #267 5d58104e, #268 efcba147, #269 02a7e650, #280 22e58148, #281 de08c616, #282 9cacfc7d, #283 64b3fdfe, #284 drive-paste-shortcut c0fe57e1, #285 thumbnail-safety-238 9c836b06, #286 no-operation-result fad9917b; fork branches group-collapse fd8f0563, context-menu-match 97641135 (no PR yet), address-tab-order fb865725, replace-overwrite-setting 1cc04834. Skipped: #275, dependabot #276-#279, command-bar-menu-switch.
+STATUS: DEB PUSHED (checks running)
+HEAD: test-combined-22 dc181125
+DEB: claude/test-combined-22-deb b22a1b8a 4ad1fa767371de14a9f9cca7f60cbeb32030388486117b88b066305e8fec294e
+NOTE: Deb 22 (2.0.14+test22). Release build succeeded. Clippy, conflict-file tests and the smoke test running now.
