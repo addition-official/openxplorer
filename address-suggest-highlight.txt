@@ -1,0 +1,25 @@
+# DO NOT PR
+STATUS: DONE
+HEAD: address-suggest-highlight 236eae5d313bc92e8deacdd5d46da9d22d696c35 (on AKolenda main bab3fb5, one commit)
+QUESTION: none
+NOTE: The address bar's suggestion list now marks the row the arrow keys select as Windows 11 does: 40px rows with 4px corners, 4px in from the flyout, text 16px in; the selected row has the subtle fill (@ox_hover) and a 3 x 16 accent bar with 2px corners at its left edge (the same bar as the sidebar's and Settings'), and the pointer's hover draws the fill alone. Up/Down follow Windows' autocomplete list (shell IAutoComplete, as ReactOS's CAutoComplete::OnListUpDown reimplements it): Down from no row selects the first, Up the last; past either end no row is selected and the typed text comes back, so the next key wraps. Escape puts back the typed text and closes the list. Enter and a click were already wired and are unchanged. Only suggestions.rs, address_bar.rs (one field), menus.css, high-contrast.css (accent outline on the selected row) and fonts.rs (the 40px row rule) change; nothing in the address bar's focus or Tab handling, so no overlap with #288. rustfmt and clippy -D warnings (Rust 1.92.0) clean; parity check passes. Tests run by name: every address test (cargo test -p ox-app address: 68 pass, f4_lists... extended for Up, wrap and Escape; 2 fail identically on unmodified main bab3fb5: a_long_path_collapses... and the_keyboard_reaches_the_collapsed_crumbs..., "timed out waiting for the new width" under xvfb-run), plus theme:: and the new suggestions:: unit test (42 pass). tools/check.py not run in full. Windows behavior not checked on a Windows machine here: the look comes from the user's Windows 11 screenshot, the keys from ReactOS's reimplementation. No PR, no deb.
+
+REAL INPUT (Xvfb + openbox + xcompmgr, xdotool keys and pointer, the branch's debug build run as the unprivileged user oxtester on fictional ~/OX-Test {Archive, Budget, Budget 2027, Clients, Drafts, Photos, Notes.txt}; typed "~/OX-Test/"; rows checked by pixels: fill at the row's middle, accent in the bar's column; address text read from the captures)
+                                                            1x light  1x dark  2x light  2x dark
+01 type a partial path: list opens, no row selected ...... PASS      PASS     PASS      PASS
+02 Down x1: row 1 fill + accent bar, text = row 1 ......... PASS      PASS     PASS      PASS
+03 Down x2: row 2 fill + accent bar, text = row 2 ......... PASS      PASS     PASS      PASS
+04 Up: back to row 1, text = row 1 ........................ PASS      PASS     PASS      PASS
+05 Up past the first row: no row, typed text back ......... PASS      PASS     PASS      PASS
+06 Up again wraps to the last row, text = last row ........ PASS      PASS     PASS      PASS
+07 Down past the last row: no row, typed text back ........ PASS      PASS     PASS      PASS
+08 Down again wraps to the first row ...................... PASS      PASS     PASS      PASS
+09 Esc: typed text back, list closed ...................... PASS      PASS     PASS      PASS
+11 hover: fill only, no bar ............................... PASS      PASS     PASS      PASS
+12 hover + Down: hovered row fill only, selected row bar .. PASS      PASS     PASS      PASS
+13-14 Enter on the selected row (Budget 2027) opens it .... PASS      PASS     PASS      PASS
+15-16 click on a hovered row (Budget) opens it ............ PASS      PASS     PASS      PASS
+row height 40 px (measured fill run, logical px) .......... PASS      PASS     PASS      PASS
+reduced motion (1x light): 35 ms after Down the row was mid-fade (245, then 244 on leaving) with animations on, and already final (240, then 249) with gtk-enable-animations=0 ... PASS
+
+Captures: address-suggest-highlight-{1x,2x}-{light,dark}-NN-<step>.png (the address bar and the list; 2x at device pixels) and address-suggest-highlight-reduced-motion-1x-light-down1-{at-once,later}.png (the at-once frame had not been drawn yet, so it shows the list before Down). PR title and body in address-suggest-highlight-pr.md.
