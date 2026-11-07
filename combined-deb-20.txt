@@ -1,0 +1,3 @@
+STATUS: WORKING (waiting for jobs)
+HEAD: none yet
+NOTE: Deb 20 (2.0.14+test20), overnight. Polling the status branch every 15 minutes until all six jobs are DONE or PR-READY, or until 12:00 UTC (06:00 US Central), whichever comes first. Check at 05:08 UTC: context-menu-match PR-READY; properties-12px WORKING; columns-autofit, menu-no-tooltips, drive-paste-shortcut, thumbnail-safety-238 no status file yet. no-operation-result PR-READY.
