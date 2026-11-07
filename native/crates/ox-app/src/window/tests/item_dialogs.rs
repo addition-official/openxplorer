@@ -1350,6 +1350,81 @@ fn several_items_attributes_show_mixed_and_apply_to_every_item() {
     window.close();
 }
 
+/// A folder that happens to be a mount point, such as a `tmpfs` at
+/// `/tmp`, shows as a folder when it is reached in a folder's listing,
+/// and also from the navigation pane when This PC does not list it as a
+/// drive, as Windows shows a folder: only This PC's drives and the root
+/// get the drive page. The harness cannot mount anything, so this uses a
+/// mount point the machine has, and says so when it has none.
+///
+/// parity: PROP-004
+#[gtk::test]
+fn a_mount_point_reached_as_a_folder_shows_as_a_folder() {
+    let Some(name) = ["dev", "proc", "sys", "run"]
+        .into_iter()
+        .find(|name| crate::properties::is_mount_point(&format!("file:///{name}")))
+    else {
+        eprintln!("skipped: no mount point under / to open");
+        return;
+    };
+    let uri = format!("file:///{name}");
+    let shows_as_folder = |window: &PropertiesWindow| {
+        let general = tab(window, "general");
+        wait_until("the folder's details", || {
+            value_after(&general, "Type:").is_some()
+        });
+        assert_eq!(value_after(&general, "Type:").as_deref(), Some("File folder"));
+        assert!(
+            window.tab_page("hardware").is_none(),
+            "no Hardware tab for a folder"
+        );
+    };
+    let test = TestWindow::open("file:///");
+    test.select_named(name);
+    test.activate("properties", None);
+    let window = test.wait_for_properties(&format!("{name} Properties"));
+    shows_as_folder(&window);
+    window.close();
+
+    test.activate("properties-of", Some(&uri));
+    let window = test.wait_for_properties(&format!("{name} Properties"));
+    shows_as_folder(&window);
+    window.close();
+}
+
+/// A mount point reached as a folder and the root reached as a drive,
+/// light and dark, for review with `OX_NATIVE_CAPTURE_DIR` (and
+/// `GDK_SCALE=2`): `mount-point-{folder,drive}-{light,dark}.png`.
+///
+/// parity: PROP-004
+#[gtk::test]
+fn a_mount_point_and_a_drive_are_captured() {
+    let _theme = ThemeGuard::keep();
+    let Some(name) = ["dev", "proc"]
+        .into_iter()
+        .find(|name| crate::properties::is_mount_point(&format!("file:///{name}")))
+    else {
+        eprintln!("skipped: no mount point under / to open");
+        return;
+    };
+    let test = TestWindow::open("file:///");
+    for theme in ["light", "dark"] {
+        test.activate("theme", Some(theme));
+        test.select_named(name);
+        test.activate("properties", None);
+        let folder = test.wait_for_properties(&format!("{name} Properties"));
+        general(&folder);
+        capture_dialog(&folder, &format!("mount-point-folder-{theme}.png"));
+        folder.close();
+        test.activate("properties-of", Some("file:///"));
+        let drive = test.wait_for_properties("Local Disk Properties");
+        let page = tab(&drive, "general");
+        wait_until("the drive's details", || value_after(&page, "Type:").is_some());
+        capture_dialog(&drive, &format!("mount-point-drive-{theme}.png"));
+        drive.close();
+    }
+}
+
 /// A link says where it points. A drive, the root among them, has
 /// Windows' drive General tab: its type, file system, used and free
 /// space and capacity in bytes and short, and the ring, with nothing on
