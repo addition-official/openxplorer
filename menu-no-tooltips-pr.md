@@ -45,6 +45,8 @@ Sources for Windows' behavior:
 - Menu, context menu, chrome and command bar tests by name, under `xvfb-run` and `dbus-run-session` with a private home: all pass except four that fail the same way on the unmodified base (they need a non-root user, the Python 1.x checkout, or the isolated XTEST marker)
 - Real pointer input under Xvfb with `xdotool`, the app running as an unprivileged user on a fictional folder tree, at 1x (light) and 2x (dark): the pointer rested 2 s on every row of each menu and submenu listed above, and no tooltip appeared; the command bar buttons and the compact menu's strip buttons still showed theirs. The same check on the unmodified base shows the disabled-row tooltips, so the check detects them.
 - The same real-input check on a local merge of this branch with the pending right-click menu rework (which adds the Open with and Compress to submenus and This PC's group heading menu), with two fictional applications installed: no tooltip on any of those rows, at 1x light and 2x dark.
+- Rerun after merging the latest upstream main: the same results, and the real-input check of the file, background, Sort and "…" menus, their submenus, the strip and the command bar at 1x light and 2x dark
+- Tested in a combined Debian package build
 
 The full `native/tools/check.py` was not run.
 
