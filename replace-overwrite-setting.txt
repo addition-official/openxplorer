@@ -1,6 +1,7 @@
-STATUS: DONE
-HEAD: replace-overwrite-setting 1cc04834d01234a302e7db977effd0ec8dee7e89 (on AKolenda main bab3fb5, #274)
+STATUS: PR-READY
+HEAD: replace-overwrite-setting 1cc04834d01234a302e7db977effd0ec8dee7e89 (on AKolenda main bab3fb5, #274, still the newest upstream main, so no merge was needed)
 QUESTION: none
+NOTE: User approved in deb 22: with the switch off, Replace overwrote the old file and nothing went to the Recycle Bin. replace-overwrite-setting-pr.md checked: body starts with "Model: claude-opus-5-5", says "Nothing changes by default" and ends with the Claude Code line.
 PASS copy-Replace ON: the old Quarterly plan.txt went to the Recycle Bin with its contents ("existing version"), the copy took its place ("incoming version").
 PASS restore-Replace ON: the restored item took its name back ("existing version"), the file in the way went to the Recycle Bin ("incoming version").
 PASS Cancel mid-Replace ON: Cancel clicked with 1,412,431,872 of 2,147,483,648 bytes staged; the old Site footage.bin came back from the Recycle Bin intact ("existing footage"), the Recycle Bin was empty, no staging left.
