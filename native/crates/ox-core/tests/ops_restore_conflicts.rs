@@ -568,11 +568,10 @@ fn cancel_at_the_question_keeps_the_free_items_and_says_nothing() {
     assert!(outcome.result.errors.is_empty(), "{:?}", outcome.result.errors);
 }
 
-/// Two Recycle Bin items deleted from the same place are planned as free,
-/// since nothing has their name yet; the second finds the name taken by
-/// the first and waits in the Recycle Bin, unreported, to be asked about:
-/// planned again, it is a conflict with the item just restored, as
-/// Windows asks "Replace or Skip Files" about it, and Skip leaves it in
+/// Two Recycle Bin items deleted from the same place: the first is free,
+/// and the second is planned as a conflict with it, the item restored
+/// first (#254), as Windows asks "Replace or Skip Files" about it; nothing
+/// is left to find taken during the restore, and Skip leaves the second in
 /// the Recycle Bin without a word.
 ///
 /// parity: OPS-041, OPS-026, OPS-023
@@ -589,12 +588,13 @@ fn a_name_the_restore_itself_takes_is_asked_about_as_a_conflict() {
     let context = OperationContext::default();
 
     let first = scan(&uris);
-    assert!(!first.has_conflicts(), "nothing has the name yet");
+    assert_eq!(first.conflicts.len(), 1, "the second meets the first");
+    assert_eq!(first.conflicts[0].name(), "Twin.txt");
+    assert_eq!(first.conflicts[0].existing_uri, file_uri(&twin));
     let mut so_far = block_on(restore_free_items(&first, RestoreSoFar::new(), &context)).unwrap();
-    let taken = so_far.take_taken();
-    let again = scan(&taken);
+    assert!(so_far.take_taken().is_empty(), "nothing is found taken on the way");
     let so_far = block_on(restore_answered_items(
-        &again,
+        &first,
         &[Resolution::Skip],
         so_far,
         &context,
@@ -602,10 +602,6 @@ fn a_name_the_restore_itself_takes_is_asked_about_as_a_conflict() {
     .unwrap();
     let outcome = so_far.finish();
 
-    assert_eq!(taken.len(), 1, "the second item waits to be asked about");
-    assert_eq!(again.conflicts.len(), 1);
-    assert_eq!(again.conflicts[0].name(), "Twin.txt");
-    assert_eq!(again.conflicts[0].existing_uri, file_uri(&twin));
     assert!(outcome.result.errors.is_empty(), "{:?}", outcome.result.errors);
     assert_eq!(outcome.result.done.len(), 1);
     assert!(twin.is_file());
