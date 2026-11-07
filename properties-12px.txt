@@ -1,4 +1,4 @@
 STATUS: WORKING
-HEAD: properties-12px (from properties-width 9404efb98b96d31f64f13c101fcd017caa382f51)
+HEAD: properties-12px 25866d10f1d079030c4a2a90540045202f7c6a15
 QUESTION: none
-NOTE: Started. Properties text to 12 px (Windows' 9 pt dialog font) under `window.ox.ox-properties:not(.ox-folder-options)`, which outranks `window.ox` (13 px) and leaves Folder Options as it is. Building and testing now.
+NOTE: Fix pushed: `window.ox.ox-properties:not(.ox-folder-options)` gives every item Properties and its dialogs 12 px text (Folder Options untouched). With Noto Sans (what Zorin renders), a drive's Customize and Previous Versions tabs overflowed the two-row tab layout and scrolled (also on properties-width at 13 px); group-box titles now sit on the box line as in Windows, and the versions list's least height is 216 (it still fills the tab). Merges cleanly with folder-options-window. Named tests pass at 1x and 2x apart from the known mount_assistant test. Running the Xvfb/xdotool QC now.
