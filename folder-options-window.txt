@@ -1,7 +1,8 @@
-STATUS: DONE
-HEAD: folder-options-window e9e386ad77f2f7689bfac9436b8cc9cbc776158c
+STATUS: PR-READY
+HEAD: folder-options-window 2f0cfd6e41bb5a80ba8c14bac07b3a0589b57df7
 QUESTION: none
 NOTE: Follow-ups done:
+PR-READY (2026-11-07): merged upstream main 8fea905 (only conflict: the generated apps/web/public/assets/markdown.json, regenerated with tools/sync-docs.py). After the merge: rustfmt clean; clippy at 24, the same as main; parity, i18n and docs-sync checks pass. Named tests pass: folder_options 13, view_styles 17, dialog:: 11, modal:: 3, dialogs:: 64, theme:: 40, file_name_extensions 5, details_pane 32; properties 59 of 60 (mount assistant fails on main too). Overlap with #253: both edit the same VIEW-021 line in native/parity/features.toml (a one-line conflict for whichever merges second); its tests/folder_options.rs change merges cleanly. PR text: folder-options-window-pr.md.
 (1) Every row now fits on one line on all three tabs, and the window stays 380 x about 484 at 1x (Windows: about 380 x 483). Cause: the 12 px (9 pt) size meant for Properties never applied, because `window.ox` (13 px) outranks the bare `.ox-properties` class. Folder Options now gets 11 px under a selector that wins. At 12 px, two Click-items rows still wrapped with this container's fallback font, which is as wide as Noto Sans. The tab pages keep one height, as Windows' property sheet pages do.
 (2) The app calls itself OpenXplorer in Settings, so: "Open OpenXplorer to:" and "Clear OpenXplorer history". The zh_CN translations of these two now show English until a translator updates them (machine translations are not accepted).
 (3) "More settings…" removed. Settings is still reachable from the command bar's gear and Ctrl+,, so Folder Options was not the only way in. Its test was removed, and the manual, web guides (docs.json, regenerated), UI spec and parity notes were updated.
