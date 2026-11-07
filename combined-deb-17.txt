@@ -1,3 +1,4 @@
-STATUS: WORKING
-HEAD: test-combined-17 (merging)
-NOTE: Deb 17 (2.0.14+test17), fresh from upstream main 8fea905c (#250 merged). Merging, none moved: upstream PRs #252 364c4701, #253 9c69744b, #254 053bd422, #255 d6253f67, #256 f5a67ebb, #257 50d06d8b, #258 2d143287, #259 19d2c2ae, #260 2a04a6d8, #261 a7141879; fork properties-width f3a9891a, mount-point-folder be1d7cce, this-pc-menu dc5032bc, tiles-content-fix 1ddc51a2, access-denied-continue 67876d29, nav-tooltips 4f18b149, dialog-child-windows 355c4f80, list-focus-outline e22521d0, folder-options-window 0978be4c, paste-picture-opt-in 8b06e58c. Not included: group-collapse, command-bar-menu-switch. Deb pushed first once the release build succeeds; clippy and conflict-file tests after.
+STATUS: DEB PUSHED (checks running)
+HEAD: test-combined-17 eb2e11ac
+DEB: claude/test-combined-17-deb 4fd6cb7e 795739e350b30deb44fceed95c252de9ad4b4f2bbb091fe99ec256d5d4609242
+NOTE: Deb 17 (2.0.14+test17; the program reports 2.0.14). Includes folder-options-window e9e386ad (the newer head, merged before the build). Release build succeeded. Clippy and conflict-file tests running now; results follow in this file.
