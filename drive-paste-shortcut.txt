@@ -1,9 +1,48 @@
 STATUS: PR-READY
-HEAD: drive-paste-shortcut c0fe57e1a43d7e5888c66312d9bddedb8864916f
+HEAD: drive-paste-shortcut 02c903f35176593e268e814413e36825b3424956
 QUESTION: none
-NOTE: The user approved this in deb 20. The newest this-pc-menu (efcba14) and upstream main (bab3fb5, AKolenda/openxplorer#274) are merged in, with no force-push. Conflicts were in landing.rs and sidebar.rs (Select all on This PC tiles, #259, and the sidebar's focused-entry change) and in parity/features.toml; all are resolved. Changes the merge called for: Copy now copies every selected drive tile, so Select all, then Copy and Paste make one shortcut per drive (new test every_selected_drive_pastes_as_its_own_shortcut). The pinned-drive menu tests expect Copy enabled. The tile boxes now select several tiles, and their rubber band was taking drags that started on a tile, so a dragged drive tile made no shortcut (a real-input FAIL after the merge). The drive drag source now sits on the This PC page in the capture phase; a drag from empty space still draws the band, and a click still selects. Checks: rustfmt and clippy clean on Rust 1.92.0 (-D warnings); parity/check.py passes; the translation template is unchanged; named tests pass in check.py's isolated session as an unprivileged user (ox-core ops::shortcuts 8/8; ox-app drive_shortcuts, file_ops::availability, place_menus, tests::landing_pages, tests::sidebar, tests::drag_and_drop, tests::right_drag, tests::clipboard and file_drop 177/177). The real-input checklist passes again at 1x light and 2x dark (26/26, lines below). The full suite was not rerun after the merge. The existing stuck-drop bug also leaves GTK's drop highlight around the sidebar after a drop on it; it reproduces with an ordinary file, so this branch does not cause it. pr.md is updated.
+NOTE: Codex's 5 findings on AKolenda/openxplorer#284 (reviewed commit c0fe57e) were read from the PR page and the manager's copy (the GitHub API is not enabled for that repo in this session). The 4 real ones are fixed in 02c903f, each with a test. Upstream main is still bab3fb5, so no merge was needed and nothing was force-pushed. Windows behavior is unchanged inside the app: a copied or dragged drive still becomes 'Local Disk - Shortcut', and the right-drag menu still offers only Create shortcuts here (rechecked with real input). Checks: rustfmt and clippy clean on Rust 1.92.0 (-D warnings); translation template regenerated (2 new messages); named ox-app tests 180/180 in check.py's isolated session as an unprivileged user (drive_shortcuts, file_ops::availability, place_menus, tests::landing_pages, tests::sidebar, tests::drag_and_drop, tests::right_drag, tests::clipboard, file_drop); real-input checklist 32/32 at 1x light and 2x dark (lines below). The full suite was not rerun. pr.md is updated.
+CODEX native/crates/ox-app/src/window/file_ops/clipboard.rs:296 FIXED 02c903f (a copy that names a drive is published only as application/x-winspace-files and text, never GNOME or text/uri-list; test landing_pages::a_copied_drive_tile_pastes_as_a_shortcut_named_after_the_drive checks the formats; real input via xclip TARGETS)
+CODEX native/crates/ox-app/src/window/file_drag.rs:363 FIXED 02c903f (drive drags from This PC and the sidebar offer gdk LINK alone, so no other app is offered a copy or a move; this app answers LINK and its right-drag still asks; test file_drop::action::tests::a_drag_that_offers_a_link_alone_is_answered_with_the_link)
+CODEX native/crates/ox-app/src/window/file_drop/action.rs:518 FIXED 02c903f (send_dropped_items refuses a drop on the Recycle Bin that holds a drive, alone or with other items, before anything is trashed: 'A drive cannot be moved to the Recycle Bin.', as Windows takes no drive into it; test file_drop::tests::a_drive_dropped_on_the_recycle_bin_is_refused; real input: nothing trashed)
+CODEX native/crates/ox-app/src/window/place_menus.rs:169 FIXED 02c903f (a phone's or camera's Copy is greyed with its reason, and Ctrl+C and the command bar skip device roots; test place_menus::tests::a_phone_cannot_be_copied_and_a_drive_can)
+CODEX native/crates/ox-app/src/window/file_ops/transfer.rs:153 NOT-A-BUG deliberate: two Undo steps only happen with a clipboard that holds a drive and ordinary items together, which Windows cannot produce (no selection mixes a drive with files) and this app produces only when a mount point is selected with other items in the file list. Each step correctly undoes its own part (shortcuts to the Recycle Bin, then the copy or move), nothing is lost, and Redo works. Merging them into one would mean rewriting a recorded journal entry across two engines (Copy, Move or Replace records with their own Redo), which risks Undo for this rare case.
 
-QC after merging upstream bab3fb5 and this-pc-menu efcba14 (real input under Xvfb, app run as unprivileged user qa, fictional files):
+QC after the Codex fixes (real input under Xvfb, app run as unprivileged user qa, fictional files):
+PASS [1x-light] This PC tile, command bar Copy, Ctrl+V in Projects: "Local Disk - Shortcut" -> / (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [1x-light] Paste twice: second is "Local Disk - Shortcut (2)" (~/Documents/Projects: ['Local Disk - Shortcut', 'Local Disk - Shortcut (2)'])
+PASS [1x-light] Opening the shortcut shows the drive (root listing)
+PASS [1x-light] This PC tile selected, Ctrl+C, Ctrl+V: shortcut (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [1x-light] Tile menu: Copy in the strip, Rename greyed, no Cut (see capture) (visual)
+PASS [1x-light] Tile menu strip Copy, then Ctrl+V: shortcut (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [1x-light] Sidebar Local Disk menu, strip Copy, then Ctrl+V: shortcut (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [1x-light] Sidebar Local Disk row focused (Shift+F6), Ctrl+C, Ctrl+V: shortcut (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [1x-light] Cut on a drive does nothing: command bar Cut and Ctrl+X leave the clipboard (['Garden Plans', 'budget-2026 - Copy.txt', 'budget-2026.txt'])
+PASS [1x-light] Drag sidebar Local Disk into Projects: shortcut, nothing copied (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [1x-light] Drag This PC tile onto sidebar Documents: shortcut in Documents (~/Documents: ['Local Disk - Shortcut', 'Projects'])
+PASS [1x-light] Right-drag Local Disk (fresh start): menu offers only Create shortcuts here; it makes one (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [1x-light] Copying a normal folder is unchanged: a real copy, not a shortcut (islink=False)
+PASS [1x-light] Copy a drive: clipboard offers no GNOME or URI-list file list to other apps (targets: ['COMPOUND_TEXT', 'SAVE_TARGETS', 'STRING', 'TARGETS', 'TEXT', 'TIMESTAMP', 'UTF8_STRING', 'application/x-winspace-files', 'text/plain;charset=utf-8'])
+PASS [1x-light] After that copy, Ctrl+V in this app still makes the shortcut (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [1x-light] Drag Local Disk onto the Recycle Bin: refused, nothing trashed or deleted (trash before [] after [])
+PASS [2x-dark] This PC tile, command bar Copy, Ctrl+V in Projects: "Local Disk - Shortcut" -> / (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [2x-dark] Paste twice: second is "Local Disk - Shortcut (2)" (~/Documents/Projects: ['Local Disk - Shortcut', 'Local Disk - Shortcut (2)'])
+PASS [2x-dark] Opening the shortcut shows the drive (root listing)
+PASS [2x-dark] This PC tile selected, Ctrl+C, Ctrl+V: shortcut (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [2x-dark] Tile menu: Copy in the strip, Rename greyed, no Cut (see capture) (visual)
+PASS [2x-dark] Tile menu strip Copy, then Ctrl+V: shortcut (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [2x-dark] Sidebar Local Disk menu, strip Copy, then Ctrl+V: shortcut (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [2x-dark] Sidebar Local Disk row focused (Shift+F6), Ctrl+C, Ctrl+V: shortcut (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [2x-dark] Cut on a drive does nothing: command bar Cut and Ctrl+X leave the clipboard (['Garden Plans', 'budget-2026 - Copy.txt', 'budget-2026.txt'])
+PASS [2x-dark] Drag sidebar Local Disk into Projects: shortcut, nothing copied (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [2x-dark] Drag This PC tile onto sidebar Documents: shortcut in Documents (~/Documents: ['Local Disk - Shortcut', 'Projects'])
+PASS [2x-dark] Right-drag Local Disk (fresh start): menu offers only Create shortcuts here; it makes one (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [2x-dark] Copying a normal folder is unchanged: a real copy, not a shortcut (islink=False)
+PASS [2x-dark] Copy a drive: clipboard offers no GNOME or URI-list file list to other apps (targets: ['COMPOUND_TEXT', 'SAVE_TARGETS', 'STRING', 'TARGETS', 'TEXT', 'TIMESTAMP', 'UTF8_STRING', 'application/x-winspace-files', 'text/plain;charset=utf-8'])
+PASS [2x-dark] After that copy, Ctrl+V in this app still makes the shortcut (~/Documents/Projects: ['Local Disk - Shortcut'])
+PASS [2x-dark] Drag Local Disk onto the Recycle Bin: refused, nothing trashed or deleted (trash before [] after [])
+
+Earlier: QC after merging upstream bab3fb5 and this-pc-menu efcba14 (real input under Xvfb, app run as unprivileged user qa, fictional files):
 PASS [1x-light] This PC tile, command bar Copy, Ctrl+V in Projects: "Local Disk - Shortcut" -> / (~/Documents/Projects: ['Local Disk - Shortcut'])
 PASS [1x-light] Paste twice: second is "Local Disk - Shortcut (2)" (~/Documents/Projects: ['Local Disk - Shortcut', 'Local Disk - Shortcut (2)'])
 PASS [1x-light] Opening the shortcut shows the drive (root listing)
