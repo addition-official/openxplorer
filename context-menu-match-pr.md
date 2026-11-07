@@ -45,8 +45,8 @@ On the fork's `status` branch: `context-menu-match-{file,folder,several,drive}-{
 
 ## Coordination
 
-- **#268 is merged** into upstream main (as c3b6113), and this branch has merged main c7ace51, so this PR's diff shows only the menu work.
-- Merged with the newest upstream main (`c7ace51`, which includes #263, #264, #268, #270, #271, #272, #274 and #277) without force-push. Earlier merges kept both sides: This PC's tile selection (#268) next to the group-heading menu, and the pinned Local Disk drive menu (#268) next to the pinned-folder compact menu.
+- **#268 is merged** into upstream main (as c3b6113), and this branch has merged main e4520a3, so this PR's diff shows only the menu work.
+- Merged with the newest upstream main (`e4520a3`, which includes #263, #264, #267, #268, #270, #271, #272, #273, #274, #277 and #278) without force-push. Conflicts were resolved keeping both sides: This PC's tile selection (#268) next to the group-heading menu; the pinned Local Disk drive menu (#268) next to the pinned-folder compact menu; and #273's Open file location for Recent rows, listed right after Open in both styles, where Windows lists it.
 - Details-view group headings collapse on the `group-collapse` branch. Their heading menu can reuse `ToggleGroup`, `CollapseAllGroups` and `ExpandAllGroups` once that branch lands.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
