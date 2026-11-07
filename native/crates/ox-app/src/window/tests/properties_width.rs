@@ -4,6 +4,7 @@
 
 use std::fs;
 
+use gtk::glib;
 use gtk::prelude::*;
 
 use super::item_dialogs::general;
@@ -207,5 +208,342 @@ fn properties_with_a_long_name_are_captured() {
             capture_dialog(&window, &format!("properties-width-{label}-{theme}.png"));
             window.close();
         }
+    }
+}
+
+/// Properties of a folder, a file, several items and a drive (the root,
+/// Local Disk) all keep one width, on every tab. The system drive has
+/// no Customize tab, as in Windows 11, and its five tabs fit one row.
+///
+/// parity: PROP-001
+#[gtk::test]
+fn every_kind_of_properties_keeps_the_width() {
+    let fixture = Fixture::standard();
+    fs::create_dir(fixture.path("Short")).expect("a folder");
+    fs::write(fixture.path("Short.txt"), "fictional").expect("a file");
+    let test = TestWindow::open(&fixture.uri());
+
+    test.select_named("Short");
+    let folder = properties_of_selection(&test, "Short Properties");
+    let width = shown_width(&folder);
+    assert_every_tab_keeps(&folder, width, "a folder");
+    folder.close();
+
+    test.select_named("Short.txt");
+    let file = properties_of_selection(&test, "Short.txt Properties");
+    assert_eq!(shown_width(&file), width, "a file");
+    assert_every_tab_keeps(&file, width, "a file");
+    file.close();
+
+    let several = properties_of_two(&test, "Short", "Short.txt");
+    assert_eq!(shown_width(&several), width, "several items");
+    assert_every_tab_keeps(&several, width, "several items");
+    several.close();
+
+    test.activate("properties-of", Some("file:///"));
+    let drive = test.wait_for_properties("Local Disk Properties");
+    wait_for_frames(&drive, 6);
+    assert_eq!(drive.width(), width, "a drive");
+    assert_eq!(
+        drive.tab_labels(),
+        ["General", "Hardware", "Sharing", "Security", "Previous Versions"],
+        "a drive has no Customize tab"
+    );
+    assert_eq!(tab_rows(&drive), [5], "a drive's five tabs fit one row");
+    assert_every_tab_keeps(&drive, width, "a drive");
+    drive.close();
+}
+
+/// A writable local drive other than the system drive, when this
+/// computer has one: the memory drive at /dev/shm.
+fn other_drive() -> Option<&'static str> {
+    let mounts = ox_core::network::read_mount_table().unwrap_or_default();
+    mounts
+        .iter()
+        .rev()
+        .find(|mount| mount.path == "/dev/shm")
+        .filter(|mount| !mount.options.split(',').any(|option| option == "ro"))
+        .map(|_| "file:///dev/shm")
+}
+
+/// Opens Properties of the drive `uri` from `test`.
+fn drive_properties(test: &TestWindow, uri: &str) -> PropertiesWindow {
+    test.activate("properties-of", Some(uri));
+    crate::test_support::harness::wait_until("the drive's Properties", || {
+        !test.window.properties_windows().is_empty()
+    });
+    let window = test.window.properties_windows().remove(0);
+    crate::test_support::harness::wait_until("the drive's details", || {
+        super::item_dialogs::value_after(&window, "Type:").is_some()
+    });
+    wait_for_frames(&window, 6);
+    window
+}
+
+/// A drive other than the system drive has Customize, as in Windows 11,
+/// after Previous Versions; its six tabs share two rows evenly, and the
+/// window keeps Windows' width.
+///
+/// parity: PROP-001
+#[gtk::test]
+fn another_drive_has_customize_and_its_tabs_share_the_rows() {
+    let Some(uri) = other_drive() else {
+        eprintln!("skipped: no writable /dev/shm drive here");
+        return;
+    };
+    let fixture = Fixture::standard();
+    fs::create_dir(fixture.path("Short")).expect("a folder");
+    let test = TestWindow::open(&fixture.uri());
+    test.select_named("Short");
+    let folder = properties_of_selection(&test, "Short Properties");
+    let width = shown_width(&folder);
+    folder.close();
+
+    let drive = drive_properties(&test, uri);
+    let labels = drive.tab_labels();
+    assert_eq!(labels.first().map(String::as_str), Some("General"));
+    assert_eq!(labels.last().map(String::as_str), Some("Customize"), "{labels:?}");
+    assert!(
+        labels.iter().any(|label| label == "Hardware"),
+        "a drive: {labels:?}"
+    );
+    assert_eq!(drive.width(), width, "the width stays");
+    let rows = tab_rows(&drive);
+    let most = rows.iter().copied().max().unwrap_or(0);
+    let fewest = rows.iter().copied().min().unwrap_or(0);
+    assert!(most - fewest <= 1, "the rows share the tabs evenly: {rows:?}");
+    assert_every_tab_keeps(&drive, width, "another drive");
+    drive.close();
+}
+
+/// How many tabs each row of `window`'s tabs holds, top to bottom. The
+/// tab shown stands a little taller than its row, so tabs whose tops are
+/// within a few pixels share a row.
+fn tab_rows(window: &PropertiesWindow) -> Vec<usize> {
+    let mut tops: Vec<f32> = window
+        .tab_buttons()
+        .iter()
+        .filter(|tab| tab.is_visible())
+        .filter_map(|tab| tab.compute_bounds(window))
+        .map(|bounds| bounds.y())
+        .collect();
+    tops.sort_by(f32::total_cmp);
+    let mut rows: Vec<(f32, usize)> = Vec::new();
+    for top in tops {
+        match rows.last_mut() {
+            Some((first, count)) if top - *first < 8.0 => *count += 1,
+            _ => rows.push((top, 1)),
+        }
+    }
+    rows.into_iter().map(|(_, count)| count).collect()
+}
+
+/// A Properties window with Windows' seven drive tabs (General, Tools,
+/// Hardware, Sharing, Security, Previous Versions, Quota), too many for
+/// one row at Windows' width.
+fn seven_tab_properties(test: &TestWindow) -> PropertiesWindow {
+    let window = PropertiesWindow::new("Data (D:) Properties", None, Some(&test.window));
+    for label in [
+        "General",
+        "Tools",
+        "Hardware",
+        "Sharing",
+        "Security",
+        "Previous Versions",
+        "Quota",
+    ] {
+        let page = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        page.append(&gtk::Label::new(Some(label)));
+        window.add_tab(&label.to_lowercase(), label, &page);
+    }
+    window.present();
+    wait_for_frames(&window, 6);
+    window
+}
+
+/// Tabs too many for one row wrap as Windows' multi-row tabs do: the
+/// rows share the tabs evenly, each row is stretched to the full width,
+/// never one tab alone on a row, and the row of the tab shown sits next
+/// to the page; the window keeps Windows' width.
+///
+/// parity: PROP-001
+#[gtk::test]
+fn wrapped_tabs_share_the_rows_evenly() {
+    let fixture = Fixture::standard();
+    fs::create_dir(fixture.path("Short")).expect("a folder");
+    let test = TestWindow::open(&fixture.uri());
+    test.select_named("Short");
+    let folder = properties_of_selection(&test, "Short Properties");
+    let width = shown_width(&folder);
+    folder.close();
+
+    let window = seven_tab_properties(&test);
+    assert_eq!(window.width(), width, "the width stays");
+    // As Windows' C: drive: Security, Previous Versions and Quota behind,
+    // General, Tools, Hardware and Sharing in front, next to the page.
+    assert_eq!(tab_rows(&window), [3, 4], "the rows share the tabs evenly");
+    // Every row reaches both edges of the row of tabs.
+    let tabs = window.tab_buttons();
+    let row_area = tabs[0].parent().expect("the row of tabs");
+    let row_width = f32::from(i16::try_from(row_area.width()).expect("a row's width"));
+    let mut lefts = 0;
+    let mut rights = 0;
+    for bounds in tabs.iter().filter_map(|tab| tab.compute_bounds(&row_area)) {
+        lefts += usize::from(bounds.x() <= 0.0);
+        rights += usize::from(bounds.x() + bounds.width() >= row_width - 1.0);
+    }
+    assert_eq!((lefts, rights), (2, 2), "each row is stretched to the full width");
+
+    // Showing Quota, on the other row, brings its row next to the page.
+    let general_top = |window: &PropertiesWindow| {
+        window.tab_buttons()[0]
+            .compute_bounds(window)
+            .expect("bounds")
+            .y()
+    };
+    let before = general_top(&window);
+    tabs[6].set_active(true);
+    wait_for_frames(&window, 4);
+    assert!(general_top(&window) < before - 8.0, "General's row moves up");
+    window.close();
+}
+
+/// The row of tabs is one stop of the Tab key, on the tab shown, which
+/// screen readers hear as the selected tab of a tab list; Left, Right,
+/// Home and End move between tabs, and Ctrl+Page Down and Ctrl+Tab show
+/// the next one from anywhere in the window.
+///
+/// parity: PROP-001
+#[gtk::test]
+fn the_tab_row_is_one_stop_and_moves_with_the_keyboard() {
+    let fixture = Fixture::standard();
+    fs::create_dir(fixture.path("Short")).expect("a folder");
+    let test = TestWindow::open(&fixture.uri());
+    test.select_named("Short");
+    let window = properties_of_selection(&test, "Short Properties");
+    general(&window);
+    let tabs = window.tab_buttons();
+    assert_eq!(window.tab_labels()[0], "General");
+    assert!(tabs[0].has_focus(), "the tab shown has the keyboard on opening");
+    assert_eq!(tabs[0].accessible_role(), gtk::AccessibleRole::Tab);
+    let focusable: Vec<bool> = tabs.iter().map(WidgetExt::is_focusable).collect();
+    assert_eq!(
+        focusable.iter().filter(|stop| **stop).count(),
+        1,
+        "one stop: {focusable:?}"
+    );
+
+    let strip = tabs[0].parent().expect("the row of tabs");
+    assert_eq!(strip.accessible_role(), gtk::AccessibleRole::TabList);
+    let press = |key: gtk::gdk::Key| {
+        let keys = strip
+            .observe_controllers()
+            .iter::<glib::Object>()
+            .filter_map(Result::ok)
+            .find_map(|controller| controller.downcast::<gtk::EventControllerKey>().ok())
+            .expect("the row's keys");
+        keys.emit_by_name::<bool>("key-pressed", &[&key, &0_u32, &gtk::gdk::ModifierType::empty()])
+    };
+    press(gtk::gdk::Key::Right);
+    assert_eq!(window.selected_tab().as_deref(), Some("sharing"));
+    assert!(tabs[1].has_focus() && tabs[1].is_active());
+    press(gtk::gdk::Key::End);
+    assert_eq!(window.selected_tab().as_deref(), Some("customize"));
+    press(gtk::gdk::Key::Home);
+    assert_eq!(window.selected_tab().as_deref(), Some("general"));
+    press(gtk::gdk::Key::Left);
+    assert_eq!(
+        window.selected_tab().as_deref(),
+        Some("customize"),
+        "round from the first"
+    );
+
+    let shortcut = |keyval: gtk::gdk::Key| {
+        let shortcuts: Vec<gtk::Shortcut> = window
+            .observe_controllers()
+            .iter::<glib::Object>()
+            .filter_map(Result::ok)
+            .filter_map(|controller| controller.downcast::<gtk::ShortcutController>().ok())
+            .flat_map(|controller| {
+                controller
+                    .iter::<glib::Object>()
+                    .filter_map(Result::ok)
+                    .filter_map(|item| item.downcast::<gtk::Shortcut>().ok())
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        let found = shortcuts
+            .into_iter()
+            .find(|shortcut| {
+                shortcut
+                    .trigger()
+                    .and_downcast::<gtk::KeyvalTrigger>()
+                    .is_some_and(|trigger| {
+                        trigger.keyval() == keyval
+                            && trigger.modifiers() == gtk::gdk::ModifierType::CONTROL_MASK
+                    })
+            })
+            .expect("a Ctrl shortcut");
+        found
+            .action()
+            .expect("an action")
+            .activate(gtk::ShortcutActionFlags::empty(), &window, None);
+    };
+    shortcut(gtk::gdk::Key::Page_Down);
+    assert_eq!(
+        window.selected_tab().as_deref(),
+        Some("general"),
+        "round from the last"
+    );
+    shortcut(gtk::gdk::Key::Tab);
+    assert_eq!(window.selected_tab().as_deref(), Some("sharing"));
+    window.close();
+}
+
+/// General of a folder, a file, several items, the system drive, another
+/// drive (when /dev/shm is one) and seven tabs in two rows, light and
+/// dark, for review with `OX_NATIVE_CAPTURE_DIR` (and `GDK_SCALE=2`):
+/// `properties-kind-{folder,file,several,drive,other-drive,wrapped}-{light,dark}.png`.
+///
+/// parity: PROP-001
+#[gtk::test]
+fn every_kind_of_properties_is_captured() {
+    let _theme = ThemeGuard::keep();
+    let fixture = Fixture::standard();
+    fs::create_dir(fixture.path("Holiday 2025")).expect("a folder");
+    fs::write(fixture.path("Packing list.txt"), "fictional").expect("a file");
+    let test = TestWindow::open(&fixture.uri());
+    for theme in ["light", "dark"] {
+        test.activate("theme", Some(theme));
+        test.select_named("Holiday 2025");
+        let folder = properties_of_selection(&test, "Holiday 2025 Properties");
+        shown_width(&folder);
+        capture_dialog(&folder, &format!("properties-kind-folder-{theme}.png"));
+        folder.close();
+        test.select_named("Packing list.txt");
+        let file = properties_of_selection(&test, "Packing list.txt Properties");
+        shown_width(&file);
+        capture_dialog(&file, &format!("properties-kind-file-{theme}.png"));
+        file.close();
+        let several = properties_of_two(&test, "Holiday 2025", "Packing list.txt");
+        wait_for_frames(&several, 6);
+        capture_dialog(&several, &format!("properties-kind-several-{theme}.png"));
+        several.close();
+        test.activate("properties-of", Some("file:///"));
+        let drive = test.wait_for_properties("Local Disk Properties");
+        crate::test_support::harness::wait_until("the drive's details", || {
+            super::item_dialogs::value_after(&drive, "Type:").is_some()
+        });
+        wait_for_frames(&drive, 6);
+        capture_dialog(&drive, &format!("properties-kind-drive-{theme}.png"));
+        drive.close();
+        if let Some(uri) = other_drive() {
+            let other = drive_properties(&test, uri);
+            capture_dialog(&other, &format!("properties-kind-other-drive-{theme}.png"));
+            other.close();
+        }
+        let wrapped = seven_tab_properties(&test);
+        capture_dialog(&wrapped, &format!("properties-kind-wrapped-{theme}.png"));
+        wrapped.close();
     }
 }
