@@ -1,0 +1,3 @@
+STATUS: WORKING
+HEAD: test-combined-16 (merging)
+NOTE: Deb 16 (2.0.14+test16). Base test-combined-15 7ee3c033. Upstream main moved 6b8cebee -> ea79d2c0 (#247 save-name-focus and #251 thumbnailer-sandbox-paths merged); merging it first. Then group-collapse 6d42e68b, access-denied-continue 67876d29 (neither moved). Deb pushed first once the release build succeeds; clippy and conflict-file tests after.
