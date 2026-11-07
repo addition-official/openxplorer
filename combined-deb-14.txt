@@ -1,0 +1,3 @@
+STATUS: WORKING
+HEAD: test-combined-14 (merging)
+NOTE: Deb 14 (2.0.14+test14). Base upstream main 6b8cebee. Merging in order, none moved: details-pane 01debc98, save-name-focus 1b9c6380, upstream #251 win11/thumbnailer-sandbox-paths 0c48236c, properties-width f3a9891a, mount-point-folder be1d7cce, this-pc-menu 28a34029, tiles-content-fix 1ddc51a2, group-collapse e401048d, access-denied-continue 53b4e5d3, nav-tooltips 4f18b149, dialog-child-windows 355c4f80, list-focus-outline e22521d0. Deb is pushed first once the release build succeeds; clippy and conflict-file tests after.
