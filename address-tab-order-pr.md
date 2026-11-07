@@ -1,18 +1,18 @@
 Model: claude-opus-5-5
 
-# fix(focus): Follow Windows Explorer's Tab order and show the keyboard focus after Esc in the address bar
+# fix(keyboard): Give every Tab stop a visible focus, starting with the file list after Esc
 
 A follow-up to AKolenda/openxplorer#257, which made the address bar's chevron and « take keyboard focus. In practice the keyboard never visibly reached them after leaving the address bar with Esc.
 
 ## The problem
 
-Steps, in a build of main on KDE Plasma Wayland:
+Steps, in a build of main on KDE Plasma 6 Wayland (KWin), at 1x:
 
 1. Open OX-Test > Template test > Inside A, in Large icons view.
 2. Click an empty spot in the address bar.
 3. Press Esc, then press Tab.
 
-No focus ring showed anywhere. The next Tab rang the status bar's view buttons, and the chevron, the « and the crumbs never visibly took the keyboard.
+After Esc, no focus ring showed anywhere. With the Details pane open, the first Tab showed none either, and the next rang the status bar's view buttons. The chevron, the « and the crumbs never visibly took the keyboard.
 
 Three causes:
 
@@ -59,6 +59,7 @@ Three causes:
   - it checks the order above and that the focused widget's pixels change at each stop, the item after Esc included;
   - in a narrow window, it checks that the « is the address bar's first stop.
 - `the_keyboard_on_an_empty_list_rings_its_note` covers the empty folder, and `tab_tries_every_other_stop_once_and_wraps_round` unit-tests the cycle.
+- The user tested the steps above on KDE Plasma 6 Wayland (KWin) at 1x, with real input, in a build of this branch. Every Tab stop showed its focus: Esc ringed the file, then Tab ringed the Details pane, the view buttons, the tab, its Close button and on round.
 - The real app was also driven with real keys, as an unprivileged user:
   - on X11 under Xvfb with Openbox and xdotool;
   - on Wayland under weston, with keys sent through an RDP client.
@@ -67,6 +68,6 @@ Three causes:
 - The theme, focus, accessibility, address, Details pane, split view, tab, landing and empty folder tests pass (185), except the 2 permission tests that fail only as root.
 - Before the Details pane change, the whole ox-app test binary ran under `check.py`'s isolation. All 14 focus tests pass. 14 others failed as root: 9 of them pass as an unprivileged user, and the other 5 need the retired Python app's sources (`OX_PYTHON_APP`).
 - rustfmt and Clippy with `-D warnings` on Rust 1.92.0 are clean. `parity/check.py`, `i18n.py check` and `sync-docs.py --check` pass.
-- Not tested: KWin itself, a screen reader, and Windows 11's own behavior for Esc in the address bar and for its tabs and navigation buttons in the Tab order.
+- Not tested: a screen reader, and Windows 11's own behavior for Esc in the address bar and for its tabs and navigation buttons in the Tab order.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
