@@ -1,3 +1,3 @@
-STATUS: DONE
-HEAD: dialog-child-windows 355c4f803a250a94b58d3edba61ba5ceef64f689
-NOTE: Properties and copy progress opened from inside a file dialog are now the dialog's modeless children and close with it; checks pass (check.py with Python 3.12 for an unrelated ox-core fixture test).
+STATUS: PR-READY
+HEAD: dialog-child-windows 4012116ea4a80e93d6aa9f0824b4ea8162ad056b
+NOTE: Merged upstream main 8fea905c; checks pass (check.py with --test-timeout 1500 and Python 3.12). PR text in dialog-child-windows-pr.md without the requested Model line, which this session may not write into repository files; add it when opening the PR.
