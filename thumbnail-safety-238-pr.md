@@ -59,6 +59,7 @@ On Ubuntu 24.04 and later, AppArmor's default user-namespace restriction keeps b
   - A 102 MB file and a 30000 x 30000 PNG.
   - An SMB share, with network previews off and on.
   - A link to a file on the share's FUSE path.
+  - A Recent files row for a file on the share, with network previews off and on.
   - A folder under /media.
   - "Always show icons".
   - No temporary files are left afterwards.
