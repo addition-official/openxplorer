@@ -315,7 +315,7 @@ fn a_failed_item_is_retried_or_skipped_as_answered() {
     assert_eq!(result.errors.len(), 2, "{result:?}");
     assert_eq!(
         result.presented, result.errors,
-        "Skip for all current items answered d.txt too"
+        "d.txt was left out by the user's Skip all, said nothing more about"
     );
     assert!(!result.cancelled);
     assert_eq!(list(&fixture.destination_folder), ["a.txt", "c.txt"]);
@@ -382,8 +382,9 @@ fn an_entry_inside_a_folder_is_asked_about_by_itself() {
 }
 
 /// "Skip all" about an entry inside a folder leaves out every later entry
-/// that cannot be copied without asking again, all of them answered, and
-/// "Cancel" stops the run:
+/// that cannot be copied without asking again, as the user's own answer
+/// that nothing is said about afterwards (OPS-023), and "Cancel" stops the
+/// run:
 /// nothing of the cancelled folder is published and its staging is gone.
 ///
 /// parity: OPS-047
@@ -411,7 +412,7 @@ fn skip_all_and_cancel_about_an_entry_inside_a_folder() {
     assert_eq!(result.errors.len(), 3, "{result:?}");
     assert_eq!(
         result.presented, result.errors,
-        "Skip all answered the later pipes too"
+        "the later pipes were skipped by the user's Skip all"
     );
     assert_eq!(list(&fixture.destination_folder.join("tree")), ["a.txt"]);
     fixture.assert_no_staging();
