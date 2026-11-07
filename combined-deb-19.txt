@@ -1,3 +1,4 @@
-STATUS: WORKING
-HEAD: test-combined-19 (merging)
-NOTE: Deb 19 (2.0.14+test19). Base test-combined-18 8e375477; upstream main still 8fea905c. Merging, none moved: group-collapse 0e055605, address-tab-fix d7ccbb47, properties-width 9404efb9. Deb pushed first once the release build succeeds; clippy and conflict-file tests after.
+STATUS: DEB PUSHED (checks running)
+HEAD: test-combined-19 dfdc107e
+DEB: claude/test-combined-19-deb 7d7911f3 a9ddfe1f75f2859874adfd3929acad4023bf2767487c8fe21f070edde70c2a19
+NOTE: Deb 19 (2.0.14+test19; the program reports 2.0.14). Includes replace-skip-details 3c1774d4 (merged before the build, as asked). Release build succeeded. Clippy and conflict-file tests running now; results follow in this file.
