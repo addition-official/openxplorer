@@ -1,0 +1,3 @@
+STATUS: WORKING
+HEAD: test-combined-15 (merging)
+NOTE: Deb 15 (2.0.14+test15). Base test-combined-14 94dee6d6 (upstream main 6b8cebee). Merging folder-options-window 866bf830, then paste-picture-opt-in 8b06e58c (neither moved). Deb is pushed first once the release build succeeds; clippy and conflict-file tests after.
