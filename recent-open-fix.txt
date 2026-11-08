@@ -1,4 +1,37 @@
-STATUS: IN-PROGRESS
-HEAD: recent-open-fix 404b264 (pushed; a further commit for Open with on a gone Recent file is local, not pushed yet)
-QUESTION: none
-NOTE: Fix and tests pushed. Manual xdotool checklist under Xvfb done for the local file, the gone file and the Recent locations folder. Open with on a gone Recent file now also says Item Not Found (test written first, failed, now passes). Next: full check.py run, captures, PR text.
+STATUS: PR-READY
+HEAD: recent-open-fix cc4e8a0
+QUESTION: (1) Cut on a Recent files row still refuses the row ("only local paths..."), so Cut never moves a file out of its folder from Recent. Should Cut act on the real file like Copy does? Left unchanged. (2) An smb:// Recent row could not be tested here: GVfs 1.54's Recent backend only lists file: entries and the container has no GVfs FUSE. Please try one on your PC.
+NOTE: Recent files rows are GVfs recent:/// items; opening and most commands used that address, which the opener refuses. Now they use the file in entry.meta.recent_target (Entry::opened_uri / item_uri); navigation_uri unchanged. A gone file says the existing "Item Not Found" wording for Open and Open with. A drag from Recent onto a folder on the same drive moves the real file, as a drag from its folder does. Seen but not changed: typing recent:/// in the address bar, or passing it on the command line, is refused with the "supported in this build" message. Captures come from a driver using tools/native_capture.py's demo tree and bubblewrap isolation with xdotool input (the snapshot hook cannot draw dialogs or other apps). PR text in recent-open-fix-pr.md.
+PASS tests-first: 8 new bug tests fail on upstream main 016c335, all 9 recent_rows tests pass on the branch (Recent locations test passes on both)
+PASS rustfmt --check
+PASS clippy (CONTRIBUTING.md pedantic command, Rust 1.92.0)
+PASS python3 native/parity/check.py
+PASS python3 native/tools/i18n.py check
+PASS python3 tools/audit-public-data.py
+FAIL python3 native/tools/check.py: 2 of 2113 ox-app tests (a_sandboxed_thumbnailer_runs_within_its_limits, a_sandboxed_thumbnailer_sees_only_its_item) fail; same 2 fail on unmodified upstream main here (they run only with bubblewrap installed, which the capture tool needed); all else passed with python3 = 3.12. With python3 = 3.13 ox-core location_fixture_drift fails first (Python URL parser change, unrelated)
+PASS local file: double-click opens the real file in the default app
+PASS local file: Enter opens the real file
+PASS local file: context-menu Open opens the real file
+PASS local file: Open with (menu app and Choose another app dialog, which names "this .txt file") opens the real file
+PASS local file: Copy as path (Ctrl+Shift+C and menu) copies "<home>/Documents/Report.txt"
+PASS local file: Copy puts file:///<home>/Documents/Report.txt on the clipboard; Paste into another folder copies it
+PASS local file: Properties is "Report.txt Properties", Location <home>/Documents
+PASS local file: drag onto Downloads in the navigation pane offers "Move to Downloads" and moves the real file
+PASS missing file: double-click says Item Not Found / Could not find this item / no longer located in <home>/Documents/Drafts
+PASS missing file: Enter says Item Not Found
+PASS missing file: context-menu Open says Item Not Found
+PASS missing file: Open with (menu app and Choose another app) says Item Not Found
+PASS missing file: Copy as path copies the real (gone) path
+PASS missing file: Properties is "Old.txt Properties" for the real path; General says it cannot be read (existing behaviour for an unreadable item)
+PASS missing file: drag acts on the real path; the drop says "Operation stopped ... No such file or directory" (existing transfer check)
+PASS folder (Recent locations): double-click opens it in place
+PASS folder (Recent locations): Enter opens it in place
+PASS folder (Recent locations): context-menu Open opens it in place
+PASS folder (Recent locations): Open in new tab
+PASS folder (Recent locations): Open in new window
+PASS folder (Recent locations): Open folder with... launches the chosen app on the folder
+PASS folder (Recent locations): Copy as path, Properties ("Projects Properties", Location <home>/Documents)
+PASS folder (Recent locations): drag onto Downloads moves the folder ("Move to Downloads")
+NOT RUN smb:// file: all checklist items (GVfs Recent backend here lists no smb:// entries; no FUSE) - see QUESTION
+NOTE-CHECKLIST: a never-existing file in recently-used.xbel is not listed by GVfs at all, so the missing-file lines used a file whose folder was moved while the row was shown
+PASS captures: recent-open-fix-1x-{light,dark}-open.png, recent-open-fix-1x-{light,dark}-item-not-found.png
