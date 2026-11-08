@@ -1,7 +1,7 @@
 STATUS: DONE
-HEAD: shortcuts-window-fixes 398801ed
+HEAD: shortcuts-window-fixes c1de31fe
 QUESTION: none
-NOTE: Search finds shortcuts by keys however typed (and by name/section words); the list keeps 12 px clear of the scroll bar; names and keys wrap and the window fits a narrow app window. The app window cannot be narrower than 670 px (its minimum), so widths 670/800/1200 were tested instead of 480.
+NOTE: Search finds shortcuts by keys however typed (and by name/section words); the list keeps 12 px clear of the scroll bar; names and keys wrap so the window keeps its 510 px width. The app window cannot be narrower than 670 px (its minimum), so widths 670/800/1200 were tested instead of 480.
 
 UNIT TESTS (failing first)
 FAIL on main -> PASS | the_shortcuts_window_finds_a_shortcut_by_its_keys_however_typed
@@ -91,3 +91,4 @@ PASS | Search "shift e" shows the Ctrl+Shift+E row | 2x window 1200 px, always-s
 PASS | Scrolled to the end with the mouse wheel: last row (Reset text size, Ctrl+0) shown | 2x window 1200 px, always-shown scroll bars | before (main): PASS | last row shown=True; the key column position is checked by the unit test and the pictures (AT-SPI label positions are not usable here)
 
 PICTURES (repo native capture path, fictional demo tree): top-<width>, end-<width> (scrolled to the end), end-<width>-always-bars (GTK overlay scrolling off), largest-text-670, search-<query form>; before-main-* from unchanged main
+PASS | c1de31fe (drops a width cap the 670 px minimum window never reaches): shortcuts_window tests 8/8, fmt, Clippy, parity check rerun as tester; full check.py not rerun for this removal
