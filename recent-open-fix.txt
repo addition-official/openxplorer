@@ -1,4 +1,4 @@
 STATUS: IN-PROGRESS
-HEAD: recent-open-fix 016c335 (cut from upstream main, no commits yet)
+HEAD: recent-open-fix (not pushed yet; local tests commit dea78a0 on upstream main 016c335)
 QUESTION: none
-NOTE: Started. Reading how Recent rows are built and opened; failing tests come first.
+NOTE: Cause found: opening a Recent files row re-read and launched the row's own recent:/// address, which the opener refuses. Failing tests written (3 of 4 fail on main; Recent locations already works there and stays as a regression test). Fix makes Open, Enter, double-click, Open with, Copy, Copy as path, drag and Properties use the file the row stands for; a gone file says "Item Not Found". New tests pass under Xvfb. Next: confirm the final tests fail on main, full checks, xdotool checklist with a local Samba share, captures.
