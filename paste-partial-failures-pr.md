@@ -8,7 +8,7 @@ Model: claude-opus-5-5
 
 ## Summary
 
-Three paste problems from the overnight review, each confirmed on a real PC:
+Three paste problems:
 
 - **An unreadable subfolder stopped the whole copy.** Copying a folder that held a readable file and a subfolder only its owner could open showed "Operation stopped: Error opening directory ... Permission denied" with only OK, and nothing was copied. Now everything readable is copied and the unreadable subfolder is asked about by itself in the progress window: "Folder Access Denied", "You need permission to perform this action", Try Again, Skip and Cancel. The same goes for one nested deeper.
 - **One missing item stopped the whole paste.** Cutting two files, deleting one from outside the app and pasting showed "Operation stopped: Error when getting information for file ..." and moved neither. Now the other file moves and the missing one is asked about in the progress window: "Item Not Found", "Could not find this item", Try Again, Skip and Cancel. Several missing items are asked about one by one.
@@ -20,7 +20,7 @@ Cause of the first two: before any item ran, the check for protected (snapshot) 
 
 Undo after a partial copy or move reverses only what was done.
 
-## Windows' behaviour
+## Windows' behavior
 
 - Microsoft documents no wording for a folder pasted into its own subfolder. The only Microsoft text is the old `SHFileOperation` code `DE_DESTSUBTREE`, "The destination is a subtree of the source." ([learn.microsoft.com](https://learn.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shfileoperationa)). The dialog sentence "The destination folder is a subfolder of the source folder." appears only in user posts on Microsoft Q&A. So the app uses its own plain wording, with no "unexpected error" and no Try Again.
 
