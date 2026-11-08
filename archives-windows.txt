@@ -1,7 +1,7 @@
 # DO NOT PR
-STATUS: PR-READY
-HEAD: archives-windows 530677962aa2778f837bd46f77a74961fcc353d8
-QUESTION: CONFLICT (ARC-026): the parity note said "TAR archives keep the window"; item 1 makes TAR archives (.tar, .tar.gz, .tgz, .tar.bz2, .tar.xz, .tar.zst) open in the tab like a ZIP, following Settings > ZIP & archives > "Double-clicking a ZIP" (default Like a folder; "In a pop-up window" still uses the window). Keep this, or keep TAR in the pop-up window? The setting's title still says "a ZIP" (left as the owner wrote it; description now covers TAR).
+STATUS: DONE
+HEAD: archives-windows 9e548cff4fdd2b68554c6b84f312821c87bfc57c
+QUESTION: none
 NOTE: Branch cut from upstream main 016c335; tests committed first (e4d6628, all fail on main), then the fixes. No new dependency: ruzstd (already a workspace dependency and in Cargo.lock) is added as an ox-app dev-dependency to write .tar.zst fixtures (one Cargo.lock line). Item 3 is TAR-only; ZIP links are still refused. A TAR symbolic link is allowed only when its target is relative, uses '..' only at its start and climbs no higher than the extracted folder; links are leaves of the archive's paths, so nothing is written through one; hard links, devices and FIFOs stay refused; the browser still hides links; no existing name, path or size guard was changed. Design note for the manager: Extract here lifts a lone top folder and may rename it "(2)"; a link inside that climbs to the archive top then points beside it in the same destination (nothing is written through it). Changed messages (ZIP -> archive wording, new extract/link texts) lose their zh_CN translation until redone. Real-input run: debug app under Xvfb 1440x1000 at 1x, fictional files, xdotool mouse clicks/double-clicks, light and dark. Captures: browsed .tar.gz via tools/native_capture.py (the snapshot hook; 2x uses a 780x600 window to fit its screen); the conflict window and the compact Compress to submenu via the test harness capture hook (OX_NATIVE_CAPTURE_DIR), because the snapshot hook saves only the browser window and its context-menu step opens the classic menu.
 
 PASS item1 .tar: double-click opens it in the tab, Docs opens, Back, Up (light, dark)
@@ -49,5 +49,4 @@ NOT BUILT:
 - ZIP symbolic links: still refused (item 3 asked for TAR).
 - Pinned-folder (sidebar) Compress to still offers ZIP File only.
 
-CONFLICT:
-- ARC-026 "TAR archives keep the window" vs item 1 "open TAR in the window like ZIPs": built item 1; see QUESTION.
+CONFLICT: none (ARC-026 decided by the user after checking Windows 11: TAR archives follow the same "Double-clicking a ZIP" setting as ZIP; Like a folder by default, the pop-up window still available through that setting. Parity note updated in 9e548cf; Extract all shows in the command bar inside every TAR type, asserted by tar_archives_open_in_the_tab_like_a_folder and seen in the real-input run.)
