@@ -1,0 +1,3 @@
+STATUS: WORKING
+HEAD: explorer-shortcuts 84ee66a2
+NOTE: Branch cut from upstream main 2.0.15. Microsoft page fetched. Building the real-input (xdotool) test driver and testing unchanged main.
