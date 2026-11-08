@@ -9,7 +9,7 @@ While a search shows, the search strip already had Kind and Date modified lists.
 
 Nothing the owner already decided was changed: the "Search Results in <folder>" title (SRCH-042), the 120 ms typing pause (SRCH-002), the no-results messages (SRCH-013) and the place of the search options (the strip, SRCH-037) stay as they were. Where Windows may differ, it is listed under "Not confirmed" and "Conflicts" below.
 
-The snapshot hook gains three scene steps (`type=`, `option=`, `choose=`) so the repo's capture path can picture a running search and the open option lists.
+The snapshot hook gains three scene steps (`search=`, `option=`, `choose=`) so the repo's capture path can picture a running search and the open option lists.
 
 ## Behaviours and their Microsoft sources
 | Behaviour | Built? | Microsoft source |
@@ -34,6 +34,7 @@ The snapshot hook gains three scene steps (`type=`, `option=`, `choose=`) so the
 Title case and placement; the Search options menu's place and labels; Windows 11's Date modified and Kind values; the Size labels and the 16,383-byte boundary; whether folders pass a size filter; whether menu choices write syntax into the box; size units and other dates in the syntax; typing delay, progress and empty text; Escape, clear and Back from results.
 
 ## How it was tested
+- Merged with explorer-shortcuts-fixed: its `type=` scene step is kept, this branch's search-box step is `search=`. Full `check.py` passed on the merge.
 - Tests first: the new tests in `ox-core/src/search/facets.rs`, `ox-core/src/search/syntax.rs` and `ox-app/src/window/tests/search_options.rs`; the two window tests that compile on main (`a_typed_option_alone_lists_everything_of_it`, `a_typed_option_finds_items_in_a_big_folder`) fail there.
 - `python3 native/tools/check.py`: passed (75 test executables plus doctests) with Python 3.12. One rename test (`the_name_fields_own_menu_keeps_the_rename_going`) failed in one of three full runs and passed in the other two.
 - `python3 native/parity/check.py`, `cargo fmt --check` and clippy: passed. `tools/audit-public-data.py`: no issues.

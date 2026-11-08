@@ -1,7 +1,7 @@
 STATUS: DONE
-HEAD: search-windows 48e14691
+HEAD: search-windows 05a40024
 QUESTION: none
-NOTE: Size (Microsoft's System.Size groups) and Last week options, plus typed kind:/datemodified:/size:, built from Microsoft docs; the title, typing pause, empty texts and option placement stay the owner's. Full check.py passed; commits are addition-official only, so GitHub shows them Unverified.
+NOTE: Merged explorer-shortcuts-fixed (51b9fa24): their snapshot type= kept, the search box's step renamed search=; full check.py passed on 05a40024. Size (Microsoft's System.Size groups) and Last week options, plus typed kind:/datemodified:/size:, built from Microsoft docs; the title, typing pause, empty texts and option placement stay the owner's. Full check.py passed; commits are addition-official only, so GitHub shows them Unverified.
 
 SOURCES (Microsoft only)
 - https://support.microsoft.com/en-us/office/foundations-experiences/find-what-you-need-with-microsoft-search : Search options on the top toolbar; date modified, kind, size
@@ -15,6 +15,8 @@ TESTS FIRST
 - On unchanged upstream main 016c3359: a_typed_option_alone_lists_everything_of_it and a_typed_option_finds_items_in_a_big_folder FAILED (timed out); the rest do not compile on main (new API).
 
 CHECKS (run as tester)
+- Merge 05a40024 (explorer-shortcuts-fixed 51b9fa24 into search-windows): python3 native/tools/check.py PASS ("Native checks passed (75 test executables plus doctests)"), cargo fmt --check PASS, clippy -D warnings PASS, parity/check.py PASS, i18n check PASS. Conflicts: snapshot/scene.rs (type= is theirs; ours is now search=, with option= and choose=) and the generated apps/web/public/assets/markdown.json (regenerated with tools/sync-docs.py).
+  With bubblewrap installed (I installed it for the captures), 2 thumbnailer tests fail: thumbnails::thumbnailers::tests::a_sandboxed_thumbnailer_runs_within_its_limits and a_sandboxed_thumbnailer_sees_only_its_item. They fail the same way on unchanged upstream main 016c3359, and without bubblewrap they skip. The passing run above was without bubblewrap, as the container started.
 - python3 native/tools/check.py on 3d0d33f6: PASS ("Native checks passed (75 test executables plus doctests)"), run with Python 3.12 first on PATH and folders not group-writable.
   Earlier runs that failed, all from my setup or flakes, not the change: disk full; location_fixture_drift fails under Python 3.13 (urllib "[V1.x]" answer; the change touches no location code); 27 admin_copy/admin_delete tests fail when the checkout path is group-writable (OX_REQUIRE_TRUSTED_HOME); window::tests::renaming::the_name_fields_own_menu_keeps_the_rename_going failed once and passed in the two other full runs (flaky; not run on main).
 - On 48e14691 (snapshot-only follow-up): cargo fmt --check PASS, cargo clippy -D warnings PASS, ox-app snapshot tests 24/24 PASS.
@@ -37,7 +39,7 @@ PASS Typed syntax matches the lists ("plan kind:document size:tiny datemodified:
 PASS Keyboard reaches and operates every filter (Tab to Kind, Date modified, Size with a visible focus ring; Enter opens, arrows move, Enter chooses): 1x light, plus combined pass at 1x dark and 2x light/dark
 NOTE Not run: reduced-motion and responsive layout were not changed by this work and were not re-checked; network folders follow the existing rule (a share is only filtered, never walked), unchanged and not exercised (no network in the sandbox).
 
-CAPTURES (tools/native_capture.py path + the snapshot hook's new type=/option=/choose= steps; fictional demo tree)
+CAPTURES (tools/native_capture.py path + the snapshot hook's new search=/option=/choose= steps; fictional demo tree; progress re-taken on 05a40024 with search=)
 search-windows-<1x|2x>-<light|dark>-<results-top|results-nested|menu-kind|menu-date|menu-size|combined|typed|empty|progress|tiles-combined|content-combined>.png (44 files)
 Observed in progress: while a slow walk runs, the empty page already reads "No matching items" under "Searching..." (existing behaviour, not changed).
 
