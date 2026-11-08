@@ -1,4 +1,4 @@
-STATUS: DONE
+STATUS: WORKING
 HEAD: main 016c33598d3292a52c1b8879c38ec52fc12564e5
 QUESTION: none
-NOTE: clearly wrong 6, not sure 11, bugs 14, regressions 0, security notes 0 (chat only); report in overnight-review-report.md
+NOTE: second pass running (dialogs, views, archives, slow SMB, drag and drop); first-pass report stays in overnight-review-report.md
