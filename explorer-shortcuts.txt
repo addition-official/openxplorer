@@ -1,4 +1,483 @@
-STATUS: WORKING
+STATUS: DONE
 HEAD: explorer-shortcuts-fixed 51b9fa24
-QUESTION: none
-NOTE: Keys added; check.py, parity, rustfmt and clippy run (results at the end). Real-input (xdotool) runs on unchanged main and on the branch are in progress, then captures.
+QUESTION: two CONFLICTs need a decision, both left as the owner made them: (1) Alt+mouse drag: Windows makes a shortcut, OpenXplorer opens the drop menu (Alt asks). (2) Backspace in an Open/Save dialog: Windows goes up one folder, OpenXplorer goes back (NAV-004). Change either?
+NOTE: Added Ctrl+1..9 tabs (and Properties tabs), Ctrl+Shift+E, Num Lock +/-/* in the navigation pane, Ctrl+F5, Ctrl+Insert/Shift+Insert, and fixed typed Ctrl+Shift+1..8 (never worked with a real keyboard). Real input: main 382 cells with 44 FAIL; branch 378 PASS + 4 CONFLICT. 48 captures pushed.
+
+CHECKLIST (shortcut | what Windows does, Microsoft's words | BEFORE: unchanged upstream main 2.0.15, real input | AFTER: explorer-shortcuts-fixed, real input | result)
+Source: Microsoft, "Keyboard shortcuts in Windows", fetched 2026-11-08 (Windows 11 tab: "File Explorer keyboard shortcuts", "Desktop and other general", "Text editing", "Dialog box"; Windows 10 tab only for the Num Lock rows and wordings Windows 11 dropped).
+
+File Explorer keyboard shortcuts (Windows 11)
+Alt+D | "Select the address bar." | works: address text selected | same | PASS
+Alt+Enter | "Display properties for the selected item." | Properties opens | same | PASS
+Alt+Left arrow / Backspace | "Navigate to the previous folder." | works (Backspace from the list too) | same | PASS
+Alt+mouse drag a file | "When you drop the file, create a shortcut to the original file in that location." | the owner's drop menu opens (DND rule: Alt asks); no shortcut | same | CONFLICT
+Alt+P | "Show or hide the preview pane." | works | same | PASS
+Alt+Right arrow | "View the next folder." | works | same | PASS
+Alt+Shift+P | "Show or hide the details pane." | works | same | PASS
+Alt+Up arrow | "Move up a level in the folder path." | works (main window, navigation pane, Save dialog) | same | PASS
+Ctrl+Arrow key (to move to an item)+Spacebar | "Select multiple individual items." | works in all five views | same | PASS
+Ctrl+D / Delete | "Delete the selected item and move it to the Recycle Bin." | works | same | PASS
+Ctrl+E / Ctrl+F | "Select the search box." | works | same | PASS
+Ctrl+L | "Focus on the address bar." | works | same | PASS
+Ctrl+mouse drag a file | "When you drop the file, create a copy in that location." | works | same | PASS
+Ctrl+mouse scroll wheel | "Change the size and appearance of file and folder icons." | works | same | PASS
+Ctrl+N | "Open a new window." | works | same | PASS
+Ctrl+Number (1-9) | "Move to that tab number." | nothing (only Alt+1..9) | shows that tab; Alt+1..9 kept | PASS (was FAIL)
+Ctrl+Plus (+) (keypad) | "Resize all columns to fit text." | works (upstream 2.0.15) | same | PASS
+Ctrl+Shift+E | "Expands all folders from the tree in the navigation pane." (Windows 10: "Display all folders above the selected folder.") | nothing | opens the navigation pane down to the folder shown, opens its subfolders, focus moves there (folder tree, else the place's row) | PASS (was FAIL)
+Ctrl+Shift+N | "Create a new folder." | works, name box open | same | PASS
+Ctrl+Shift+Number (1-9) | "Change the view style. For example, 2 is Large icons and 6 is Details." | typed keys did nothing (GTK got the shifted symbol, such as % for 5) | 1-8 switch the view in all views, main window and Save dialog | PASS (was FAIL)
+Ctrl+Shift+Tab | "Move to the previous tab." | works | same | PASS
+Ctrl+T | "Open a new tab and switch to it." | works | same | PASS
+Ctrl+W | "Closes the active tab. Closes the window if there's only one tab open." | works | same | PASS
+Ctrl+Tab | "Move to the next tab." | works | same | PASS
+End | "Scroll to the bottom of the active window." | works | same | PASS
+F2 | "Rename the selected item." | works | same | PASS
+F3 | "Search for a file or folder." | works | same | PASS
+F4 | "Select the address bar to change the current path." | works | same | PASS
+F5 | "Refresh the window." | works | same | PASS
+F6 | "Cycle through elements in the window." | works | same | PASS
+F11 | "Maximize or minimize the active window." | full screen and back (as Windows 11 File Explorer does) | same | PASS
+Home | "Scroll to the top of the active window." | works | same | PASS
+Left arrow | "Collapse the current selection (if it's expanded), or select the folder that the folder was in." | works on This PC / Network heads; folder tree reachable only by mouse | same keys; Ctrl+Shift+E now reaches the tree by keyboard | PASS
+Right arrow | "Display the current selection (if it's collapsed), or select the first subfolder." | same as Left | same as Left | PASS
+Shift+Arrow keys | "Select multiple items." | works in all five views | same | PASS
+Shift+Delete | "Permanently delete the selected item without moving it to the Recycle Bin." | asks, then deletes for good | same | PASS
+Shift+F10 | "Display the context menu for the selected item." | works | same | PASS
+Shift+mouse drag a file | "When you drop the file, move it to that location." | works | same | PASS
+Shift+mouse right-click | "Display the Show more options context menu for the selected item." | classic menu | same | PASS
+Windows key+E | "Open File Explorer." | - | - | SKIPPED: a desktop key; the desktop opens its own default file manager
+
+File Explorer rows only on the Windows 10 tab
+Num Lock+asterisk (*) | "Display all subfolders under the selected folder." | nothing (key went to type-to-select) | opens every folder below the selected tree folder; expands This PC / Network | PASS (was FAIL)
+Num Lock+plus (+) | "Display the contents of the selected folder." | nothing | opens the selected tree folder; expands a section | PASS (was FAIL)
+Num Lock+minus (-) | "Collapse the selected folder." | nothing | closes it; collapses a section | PASS (was FAIL)
+Backspace | "View the previous folder." | works | same | PASS
+
+Desktop and other general shortcuts that act in File Explorer
+Ctrl+A | "Select all items in a window." | works | same | PASS
+Ctrl+F5 / Ctrl+R | "Refresh the current window." | Ctrl+R works, Ctrl+F5 nothing | both refresh | PASS (was FAIL)
+Ctrl+Y | "Redo an action that was previously undone with Ctrl+Z." | works | same | PASS
+Ctrl+Z | "Undo the previous action." | works | same | PASS
+Esc | "Stop or leave the current task, or dismiss a dialog box." | works | same | PASS
+Alt+F4 | "Close the active window..." | - | - | SKIPPED: the desktop's window manager closes windows on Linux; the app binds nothing
+Alt+Spacebar, Alt+Esc | window menu, cycle windows | - | - | SKIPPED: window manager keys
+Alt+Page Down / Alt+Page Up | "Move down/up one screen." | not tested | not tested | NOT TESTED
+Alt+underlined letter | "...Press Alt and then the letter to do that action." | not tested | not tested | NOT TESTED
+Alt+Shift+arrow, Ctrl+Shift+arrow (Start tiles) | Start menu tiles | - | - | SKIPPED: Start menu only
+Ctrl+F4 | "In apps that are full-screen ... close the active document but not the entire app." | not added | not added | SKIPPED: not in the File Explorer list; File Explorer closes tabs with Ctrl+W
+Ctrl+Spacebar | "Enable or disable the Chinese input method editor (IME)" | - | - | SKIPPED: the desktop's input method; in the file list Ctrl+Space toggles an item (tested above)
+F10 | "Activate the menu bar in the active window." | - | - | SKIPPED: Windows 11 File Explorer has no menu bar, nor has this app
+
+Text editing shortcuts (inside the address bar, search box and rename box)
+Ctrl+A | "Select all text." | works in all three fields | same | PASS
+Home / End | "Move the cursor ... beginning/end of the line." | works | same | PASS
+Backspace / Del | delete a character | works; the window does not go back | same | PASS
+Ctrl+C / Ctrl+Insert, Ctrl+V / Shift+Insert | copy / paste text | works; no files copied | same | PASS
+Ctrl+Z | "Undo the last typing." | works | same | PASS
+Other text-editing rows (Ctrl+arrows, Shift+Ctrl+arrows, Ctrl+Del, Ctrl+Shift+V, Page Up/Down) | GTK's own field keys | not tested | not tested | NOT TESTED
+File-list keys stay in fields: Ctrl+D, F2, Ctrl+Shift+N, Ctrl+1, Ctrl+Shift+E, Num minus types "-" | | stay in the field | same | PASS
+
+Ctrl+Insert / Shift+Insert in the file list | copy / paste (Microsoft's text-editing rows; File Explorer also copies and pastes files with them) | nothing | copy and paste the selection | PASS (was FAIL)
+
+Dialog box keyboard shortcuts (Properties window, Save dialog)
+Ctrl+Tab / Ctrl+Shift+Tab | "Move forward/back through tabs." | works in Properties | same | PASS
+Ctrl+1, 2, 3,... | "Move to that tab number." | nothing in Properties | shows that tab | PASS (was FAIL)
+Esc | dismiss | works | same | PASS
+Backspace | "Open a folder one level up if a folder is selected in the Save As or Open dialog box." | goes Back (owner rule NAV-004) | same | CONFLICT
+F4, Tab, Shift+Tab, Spacebar, Arrow keys, Alt+underlined letter | dialog controls | not tested | not tested | NOT TESTED
+
+CHECKS (run as tester, Rust 1.92)
+PASS | python3 native/parity/check.py
+PASS | i18n check, tools unit tests, drawn-icon check (inside native/tools/check.py)
+PASS | cargo fmt --check
+PASS | cargo clippy -D warnings (workspace lints)
+FAIL (also on unchanged main) | ox-app lib: 2113 passed, 2 failed: thumbnails::thumbnailers sandboxed thumbnailer tests (bubblewrap sandbox in this container)
+PASS | the other 75 test executables and the doctests (ox-core lib with OX_TEST_TRUSTED_BASE set, as its tests ask; without it 18 link-safety tests fail because the checkout is under world-writable /tmp; location_fixture_drift with Python 3.12 and node on PATH)
+PASS | tests/test_release_source.py, tests/test_public_data.py, tools/audit-public-data.py
+NOT RUN | pnpm check / pnpm build (no website code changed)
+PASS | new unit tests: 8 fail on main+tests (651611fc), Properties test fails without its fix; all 9 pass on the branch
+
+REAL-INPUT CELLS (result on the branch | shortcut | cell | result on unchanged main | detail)
+PASS | Ctrl+Shift+6 | Details 1x list | before (main): FAIL | ctrl+shift+2: True, back: True, saved=details focus=table row:'Invoices'[FS]
+PASS | End | Details 1x list | before (main): PASS | sel=['Quarterly report.odt']
+PASS | Home | Details 1x list | before (main): PASS | sel=['Invoices']
+PASS | Shift+arrow keys (Shift+End) | Details 1x list | before (main): PASS | sel=6/6
+PASS | Shift+Arrow keys | Details 1x list | before (main): PASS | sel=['Invoices', 'Launch planning']
+PASS | Ctrl+Arrow key+Spacebar | Details 1x list | before (main): PASS | sel=['Invoices', 'Expenses 2026.ods']
+PASS | Ctrl+A | Details 1x list | before (main): PASS | sel=6/6
+PASS | Esc | Details 1x list | before (main): PASS | sel=[]
+PASS | F2 | Details 1x list | before (main): PASS | entry=('New name', '', True, (0, 13), 13)
+PASS | Ctrl+C / Ctrl+V | Details 1x list | before (main): PASS | copy exists=True
+PASS | Ctrl+Z | Details 1x list | before (main): PASS | copy exists=False
+PASS | Ctrl+Y | Details 1x list | before (main): PASS | renamed=True undone=True redone=True
+PASS | Ctrl+Insert / Shift+Insert | Details 1x list | before (main): FAIL | copy exists=True
+PASS | Delete | Details 1x list | before (main): PASS | gone=True windows=1
+PASS | Ctrl+D | Details 1x list | before (main): PASS | gone=True
+PASS | Shift+Delete | Details 1x list | before (main): PASS | asked=True gone=True in bin=False
+PASS | Ctrl+Shift+N | Details 1x list | before (main): PASS | made=True entry=('New name', '', True, (0, 10), 10)
+PASS | Shift+F10 | Details 1x list | before (main): PASS | menu=True
+PASS | Alt+Enter | Details 1x list | before (main): PASS | windows 1->2
+PASS | Ctrl+mouse scroll wheel | Details 1x list | before (main): PASS | details -> compact
+PASS | Backspace | Details 1x list | before (main): PASS | ['Invoices — OpenXplorer'] -> ['Documents — OpenXplorer']
+PASS | Ctrl+Shift+5 | List 1x list | before (main): FAIL | ctrl+shift+2: True, back: True, saved=compact focus=table cell:'Invoices'[FS]
+PASS | End | List 1x list | before (main): PASS | sel=['Quarterly report']
+PASS | Home | List 1x list | before (main): PASS | sel=['Invoices']
+PASS | Shift+arrow keys (Shift+End) | List 1x list | before (main): PASS | sel=6/6
+PASS | Shift+Arrow keys | List 1x list | before (main): PASS | sel=['Invoices', 'Launch planning']
+PASS | Ctrl+Arrow key+Spacebar | List 1x list | before (main): PASS | sel=['Invoices', 'Expenses 2026']
+PASS | Ctrl+A | List 1x list | before (main): PASS | sel=6/6
+PASS | Esc | List 1x list | before (main): PASS | sel=[]
+PASS | F2 | List 1x list | before (main): PASS | entry=('New name', '', True, (0, 13), 13)
+PASS | Ctrl+C / Ctrl+V | List 1x list | before (main): PASS | copy exists=True
+PASS | Ctrl+Z | List 1x list | before (main): PASS | copy exists=False
+PASS | Ctrl+Y | List 1x list | before (main): PASS | renamed=True undone=True redone=True
+PASS | Ctrl+Insert / Shift+Insert | List 1x list | before (main): FAIL | copy exists=True
+PASS | Delete | List 1x list | before (main): PASS | gone=True windows=1
+PASS | Ctrl+D | List 1x list | before (main): PASS | gone=True
+PASS | Shift+Delete | List 1x list | before (main): PASS | asked=True gone=True in bin=False
+PASS | Ctrl+Shift+N | List 1x list | before (main): PASS | made=True entry=('New name', '', True, (0, 10), 10)
+PASS | Shift+F10 | List 1x list | before (main): PASS | menu=True
+PASS | Alt+Enter | List 1x list | before (main): PASS | windows 1->2
+PASS | Ctrl+mouse scroll wheel | List 1x list | before (main): PASS | compact -> icons16
+PASS | Backspace | List 1x list | before (main): PASS | ['Invoices — OpenXplorer'] -> ['Documents — OpenXplorer']
+PASS | Ctrl+Shift+7 | Tiles 1x list | before (main): FAIL | ctrl+shift+2: True, back: True, saved=tiles focus=table cell:'Invoices'[FS]
+PASS | End | Tiles 1x list | before (main): PASS | sel=['Quarterly report']
+PASS | Home | Tiles 1x list | before (main): PASS | sel=['Invoices']
+PASS | Shift+arrow keys (Shift+End) | Tiles 1x list | before (main): PASS | sel=6/6
+PASS | Shift+Arrow keys | Tiles 1x list | before (main): PASS | sel=['Invoices', 'Launch planning']
+PASS | Ctrl+Arrow key+Spacebar | Tiles 1x list | before (main): PASS | sel=['Invoices', 'Expenses 2026']
+PASS | Ctrl+A | Tiles 1x list | before (main): PASS | sel=6/6
+PASS | Esc | Tiles 1x list | before (main): PASS | sel=[]
+PASS | F2 | Tiles 1x list | before (main): PASS | entry=('New name', '', True, (0, 13), 13)
+PASS | Ctrl+C / Ctrl+V | Tiles 1x list | before (main): PASS | copy exists=True
+PASS | Ctrl+Z | Tiles 1x list | before (main): PASS | copy exists=False
+PASS | Ctrl+Y | Tiles 1x list | before (main): PASS | renamed=True undone=True redone=True
+PASS | Ctrl+Insert / Shift+Insert | Tiles 1x list | before (main): FAIL | copy exists=True
+PASS | Delete | Tiles 1x list | before (main): PASS | gone=True windows=1
+PASS | Ctrl+D | Tiles 1x list | before (main): PASS | gone=True
+PASS | Shift+Delete | Tiles 1x list | before (main): PASS | asked=True gone=True in bin=False
+PASS | Ctrl+Shift+N | Tiles 1x list | before (main): PASS | made=True entry=('New name', '', True, (0, 10), 10)
+PASS | Shift+F10 | Tiles 1x list | before (main): PASS | menu=True
+PASS | Alt+Enter | Tiles 1x list | before (main): PASS | windows 1->2
+PASS | Ctrl+mouse scroll wheel | Tiles 1x list | before (main): PASS | tiles -> compact
+PASS | Backspace | Tiles 1x list | before (main): PASS | ['Invoices — OpenXplorer'] -> ['Documents — OpenXplorer']
+PASS | Ctrl+Shift+8 | Content 1x list | before (main): FAIL | ctrl+shift+2: True, back: True, saved=content focus=table cell:'Invoices'[FS]
+PASS | End | Content 1x list | before (main): PASS | sel=['Quarterly report']
+PASS | Home | Content 1x list | before (main): PASS | sel=['Invoices']
+PASS | Shift+arrow keys (Shift+End) | Content 1x list | before (main): PASS | sel=6/6
+PASS | Shift+Arrow keys | Content 1x list | before (main): PASS | sel=['Invoices', 'Launch planning']
+PASS | Ctrl+Arrow key+Spacebar | Content 1x list | before (main): PASS | sel=['Invoices', 'Expenses 2026']
+PASS | Ctrl+A | Content 1x list | before (main): PASS | sel=6/6
+PASS | Esc | Content 1x list | before (main): PASS | sel=[]
+PASS | F2 | Content 1x list | before (main): PASS | entry=('New name', '', True, (0, 13), 13)
+PASS | Ctrl+C / Ctrl+V | Content 1x list | before (main): PASS | copy exists=True
+PASS | Ctrl+Z | Content 1x list | before (main): PASS | copy exists=False
+PASS | Ctrl+Y | Content 1x list | before (main): PASS | renamed=True undone=True redone=True
+PASS | Ctrl+Insert / Shift+Insert | Content 1x list | before (main): FAIL | copy exists=True
+PASS | Delete | Content 1x list | before (main): PASS | gone=True windows=1
+PASS | Ctrl+D | Content 1x list | before (main): PASS | gone=True
+PASS | Shift+Delete | Content 1x list | before (main): PASS | asked=True gone=True in bin=False
+PASS | Ctrl+Shift+N | Content 1x list | before (main): PASS | made=True entry=('New name', '', True, (0, 10), 10)
+PASS | Shift+F10 | Content 1x list | before (main): PASS | menu=True
+PASS | Alt+Enter | Content 1x list | before (main): PASS | windows 1->2
+PASS | Ctrl+mouse scroll wheel | Content 1x list | before (main): PASS | content -> compact
+PASS | Backspace | Content 1x list | before (main): PASS | ['Invoices — OpenXplorer'] -> ['Documents — OpenXplorer']
+PASS | Ctrl+Shift+2 | Large icons 1x list | before (main): FAIL | ctrl+shift+6: True, back: True, saved=icons96 focus=table cell:'Invoices'[FS]
+PASS | End | Large icons 1x list | before (main): PASS | sel=['Quarterly report']
+PASS | Home | Large icons 1x list | before (main): PASS | sel=['Invoices']
+PASS | Shift+arrow keys (Shift+End) | Large icons 1x list | before (main): PASS | sel=6/6
+PASS | Shift+Arrow keys | Large icons 1x list | before (main): PASS | sel=['Invoices', 'Launch planning']
+PASS | Ctrl+Arrow key+Spacebar | Large icons 1x list | before (main): PASS | sel=['Invoices', 'Expenses 2026']
+PASS | Ctrl+A | Large icons 1x list | before (main): PASS | sel=6/6
+PASS | Esc | Large icons 1x list | before (main): PASS | sel=[]
+PASS | F2 | Large icons 1x list | before (main): PASS | entry=('New name', '', True, (0, 13), 13)
+PASS | Ctrl+C / Ctrl+V | Large icons 1x list | before (main): PASS | copy exists=True
+PASS | Ctrl+Z | Large icons 1x list | before (main): PASS | copy exists=False
+PASS | Ctrl+Y | Large icons 1x list | before (main): PASS | renamed=True undone=True redone=True
+PASS | Ctrl+Insert / Shift+Insert | Large icons 1x list | before (main): FAIL | copy exists=True
+PASS | Delete | Large icons 1x list | before (main): PASS | gone=True windows=1
+PASS | Ctrl+D | Large icons 1x list | before (main): PASS | gone=True
+PASS | Shift+Delete | Large icons 1x list | before (main): PASS | asked=True gone=True in bin=False
+PASS | Ctrl+Shift+N | Large icons 1x list | before (main): PASS | made=True entry=('New name', '', True, (0, 10), 10)
+PASS | Shift+F10 | Large icons 1x list | before (main): PASS | menu=True
+PASS | Alt+Enter | Large icons 1x list | before (main): PASS | windows 1->2
+PASS | Ctrl+mouse scroll wheel | Large icons 1x list | before (main): PASS | icons96 -> icons128
+PASS | Backspace | Large icons 1x list | before (main): PASS | ['Invoices — OpenXplorer'] -> ['Documents — OpenXplorer']
+PASS | Shift+mouse right-click | Details 1x window, focus in file list | before (main): PASS | plain has Show more options=True, shift has it=False, shift items=44
+PASS | Alt+D | Details 1x window, focus in file list | before (main): PASS | entry=('Location', '', True, (0, 36), 36)
+PASS | Ctrl+L | Details 1x window, focus in file list | before (main): PASS | entry=('Location', '', True, (0, 36), 36)
+PASS | F4 | Details 1x window, focus in file list | before (main): PASS | entry=('Location', '', True, (0, 36), 36)
+PASS | Ctrl+E | Details 1x window, focus in file list | before (main): PASS | entry=('Search filenames and paths', '', True, None, 0)
+PASS | Ctrl+F | Details 1x window, focus in file list | before (main): PASS | entry=('Search filenames and paths', '', True, None, 0)
+PASS | F3 | Details 1x window, focus in file list | before (main): PASS | entry=('Search filenames and paths', '', True, None, 0)
+PASS | F5 | Details 1x window, focus in file list | before (main): PASS | pin shown before=False after=True
+PASS | Ctrl+R | Details 1x window, focus in file list | before (main): PASS | pin shown before=False after=True
+PASS | Ctrl+F5 | Details 1x window, focus in file list | before (main): FAIL | pin shown before=False after=True
+PASS | F6 | Details 1x window, focus in file list | before (main): PASS | regions=["push button:'Close Documents'[", "push button:'Show locations'[F", "entry:'Search filenames and pa", "toggle button:'New'[F]", 'Navigation pane', '...
+PASS | Ctrl+T | Details 1x window, focus in file list | before (main): PASS | tabs=[('Documents', False), ('Home', True)]
+PASS | Ctrl+Number (1-9) (Ctrl+1) | Details 1x window, focus in file list | before (main): FAIL | tabs=[('Documents', True), ('Home', False), ('Home', False)]
+PASS | Ctrl+Number (1-9) (Ctrl+3) | Details 1x window, focus in file list | before (main): PASS | tabs=[('Documents', False), ('Home', False), ('Home', True)]
+PASS | Ctrl+Tab | Details 1x window, focus in file list | before (main): PASS | tabs=[('Documents', True), ('Home', False), ('Home', False)]
+PASS | Ctrl+Shift+Tab | Details 1x window, focus in file list | before (main): PASS | tabs=[('Documents', False), ('Home', False), ('Home', True)]
+PASS | Alt+1 (the owner's tab key, kept) | Details 1x window, focus in file list | before (main): PASS | tabs=[('Documents', True), ('Home', False), ('Home', False)]
+PASS | Ctrl+W | Details 1x window, focus in file list | before (main): PASS | tabs=[('Home', True), ('Home', False)]
+PASS | Ctrl+N | Details 1x window, focus in file list | before (main): PASS | frames 1->2
+PASS | Alt+P | Details 1x window, focus in file list | before (main): PASS | previewPane=True
+PASS | Alt+Shift+P | Details 1x window, focus in file list | before (main): PASS | previewPane=None {'details': True}
+PASS | F11 | Details 1x window, focus in file list | before (main): PASS | on=True off=True
+PASS | Alt+Left arrow | Details 1x window, focus in file list | before (main): PASS | ['Documents — OpenXplorer']
+PASS | Alt+Right arrow | Details 1x window, focus in file list | before (main): PASS | ['Invoices — OpenXplorer']
+PASS | Alt+Up arrow | Details 1x window, focus in file list | before (main): PASS | ['Documents — OpenXplorer']
+PASS | Ctrl+Plus (+) (keypad) | Details 1x window, focus in file list | before (main): PASS | textSize 100->100 widths {}->{'columnWidths': {'name': 172, 'modified': 126, 'parentUri': 330, 'type': 189, 'size': 70, 'created': 176, 'extension': 90, 'own...
+PASS | Ctrl+A (text) | Details 1x focus in address bar | before (main): PASS | selection=(0, 36) length=36
+PASS | Home (text) | Details 1x focus in address bar | before (main): PASS | caret=0 selection=None
+PASS | End (text) | Details 1x focus in address bar | before (main): PASS | caret=36
+PASS | Backspace (text) | Details 1x focus in address bar | before (main): PASS | caret=35 title ['Documents — OpenXplorer']->['Documents — OpenXplorer']
+PASS | Delete (text) | Details 1x focus in address bar | before (main): PASS | caret=34
+PASS | Ctrl+Insert / Shift+Insert (text) | Details 1x focus in address bar | before (main): PASS | caret=68 expected=68 files unchanged=True
+PASS | Ctrl+D, F2, Ctrl+Shift+N (stay in the field) | Details 1x focus in address bar | before (main): PASS | files unchanged=True still in field=True
+PASS | Ctrl+Number (1-9) (stays in the field) | Details 1x focus in address bar | before (main): PASS | tabs=[('Documents', False), ('Documents', True)]
+PASS | Ctrl+Shift+E (stays in the field) | Details 1x focus in address bar | before (main): PASS | focus=text:'Location'[F]
+PASS | Num Lock+minus (-) (types -) | Details 1x focus in address bar | before (main): PASS | caret 34->35
+PASS | Ctrl+A (text) | Details 1x focus in search box | before (main): PASS | selection=(0, 5) length=5
+PASS | Home (text) | Details 1x focus in search box | before (main): PASS | caret=0 selection=None
+PASS | End (text) | Details 1x focus in search box | before (main): PASS | caret=5
+PASS | Backspace (text) | Details 1x focus in search box | before (main): PASS | caret=4 title ['Search Results in Documents — OpenXplorer']->['Search Results in Documents — OpenXplorer']
+PASS | Delete (text) | Details 1x focus in search box | before (main): PASS | caret=3
+PASS | Ctrl+Insert / Shift+Insert (text) | Details 1x focus in search box | before (main): PASS | caret=6 expected=6 files unchanged=True
+PASS | Ctrl+D, F2, Ctrl+Shift+N (stay in the field) | Details 1x focus in search box | before (main): PASS | files unchanged=True still in field=True
+PASS | Ctrl+Number (1-9) (stays in the field) | Details 1x focus in search box | before (main): PASS | tabs=[('Documents', False), ('Search Results in Documents', True)]
+PASS | Ctrl+Shift+E (stays in the field) | Details 1x focus in search box | before (main): PASS | focus=entry:'Search filenames and paths'[F]
+PASS | Num Lock+minus (-) (types -) | Details 1x focus in search box | before (main): PASS | caret 3->4
+PASS | Ctrl+A (text) | Details 1x focus in rename box | before (main): PASS | selection=(0, 13) length=13
+PASS | Home (text) | Details 1x focus in rename box | before (main): PASS | caret=0 selection=None
+PASS | End (text) | Details 1x focus in rename box | before (main): PASS | caret=13
+PASS | Backspace (text) | Details 1x focus in rename box | before (main): PASS | caret=12 title ['Documents — OpenXplorer']->['Documents — OpenXplorer']
+PASS | Delete (text) | Details 1x focus in rename box | before (main): PASS | caret=11
+PASS | Ctrl+Insert / Shift+Insert (text) | Details 1x focus in rename box | before (main): PASS | caret=22 expected=22 files unchanged=True
+PASS | Ctrl+D, F2, Ctrl+Shift+N (stay in the field) | Details 1x focus in rename box | before (main): PASS | files unchanged=True still in field=True
+PASS | Ctrl+Number (1-9) (stays in the field) | Details 1x focus in rename box | before (main): PASS | tabs=[('Documents', False), ('Documents', True)]
+PASS | Ctrl+Shift+E (stays in the field) | Details 1x focus in rename box | before (main): PASS | focus=text:'New name'[F]
+PASS | Num Lock+minus (-) (types -) | Details 1x focus in rename box | before (main): PASS | caret 11->12
+PASS | Left arrow / Right arrow (section head) | 1x focus in navigation pane | before (main): PASS | on head=True left collapsed=True right expanded=True
+PASS | Num Lock+minus (-) (places) | 1x focus in navigation pane | before (main): FAIL | collapsed=True focus=list item:'This PC'[FEX]
+PASS | Num Lock+plus (+) (places) | 1x focus in navigation pane | before (main): PASS | expanded=True
+PASS | Num Lock+asterisk (*) (places) | 1x focus in navigation pane | before (main): FAIL | expanded=True focus=list item:'This PC'[FEX]
+PASS | Ctrl+Shift+E (no folder tree) | 1x focus in navigation pane | before (main): FAIL | focus=list item:'Documents'[FS]
+PASS | Ctrl+Shift+E (folder tree) | 1x focus in navigation pane | before (main): FAIL | focus=push button:'Documents'[FEX] tree before=['Home', 'Desktop', 'Documents', 'Downloads', 'Music', 'Pictures', 'Videos'] after=['Home', 'Desktop', 'Docume...
+PASS | Num Lock+minus (-) (folder tree) | 1x focus in navigation pane | before (main): PASS | tree=['Home', 'Desktop', 'Documents', 'Downloads', 'Music', 'Pictures', 'Videos']
+PASS | Num Lock+plus (+) (folder tree) | 1x focus in navigation pane | before (main): FAIL | tree=['Home', 'Desktop', 'Documents', 'Invoices', 'Launch planning', 'Downloads', 'Music', 'Pictures', 'Videos']
+PASS | Num Lock+asterisk (*) (folder tree) | 1x focus in navigation pane | before (main): FAIL | tree=['Home', 'Desktop', 'Documents', 'Invoices', '2025', 'Launch planning', 'Drafts', 'Old', 'Downloads', 'Music', 'Pictures', 'Videos']
+PASS | Left arrow / Right arrow (folder tree) | 1x focus in navigation pane | before (main): FAIL | left=True right=True then into push button:'Invoices'[FX]
+PASS | Alt+Up arrow (from the navigation pane) | 1x focus in navigation pane | before (main): PASS | ['Home — OpenXplorer']
+PASS | Save dialog opens with the list reachable | Save dialog 1x | before (main): PASS | focus=table row:'Invoices'[FS] frames=['Home — OpenXplorer', 'Save File']
+PASS | Alt+D | Save dialog 1x | before (main): PASS | entry=('Location', '', True, (0, 36), 36)
+PASS | Ctrl+E | Save dialog 1x | before (main): PASS | entry=('Search filenames and paths', '', True, None, 0)
+PASS | Ctrl+F | Save dialog 1x | before (main): PASS | entry=('Search filenames and paths', '', True, None, 0)
+PASS | Ctrl+Shift+N | Save dialog 1x | before (main): PASS | made=True entry=('New name', '', True, (0, 10), 10)
+PASS | F2 | Save dialog 1x | before (main): PASS | renamed=True entry=('New name', '', True, (0, 11), 11)
+PASS | Delete | Save dialog 1x | before (main): PASS | gone=True
+PASS | Ctrl+Shift+2 | Save dialog 1x | before (main): FAIL | list role=table
+PASS | Ctrl+Shift+6 | Save dialog 1x | before (main): PASS | list role=tree table
+PASS | Alt+Up arrow | Save dialog 1x | before (main): PASS | in Invoices showed Documents=False, after Alt+Up=True
+CONFLICT | Backspace | Save dialog 1x | before (main): PASS | CONFLICT: owner Back kept (Windows dialog: up one level); back in Documents=True
+PASS | Ctrl+mouse drag a file | Details 1x list, mouse drag | before (main): PASS | copy=True original stays=True
+PASS | Shift+mouse drag a file | Details 1x list, mouse drag | before (main): PASS | moved=True original gone=True
+CONFLICT | Alt+mouse drag a file | Details 1x list, mouse drag | before (main): FAIL | made=[] link=False original stays=True
+PASS | Ctrl+Tab (dialog) | 1x Properties dialog | before (main): PASS | tabs=[('General', False), ('Security', True), ('Details', False), ('Previous Versions', False)] 0->1
+PASS | Ctrl+Shift+Tab (dialog) | 1x Properties dialog | before (main): PASS | 1->0
+PASS | Ctrl+1, 2, 3,... (dialog) | 1x Properties dialog | before (main): FAIL | tabs=['General', 'Security', 'Details', 'Previous Versions'] -> 2
+PASS | Esc (dialog) | 1x Properties dialog | before (main): PASS | frames=['Documents — OpenXplorer']
+PASS | Ctrl+W (the only tab) | 1x Properties dialog | before (main): PASS | running=False windows=[]
+PASS | Ctrl+Shift+6 | Details 2x list | before (main): FAIL | ctrl+shift+2: True, back: True, saved=details focus=table row:'Invoices'[FS]
+PASS | End | Details 2x list | before (main): PASS | sel=['Quarterly report.odt']
+PASS | Home | Details 2x list | before (main): PASS | sel=['Invoices']
+PASS | Shift+arrow keys (Shift+End) | Details 2x list | before (main): PASS | sel=6/6
+PASS | Shift+Arrow keys | Details 2x list | before (main): PASS | sel=['Invoices', 'Launch planning']
+PASS | Ctrl+Arrow key+Spacebar | Details 2x list | before (main): PASS | sel=['Invoices', 'Expenses 2026.ods']
+PASS | Ctrl+A | Details 2x list | before (main): PASS | sel=6/6
+PASS | Esc | Details 2x list | before (main): PASS | sel=[]
+PASS | F2 | Details 2x list | before (main): PASS | entry=('New name', '', True, (0, 13), 13)
+PASS | Ctrl+C / Ctrl+V | Details 2x list | before (main): PASS | copy exists=True
+PASS | Ctrl+Z | Details 2x list | before (main): PASS | copy exists=False
+PASS | Ctrl+Y | Details 2x list | before (main): PASS | renamed=True undone=True redone=True
+PASS | Ctrl+Insert / Shift+Insert | Details 2x list | before (main): FAIL | copy exists=True
+PASS | Delete | Details 2x list | before (main): PASS | gone=True windows=1
+PASS | Ctrl+D | Details 2x list | before (main): PASS | gone=True
+PASS | Shift+Delete | Details 2x list | before (main): PASS | asked=True gone=True in bin=False
+PASS | Ctrl+Shift+N | Details 2x list | before (main): PASS | made=True entry=('New name', '', True, (0, 10), 10)
+PASS | Shift+F10 | Details 2x list | before (main): PASS | menu=True
+PASS | Alt+Enter | Details 2x list | before (main): PASS | windows 1->2
+PASS | Ctrl+mouse scroll wheel | Details 2x list | before (main): PASS | details -> compact
+PASS | Backspace | Details 2x list | before (main): PASS | ['Invoices — OpenXplorer'] -> ['Documents — OpenXplorer']
+PASS | Ctrl+Shift+5 | List 2x list | before (main): FAIL | ctrl+shift+2: True, back: True, saved=compact focus=table cell:'Invoices'[FS]
+PASS | End | List 2x list | before (main): PASS | sel=['Quarterly report']
+PASS | Home | List 2x list | before (main): PASS | sel=['Invoices']
+PASS | Shift+arrow keys (Shift+End) | List 2x list | before (main): PASS | sel=6/6
+PASS | Shift+Arrow keys | List 2x list | before (main): PASS | sel=['Invoices', 'Launch planning']
+PASS | Ctrl+Arrow key+Spacebar | List 2x list | before (main): PASS | sel=['Invoices', 'Expenses 2026']
+PASS | Ctrl+A | List 2x list | before (main): PASS | sel=6/6
+PASS | Esc | List 2x list | before (main): PASS | sel=[]
+PASS | F2 | List 2x list | before (main): PASS | entry=('New name', '', True, (0, 13), 13)
+PASS | Ctrl+C / Ctrl+V | List 2x list | before (main): PASS | copy exists=True
+PASS | Ctrl+Z | List 2x list | before (main): PASS | copy exists=False
+PASS | Ctrl+Y | List 2x list | before (main): PASS | renamed=True undone=True redone=True
+PASS | Ctrl+Insert / Shift+Insert | List 2x list | before (main): FAIL | copy exists=True
+PASS | Delete | List 2x list | before (main): PASS | gone=True windows=1
+PASS | Ctrl+D | List 2x list | before (main): PASS | gone=True
+PASS | Shift+Delete | List 2x list | before (main): PASS | asked=True gone=True in bin=False
+PASS | Ctrl+Shift+N | List 2x list | before (main): PASS | made=True entry=('New name', '', True, (0, 10), 10)
+PASS | Shift+F10 | List 2x list | before (main): PASS | menu=True
+PASS | Alt+Enter | List 2x list | before (main): PASS | windows 1->2
+PASS | Ctrl+mouse scroll wheel | List 2x list | before (main): PASS | compact -> icons16
+PASS | Backspace | List 2x list | before (main): PASS | ['Invoices — OpenXplorer'] -> ['Documents — OpenXplorer']
+PASS | Ctrl+Shift+7 | Tiles 2x list | before (main): FAIL | ctrl+shift+2: True, back: True, saved=tiles focus=table cell:'Invoices'[FS]
+PASS | End | Tiles 2x list | before (main): PASS | sel=['Quarterly report']
+PASS | Home | Tiles 2x list | before (main): PASS | sel=['Invoices']
+PASS | Shift+arrow keys (Shift+End) | Tiles 2x list | before (main): PASS | sel=6/6
+PASS | Shift+Arrow keys | Tiles 2x list | before (main): PASS | sel=['Invoices', 'Launch planning']
+PASS | Ctrl+Arrow key+Spacebar | Tiles 2x list | before (main): PASS | sel=['Invoices', 'Expenses 2026']
+PASS | Ctrl+A | Tiles 2x list | before (main): PASS | sel=6/6
+PASS | Esc | Tiles 2x list | before (main): PASS | sel=[]
+PASS | F2 | Tiles 2x list | before (main): PASS | entry=('New name', '', True, (0, 13), 13)
+PASS | Ctrl+C / Ctrl+V | Tiles 2x list | before (main): PASS | copy exists=True
+PASS | Ctrl+Z | Tiles 2x list | before (main): PASS | copy exists=False
+PASS | Ctrl+Y | Tiles 2x list | before (main): PASS | renamed=True undone=True redone=True
+PASS | Ctrl+Insert / Shift+Insert | Tiles 2x list | before (main): FAIL | copy exists=True
+PASS | Delete | Tiles 2x list | before (main): PASS | gone=True windows=1
+PASS | Ctrl+D | Tiles 2x list | before (main): PASS | gone=True
+PASS | Shift+Delete | Tiles 2x list | before (main): PASS | asked=True gone=True in bin=False
+PASS | Ctrl+Shift+N | Tiles 2x list | before (main): PASS | made=True entry=('New name', '', True, (0, 10), 10)
+PASS | Shift+F10 | Tiles 2x list | before (main): PASS | menu=True
+PASS | Alt+Enter | Tiles 2x list | before (main): PASS | windows 1->2
+PASS | Ctrl+mouse scroll wheel | Tiles 2x list | before (main): PASS | tiles -> compact
+PASS | Backspace | Tiles 2x list | before (main): PASS | ['Invoices — OpenXplorer'] -> ['Documents — OpenXplorer']
+PASS | Ctrl+Shift+8 | Content 2x list | before (main): FAIL | ctrl+shift+2: True, back: True, saved=content focus=table cell:'Invoices'[FS]
+PASS | End | Content 2x list | before (main): PASS | sel=['Quarterly report']
+PASS | Home | Content 2x list | before (main): PASS | sel=['Invoices']
+PASS | Shift+arrow keys (Shift+End) | Content 2x list | before (main): PASS | sel=6/6
+PASS | Shift+Arrow keys | Content 2x list | before (main): PASS | sel=['Invoices', 'Launch planning']
+PASS | Ctrl+Arrow key+Spacebar | Content 2x list | before (main): PASS | sel=['Invoices', 'Expenses 2026']
+PASS | Ctrl+A | Content 2x list | before (main): PASS | sel=6/6
+PASS | Esc | Content 2x list | before (main): PASS | sel=[]
+PASS | F2 | Content 2x list | before (main): PASS | entry=('New name', '', True, (0, 13), 13)
+PASS | Ctrl+C / Ctrl+V | Content 2x list | before (main): PASS | copy exists=True
+PASS | Ctrl+Z | Content 2x list | before (main): PASS | copy exists=False
+PASS | Ctrl+Y | Content 2x list | before (main): PASS | renamed=True undone=True redone=True
+PASS | Ctrl+Insert / Shift+Insert | Content 2x list | before (main): FAIL | copy exists=True
+PASS | Delete | Content 2x list | before (main): PASS | gone=True windows=1
+PASS | Ctrl+D | Content 2x list | before (main): PASS | gone=True
+PASS | Shift+Delete | Content 2x list | before (main): PASS | asked=True gone=True in bin=False
+PASS | Ctrl+Shift+N | Content 2x list | before (main): PASS | made=True entry=('New name', '', True, (0, 10), 10)
+PASS | Shift+F10 | Content 2x list | before (main): PASS | menu=True
+PASS | Alt+Enter | Content 2x list | before (main): PASS | windows 1->2
+PASS | Ctrl+mouse scroll wheel | Content 2x list | before (main): PASS | content -> compact
+PASS | Backspace | Content 2x list | before (main): PASS | ['Invoices — OpenXplorer'] -> ['Documents — OpenXplorer']
+PASS | Ctrl+Shift+2 | Large icons 2x list | before (main): FAIL | ctrl+shift+6: True, back: True, saved=icons96 focus=table cell:'Invoices'[FS]
+PASS | End | Large icons 2x list | before (main): PASS | sel=['Quarterly report']
+PASS | Home | Large icons 2x list | before (main): PASS | sel=['Invoices']
+PASS | Shift+arrow keys (Shift+End) | Large icons 2x list | before (main): PASS | sel=6/6
+PASS | Shift+Arrow keys | Large icons 2x list | before (main): PASS | sel=['Invoices', 'Launch planning']
+PASS | Ctrl+Arrow key+Spacebar | Large icons 2x list | before (main): PASS | sel=['Invoices', 'Expenses 2026']
+PASS | Ctrl+A | Large icons 2x list | before (main): PASS | sel=6/6
+PASS | Esc | Large icons 2x list | before (main): PASS | sel=[]
+PASS | F2 | Large icons 2x list | before (main): PASS | entry=('New name', '', True, (0, 13), 13)
+PASS | Ctrl+C / Ctrl+V | Large icons 2x list | before (main): PASS | copy exists=True
+PASS | Ctrl+Z | Large icons 2x list | before (main): PASS | copy exists=False
+PASS | Ctrl+Y | Large icons 2x list | before (main): PASS | renamed=True undone=True redone=True
+PASS | Ctrl+Insert / Shift+Insert | Large icons 2x list | before (main): FAIL | copy exists=True
+PASS | Delete | Large icons 2x list | before (main): PASS | gone=True windows=1
+PASS | Ctrl+D | Large icons 2x list | before (main): PASS | gone=True
+PASS | Shift+Delete | Large icons 2x list | before (main): PASS | asked=True gone=True in bin=False
+PASS | Ctrl+Shift+N | Large icons 2x list | before (main): PASS | made=True entry=('New name', '', True, (0, 10), 10)
+PASS | Shift+F10 | Large icons 2x list | before (main): PASS | menu=True
+PASS | Alt+Enter | Large icons 2x list | before (main): PASS | windows 1->2
+PASS | Ctrl+mouse scroll wheel | Large icons 2x list | before (main): PASS | icons96 -> icons128
+PASS | Backspace | Large icons 2x list | before (main): PASS | ['Invoices — OpenXplorer'] -> ['Documents — OpenXplorer']
+PASS | Shift+mouse right-click | Details 2x window, focus in file list | before (main): PASS | plain has Show more options=True, shift has it=False, shift items=44
+PASS | Alt+D | Details 2x window, focus in file list | before (main): PASS | entry=('Location', '', True, (0, 36), 36)
+PASS | Ctrl+L | Details 2x window, focus in file list | before (main): PASS | entry=('Location', '', True, (0, 36), 36)
+PASS | F4 | Details 2x window, focus in file list | before (main): PASS | entry=('Location', '', True, (0, 36), 36)
+PASS | Ctrl+E | Details 2x window, focus in file list | before (main): PASS | entry=('Search filenames and paths', '', True, None, 0)
+PASS | Ctrl+F | Details 2x window, focus in file list | before (main): PASS | entry=('Search filenames and paths', '', True, None, 0)
+PASS | F3 | Details 2x window, focus in file list | before (main): PASS | entry=('Search filenames and paths', '', True, None, 0)
+PASS | F5 | Details 2x window, focus in file list | before (main): PASS | pin shown before=False after=True
+PASS | Ctrl+R | Details 2x window, focus in file list | before (main): PASS | pin shown before=False after=True
+PASS | Ctrl+F5 | Details 2x window, focus in file list | before (main): FAIL | pin shown before=False after=True
+PASS | F6 | Details 2x window, focus in file list | before (main): PASS | regions=["push button:'Close Documents'[", "push button:'Show locations'[F", "entry:'Search filenames and pa", "toggle button:'New'[F]", 'Navigation pane', '...
+PASS | Ctrl+T | Details 2x window, focus in file list | before (main): PASS | tabs=[('Documents', False), ('Home', True)]
+PASS | Ctrl+Number (1-9) (Ctrl+1) | Details 2x window, focus in file list | before (main): FAIL | tabs=[('Documents', True), ('Home', False), ('Home', False)]
+PASS | Ctrl+Number (1-9) (Ctrl+3) | Details 2x window, focus in file list | before (main): PASS | tabs=[('Documents', False), ('Home', False), ('Home', True)]
+PASS | Ctrl+Tab | Details 2x window, focus in file list | before (main): PASS | tabs=[('Documents', True), ('Home', False), ('Home', False)]
+PASS | Ctrl+Shift+Tab | Details 2x window, focus in file list | before (main): PASS | tabs=[('Documents', False), ('Home', False), ('Home', True)]
+PASS | Alt+1 (the owner's tab key, kept) | Details 2x window, focus in file list | before (main): PASS | tabs=[('Documents', True), ('Home', False), ('Home', False)]
+PASS | Ctrl+W | Details 2x window, focus in file list | before (main): PASS | tabs=[('Home', True), ('Home', False)]
+PASS | Ctrl+N | Details 2x window, focus in file list | before (main): PASS | frames 1->2
+PASS | Alt+P | Details 2x window, focus in file list | before (main): PASS | previewPane=True
+PASS | Alt+Shift+P | Details 2x window, focus in file list | before (main): PASS | previewPane=None {'details': True}
+PASS | F11 | Details 2x window, focus in file list | before (main): PASS | on=True off=True
+PASS | Alt+Left arrow | Details 2x window, focus in file list | before (main): PASS | ['Documents — OpenXplorer']
+PASS | Alt+Right arrow | Details 2x window, focus in file list | before (main): PASS | ['Invoices — OpenXplorer']
+PASS | Alt+Up arrow | Details 2x window, focus in file list | before (main): PASS | ['Documents — OpenXplorer']
+PASS | Ctrl+Plus (+) (keypad) | Details 2x window, focus in file list | before (main): PASS | textSize 100->100 widths {}->{'columnWidths': {'name': 170, 'modified': 124, 'parentUri': 330, 'type': 186, 'size': 70, 'created': 176, 'extension': 90, 'own...
+PASS | Ctrl+A (text) | Details 2x focus in address bar | before (main): PASS | selection=(0, 36) length=36
+PASS | Home (text) | Details 2x focus in address bar | before (main): PASS | caret=0 selection=None
+PASS | End (text) | Details 2x focus in address bar | before (main): PASS | caret=36
+PASS | Backspace (text) | Details 2x focus in address bar | before (main): PASS | caret=35 title ['Documents — OpenXplorer']->['Documents — OpenXplorer']
+PASS | Delete (text) | Details 2x focus in address bar | before (main): PASS | caret=34
+PASS | Ctrl+Insert / Shift+Insert (text) | Details 2x focus in address bar | before (main): PASS | caret=68 expected=68 files unchanged=True
+PASS | Ctrl+D, F2, Ctrl+Shift+N (stay in the field) | Details 2x focus in address bar | before (main): PASS | files unchanged=True still in field=True
+PASS | Ctrl+Number (1-9) (stays in the field) | Details 2x focus in address bar | before (main): PASS | tabs=[('Documents', False), ('Documents', True)]
+PASS | Ctrl+Shift+E (stays in the field) | Details 2x focus in address bar | before (main): PASS | focus=text:'Location'[F]
+PASS | Num Lock+minus (-) (types -) | Details 2x focus in address bar | before (main): PASS | caret 34->35
+PASS | Ctrl+A (text) | Details 2x focus in search box | before (main): PASS | selection=(0, 5) length=5
+PASS | Home (text) | Details 2x focus in search box | before (main): PASS | caret=0 selection=None
+PASS | End (text) | Details 2x focus in search box | before (main): PASS | caret=5
+PASS | Backspace (text) | Details 2x focus in search box | before (main): PASS | caret=4 title ['Search Results in Documents — OpenXplorer']->['Search Results in Documents — OpenXplorer']
+PASS | Delete (text) | Details 2x focus in search box | before (main): PASS | caret=3
+PASS | Ctrl+Insert / Shift+Insert (text) | Details 2x focus in search box | before (main): PASS | caret=6 expected=6 files unchanged=True
+PASS | Ctrl+D, F2, Ctrl+Shift+N (stay in the field) | Details 2x focus in search box | before (main): PASS | files unchanged=True still in field=True
+PASS | Ctrl+Number (1-9) (stays in the field) | Details 2x focus in search box | before (main): PASS | tabs=[('Documents', False), ('Search Results in Documents', True)]
+PASS | Ctrl+Shift+E (stays in the field) | Details 2x focus in search box | before (main): PASS | focus=entry:'Search filenames and paths'[F]
+PASS | Num Lock+minus (-) (types -) | Details 2x focus in search box | before (main): PASS | caret 3->4
+PASS | Ctrl+A (text) | Details 2x focus in rename box | before (main): PASS | selection=(0, 13) length=13
+PASS | Home (text) | Details 2x focus in rename box | before (main): PASS | caret=0 selection=None
+PASS | End (text) | Details 2x focus in rename box | before (main): PASS | caret=13
+PASS | Backspace (text) | Details 2x focus in rename box | before (main): PASS | caret=12 title ['Documents — OpenXplorer']->['Documents — OpenXplorer']
+PASS | Delete (text) | Details 2x focus in rename box | before (main): PASS | caret=11
+PASS | Ctrl+Insert / Shift+Insert (text) | Details 2x focus in rename box | before (main): PASS | caret=22 expected=22 files unchanged=True
+PASS | Ctrl+D, F2, Ctrl+Shift+N (stay in the field) | Details 2x focus in rename box | before (main): PASS | files unchanged=True still in field=True
+PASS | Ctrl+Number (1-9) (stays in the field) | Details 2x focus in rename box | before (main): PASS | tabs=[('Documents', False), ('Documents', True)]
+PASS | Ctrl+Shift+E (stays in the field) | Details 2x focus in rename box | before (main): PASS | focus=text:'New name'[F]
+PASS | Num Lock+minus (-) (types -) | Details 2x focus in rename box | before (main): PASS | caret 11->12
+PASS | Left arrow / Right arrow (section head) | 2x focus in navigation pane | before (main): PASS | on head=True left collapsed=True right expanded=True
+PASS | Num Lock+minus (-) (places) | 2x focus in navigation pane | before (main): FAIL | collapsed=True focus=list item:'This PC'[FEX]
+PASS | Num Lock+plus (+) (places) | 2x focus in navigation pane | before (main): PASS | expanded=True
+PASS | Num Lock+asterisk (*) (places) | 2x focus in navigation pane | before (main): FAIL | expanded=True focus=list item:'This PC'[FEX]
+PASS | Ctrl+Shift+E (no folder tree) | 2x focus in navigation pane | before (main): FAIL | focus=list item:'Documents'[FS]
+PASS | Ctrl+Shift+E (folder tree) | 2x focus in navigation pane | before (main): FAIL | focus=push button:'Documents'[FEX] tree before=['Home', 'Desktop', 'Documents', 'Downloads', 'Music', 'Pictures', 'Videos'] after=['Home', 'Desktop', 'Docume...
+PASS | Num Lock+minus (-) (folder tree) | 2x focus in navigation pane | before (main): PASS | tree=['Home', 'Desktop', 'Documents', 'Downloads', 'Music', 'Pictures', 'Videos']
+PASS | Num Lock+plus (+) (folder tree) | 2x focus in navigation pane | before (main): FAIL | tree=['Home', 'Desktop', 'Documents', 'Invoices', 'Launch planning', 'Downloads', 'Music', 'Pictures', 'Videos']
+PASS | Num Lock+asterisk (*) (folder tree) | 2x focus in navigation pane | before (main): FAIL | tree=['Home', 'Desktop', 'Documents', 'Invoices', '2025', 'Launch planning', 'Drafts', 'Old', 'Downloads', 'Music', 'Pictures', 'Videos']
+PASS | Left arrow / Right arrow (folder tree) | 2x focus in navigation pane | before (main): FAIL | left=True right=True then into push button:'Invoices'[FX]
+PASS | Alt+Up arrow (from the navigation pane) | 2x focus in navigation pane | before (main): PASS | ['Home — OpenXplorer']
+PASS | Save dialog opens with the list reachable | Save dialog 2x | before (main): PASS | focus=table row:'Invoices'[FS] frames=['Home — OpenXplorer', 'Save File']
+PASS | Alt+D | Save dialog 2x | before (main): PASS | entry=('Location', '', True, (0, 36), 36)
+PASS | Ctrl+E | Save dialog 2x | before (main): PASS | entry=('Search filenames and paths', '', True, None, 0)
+PASS | Ctrl+F | Save dialog 2x | before (main): PASS | entry=('Search filenames and paths', '', True, None, 0)
+PASS | Ctrl+Shift+N | Save dialog 2x | before (main): PASS | made=True entry=('New name', '', True, (0, 10), 10)
+PASS | F2 | Save dialog 2x | before (main): PASS | renamed=True entry=('New name', '', True, (0, 11), 11)
+PASS | Delete | Save dialog 2x | before (main): PASS | gone=True
+PASS | Ctrl+Shift+2 | Save dialog 2x | before (main): FAIL | list role=table
+PASS | Ctrl+Shift+6 | Save dialog 2x | before (main): PASS | list role=tree table
+PASS | Alt+Up arrow | Save dialog 2x | before (main): PASS | in Invoices showed Documents=False, after Alt+Up=True
+CONFLICT | Backspace | Save dialog 2x | before (main): PASS | CONFLICT: owner Back kept (Windows dialog: up one level); back in Documents=True
+PASS | Ctrl+mouse drag a file | Details 2x list, mouse drag | before (main): PASS | copy=True original stays=True
+PASS | Shift+mouse drag a file | Details 2x list, mouse drag | before (main): PASS | moved=True original gone=True
+CONFLICT | Alt+mouse drag a file | Details 2x list, mouse drag | before (main): FAIL | made=[] link=False original stays=True
+PASS | Ctrl+Tab (dialog) | 2x Properties dialog | before (main): PASS | tabs=[('General', False), ('Security', True), ('Details', False), ('Previous Versions', False)] 0->1
+PASS | Ctrl+Shift+Tab (dialog) | 2x Properties dialog | before (main): PASS | 1->0
+PASS | Ctrl+1, 2, 3,... (dialog) | 2x Properties dialog | before (main): FAIL | tabs=['General', 'Security', 'Details', 'Previous Versions'] -> 2
+PASS | Esc (dialog) | 2x Properties dialog | before (main): PASS | frames=['Documents — OpenXplorer']
+PASS | Ctrl+W (the only tab) | 2x Properties dialog | before (main): PASS | running=False windows=[]
