@@ -1,5 +1,53 @@
 # DO NOT PR
-STATUS: IN-PROGRESS
-HEAD: archives-windows 6f06e48a5129150b73006754970dbe0c4b6d4b18
-QUESTION: none yet
-NOTE: Tests committed first (fail on main), then fixes for all 4 items. Full check.py running now; checklist, captures and PR text to follow.
+STATUS: PR-READY
+HEAD: archives-windows 530677962aa2778f837bd46f77a74961fcc353d8
+QUESTION: CONFLICT (ARC-026): the parity note said "TAR archives keep the window"; item 1 makes TAR archives (.tar, .tar.gz, .tgz, .tar.bz2, .tar.xz, .tar.zst) open in the tab like a ZIP, following Settings > ZIP & archives > "Double-clicking a ZIP" (default Like a folder; "In a pop-up window" still uses the window). Keep this, or keep TAR in the pop-up window? The setting's title still says "a ZIP" (left as the owner wrote it; description now covers TAR).
+NOTE: Branch cut from upstream main 016c335; tests committed first (e4d6628, all fail on main), then the fixes. No new dependency: ruzstd (already a workspace dependency and in Cargo.lock) is added as an ox-app dev-dependency to write .tar.zst fixtures (one Cargo.lock line). Item 3 is TAR-only; ZIP links are still refused. A TAR symbolic link is allowed only when its target is relative, uses '..' only at its start and climbs no higher than the extracted folder; links are leaves of the archive's paths, so nothing is written through one; hard links, devices and FIFOs stay refused; the browser still hides links; no existing name, path or size guard was changed. Design note for the manager: Extract here lifts a lone top folder and may rename it "(2)"; a link inside that climbs to the archive top then points beside it in the same destination (nothing is written through it). Changed messages (ZIP -> archive wording, new extract/link texts) lose their zh_CN translation until redone. Real-input run: debug app under Xvfb 1440x1000 at 1x, fictional files, xdotool mouse clicks/double-clicks, light and dark. Captures: browsed .tar.gz via tools/native_capture.py (the snapshot hook; 2x uses a 780x600 window to fit its screen); the conflict window and the compact Compress to submenu via the test harness capture hook (OX_NATIVE_CAPTURE_DIR), because the snapshot hook saves only the browser window and its context-menu step opens the classic menu.
+
+PASS item1 .tar: double-click opens it in the tab, Docs opens, Back, Up (light, dark)
+PASS item1 .tar.gz: double-click opens it in the tab, Docs opens, Back, Up (light, dark)
+PASS item1 .tgz: double-click opens it in the tab, Docs opens, Back, Up (light, dark)
+PASS item1 .tar.bz2: double-click opens it in the tab, Docs opens, Back, Up (light, dark)
+PASS item1 .tar.xz: double-click opens it in the tab, Docs opens, Back, Up (light, dark)
+PASS item1 .tar.zst: double-click opens it in the tab, Docs opens, Back, Up (light, dark)
+PASS item1 open a file inside (.tar.gz): private read-only temporary copy (0400, runtime previews folder) handed to the default app (light, dark)
+PASS item1 Extract all from inside (.tar.gz): Documents/Bundle with Docs/a.txt and readme.txt (light, dark)
+PASS item1 Details, Tiles, Content inside (.tar.gz) (light, dark)
+PASS item1 pop-up window wording says "Read-only archive", no "ZIP" (test a_compressed_tar_is_browsed_and_extracted_unless_archives_open_elsewhere)
+PASS item2 extract Bundle.zip twice into Bundle: question reads "Extracting 2 items from Bundle.zip to Bundle" (light, dark)
+PASS item2 Replace replaces the changed file (light, dark)
+PASS item2 Skip keeps the changed file; no .openxplorer-extract folder left (light, dark)
+PASS item3 Links.tar.gz: libx.so extracted as a link to libx.so.1 (light, dark)
+PASS item3 ../outside link refused: "“outside” is a link to a place outside the extracted folder. Nothing was extracted." (light, dark)
+PASS item3 absolute link refused: "“hosts” is a link to a place outside ..." (light, dark)
+PASS item3 FIFO refused (light, dark)
+PASS item3 zip-slip (../evil.txt) still refused, nothing written (light, dark)
+PASS item3 size limit (64 MiB of zeros in a tiny .tar.xz) still refused (light, dark)
+PASS item4 Compress to submenu shows ZIP File, TAR File, Additional options (light, dark)
+PASS item4 TAR File on one file -> Notes.tar, valid (GNU tar -t), browsed in the app (light, dark)
+PASS item4 TAR File on two files -> Absolute.tar.tar, valid, browsed in the app (light, dark)
+PASS item4 TAR File on a folder -> Folder.tar, valid, browsed into Folder/Inner in the app (light, dark)
+PASS test-first: on unchanged main the new tests fail (tar_archives_open_in_the_tab_like_a_folder, a_compressed_tar_is_browsed... wording, extracting_onto_existing_files_names_the_archive, compress_to_tar_puts_the_selection_into_a_new_tar_beside_it, entries submenu test, archive_tar_links.rs x4)
+PASS new tests on the branch (core archive_tar_links.rs 6 tests; app tests above, also at GDK_SCALE 1 and 2 with captures)
+PASS rustfmt --check
+PASS clippy --workspace --all-targets -D warnings (Rust 1.92.0)
+PASS native/tools/i18n.py check
+PASS python3 native/parity/check.py
+PASS tools/sync-docs.py --check
+PASS tools/audit-public-data.py (no issues)
+FAIL python3 native/tools/check.py: stops at location_fixture_drift python_fixture_matches_desktop_core_py (Python 3.13.18 urllib parses smb://[V1.x] differently); same failure on unchanged main
+FAIL full suite (cargo test --workspace --all-targets --no-fail-fast, isolated Xvfb + private bus + throwaway HOME, as tester): 4210 passed, 13 failed; all 13 fail the same way on unchanged main: 9 admin_copy::tests (no admin mounts here), 2 thumbnails::thumbnailers sandbox tests, python_fixture_matches_desktop_core_py, fuse_export_paths_match_native_opening_py
+
+NOT CONFIRMED:
+- Exact Compress to item names: Microsoft's pages do not name them; "TAR File" follows the app's existing "ZIP File".
+- Whether Windows' TAR File compresses: not documented; built as a plain uncompressed .tar.
+- Windows' name for an archive of a first item with two extensions (Absolute.tar.gz -> Absolute.tar.tar): not documented; follows the existing ZIP File rule.
+
+NOT BUILT:
+- 7z and RAR browsing and extraction: no decoder.
+- Compress to 7z: no encoder.
+- ZIP symbolic links: still refused (item 3 asked for TAR).
+- Pinned-folder (sidebar) Compress to still offers ZIP File only.
+
+CONFLICT:
+- ARC-026 "TAR archives keep the window" vs item 1 "open TAR in the window like ZIPs": built item 1; see QUESTION.
