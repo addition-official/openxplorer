@@ -1,4 +1,4 @@
 STATUS: WORKING
-HEAD: tabs-windows-fixed 016c335
+HEAD: tabs-windows-fixed 078fc08
 QUESTION: none
-NOTE: Per the manager, work is on tabs-windows-fixed (from upstream main 016c335); the old tabs-windows ref (status commit 0449018, pushed by mistake) is left alone for the manager to clean up.
+NOTE: Microsoft confirms only "Duplicate tab" on the tab menu, so no menu items were added. Built: Menu key/Shift+F10 open a focused tab's menu, Escape gives focus back to the tab, F6 lands on the front tab. Now: real-input checks of drop-on-tab, captures, full check.py.
