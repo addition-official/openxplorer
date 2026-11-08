@@ -1,7 +1,7 @@
-STATUS: DONE
+STATUS: WORKING
 HEAD: search-windows 05a40024
 QUESTION: none
-NOTE: Merged explorer-shortcuts-fixed (51b9fa24): their snapshot type= kept, the search box's step renamed search=; full check.py passed on 05a40024. Size (Microsoft's System.Size groups) and Last week options, plus typed kind:/datemodified:/size:, built from Microsoft docs; the title, typing pause, empty texts and option placement stay the owner's. Full check.py passed; commits are addition-official only, so GitHub shows them Unverified.
+NOTE: New round: Windows 11 search layout as default (Search options menu, Close search, query in the tab title, highlight, grouping), the filter bar behind a setting, and faster results. Earlier round (05a40024) done.
 
 SOURCES (Microsoft only)
 - https://support.microsoft.com/en-us/office/foundations-experiences/find-what-you-need-with-microsoft-search : Search options on the top toolbar; date modified, kind, size
