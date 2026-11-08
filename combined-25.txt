@@ -1,0 +1,3 @@
+STATUS: WORKING (building)
+HEAD: test-combined-25 (merging)
+NOTE: Deb 25 (2.0.15+test25), fresh from upstream main 2a9452d0 (Release 2.0.15, #275, already on main). Merging preview-pane-contents 461295a0, dialog-columns b3e665cf (PR #297; moved from 2802a6a3, the newer head merges main), dependabot #279 3e3b77e3. Not included: explorer-shortcuts (unfinished), dialog-name-width (dropped), command-bar-menu-switch.
