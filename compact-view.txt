@@ -1,5 +1,5 @@
 STATUS: DONE
-HEAD: compact-view cb8b57b8
+HEAD: compact-view-spacing cb8b57b8
 NOTE: Group headings now look as Windows 11's in normal and Compact view, Details/Tiles/Content (regular weight, 15 px to the names' 12, no line; chevron, hover box, folding, focus unchanged). No owner decision on the old bold+line style was found, so no CONFLICT. Compact spacing kept (26/27 by the capitals); normal view's items unmoved, headings centred where they were. 104 PASS, 4 FAIL (one known finding: Tiles heading text to icon 28 vs 26). Compact rows still go below the earlier 24 px lowest-row decision (ui-spec), as asked; please confirm.
 
 CHECKLIST
