@@ -17,8 +17,9 @@ Four archive gaps against Windows 11 File Explorer, each covered by a test that 
 The parity notes (ARC-012, ARC-022, ARC-023, ARC-024, ARC-026), the user guide and the translation template are updated. Changed messages lose their existing Chinese translation until it is redone.
 
 ## How it was tested
-- `python3 native/tools/check.py` (rustfmt, Clippy, every test executable under Xvfb with a private session) and `python3 native/parity/check.py`, as an unprivileged user.
-- New tests: `tar_archives_open_in_the_tab_like_a_folder` (all six TAR types), `extracting_onto_existing_files_names_the_archive`, `compress_to_tar_puts_the_selection_into_a_new_tar_beside_it` (one file, two files, a folder), and `native/crates/ox-core/tests/archive_tar_links.rs`.
-- The real app under Xvfb with xdotool input and fictional files: see the checklist on the status branch.
+- rustfmt, Clippy with the workspace lints (no warnings), `python3 native/parity/check.py`, the translation template check, the docs sync check and the public-data audit all pass.
+- `python3 native/tools/check.py` passes its earlier steps but stops at `location_fixture_drift`, which also fails on unchanged main here: the container's Python 3.13 parses one URL differently from the committed fixture. The whole suite was then run with no fail-fast in the same isolated setup (Xvfb, private session bus, throwaway home): 4,210 passed, 13 failed, and the same 13 fail on unchanged main (administrator mount tests, sandboxed thumbnailer tests and two Python comparison tests that depend on the container).
+- New tests, each failing on main first: `tar_archives_open_in_the_tab_like_a_folder` (all six TAR types), `extracting_onto_existing_files_names_the_archive`, `compress_to_tar_puts_the_selection_into_a_new_tar_beside_it` (one file, two files, a folder) and `native/crates/ox-core/tests/archive_tar_links.rs`.
+- The real app under Xvfb with mouse input and fictional files, in the light and dark themes: every TAR type opened by double-click, browsed, Back and Up; a file opened from inside; Extract all from inside; the three views; extracting twice with Replace and Skip; the link, FIFO, path and size refusals; and Compress to › TAR File on one file, two files and a folder, each then browsed in the app.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
