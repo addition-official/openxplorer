@@ -1,4 +1,4 @@
 STATUS: WORKING
-HEAD: tabs-windows 016c335 (local; see NOTE)
+HEAD: tabs-windows-fixed 016c335
 QUESTION: none
-NOTE: Remote ref tabs-windows was pushed by mistake at status commit 0449018 (wrong FETCH_HEAD); force-push to correct it was refused by the session's safety check. Work is based on upstream main 016c335; the manager may need to reset or delete that remote ref.
+NOTE: Per the manager, work is on tabs-windows-fixed (from upstream main 016c335); the old tabs-windows ref (status commit 0449018, pushed by mistake) is left alone for the manager to clean up.
