@@ -18,12 +18,15 @@ A Recent files row is GVfs's `recent:///<hash>` item. The app already kept the r
 - Double-click, Enter, Open, Open with (menu apps and Choose another app), Copy, Copy as path, a drag and Properties on a Recent row now act on that file, exactly as from its folder: the same default app, the same mount-then-read rule for an smb:// file, the same drag rules (a drag onto a folder on the same drive moves the file, as it does from the file's folder).
 - When the file is gone, opening the row or Open with on it shows the app's existing "Item Not Found" / "Could not find this item" / "This is no longer located in <folder>. Verify the item's location and try again." wording (the progress window's existing strings; no new text to translate).
 - A Recent files row may be copied, not cut, renamed or deleted, as a file in Windows 11's Home Recent list (checked in a Windows 11 VM): Cut, Rename and Delete are greyed out in the command bar, left out of the right-click menu's strip (which keeps Copy and Share), and Ctrl+X, F2 and Delete do nothing, with no message. No other menu items were added or removed. A new disabled-reason tooltip, "Items in Recent files can be opened and copied, not changed.", is the one new string.
+- A share unmounted since the listing is mounted first, as opening a file does, for Open with (menu app and Choose another app) and when several Recent rows are opened together; several rows are each read again and opened as their files (a `.desktop` link is followed). Properties already mounted first.
+- Several Recent rows' Properties describe the files (`Entry::as_item`): location, size on disk and Read-only/Hidden use the files' addresses.
+- A Recent row that GVfs types as a shortcut is copied as its file, as a file-typed row is.
 - Recent locations rows are the real folders already; they open in place, in a new tab and in a new window. Tests now cover that.
 - `native/parity/features.toml` SIDE-026 note updated.
 
 ## How it was tested
 
-Tests first: `native/crates/ox-app/src/window/tests/recent_rows.rs` (10 tests). On upstream main 016c335 the 9 bug tests fail (open, Item Not Found, Copy as path, Copy, drag, Properties, Open with, Open with on a gone file, Cut/Rename/Delete greyed out) and the Recent locations test passes (that part already worked); with this branch all 10 pass. They run under Xvfb with a private D-Bus session and GVfs's real Recent backend, with fictional files.
+Tests first: `native/crates/ox-app/src/window/tests/recent_rows.rs` (15 tests). Each fix had a test that failed first. On upstream main 016c335 the 9 original bug tests fail (open, Item Not Found, Copy as path, Copy, drag, Properties, Open with, Open with on a gone file, Cut/Rename/Delete greyed out) and the Recent locations test passes (that part already worked); with this branch all 15 pass. The 5 tests added after review failed on the previous head, except the single-item Properties mount test, which already passed and is kept as a guard. They run under Xvfb with a private D-Bus session and GVfs's real Recent backend, with fictional files.
 
 - `cargo fmt --check` and the Clippy command from CONTRIBUTING.md: clean.
 - `python3 native/parity/check.py`, `python3 native/tools/i18n.py check`, `python3 tools/audit-public-data.py`: pass.

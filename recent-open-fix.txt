@@ -1,7 +1,7 @@
-STATUS: PR-READY
-HEAD: recent-open-fix faa1795
+STATUS: WORKING
+HEAD: recent-open-fix 99e2f66
 QUESTION: none (Cut answered by the manager: keep refused, look like Windows; done. smb:// Recent row stays NOT TESTED)
-NOTE: Recent files rows are GVfs recent:/// items; opening and most commands used that address, which the opener refuses. Now they use the file in entry.meta.recent_target (Entry::opened_uri / item_uri); navigation_uri unchanged. A gone file says the existing "Item Not Found" wording for Open and Open with. A drag from Recent onto a folder on the same drive moves the real file, as a drag from its folder does. Seen but not changed: typing recent:/// in the address bar, or passing it on the command line, is refused with the "supported in this build" message. Captures come from a driver using tools/native_capture.py's demo tree and bubblewrap isolation with xdotool input (the snapshot hook cannot draw dialogs or other apps). PR text in recent-open-fix-pr.md.
+NOTE: Codex review of PR #305 (5 findings) handled in f688f34 (tests) and 99e2f66 (fix); full check.py re-run in progress. Upstream main 086aa19 merges without conflicts, so it was not merged. Recent files rows are GVfs recent:/// items; opening and most commands used that address, which the opener refuses. Now they use the file in entry.meta.recent_target (Entry::opened_uri / item_uri); navigation_uri unchanged. A gone file says the existing "Item Not Found" wording for Open and Open with. A drag from Recent onto a folder on the same drive moves the real file, as a drag from its folder does. Seen but not changed: typing recent:/// in the address bar, or passing it on the command line, is refused with the "supported in this build" message. Captures come from a driver using tools/native_capture.py's demo tree and bubblewrap isolation with xdotool input (the snapshot hook cannot draw dialogs or other apps). PR text in recent-open-fix-pr.md.
 PASS tests-first: 9 new bug tests fail on upstream main 016c335, all 10 recent_rows tests pass on the branch (Recent locations test passes on both)
 PASS rustfmt --check
 PASS clippy (CONTRIBUTING.md pedantic command, Rust 1.92.0)
@@ -38,4 +38,9 @@ PASS Recent file: command bar Cut, Rename and Delete greyed out, Copy enabled
 PASS Recent file: right-click strip has only Copy (Share shows only with the desktop's email portal); rest of the menu unchanged
 PASS Recent file: Ctrl+X does nothing (no message, clipboard unchanged); F2 and Delete do nothing (no rename box, file still there)
 PASS Recent locations folder: Cut, Rename and Delete stay enabled (real folders)
+PASS codex 1 (Copy on a shortcut-typed Recent row): test failed on faa1795 (Copy disabled), passes now
+PASS codex 2 (Open with on a Recent file on an unmounted share mounts it first, menu app and Choose another app): test failed on faa1795 (no mount), passes now
+PASS codex 3 (Properties of a Recent file on an unmounted share mounts it first): already true on faa1795 (Properties goes through after_mounting); new test passes on faa1795 and now, kept as a guard
+PASS codex 4 (opening several Recent rows: a .desktop link is followed, an unmounted share is mounted): test failed on faa1795 (link not followed), passes now
+PASS codex 5 (several Recent rows' Properties: Location is "Multiple locations", sizes and attributes use the files): test failed on faa1795 ("All in Recent"), passes now
 PASS captures: recent-open-fix-1x-{light,dark}-open.png, recent-open-fix-1x-{light,dark}-item-not-found.png
