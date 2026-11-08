@@ -1,0 +1,15 @@
+STATUS: WORKING
+HEAD: update-optin-298 062a205 (cut from AKolenda feat/update-without-password, nothing pushed yet)
+QUESTION: none
+NOTE: Branch cut from the newest #298 head. Writing the failing tests first, then the setting.
+
+CHECKLIST
+1. Fresh install, no rule active, setting OFF: PENDING
+2. Update with setting OFF asks for the administrator (auth_admin_keep): PENDING
+3. Turn ON: one prompt, fixed rule in /etc/polkit-1/rules.d, switch ON, no auth for an active local sudo member: PENDING
+4. Cancel the prompt when turning ON: switch back to OFF, no file: PENDING
+5. Turn OFF: file removed, auth asked again: PENDING
+6. Restart: switch matches the file in both states: PENDING
+7. Remove and purge with the setting ON: /etc rule gone: PENDING
+8. Keyboard: Tab focus ring, Space toggles, reduced motion: PENDING
+9. Hidden in a non-stable / no-helper build: PENDING
