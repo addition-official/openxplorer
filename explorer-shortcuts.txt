@@ -1,4 +1,4 @@
 STATUS: WORKING
 HEAD: explorer-shortcuts-fixed 51b9fa24
-QUESTION: explorer-shortcuts was first pushed from the wrong commit (it equals the fork branch access-denied-continue and has none of this work). The work is on explorer-shortcuts-fixed, cut from upstream main 2.0.15. A force push to explorer-shortcuts was refused in this session. Should I force-push explorer-shortcuts to it, or will you reset it?
+QUESTION: none
 NOTE: Keys added; check.py, parity, rustfmt and clippy run (results at the end). Real-input (xdotool) runs on unchanged main and on the branch are in progress, then captures.
