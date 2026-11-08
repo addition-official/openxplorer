@@ -6,7 +6,7 @@ Model: claude-opus-5-5
 
 View > Preview pane (Alt+P) now shows the selected file's contents instead of only its icon or thumbnail:
 
-- **Text and source files** (txt, md, log, csv, json, xml, ini, conf, rs, py, js, ts, c, cpp, h, sh, html, css and any type GIO calls text): the first 1 MB as read-only, selectable plain text in the desktop's monospace font at the app's text size, wrapping at the pane's edge. No syntax highlighting.
+- **Text and source files** (txt, md, log, csv, json, xml, ini, conf, rs, py, js, ts, c, cpp, h, sh, html, css and any type GIO calls text): the first 1 MB as read-only, selectable plain text in the desktop's monospace font at the app's text size, wrapping at the pane's edge, black on white with 6 px padding in both light and dark mode, as Windows 11's text preview stays black on white when Explorer is dark (compared in a Windows 11 VM). No syntax highlighting.
 - **PDFs**: the pages one under the other, scrollable, drawn by poppler's `pdftoppm` inside the existing bubblewrap thumbnailer sandbox (no network, no session bus, the PDF alone of the user's files), within the thumbnailers' resource limits (memory, file size, processor time), four pages per run, each cut at four times its width, up to 30 pages or 24 megapixels of pages.
 - **Pictures**: as large as the pane allows, aspect ratio kept, never stretched beyond their own size, never widening the pane.
 - **Audio and video**: unchanged, the pane's existing player.
