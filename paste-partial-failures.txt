@@ -1,7 +1,7 @@
 # DO NOT PR
 STATUS: IN PROGRESS
-HEAD: paste-partial-failures 9e09c797b3d0c7589a5588a85dd00e80d6571eb5
+HEAD: paste-partial-failures c3c3cc44e84956a0b9fab9e7ca4e7b6775939699
 QUESTION: none yet
-NOTE: Branch cut from upstream main 016c3359. Cause of items 1 and 2: the protected-location check over the whole selection (preflight in ops/resolved_transfer.rs, using the guard.rs walk) failed the whole paste on any read error. Core fix and 6 new tests pushed; on unchanged main all 5 item tests fail with the reported errors. Real-app checks under Xvfb, captures and full checks still to do.
+NOTE: Branch cut from upstream main 016c3359. Cause of items 1 and 2: the protected-location check over the whole selection (preflight in ops/resolved_transfer.rs, using the guard.rs walk) failed the whole paste on any read error. Fix, tests, docs and parity notes pushed; rustfmt, pedantic clippy, parity and i18n checks clean. 1x light real-input run all PASS so far; full matrix (1x/2x, light/dark) and the full test suite are running.
 
 PASS core test ops_partial_failures (6/6, as tester); on unchanged main 5/5 failed (missing item, unreadable copy, nested, move, folder-into-itself)
