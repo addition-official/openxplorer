@@ -504,3 +504,5 @@ PASS | Num Lock+minus (-) (folder tree, Num Lock on) | 2x Num Lock ON, focus in 
 PASS | Num Lock+plus (+) (folder tree, Num Lock on) | 2x Num Lock ON, focus in navigation pane | before (51b9fa24): PASS | tree=['Home', 'Desktop', 'Documents', 'Invoices', 'Launch planning', 'Downloads', 'Music', 'Pictures', 'Videos']
 PASS | Num Lock+asterisk (*) (folder tree, Num Lock on) | 2x Num Lock ON, focus in navigation pane | before (51b9fa24): PASS | tree=['Home', 'Desktop', 'Documents', 'Invoices', '2025', 'Launch planning', 'Drafts', 'Old', 'Downloads', 'Music', 'Pictures', 'Videos']
 PASS | Left arrow / Right arrow (folder tree, Num Lock on) | 2x Num Lock ON, focus in navigation pane | before (51b9fa24): PASS | left=True right=True
+PASS | Num Lock is still on at the end (probe, keypad 1 types 1) | 1x Num Lock ON, unfixed 51b9fa24 | caret 0->1: Num Lock stayed on through the run, so X11 really did not pass the lock bits to these handlers
+NOTE (label): the keyboard shortcuts window still names Ctrl+Shift+E "Open the navigation pane to the current folder"; Codex asked only about the guide, so the label was left as is.
