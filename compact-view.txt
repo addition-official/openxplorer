@@ -1,6 +1,6 @@
 STATUS: DONE
-HEAD: compact-view 7c805573
-NOTE: Compact view now spaced as Windows 11's (Details 21/26/27, header 26, nav 24, Tiles 57/83, Content 48 with 18 px lines); normal view pixel-identical to main. 96 PASS, 4 FAIL (one finding: Tiles heading text to icon 28 vs 26, from our shorter icon art). Pictures compact-view-<scale>-<theme>-<case>.png; the -before ones are main. Compact rows go below the earlier 24 px lowest-row decision (ui-spec), as asked; please confirm.
+HEAD: compact-view 5d7edeb0
+NOTE: (5d7edeb0 is a docs-only commit after the tested 7c805573.) Compact view now spaced as Windows 11's (Details 21/26/27, header 26, nav 24, Tiles 57/83, Content 48 with 18 px lines); normal view pixel-identical to main. 96 PASS, 4 FAIL (one finding: Tiles heading text to icon 28 vs 26, from our shorter icon art). Pictures compact-view-<scale>-<theme>-<case>.png; the -before ones are main. Compact rows go below the earlier 24 px lowest-row decision (ui-spec), as asked; please confirm.
 
 CHECKLIST
 PASS 1x-dark Details 1 rows: row to row 21.0, 21.0, 21.0, 21.0 (target 21)
