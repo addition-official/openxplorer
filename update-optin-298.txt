@@ -1,15 +1,15 @@
 STATUS: WORKING
-HEAD: update-optin-298 bde87b2 (local, push follows the checks)
+HEAD: update-optin-298 5ef8ed3
 QUESTION: none
-NOTE: Tests written (failed on the #298 head), fix in place; full checks and the stable .deb build running, then the checklist with real input.
+NOTE: Setting added and pushed; checklist done with real input on the installed stable .deb. The full check comparison against the unchanged #298 head is running (first attempt ran out of disk). Captures are here for review.
 
 CHECKLIST
-1. Fresh install, no rule active, setting OFF: PENDING
-2. Update with setting OFF asks for the administrator (auth_admin_keep): PENDING
-3. Turn ON: one prompt, fixed rule in /etc/polkit-1/rules.d, switch ON, no auth for an active local sudo member: PENDING
-4. Cancel the prompt when turning ON: switch back to OFF, no file: PENDING
-5. Turn OFF: file removed, auth asked again: PENDING
-6. Restart: switch matches the file in both states: PENDING
-7. Remove and purge with the setting ON: /etc rule gone: PENDING
-8. Keyboard: Tab focus ring, Space toggles, reduced motion: PENDING
-9. Hidden in a non-stable / no-helper build: PENDING
+1. Fresh install, no rule active, setting OFF: PASS
+2. Update with setting OFF asks for the administrator (auth_admin_keep): PASS (pkaction, pkcheck)
+3. Turn ON: one prompt, fixed rule in /etc/polkit-1/rules.d, switch ON, no auth for an active local sudo member: PASS (last part by evaluating the installed rule, see NOTE in the PR text)
+4. Cancel the prompt when turning ON: switch back to OFF, no file: PASS
+5. Turn OFF: file removed, auth asked again: PASS
+6. Restart: switch matches the file in both states: PASS
+7. Remove and purge with the setting ON: /etc rule gone: PASS
+8. Keyboard: Tab focus ring, Space toggles, reduced motion: PASS
+9. Hidden in a non-stable / no-helper build: PASS
