@@ -1,7 +1,7 @@
 STATUS: WORKING
-HEAD: update-optin-298 062a205 (cut from AKolenda feat/update-without-password, nothing pushed yet)
+HEAD: update-optin-298 bde87b2 (local, push follows the checks)
 QUESTION: none
-NOTE: Branch cut from the newest #298 head. Writing the failing tests first, then the setting.
+NOTE: Tests written (failed on the #298 head), fix in place; full checks and the stable .deb build running, then the checklist with real input.
 
 CHECKLIST
 1. Fresh install, no rule active, setting OFF: PENDING
