@@ -1,4 +1,4 @@
 STATUS: WORKING
-HEAD: names-sizes-fixes 169b4fb426363cb08a5bb6306756c922ad7744dd
-QUESTION: none
-NOTE: Failing tests committed first, then one fix commit per item (1-5, 7, 8). Item 6 is a CONFLICT (main window refuses an empty name too). Next: manager's items 9-10, full checks, xdotool checklist, captures.
+HEAD: names-sizes-fixes 11b8fc5b58b07d32c8706eff5a912cb694398f80
+QUESTION: none yet (item 6 will be a CONFLICT question)
+NOTE: Items 1-5, 7, 8 and the manager's 9-10 (separate test+fix commits) are pushed. Full check.py rerunning; then xdotool checklist and captures.
