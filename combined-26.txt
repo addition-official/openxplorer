@@ -1,6 +1,6 @@
-STATUS: WORKING (building)
-HEAD: test-combined-26 (merging)
-NOTE: All six jobs DONE at the 05:48 UTC poll. Building from upstream main 016c3359 (2.0.15; since deb 25 it merged #297 and #299).
+STATUS: WORKING (deb pushed; checks and captures running)
+HEAD: test-combined-26 5269904ad495d7197e83a7bdd09911e7415624bf
+DEB: claude/test-combined-26-deb 1603a727 openxplorer_2.0.15+test26_all.deb sha256 65dcf45871593f545afb44c94f954c0a848ff9f2720d38af4de36e95015775f8
 POLL LOG:
   03:55 UTC: compact-view no status file; explorer-shortcuts WORKING; update-optin-298 WORKING; preview-pane-contents DONE; tabs-windows WORKING; search-windows no status file; 
   04:11 UTC: compact-view WORKING; explorer-shortcuts WORKING; update-optin-298 WORKING; preview-pane-contents DONE; tabs-windows WORKING; search-windows no status file; 
