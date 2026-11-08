@@ -1,4 +1,53 @@
-STATUS: WORKING
-HEAD: names-sizes-fixes 11b8fc5b58b07d32c8706eff5a912cb694398f80
-QUESTION: none yet (item 6 will be a CONFLICT question)
-NOTE: Items 1-5, 7, 8 and the manager's 9-10 (separate test+fix commits) are pushed. Full check.py rerunning; then xdotool checklist and captures.
+STATUS: DONE
+HEAD: names-sizes-fixes db12d532da1c6bf19398b7455b6cd96ad308d209
+QUESTION: CONFLICT (item 4): Ctrl+C of a file whose name holds a line break is still refused ("Encoded control characters are not allowed."), because CLIP-005/SAFE-010 says no clipboard payload carries an escaped control character. Keep that rule (current), or let the app's own clipboard carry such names?
+NOTE: 22 commits on upstream main 016c3359, failing tests first; items 9-10 are separate test+fix commits (9b8e6ef0+62aa8129, c7a0cc47+9ededa4f), item 6 is fb80ac03+f5c8d000. PR text in names-sizes-fixes-pr.md.
+NOTE: Found, not fixed (outside these items, not checked on main): Ctrl+A inside the in-place rename field also selects every item in the list; the rename field of a name that is not UTF-8 holds its display text "Caf? menu.txt (invalid encoding)", so a new name ending in .txt asks "Change the extension?".
+
+CHECKLIST (xdotool real input on private Xvfb, debug build of HEAD, fictional files; each line ran at 1x light, 1x dark, 2x light and 2x dark unless it says otherwise)
+PASS 1 extensions hidden: sunset, data, page, script, plan, Budget 2026 and Bundle.tar (from Bundle.tar.gz) in Details, Tiles, Content and the Details pane (pictures reviewed, all 4 configs)
+PASS 2 Notes.txt (4,486 bytes): Details pane 4.38 KB, status bar 4.38 KB, tooltip "Size: 4.38 KB", Tiles/Content 4.38 KB, Size column 5 KB (pictures reviewed, all 4 configs)
+PASS 2 one-byte file: tooltip "Size: 1 byte", pane "1 byte", status bar "1 byte", Tiles/Content "1 byte"
+PASS 3 6 GB file: Size column shows "6,291,456 KB" whole at the default width, also with the Details pane open
+PASS 4 copy invalid-UTF-8 name (Ctrl+C, Ctrl+V)
+FAIL 4 copy line-break name (Ctrl+C, Ctrl+V) - refused on purpose, see QUESTION/CONFLICT (fails on main too); copying it through a transfer is covered by tests/ops_odd_names.rs; dragging could not be driven with xdotool on Xvfb (no drag started), NOT RUN
+PASS 4 rename line-break name (F2, new name, Enter)
+PASS 4 rename invalid-UTF-8 name (F2, new name, Enter, "Change the extension?" answered)
+PASS 4 delete line-break name to the Recycle Bin (file found in Trash/files)
+PASS 4 delete invalid-UTF-8 name to the Recycle Bin (file found in Trash/files)
+PASS 5 rename folder to "Archive." -> Archive
+PASS 5 rename folder to "Archive2. " -> Archive2 (the trailing ". " case)
+PASS 5 rename folder to "Notes .txt" -> Notes .txt (kept)
+PASS 5 New folder "Fresh." -> Fresh
+PASS 5 New folder "Fresh2. " -> Fresh2
+PASS 5 New folder "Fresh .txt" -> Fresh .txt (kept)
+PASS 6 erased name keeps the old name, no message: main window Details, Tiles, Content
+PASS 6 erased name keeps the old name, no message: Save dialog (opened through the portal backend on the private bus)
+PASS 7 tooltip "See more" on hover (pictures reviewed)
+PASS 7 screen-reader name "See more" (AT-SPI tree read with python3-gi Atspi; no "More options")
+PASS 8 Alt alone in the main window: New gets the keyboard with its focus ring; Escape removes it (pictures reviewed)
+PASS 8 Alt alone in the Save dialog: New gets the focus ring; Escape; the dialog stays open
+PASS 8 Alt+D still edits the address; Alt+Left goes back, Alt+Right forward (main window)
+PASS 8 Alt+Left in the Save dialog goes back from a subfolder (picture reviewed)
+PASS 9 Settings > About: "An independent Windows 11–inspired file manager for Linux." (capture, 1x/2x light/dark)
+PASS 10 Settings > About lead line: "...how it is updated and its license." (capture, 1x/2x light/dark)
+
+TESTS
+- Every new test failed on unchanged main (main + test commits only, run 2026-11-08): 15 ox-app tests and 5 ox-core tests listed in the PR text.
+- python3 native/tools/check.py (with python3 = 3.12): parity, icons, rustfmt, clippy -D warnings, parity/check.py, i18n check PASS; test binaries before ox_app PASS; ox_app 2114 passed, 2 FAILED: thumbnails::thumbnailers a_sandboxed_thumbnailer_runs_within_its_limits and a_sandboxed_thumbnailer_sees_only_its_item - also FAIL on unchanged main (bubblewrap in this container).
+- check.py stops after ox_app, so the rest was run with the same isolation: ox-core all targets 1187+ passed, 9 FAILED admin_copy::tests::* - the same 9 FAIL on unchanged main (test folders under world-writable /tmp); ox-app display_scale and launch PASS; doctests PASS.
+- With the default python3 (3.13.18) check.py stops earlier at location_fixture_drift python_fixture_matches_desktop_core_py (urllib now accepts smb://[V1.x]/) - also FAILS on unchanged main.
+
+CAPTURES (tools/native_capture.py through a driver that adds fictional files under /home/demo/Documents/Samples; 1x and 2x, light and dark; for 2x the driver only gives Xvfb a 3200x2800 screen): extensions-hidden, sizes-agree (pane + status bar), size-column-6gb, about.
+NOT CAPTURED: the command bar after Alt and the "See more" tooltip - the snapshot hook has no key or hover step, and the rules allow only the repo's capture tools (checked with xdotool pictures instead, not pushed).
+
+NOT CONFIRMED (Microsoft documentation)
+- The exact size format of Explorer's Details pane, status bar and tooltip. Built: one formatter for all three, the one the status bar already used (3 significant digits, truncated), which matches Microsoft's StrFormatByteSize examples (1340 -> "1.30 KB", 23506 -> "22.9 KB"); no Microsoft page says Explorer uses it there.
+- That the "..." button is what Microsoft's page names "See more": the page says "select See more [icon] > Options" with an icon image, never "...".
+- The Windows 11 Alt sentence is "To move the focus to the app bar buttons: Press the Alt key. You will hear the name of the currently selected button" (not the quoted "Alt moves focus to the app bar"); Esc returning focus is not stated by Microsoft (built as asked).
+- Empty name keeps the old one: the user checked on Windows 11; no Microsoft page found.
+
+CONFLICT
+- Item 4 clipboard: CLIP-005/SAFE-010 (escaped control characters never on the clipboard). Current: a line-break name is refused on Ctrl+C. Alternative: allow it. Kept the rule. A name that is not UTF-8 (no control character) now goes on the clipboard.
+- Item 3 minimum width: VIEW-028 behaviour says Size 70-600 px (Python app). Changed only the default (90 -> 130 px); the 70 px minimum is unchanged.
+- Item 6: none (VIEW-069 said "an empty name is still refused" without naming the owner or the message; implemented the user's decision and updated the note).
