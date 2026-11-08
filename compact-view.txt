@@ -1,6 +1,6 @@
 STATUS: DONE
-HEAD: compact-view-spacing cb8b57b8
-NOTE: Group headings now look as Windows 11's in normal and Compact view, Details/Tiles/Content (regular weight, 15 px to the names' 12, no line; chevron, hover box, folding, focus unchanged). No owner decision on the old bold+line style was found, so no CONFLICT. Compact spacing kept (26/27 by the capitals); normal view's items unmoved, headings centred where they were. 104 PASS, 4 FAIL (one known finding: Tiles heading text to icon 28 vs 26). Compact rows still go below the earlier 24 px lowest-row decision (ui-spec), as asked; please confirm.
+HEAD: compact-view-spacing 5f40287c
+NOTE: Heading hover/selection/focus box now has room round the title: compact Details 27 px tall (title 7 above, 9 below its capitals), compact Tiles 25, from the heading's own margins, so 26/27 spacing unchanged; same left/right edges, corners and colour as the rows' boxes (Tiles inset 4 px; Content full width like its rows). Pairs: compact-view-<scale>-<theme>-<view>-<density>-hover-row-and-heading.png. 128 PASS, 4 FAIL (the known Tiles heading-to-icon 28 vs 26). Compact rows still go below the earlier 24 px lowest-row decision (ui-spec), as asked; please confirm.
 
 CHECKLIST
 PASS 1x-dark Details 1 rows: row to row 21.0, 21.0, 21.0, 21.0 (target 21)
@@ -8,12 +8,12 @@ PASS 1x-dark Details 2 headings: heading to first row 27.0, 27.0; last row to he
 PASS 1x-dark Details 3 header: column header 26.0 with its line (target 26); first heading text 14.0 below it (Windows about 14)
 PASS 1x-dark Details 4 hover: hover box (226.0, 245.0) (19.0 tall, target 19, ends before the next row's box)
 PASS 1x-dark Details 5 click/keys: selected (226.0, 245.0), Down (247.0, 266.0), Up (226.0, 245.0) (19 tall, 21 apart, focus outline inside)
-PASS 1x-dark Details 6 heading: hover (274.0, 293.0), click (274.0, 293.0) (19 tall); Left hides 3 rows, Right shows them again (11 lines)
+PASS 1x-dark Details 6 heading: hover (270.0, 297.0), click (270.0, 297.0) (27 tall, room round the title); Left hides 3 rows, Right shows them again (11 lines)
 PASS 1x-dark Tiles 1 rows: tile rows [57.0, 57.0] apart (target 57)
 FAIL 1x-dark Tiles 2 headings: heading over one row to the next 83.0 (target 83); heading text to icon top 28.0 (Windows 26); icon bottom to heading text 16.0 (Windows 14-16)
 PASS 1x-dark Tiles 4 hover: hover box (228.0, 284.0) (56.0 tall, 1 px gap to the next row)
 PASS 1x-dark Tiles 5 click/keys: selected (228.0, 284.0), Down (285.0, 341.0)
-PASS 1x-dark Tiles 6 heading: hover (344.0, 365.0), click (344.0, 365.0); Left folds (14 lines vs 15), Right unfolds (15)
+PASS 1x-dark Tiles 6 heading: hover (342.0, 367.0), click (342.0, 367.0) (25 tall, room round the title); Left folds (14 lines vs 15), Right unfolds (15)
 PASS 1x-dark Content 1 rows: items 48.0 apart (target 48), name to second line 18.0 (Windows 18; 17.5 at 2x rounds to 17 or 18)
 PASS 1x-dark Content 2 headings: heading to first name 32.0 (Windows 31-32), last name to heading 48.0 (Windows 48-49)
 PASS 1x-dark Content 4 hover: hover fill and its separator lines (221.0, 270.0) (47 between the item's lines, one item of 48)
@@ -35,12 +35,12 @@ PASS 1x-light Details 2 headings: heading to first row 27.0, 27.0; last row to h
 PASS 1x-light Details 3 header: column header 26.0 with its line (target 26); first heading text 14.0 below it (Windows about 14)
 PASS 1x-light Details 4 hover: hover box (226.0, 245.0) (19.0 tall, target 19, ends before the next row's box)
 PASS 1x-light Details 5 click/keys: selected (226.0, 245.0), Down (247.0, 266.0), Up (226.0, 245.0) (19 tall, 21 apart, focus outline inside)
-PASS 1x-light Details 6 heading: hover (274.0, 293.0), click (274.0, 293.0) (19 tall); Left hides 3 rows, Right shows them again (11 lines)
+PASS 1x-light Details 6 heading: hover (270.0, 297.0), click (270.0, 297.0) (27 tall, room round the title); Left hides 3 rows, Right shows them again (11 lines)
 PASS 1x-light Tiles 1 rows: tile rows [57.0, 57.0] apart (target 57)
 FAIL 1x-light Tiles 2 headings: heading over one row to the next 83.0 (target 83); heading text to icon top 28.0 (Windows 26); icon bottom to heading text 16.0 (Windows 14-16)
 PASS 1x-light Tiles 4 hover: hover box (228.0, 284.0) (56.0 tall, 1 px gap to the next row)
 PASS 1x-light Tiles 5 click/keys: selected (228.0, 284.0), Down (285.0, 341.0)
-PASS 1x-light Tiles 6 heading: hover (344.0, 365.0), click (344.0, 365.0); Left folds (14 lines vs 15), Right unfolds (15)
+PASS 1x-light Tiles 6 heading: hover (342.0, 367.0), click (342.0, 367.0) (25 tall, room round the title); Left folds (14 lines vs 15), Right unfolds (15)
 PASS 1x-light Content 1 rows: items 48.0 apart (target 48), name to second line 18.0 (Windows 18; 17.5 at 2x rounds to 17 or 18)
 PASS 1x-light Content 2 headings: heading to first name 32.0 (Windows 31-32), last name to heading 48.0 (Windows 48-49)
 PASS 1x-light Content 4 hover: hover fill and its separator lines (221.0, 270.0) (47 between the item's lines, one item of 48)
@@ -62,12 +62,12 @@ PASS 2x-dark Details 2 headings: heading to first row 26.5, 26.5; last row to he
 PASS 2x-dark Details 3 header: column header 26.0 with its line (target 26); first heading text 15.0 below it (Windows about 14)
 PASS 2x-dark Details 4 hover: hover box (226.0, 245.0) (19.0 tall, target 19, ends before the next row's box)
 PASS 2x-dark Details 5 click/keys: selected (226.0, 245.0), Down (247.0, 266.0), Up (226.0, 245.0) (19 tall, 21 apart, focus outline inside)
-PASS 2x-dark Details 6 heading: hover (274.0, 293.0), click (274.0, 293.0) (19 tall); Left hides 3 rows, Right shows them again (11 lines)
+PASS 2x-dark Details 6 heading: hover (270.0, 297.0), click (270.0, 297.0) (27 tall, room round the title); Left hides 3 rows, Right shows them again (11 lines)
 PASS 2x-dark Tiles 1 rows: tile rows [57.0, 57.0] apart (target 57)
 FAIL 2x-dark Tiles 2 headings: heading over one row to the next 83.0 (target 83); heading text to icon top 27.0 (Windows 26); icon bottom to heading text 17.0 (Windows 14-16)
 PASS 2x-dark Tiles 4 hover: hover box (228.0, 284.0) (56.0 tall, 1 px gap to the next row)
 PASS 2x-dark Tiles 5 click/keys: selected (228.0, 284.0), Down (285.0, 341.0)
-PASS 2x-dark Tiles 6 heading: hover (344.0, 365.0), click (344.0, 365.0); Left folds (14 lines vs 15), Right unfolds (15)
+PASS 2x-dark Tiles 6 heading: hover (342.0, 367.0), click (342.0, 367.0) (25 tall, room round the title); Left folds (14 lines vs 15), Right unfolds (15)
 PASS 2x-dark Content 1 rows: items 48.0 apart (target 48), name to second line 17.0 (Windows 18; 17.5 at 2x rounds to 17 or 18)
 PASS 2x-dark Content 2 headings: heading to first name 32.0 (Windows 31-32), last name to heading 48.5 (Windows 48-49)
 PASS 2x-dark Content 4 hover: hover fill and its separator lines (221.0, 270.0) (47 between the item's lines, one item of 48)
@@ -89,12 +89,12 @@ PASS 2x-light Details 2 headings: heading to first row 26.5, 26.5; last row to h
 PASS 2x-light Details 3 header: column header 26.0 with its line (target 26); first heading text 15.0 below it (Windows about 14)
 PASS 2x-light Details 4 hover: hover box (226.0, 245.0) (19.0 tall, target 19, ends before the next row's box)
 PASS 2x-light Details 5 click/keys: selected (226.0, 245.0), Down (247.0, 266.0), Up (226.0, 245.0) (19 tall, 21 apart, focus outline inside)
-PASS 2x-light Details 6 heading: hover (274.0, 293.0), click (274.0, 293.0) (19 tall); Left hides 3 rows, Right shows them again (11 lines)
+PASS 2x-light Details 6 heading: hover (270.0, 297.0), click (270.0, 297.0) (27 tall, room round the title); Left hides 3 rows, Right shows them again (11 lines)
 PASS 2x-light Tiles 1 rows: tile rows [57.0, 57.0] apart (target 57)
 FAIL 2x-light Tiles 2 headings: heading over one row to the next 83.0 (target 83); heading text to icon top 27.0 (Windows 26); icon bottom to heading text 17.0 (Windows 14-16)
 PASS 2x-light Tiles 4 hover: hover box (228.0, 284.0) (56.0 tall, 1 px gap to the next row)
 PASS 2x-light Tiles 5 click/keys: selected (228.0, 284.0), Down (285.0, 341.0)
-PASS 2x-light Tiles 6 heading: hover (344.0, 365.0), click (344.0, 365.0); Left folds (14 lines vs 15), Right unfolds (15)
+PASS 2x-light Tiles 6 heading: hover (342.0, 367.0), click (342.0, 367.0) (25 tall, room round the title); Left folds (14 lines vs 15), Right unfolds (15)
 PASS 2x-light Content 1 rows: items 48.0 apart (target 48), name to second line 17.0 (Windows 18; 17.5 at 2x rounds to 17 or 18)
 PASS 2x-light Content 2 headings: heading to first name 32.0 (Windows 31-32), last name to heading 48.5 (Windows 48-49)
 PASS 2x-light Content 4 hover: hover fill and its separator lines (221.0, 270.0) (47 between the item's lines, one item of 48)
@@ -111,3 +111,27 @@ PASS 2x-light Off 8 nav-down: navigation pane identical
 PASS 2x-light Heading look (compact): nothing drawn after the title across the row (runs down x=500: 1)
 PASS 2x-light Heading look (normal): nothing drawn after the title across the row (runs down x=500: 1)
 PASS 2x-light Save 9: Save dialog spacing [26.5, 21.0, 21.0, 26.5, 26.5, 21.0, 21.0, 26.5, 26.5, 21.0] vs main window [26.5, 21.0, 21.0, 26.5, 26.5, 21.0, 21.0, 26.5, 26.5, 21.0]
+PASS 1x-dark compact Details heading hover box: x 232-726 (row's 232-726), 27 tall, 7 px above the title's capitals and 9 below
+PASS 1x-dark compact Tiles heading hover box: x 232-710 (row's 232-710), 25 tall, 6 px above the title's capitals and 8 below
+PASS 1x-dark compact Content heading hover box: x 228-714 (row's 228-714), 27 tall, 7 px above the title's capitals and 9 below
+PASS 1x-dark normal Details heading hover box: x 232-726 (row's 232-726), 30 tall, 9 px above the title's capitals and 10 below
+PASS 1x-dark normal Tiles heading hover box: x 232-710 (row's 232-710), 27 tall, 7 px above the title's capitals and 9 below
+PASS 1x-dark normal Content heading hover box: x 228-714 (row's 228-714), 27 tall, 7 px above the title's capitals and 9 below
+PASS 1x-light compact Details heading hover box: x 232-726 (row's 232-726), 27 tall, 7 px above the title's capitals and 9 below
+PASS 1x-light compact Tiles heading hover box: x 232-710 (row's 232-710), 25 tall, 6 px above the title's capitals and 8 below
+PASS 1x-light compact Content heading hover box: x 228-714 (row's 228-714), 27 tall, 7 px above the title's capitals and 9 below
+PASS 1x-light normal Details heading hover box: x 232-726 (row's 232-726), 30 tall, 9 px above the title's capitals and 10 below
+PASS 1x-light normal Tiles heading hover box: x 232-710 (row's 232-710), 27 tall, 7 px above the title's capitals and 9 below
+PASS 1x-light normal Content heading hover box: x 228-714 (row's 228-714), 27 tall, 7 px above the title's capitals and 9 below
+PASS 2x-dark compact Details heading hover box: x 232-726 (row's 232-726), 27 tall, 8 px above the title's capitals and 8.5 below
+PASS 2x-dark compact Tiles heading hover box: x 232-710 (row's 232-710), 25 tall, 7 px above the title's capitals and 7.5 below
+PASS 2x-dark compact Content heading hover box: x 228-714 (row's 228-714), 27 tall, 8 px above the title's capitals and 8.5 below
+PASS 2x-dark normal Details heading hover box: x 232-726 (row's 232-726), 30 tall, 9 px above the title's capitals and 10.5 below
+PASS 2x-dark normal Tiles heading hover box: x 232-710 (row's 232-710), 27 tall, 8 px above the title's capitals and 8.5 below
+PASS 2x-dark normal Content heading hover box: x 228-714 (row's 228-714), 27 tall, 8 px above the title's capitals and 8.5 below
+PASS 2x-light compact Details heading hover box: x 232-726 (row's 232-726), 27 tall, 8 px above the title's capitals and 8.5 below
+PASS 2x-light compact Tiles heading hover box: x 232-710 (row's 232-710), 25 tall, 7 px above the title's capitals and 7.5 below
+PASS 2x-light compact Content heading hover box: x 228-714 (row's 228-714), 27 tall, 8 px above the title's capitals and 8.5 below
+PASS 2x-light normal Details heading hover box: x 232-726 (row's 232-726), 30 tall, 9 px above the title's capitals and 10.5 below
+PASS 2x-light normal Tiles heading hover box: x 232-710 (row's 232-710), 27 tall, 8 px above the title's capitals and 8.5 below
+PASS 2x-light normal Content heading hover box: x 228-714 (row's 228-714), 27 tall, 8 px above the title's capitals and 8.5 below
