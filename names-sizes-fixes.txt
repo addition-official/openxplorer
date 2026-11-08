@@ -1,4 +1,4 @@
 STATUS: WORKING
-HEAD: names-sizes-fixes 016c3359 (upstream main, no commits yet)
+HEAD: names-sizes-fixes 169b4fb426363cb08a5bb6306756c922ad7744dd
 QUESTION: none
-NOTE: Started; branch cut from upstream main 016c335. Writing failing tests for the 8 items first.
+NOTE: Failing tests committed first, then one fix commit per item (1-5, 7, 8). Item 6 is a CONFLICT (main window refuses an empty name too). Next: manager's items 9-10, full checks, xdotool checklist, captures.
