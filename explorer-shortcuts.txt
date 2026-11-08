@@ -1,3 +1,4 @@
 STATUS: WORKING
-HEAD: explorer-shortcuts 84ee66a2
-NOTE: Branch cut from upstream main 2.0.15. Microsoft page fetched. Building the real-input (xdotool) test driver and testing unchanged main.
+HEAD: explorer-shortcuts-fixed bd1096a6
+QUESTION: explorer-shortcuts was first pushed from the wrong commit (it equals the fork branch access-denied-continue and has none of this work). The work is on explorer-shortcuts-fixed, cut from upstream main 2.0.15. A force push to explorer-shortcuts was refused in this session. Should I force-push explorer-shortcuts to it, or will you reset it?
+NOTE: Keys added and unit tests pass; real-input (xdotool) runs on unchanged main and on the branch, captures and full checks are in progress.
