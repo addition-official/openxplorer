@@ -1,7 +1,7 @@
-STATUS: WORKING
+STATUS: DONE
 HEAD: update-optin-298 5ef8ed3
 QUESTION: none
-NOTE: Setting added and pushed; checklist done with real input on the installed stable .deb. The full check comparison against the unchanged #298 head is running (first attempt ran out of disk). Captures are here for review.
+NOTE: Done, ready for review before the PR. One departure from the brief: users cannot read /etc/polkit-1/rules.d on Ubuntu or Debian, so the helper also writes a readable record in /var/lib/openxplorer, and the switch reads that only when it cannot see the rule file (please approve). Captures: OFF and ON come from the app's snapshot hook; the focus ones come from the xdotool session, whose first launch shows the GitHub check failing (no network in the container). Full checks on branch and #298 head: same container failures, none in this change (see the PR text).
 
 CHECKLIST
 1. Fresh install, no rule active, setting OFF: PASS
