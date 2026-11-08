@@ -1,4 +1,4 @@
 STATUS: IN-PROGRESS
-HEAD: recent-open-fix (not pushed yet; local tests commit dea78a0 on upstream main 016c335)
+HEAD: recent-open-fix 404b264 (pushed; a further commit for Open with on a gone Recent file is local, not pushed yet)
 QUESTION: none
-NOTE: Cause found: opening a Recent files row re-read and launched the row's own recent:/// address, which the opener refuses. Failing tests written (3 of 4 fail on main; Recent locations already works there and stays as a regression test). Fix makes Open, Enter, double-click, Open with, Copy, Copy as path, drag and Properties use the file the row stands for; a gone file says "Item Not Found". New tests pass under Xvfb. Next: confirm the final tests fail on main, full checks, xdotool checklist with a local Samba share, captures.
+NOTE: Fix and tests pushed. Manual xdotool checklist under Xvfb done for the local file, the gone file and the Recent locations folder. Open with on a gone Recent file now also says Item Not Found (test written first, failed, now passes). Next: full check.py run, captures, PR text.
