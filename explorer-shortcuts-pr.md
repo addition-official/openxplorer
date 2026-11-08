@@ -14,13 +14,13 @@ I went through every shortcut in Microsoft's page "Keyboard shortcuts in Windows
 - **Ctrl+Insert / Shift+Insert** copy and paste files in the file list. Text fields keep these keys for their own text.
 - **Ctrl+Shift+1 to 8 now work when typed.** A keyboard sends Ctrl+Shift with the shifted symbol of the digit key (for example % for 5), which the accelerators never matched, so typing these keys did nothing. The window now also accepts each digit key's shifted symbol, read from the keyboard layout.
 
-Keys typed in the address bar, the search box or the rename box still edit text there. The new keys appear in the keyboard shortcuts window (the keypad keys as "Num +", "Num -" and "Num *"), the built-in manual, the guide and the parity list (CMD-039).
+Keys typed in the address bar, the search box or the rename box still edit text there. The new keys appear in the keyboard shortcuts window (Ctrl+Shift+E as "Open the navigation pane to the current folder, while it is shown"; the keypad keys as "Num +", "Num -" and "Num *"), the built-in manual, the guide and the parity list (CMD-039).
 
 Two Windows behaviors differ from choices the app already made, so they stay as they are and need a decision:
 - **Alt+mouse drag**: Windows makes a shortcut; here Alt+drop opens the drop menu (drag-and-drop rule).
 - **Backspace in an Open or Save dialog**: Windows goes up one folder; here Backspace goes back everywhere (NAV-004).
 
-The developer snapshot hook (used for the review pictures) gained `key=`, `zoom=` and `type=` scene steps, `OPENXPLORER_DIALOG=1` (save the dialog a scene opened) and `OPENXPLORER_SAVE_DIALOG=1` (show the window as a Save dialog that nobody waits for).
+The developer snapshot hook (used for the review pictures) gained `key=`, `zoom=` and `type=` scene steps, `OPENXPLORER_DIALOG=1` (save the dialog a scene opened) and `OPENXPLORER_SAVE_DIALOG=1` (show the window as a Save dialog that nobody waits for; its start must be an absolute local folder).
 
 ## Checklist
 | Shortcut | What Windows does (Microsoft) | Before (main 2.0.15) | After | Result |
