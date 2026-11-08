@@ -1,4 +1,67 @@
-STATUS: WORKING
-HEAD: tabs-windows-fixed 078fc08
+STATUS: DONE
+HEAD: tabs-windows-fixed 654a358d
 QUESTION: none
-NOTE: Microsoft confirms only "Duplicate tab" on the tab menu, so no menu items were added. Built: Menu key/Shift+F10 open a focused tab's menu, Escape gives focus back to the tab, F6 lands on the front tab. Now: real-input checks of drop-on-tab, captures, full check.py.
+NOTE: Microsoft confirms only "Duplicate tab" on the tab menu and drops "across tabs", both already in the app, so no menu items or drop behaviors were added. Built (test first): Menu key/Shift+F10 open a focused tab's menu, Escape gives focus back to the tab, F6 lands on the front tab, no GTK drop outline left on the tab strip. The old tabs-windows ref (0449018) is still there for the manager to clean up.
+
+SOURCES (Microsoft only)
+- Shift+F10 = context menu of the selected item; Ctrl+drag copies, Shift+drag moves, Alt+drag makes a shortcut: https://support.microsoft.com/en-us/windows/keyboard-shortcuts-in-windows-dcc61a57-8ff0-cffe-9796-cb9706c75eec
+- Tab row is in the Tab/F6 focus cycle, left/right arrows move along it: https://blogs.windows.com/windows-insider/2022/07/05/announcing-windows-11-insider-preview-build-22621-290-22622-290/
+- Duplicate tab on the tab right-click menu: https://blogs.windows.com/windows-insider/2024/05/03/announcing-windows-11-insider-preview-build-22635-3570-beta-channel/
+- Drag and drop of files and folders across tabs: https://blogs.windows.com/windows-insider/2023/02/15/announcing-windows-11-insider-preview-build-25300/
+- Drop on another volume copies by default: https://learn.microsoft.com/en-us/windows/win32/shell/clipboard
+- Tear out and merge tabs exists (no details): https://blogs.windows.com/windows-insider/2023/06/01/announcing-windows-11-insider-preview-build-23471/
+
+CHECKS
+PASS rustfmt (cargo fmt --all --check)
+PASS clippy (check.py: workspace, all targets, -D warnings)
+PASS python3 native/parity/check.py
+PASS public-data audit (tools/audit-public-data.py)
+PASS ox-app tests: 2106 passed, 0 failed (all executables run with check.py's own isolation incl. the real-pointer tab_dragging tests)
+FAIL check.py as a whole: it stops at ox-core's location_fixture_drift (python.json vs this container's Python 3.13 urllib: smb://[V1.x]). Running every executable anyway: 73 pass, 3 fail, all ox-core: location_fixture_drift (1), network_python (1, system gi does not import under python3 3.13), ox_core lib admin_copy (9, fstab/root-only environment tests). This branch changes no ox-core file, so these are the same binaries as on main; not rebuilt on a separate main checkout.
+New/extended tests, each run and failing before its fix: the_menu_key_and_shift_f10_open_the_focused_tabs_menu, f6_into_the_tab_row_focuses_the_tab_in_front, a_drop_on_a_tab_goes_into_its_folder_and_hovering_shows_the_tab (strip outline assert).
+
+REAL INPUT (xdotool, private Xvfb :77 + openbox + xcompmgr, branch debug build as user tester, fictional /home/demo: Documents/Launch planning {Agenda, Budget, Guest list, Timeline, Venue options}, Documents/Archive {Budget}, Documents/Locked read-only). Full checklist at 1x light; captures at 1x/2x x light/dark.
+Menu
+PASS right-click with 1 tab: menu opens; "Close other tabs" disabled
+PASS right-click with 2 tabs: "Close other tabs" enabled; closes the other tab only
+PASS right-click with 5 tabs: "Close tab" closes exactly the right-clicked tab
+PASS Duplicate tab: same folder, same view (view is per window/folder), fresh history (owner TAB-013)
+FAIL Duplicate tab "next to it": a duplicated background tab opens after the tab in front, not next to the right-clicked tab (owner rule TAB-017 "after the current tab"; Microsoft does not say where a duplicate opens; not changed)
+PASS Move tab to new window: tab moves, source loses it, Back returns to its previous folder (history kept), selection kept
+N/A  Close tabs to the right / New tab: not in the app and not confirmed by Microsoft (not built)
+PASS keyboard: F6 to the front tab, Left/Right along the row, Menu key and Shift+F10 open the menu, Down/Enter choose (Duplicate via keys worked)
+PASS Escape closes the menu; keyboard goes back to the tab
+Drop on tab
+PASS Details: 1 file and 3 files moved into the other tab's folder (count badge 3, "Move to Archive")
+PASS Tiles: 1 file and 3 files moved
+PASS Content: 1 file and 3 files moved
+PASS name clash: existing "Replace or Skip Files" window; Skip kept both, Replace replaced
+PASS same tab: no target, nothing happens
+PASS This PC tab: refused (no highlight, no label, no switch)
+PASS read-only folder tab: nothing moved; the existing "Destination Folder Access Denied" (Continue/Skip/Cancel) flow appears, Cancel left everything as is. The hover still offers "Move to Locked" (unknown until tried, as in Windows)
+CONFLICT Recycle Bin tab: accepted, file goes to the Recycle Bin (owner: spot.rs takes the Recycle Bin; also how Windows' Recycle Bin behaves). Checklist expects refused. Not changed.
+PASS hover highlight on the tab is visible (accent outline + "Move to <tab>"); after the fix no outline stays on the strip after the drop
+FAIL Escape during the drag: did not cancel under Xvfb+openbox+xdotool; the release still dropped. Same when dropping on a sidebar folder, so not tab-specific (GTK's X11 drag did not take Escape in this setup). Needs a check on a real desktop session.
+PASS drop between two windows' tabs: moved into the other window's tab folder via the same Replace or Skip flow
+PASS Ctrl held during the drag: "Copy to Archive", source kept
+NOT RUN Shift-forced move across drives (no second drive here)
+
+CONFLICT (owner decision kept)
+- Hover over a tab during a drag shows that tab after 800 ms (TAB-018, from Dolphin). Microsoft does not document this for Windows tabs. Kept.
+- Tab menu items/order are the owner's TAB-012 set (Move tab to new window, Move tab to window..., Duplicate tab, Open windows..., Close tab, Close other tabs). Kept.
+- Recycle Bin tab takes drops (see above).
+
+NOT CONFIRMED, needs a Windows check
+- Tab right-click menu: exact item names and order (is there New tab, Close other tabs, Close tabs to the right, Move tab to new window?). Check: right-click a middle tab with 3 tabs open, note every item, order, separators and which are disabled on the last tab.
+- Where Duplicate tab opens (next to the original or at the end) and whether it keeps Back history and the view. Check: 3 tabs, duplicate the first while the third is shown.
+- Whether a tab moved to a new window (menu or tear-out) keeps its Back history. Check: browse two folders in a tab, tear it out, press Back.
+- Hovering a dragged file over a tab: does Windows switch to that tab, and after how long? Check: drag a file over a background tab and hold 2 s.
+- Dropping onto a tab header vs only the content area (Microsoft says only "across tabs"). Check: drop a file on a background tab's header.
+- Dropping onto This PC / Recycle Bin / a read-only folder's tab. Check each with a file from another tab.
+- Shift+F10 / Menu key on a focused tab (Microsoft only says "selected item"). Check: F6 to the tabs, Shift+F10.
+
+FOUND, not fixed (outside this job)
+- GTK's thin :drop(active) outline also stays on the navigation pane after a drop on it (fixed only for the tab strip here).
+- The tab tooltip stays over the tab menu when the menu opens by right-click.
+
+CAPTURES (status branch): tabs-windows-{1x,2x}-{light,dark}-{menu,menu-keyboard,menu-keyboard-escape,menu-disabled,drop-hover,drop-after}.png; plus 1x-light case shots: name-clash-replace-or-skip, read-only-access-denied, refused-this-pc-hover, recycle-bin-hover, details-3-files-hover, tiles-3-files-hover, content-3-files-hover, same-tab-hover, two-windows-hover, ctrl-copy-hover, escape-did-not-cancel, leftover-outline-before-fix, leftover-outline-after-fix, keyboard-f6-left-menu, duplicate-of-background-tab, move-to-new-window, moved-tab-history-back. PR text: tabs-windows-pr.md.
