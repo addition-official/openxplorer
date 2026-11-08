@@ -16,7 +16,7 @@ Three paste problems from the overnight review, each confirmed on a real PC:
 
 Cause of the first two: before any item ran, the check for protected (snapshot) locations walked every selected item, and any read error there failed the whole paste (`preflight` in `ops/resolved_transfer.rs`, through the walk in `transfer/guard.rs`). That check still refuses a protected location before anything changes. It now leaves an item that is gone or cannot be read to the engine, which asks about that item when its turn comes and checks it again first. A copy no longer walks into a folder it cannot list; the copy asks about that folder by itself.
 
-A moved folder with an unreadable subfolder is still asked about as one item, "Folder Access Denied", and kept where it is. The protected-location rule (XFER-020) never moves a tree it could not check. Other selected items move normally.
+**Deliberate difference from Windows:** a moved folder with an unreadable subfolder is asked about as one item, "Folder Access Denied" with Try Again, Skip and Cancel, and is kept where it is. Windows would move it. The app's safety rule for protected snapshot folders (XFER-020) never moves a tree it could not check, so this stays as it is, with no setting. Other selected items move normally, and Try Again moves the folder once it can be read.
 
 Undo after a partial copy or move reverses only what was done.
 
@@ -34,7 +34,7 @@ Undo after a partial copy or move reverses only what was done.
   - a folder pasted into its subfolder (move and copy);
   - a protected snapshot that still stops a move with a missing item.
 - New `failure_dialog.rs` test for the refusal's wording.
-- rustfmt and pedantic Clippy (Rust 1.92.0) are clean. `parity/check.py`, `i18n.py check` and `sync-docs.py --check` pass. `native/tools/check.py` results are in the status file.
+- rustfmt and pedantic Clippy (Rust 1.92.0) are clean. `parity/check.py`, `i18n.py check` and `sync-docs.py --check`, the public-data audit and `pnpm check` pass. Every `native/tools/check.py` step passes except two test executables that also fail on unchanged main in the test container: `location_fixture_drift` (its Python 3.13 `ipaddress` now accepts `[V1.x]`) and `network_python` (`gi` fails to import).
 - Real app under Xvfb, run as an unprivileged user on fictional files, with real xdotool keys and pointer, light and dark at 1x. The checks covered:
   - copy and move with an unreadable folder: Skip, Try Again after making the folder readable again, and Cancel;
   - a nested unreadable folder;
@@ -43,6 +43,6 @@ Undo after a partial copy or move reverses only what was done.
   - folder into its subfolder by cut, by copy, and by dragging it onto the subfolder;
   - Undo after each partial operation;
   - nothing left behind after Cancel.
-- Captures of the three questions at 1x and 2x, light and dark, are on the status branch.
+- Pictures of the three questions were taken and reviewed at 1x and 2x, light and dark.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
