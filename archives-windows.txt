@@ -1,9 +1,17 @@
 # DO NOT PR
-STATUS: DONE
-HEAD: archives-windows 9e548cff4fdd2b68554c6b84f312821c87bfc57c
-QUESTION: none
-NOTE: Branch cut from upstream main 016c335; tests committed first (e4d6628, all fail on main), then the fixes. No new dependency: ruzstd (already a workspace dependency and in Cargo.lock) is added as an ox-app dev-dependency to write .tar.zst fixtures (one Cargo.lock line). Item 3 is TAR-only; ZIP links are still refused. A TAR symbolic link is allowed only when its target is relative, uses '..' only at its start and climbs no higher than the extracted folder; links are leaves of the archive's paths, so nothing is written through one; hard links, devices and FIFOs stay refused; the browser still hides links; no existing name, path or size guard was changed. Design note for the manager: Extract here lifts a lone top folder and may rename it "(2)"; a link inside that climbs to the archive top then points beside it in the same destination (nothing is written through it). Changed messages (ZIP -> archive wording, new extract/link texts) lose their zh_CN translation until redone. Real-input run: debug app under Xvfb 1440x1000 at 1x, fictional files, xdotool mouse clicks/double-clicks, light and dark. Captures: browsed .tar.gz via tools/native_capture.py (the snapshot hook; 2x uses a 780x600 window to fit its screen); the conflict window and the compact Compress to submenu via the test harness capture hook (OX_NATIVE_CAPTURE_DIR), because the snapshot hook saves only the browser window and its context-menu step opens the classic menu.
+STATUS: PR-READY
+HEAD: archives-windows a78a95d02b961a0b6ba95f5081cf2364b5ac1342
+QUESTION: Where did the user get the Compress dialog? The compact right-click menu (the default) already shows Compress to > ZIP File, TAR File, Additional options; clicking the "Compress to" row only opens that submenu (seen with real clicks). The dialog with "ZIP (.zip)" / "TAR.XZ (.tar.xz)" opens from "Additional options" or from the CLASSIC menu's own "Compress to…" item (Show more options, Shift+F10, Shift+right-click, or classic set as the default in Settings), which is the owner's design (8b702ed, 6cc77ae) and opens the dialog directly. Should the classic menu's "Compress to…" become the same submenu (ZIP File, TAR File, Additional options)? Left unchanged until you decide; see CONFLICT.
+NOTE: Item 4 redo: ZIP File and TAR File now share one flow, as in Windows 11: the archive is made at once under the first free name ("(2)" ...), then selected and renamed in place (the owner's New folder rename path), and Undo takes it to the Recycle Bin (the owner's Create undo record). When the user did something else meanwhile (another key, click, tab or folder), it is only listed and Undo still works, as New Text Document does. TAR File writes a plain .tar. Branch cut from upstream main 016c335; tests committed first (e4d6628, all fail on main), then the fixes. No new dependency: ruzstd (already a workspace dependency and in Cargo.lock) is added as an ox-app dev-dependency to write .tar.zst fixtures (one Cargo.lock line). Item 3 is TAR-only; ZIP links are still refused. A TAR symbolic link is allowed only when its target is relative, uses '..' only at its start and climbs no higher than the extracted folder; links are leaves of the archive's paths, so nothing is written through one; hard links, devices and FIFOs stay refused; the browser still hides links; no existing name, path or size guard was changed. Design note for the manager: Extract here lifts a lone top folder and may rename it "(2)"; a link inside that climbs to the archive top then points beside it in the same destination (nothing is written through it). Changed messages (ZIP -> archive wording, new extract/link texts) lose their zh_CN translation until redone. Real-input run: debug app under Xvfb 1440x1000 at 1x, fictional files, xdotool mouse clicks/double-clicks, light and dark. Captures: browsed .tar.gz via tools/native_capture.py (the snapshot hook; 2x uses a 780x600 window to fit its screen); the conflict window and the compact Compress to submenu via the test harness capture hook (OX_NATIVE_CAPTURE_DIR), because the snapshot hook saves only the browser window and its context-menu step opens the classic menu.
 
+PASS item4 redo (deb 27 report): failing test first (a_new_archive_is_renamed_in_place_and_undo_takes_it_away, d1ce3d5, fails before the fix), fix 0dca35e
+PASS item4 redo real input (light, xdotool, 1x): TAR File on one file -> Notes.tar created at once, selected and in rename mode with "Notes" highlighted; Escape keeps it; Ctrl+Z sends it to the Recycle Bin
+PASS item4 redo name conflict: TAR File again -> "Notes (2).tar" in rename mode; typed "Weekly notes" + Enter -> Weekly notes.tar; Ctrl+Z -> back to Notes (2).tar; Ctrl+Z -> removed
+PASS item4 redo several files (Bundle.tar + Bundle.tar.bz2) -> "Bundle (2).tar" (Bundle.tar was taken), in rename mode; Ctrl+Z removed it
+PASS item4 redo folder -> Folder.tar (valid, GNU tar -t), in rename mode; Ctrl+Z removed it
+FAIL item4 redo, once: the very first TAR File in the first session after the fix did not enter rename mode (archive created, list reloaded, old selection kept); not reproduced in 7 later tries, fresh sessions included
+PASS item4 redo tests: archives, zip_folder, context_menus, new_folder, place_commands, entries, archive_view: 102 passed, 4 failed; the same 4 fail on unchanged main in this harness (3 wait for an app launch, 1 for a menu placement)
+PASS item4 redo rustfmt, clippy -D warnings, i18n check, parity check
 PASS item1 .tar: double-click opens it in the tab, Docs opens, Back, Up (light, dark)
 PASS item1 .tar.gz: double-click opens it in the tab, Docs opens, Back, Up (light, dark)
 PASS item1 .tgz: double-click opens it in the tab, Docs opens, Back, Up (light, dark)
@@ -44,9 +52,13 @@ NOT CONFIRMED:
 - Windows' name for an archive of a first item with two extensions (Absolute.tar.gz -> Absolute.tar.tar): not documented; follows the existing ZIP File rule.
 
 NOT BUILT:
+- "7z File" in Compress to (Windows 11 has ZIP File, 7z File, TAR File, Additional options): no 7z encoder.
 - 7z and RAR browsing and extraction: no decoder.
 - Compress to 7z: no encoder.
 - ZIP symbolic links: still refused (item 3 asked for TAR).
 - Pinned-folder (sidebar) Compress to still offers ZIP File only.
 
-CONFLICT: none (ARC-026 decided by the user after checking Windows 11: TAR archives follow the same "Double-clicking a ZIP" setting as ZIP; Like a folder by default, the pop-up window still available through that setting. Parity note updated in 9e548cf; Extract all shows in the command bar inside every TAR type, asserted by tar_archives_open_in_the_tab_like_a_folder and seen in the real-input run.)
+CONFLICT:
+- Classic menu "Compress to…" (owner's design, opens the Compress dialog at once) vs the compact menu's Compress to submenu (ZIP File, TAR File, Additional options). Unchanged; see QUESTION.
+- Compress dialog (Additional options): its format list "ZIP (.zip)" / "TAR.XZ (.tar.xz)" is the owner's design (AKolenda, 8b702ed), so it is left as it is, as asked.
+- ARC-026: decided (TAR follows "Double-clicking a ZIP"), done in 9e548cf.
