@@ -1,3 +1,4 @@
-STATUS: WORKING (building)
-HEAD: test-combined-25 (merging)
-NOTE: Deb 25 (2.0.15+test25), fresh from upstream main 2a9452d0 (Release 2.0.15, #275, already on main). Merging preview-pane-contents 461295a0, dialog-columns b3e665cf (PR #297; moved from 2802a6a3, the newer head merges main), dependabot #279 3e3b77e3. Not included: explorer-shortcuts (unfinished), dialog-name-width (dropped), command-bar-menu-switch.
+STATUS: DEB PUSHED (checks running)
+HEAD: test-combined-25 9f143074abbd3f71356b93d631e7ce1b0cbbd445
+DEB: claude/test-combined-25-deb f5edc700 openxplorer_2.0.15+test25_all.deb  9375fd87724fcef9f07237c0acb768b1765db9aa00cf8e14ea32d1785e351c6e
+NOTE: Deb 25 (2.0.15+test25). Release build succeeded. Clippy and conflict-file tests running now.
