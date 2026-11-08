@@ -1,0 +1,3 @@
+STATUS: WORKING (building)
+HEAD: test-combined-27 (merging)
+NOTE: Deb 27 (2.0.15+test27), from upstream main 016c3359 (unchanged since deb 26). Merging, in order: #279 3e3b77e3, #300 preview-pane-contents 42fd2f34, #301 explorer-shortcuts-fixed dcb73e30, #302 tabs-windows-fixed 654a358d, #303 update-optin-298 3a7410ee (contains #298), compact-view-spacing cb8b57b8, search-windows 05a40024, names-sizes-fixes db12d532, paste-partial-failures c3c3cc44, archives-windows 9e548cff, recent-open-fix faa1795e.
