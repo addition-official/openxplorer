@@ -1,7 +1,7 @@
 STATUS: DONE
-HEAD: update-optin-298 6e8866b
+HEAD: update-optin-298 3a7410e
 QUESTION: none
-NOTE: Review fix for PR #303 pushed: turning the setting on now writes and syncs the readable record before the rule (and removes it again if the rule cannot be written); turning it off still removes the rule first. New tests: an interrupted enable or disable never leaves the rule active with the switch showing off (the enable one failed on 5ef8ed3), plus the rollback. ox-core passwordless 15/15, helper 10/10, ox-app GTK 8/8, rustfmt, clippy, parity and packaging tests pass.
+NOTE: Second review round for PR #303 pushed: after any error in turning the setting on or off, the helper checks whether the rule is there and makes the record match it (a rename that went through keeps its record); every change holds the installation lock (/var/cache/openxplorer-update, no waiting) and is refused with a clear message while another helper runs. New tests (a committed rename keeps its record: failed on 6e8866b; lock refusal; failed disable keeps the record). ox-core passwordless 18/18, helper 10/10, integration 16+3, ox-app GTK 8/8, rustfmt, clippy, parity, packaging and i18n checks pass.
 
 CHECKLIST
 1. Fresh install, no rule active, setting OFF: PASS
