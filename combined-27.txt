@@ -1,3 +1,21 @@
-STATUS: WORKING (building)
-HEAD: test-combined-27 (merging)
-NOTE: Deb 27 (2.0.15+test27), from upstream main 016c3359 (unchanged since deb 26). Merging, in order: #279 3e3b77e3, #300 preview-pane-contents 42fd2f34, #301 explorer-shortcuts-fixed dcb73e30, #302 tabs-windows-fixed 654a358d, #303 update-optin-298 3a7410ee (contains #298), compact-view-spacing cb8b57b8, search-windows 05a40024, names-sizes-fixes db12d532, paste-partial-failures c3c3cc44, archives-windows 9e548cff, recent-open-fix faa1795e.
+STATUS: DONE
+HEAD: test-combined-27 4d23d13f484af9dca859c9c61049bce8c5fd61bb
+DEB: claude/test-combined-27-deb bcb01db7 openxplorer_2.0.15+test27_all.deb sha256 872527d8d3a930ac8cc46428349fa286a6000c2a42033c4fb0f317a039afa0fb
+NOTE: Deb 27 (2.0.15+test27; main is still 2.0.15), app ID io.winspace.Development, built from upstream main 016c3359 (unchanged since deb 26).
+MERGED (in order, newest heads, full SHAs in the merge commits; each tip checked to descend from an upstream main commit):
+  dependabot #279 3e3b77e3 (forks from main at e4520a37, older than today's main, not a status-branch commit)
+  #300 preview-pane-contents 42fd2f34
+  #301 explorer-shortcuts-fixed dcb73e30 (before search-windows, as asked)
+  #302 tabs-windows-fixed 654a358d
+  #303 update-optin-298 3a7410ee (contains the owner's #298 062a2052; #298 is not merged on its own)
+  compact-view-spacing cb8b57b8 (not the old compact-view)
+  search-windows 05a40024 (contains an older explorer-shortcuts-fixed; merged cleanly after #301)
+  names-sizes-fixes db12d532
+  paste-partial-failures c3c3cc44
+  archives-windows 9e548cff
+  recent-open-fix faa1795e
+LEFT OUT: nothing listed. Not merged: #298 alone, the old compact-view, explorer-shortcuts (old copy), tabs-windows (bad ref), #275 (on main), dialog-name-width, command-bar-menu-switch.
+CONFLICTS: all trivial, none resolved by hand in code: apps/web/public/assets/markdown.json and the generated guides regenerated (tools/sync-docs.py) after #301, #303, compact-view-spacing, search-windows, names-sizes-fixes, paste-partial-failures and archives-windows; apps/web/lib/docs.json lines word-merged against the merge base (compact-view-spacing, names-sizes-fixes); native/parity/features.toml lines word-merged (names-sizes-fixes); native/po/openxplorer.pot regenerated (names-sizes-fixes, recent-open-fix). No glue commit.
+POLKIT: the deb installs no file in /etc/polkit-1/rules.d or /usr/share/polkit-1/rules.d; it has only the actions (/usr/share/polkit-1/actions) and the rule template /usr/share/openxplorer/install-update.rules, which the opt-in setting (off by default) copies only when a user turns it on.
+CHECKS (no full suite): release build OK. Clippy clean with -D warnings except the same three new-toolchain lints, allowed on the command line (duration_suboptimal_units, map_unwrap_or, decimal_bitwise_operands). parity/check.py, i18n.py check and sync-docs.py --check pass. No ox_app tests run: no file was resolved by hand. No captures, as asked.
+IDENTITY: my commits (merges, deb, status) are addition-official as author and committer with no trailers. Others, unchanged: the owner's #298 commits bc253183, 8d7e0e85, 062a2052 (inside #303) and dependabot's #279 3e3b77e3 (committer GitHub, "Signed-off-by: dependabot[bot]"). The deb holds the same addresses as decks 12-26 (plus binary noise), nothing new.
