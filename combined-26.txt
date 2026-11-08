@@ -3,3 +3,4 @@ HEAD: none yet
 NOTE: Deb 26 overnight. Polling every 15 minutes until compact-view, explorer-shortcuts (branch explorer-shortcuts-fixed), update-optin-298, preview-pane-contents, tabs-windows and search-windows are all DONE, or until 12:00 UTC (06:00 CST).
 POLL LOG:
   03:55 UTC: compact-view no status file; explorer-shortcuts WORKING; update-optin-298 WORKING; preview-pane-contents DONE; tabs-windows WORKING; search-windows no status file; 
+  04:11 UTC: compact-view WORKING; explorer-shortcuts WORKING; update-optin-298 WORKING; preview-pane-contents DONE; tabs-windows WORKING; search-windows no status file; 
