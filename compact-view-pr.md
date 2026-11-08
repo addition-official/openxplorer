@@ -14,14 +14,14 @@ One earlier decision changes: the UI spec kept 24 px as the lowest row, as the s
 
 ## Measured values (1x, logical pixels)
 
-Distances are from the top of one line's capitals to the next, measured from captures of the real app under Xvfb, the way the Windows values were measured.
+Distances are from the top of one line's capitals to the next, measured from captures of the real app under Xvfb, the way the Windows values were measured. The column header is counted with its line under the titles, as our "before" 32 was measured; read by its dividers instead, ours are 25 against Windows' 26.
 
 | What | Windows 11 Compact | Ours before (main) | Ours after |
 |---|---|---|---|
 | Details: row to row | 21 | 26 | 21 |
 | Details: heading to its first row | 27 | 26 | 27 |
 | Details: last row to the next heading | 26 | 34 | 26 |
-| Column header, with its line | 26 | 32 | 26 |
+| Column header, with its line | 26 (its dividers 26) | 32 | 26 (titles and dividers 25, then the line) |
 | Column header to the first heading's text | about 14 | 17 | 14 |
 | Navigation pane: row to row | 24 | 25 | 24 |
 | Navigation pane: across a separator | 48 | 49 | 48 |
@@ -39,14 +39,14 @@ Main had no compact Tiles or Content, so their "before" values are main's usual 
 
 ## How it was tested
 
-- New tests, written first, fail on main and pass with the change:
+- New tests, written first. The compact ones fail on unchanged main and pass with the change, at 1x and at `GDK_SCALE=2`; the ones that pin the normal view pass on both, as they must:
   - `window/tests/compact_spacing.rs` (GTK): the distances above, measured between labels, and Page Up/Down counting the compact rows; a second test pins the normal view's spacing. Run at 1x and also at `GDK_SCALE=2`.
   - `tests/display_scale.rs`: the real app at `GDK_SCALE=1` and `2`, compact and normal Details rows (21 and 42 device pixels, 32 and 64).
   - `theme/fonts.rs`: the generated compact rules, and the normal rules unchanged.
 - `python3 native/parity/check.py`: passes.
 - `python3 native/tools/check.py`: rustfmt and clippy pass. In ox-app's suite 2106 tests pass and 2 fail, and check.py stops there; I ran the remaining test executables and the doctests the same way myself. The failures, all of which also fail on unchanged main in this container:
   - `location_fixture_drift::python_fixture_matches_desktop_core_py`: the container's Python 3.13 parses `smb://[V1.x]/` differently from the committed fixture. With Python 3.12 first in PATH it passes, on main and on this branch; the full run used that workaround.
-  - `thumbnails::thumbnailers::tests::a_sandboxed_thumbnailer_runs_within_its_limits` and `a_sandboxed_thumbnailer_sees_only_its_item`: the container can't start bubblewrap's sandbox (run on main too).
+  - `thumbnails::thumbnailers::tests::a_sandboxed_thumbnailer_runs_within_its_limits` and `a_sandboxed_thumbnailer_sees_only_its_item`: the container can't start bubblewrap's sandbox. They fail on main too, but both runs came after bubblewrap was installed in this container for the captures; its original state wasn't tested with them.
   - 9 tests in ox-core's library (8 in `admin_copy`, which find the test folders writable by other users under this container's `/tmp`, and `clipboard::tests::external_fingerprint_matches_the_python_clipboard`). This branch changes nothing in ox-core, so main builds the same test binary.
 - Item check boxes turned on: in compact Tiles and Details the box fits its row, nothing clipped.
 - `python3 tools/audit-public-data.py`: no issues.
