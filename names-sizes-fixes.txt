@@ -1,6 +1,7 @@
 STATUS: DONE
-HEAD: names-sizes-fixes db12d532da1c6bf19398b7455b6cd96ad308d209
+HEAD: names-sizes-fixes 0cb96baf26dfb7f10e9011dd900b0bdac312986f
 QUESTION: none
+NOTE: Item 3 redone after the user's test of deb 27 (cut off at their desktop font): Size's default and narrowest width are now the rendered width of "9,999,999 KB" in the list's own font (desktop font and text size) plus padding, within 70-600; narrower saved/dragged widths are raised, wider ones kept; it re-measures on every layout, so a text-size or font change widens it. Commits 20c903a8 (failing test) + 0cb96baf (fix).
 NOTE: 22 commits on upstream main 016c3359, failing tests first; items 9-10 are separate test+fix commits (9b8e6ef0+62aa8129, c7a0cc47+9ededa4f), item 6 is fb80ac03+f5c8d000. PR text in names-sizes-fixes-pr.md.
 
 CHECKLIST (xdotool real input on private Xvfb, debug build of HEAD, fictional files; each line ran at 1x light, 1x dark, 2x light and 2x dark unless it says otherwise)
@@ -8,6 +9,8 @@ PASS 1 extensions hidden: sunset, data, page, script, plan, Budget 2026 and Bund
 PASS 2 Notes.txt (4,486 bytes): Details pane 4.38 KB, status bar 4.38 KB, tooltip "Size: 4.38 KB", Tiles/Content 4.38 KB, Size column 5 KB (pictures reviewed, all 4 configs)
 PASS 2 one-byte file: tooltip "Size: 1 byte", pane "1 byte", status bar "1 byte", Tiles/Content "1 byte"
 PASS 3 6 GB file: Size column shows "6,291,456 KB" whole at the default width, also with the Details pane open
+PASS 3 (redo) text size 125% + saved Size width 90 + Details pane open: "6,291,456 KB" whole at 1x light, 1x dark, 2x light (xdotool run, gtk-font-name Noto Sans 11 requested, but Noto Sans is not installed here, so a fallback font drew it; the 125% text size applied); pictures *-size-column-125pct.png (xdotool screenshots, not the capture tool)
+PASS 3 (redo) unit/GTK tests at 1x and GDK_SCALE=2: size_fits_nine_digits_of_kilobytes_in_the_lists_own_font (18.3px font, default, saved 90, drag to 0, wider width kept), a_larger_text_size_widens_size_to_its_text
 PASS 4 copy invalid-UTF-8 name (Ctrl+C, Ctrl+V)
 FAIL 4 copy line-break name (Ctrl+C, Ctrl+V) - deliberate exception, CLIP-005/SAFE-010 kept as decided (fails on main too); copying it through a transfer is covered by tests/ops_odd_names.rs; dragging could not be driven with xdotool on Xvfb (no drag started), NOT RUN
 PASS 4 rename line-break name (F2, new name, Enter)
@@ -48,5 +51,5 @@ NOT CONFIRMED (Microsoft documentation)
 
 CONFLICT
 - Item 4 clipboard: decided, CLIP-005/SAFE-010 kept (a line-break name is refused on Ctrl+C); stated as a deliberate exception in the PR text. A name that is not UTF-8 goes on the clipboard.
-- Item 3 minimum width: VIEW-028 behaviour says Size 70-600 px (Python app). Changed only the default (90 -> 130 px); the 70 px minimum is unchanged.
+- Item 3 minimum width: VIEW-028 behaviour says Size 70-600 px (Python app). Now, as asked, Size's minimum is the measured text width (never below 70 or above 600), so it can be above 70; parity note updated.
 - Item 6: none (VIEW-069 said "an empty name is still refused" without naming the owner or the message; implemented the user's decision and updated the note).
