@@ -18,6 +18,10 @@ Cause of the first two: before any item ran, the check for protected (snapshot) 
 
 **Deliberate difference from Windows:** a moved folder with an unreadable subfolder is asked about as one item, "Folder Access Denied" with Try Again, Skip and Cancel, and is kept where it is. Windows would move it. The app's safety rule for protected snapshot folders (XFER-020) never moves a tree it could not check, so this stays as it is, with no setting. Other selected items move normally, and Try Again moves the folder once it can be read.
 
+The protected-location rule still covers what could not be checked first:
+- A copy checks every entry's final location before writing it. A protected folder that becomes readable after Try Again therefore stops the whole item, and nothing of that item is published.
+- A selected folder merged into a folder of the same name is planned entry by entry, so it must be read whole before anything runs. If part of it cannot be read, the paste stops before anything changes, as it did before.
+
 Undo after a partial copy or move reverses only what was done.
 
 ## Windows' behavior
@@ -32,7 +36,9 @@ Undo after a partial copy or move reverses only what was done.
   - a moved folder with an unreadable subfolder beside another item;
   - missing items in a move;
   - a folder pasted into its subfolder (move and copy);
-  - a protected snapshot that still stops a move with a missing item.
+  - a protected snapshot that still stops a move with a missing item;
+  - a merged folder that can no longer be listed, which moves nothing;
+  - a folder made readable and tried again that holds a snapshot, which publishes nothing.
 - New `failure_dialog.rs` test for the refusal's wording.
 - rustfmt and pedantic Clippy (Rust 1.92.0) are clean. `parity/check.py`, `i18n.py check` and `sync-docs.py --check`, the public-data audit and `pnpm check` pass. Every `native/tools/check.py` step passes except two test executables that also fail on unchanged main in the test container: `location_fixture_drift` (its Python 3.13 `ipaddress` now accepts `[V1.x]`) and `network_python` (`gi` fails to import).
 - Real app under Xvfb, run as an unprivileged user on fictional files, with real xdotool keys and pointer, light and dark at 1x. The checks covered:
