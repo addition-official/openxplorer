@@ -1,7 +1,59 @@
-STATUS: WORKING
-HEAD: search-windows 3d0d33f6 (local; pushed after checks)
+STATUS: DONE
+HEAD: search-windows 48e14691
 QUESTION: none
-NOTE: Size, Last week and typed kind:/datemodified:/size: built and unit/window-tested; full check.py rerunning (first run hit a full disk), then xdotool checklist and captures.
+NOTE: Size (Microsoft's System.Size groups) and Last week options, plus typed kind:/datemodified:/size:, built from Microsoft docs; the title, typing pause, empty texts and option placement stay the owner's. Full check.py passed; commits are addition-official only, so GitHub shows them Unverified.
 
-CHECKLIST
-(pending)
+SOURCES (Microsoft only)
+- https://support.microsoft.com/en-us/office/foundations-experiences/find-what-you-need-with-microsoft-search : Search options on the top toolbar; date modified, kind, size
+- https://learn.microsoft.com/en-us/windows/win32/properties/props-system-size : Size groups and minValues (Windows 10 1809+)
+- https://learn.microsoft.com/en-us/windows/win32/lwef/-search-2x-wds-aqsreference : datemodified/modified, today/yesterday/this week/last week, kind:docs/pics/videos/folders/music, size:>500 / size:<500
+- https://learn.microsoft.com/en-us/windows/win32/properties/props-system-kind : kind values document, folder, picture, music, video
+- https://blogs.windows.com/windows-insider/2022/09/14/announcing-windows-11-insider-preview-build-25201/ : results update as you type without Enter (already built, SRCH-002)
+
+TESTS FIRST
+- New tests: facets.rs (sizes_follow_the_documented_groups, last_week_is_the_week_before_this_one, typed_and_chosen_options_narrow_together), syntax.rs (2), window/tests/search_options.rs (the_size_option_narrows_the_results, date_kind_and_size_combine, typed_options_match_the_lists, a_typed_option_alone_lists_everything_of_it, a_typed_option_finds_items_in_a_big_folder), snapshot scene parse test.
+- On unchanged upstream main 016c3359: a_typed_option_alone_lists_everything_of_it and a_typed_option_finds_items_in_a_big_folder FAILED (timed out); the rest do not compile on main (new API).
+
+CHECKS (run as tester)
+- python3 native/tools/check.py on 3d0d33f6: PASS ("Native checks passed (75 test executables plus doctests)"), run with Python 3.12 first on PATH and folders not group-writable.
+  Earlier runs that failed, all from my setup or flakes, not the change: disk full; location_fixture_drift fails under Python 3.13 (urllib "[V1.x]" answer; the change touches no location code); 27 admin_copy/admin_delete tests fail when the checkout path is group-writable (OX_REQUIRE_TRUSTED_HOME); window::tests::renaming::the_name_fields_own_menu_keeps_the_rename_going failed once and passed in the two other full runs (flaky; not run on main).
+- On 48e14691 (snapshot-only follow-up): cargo fmt --check PASS, cargo clippy -D warnings PASS, ox-app snapshot tests 24/24 PASS.
+- python3 native/parity/check.py: PASS. tools/audit-public-data.py: PASS (no issues).
+
+CHECKLIST (real input: xdotool under Xvfb in the native_capture bwrap sandbox, fictional /home/demo, release build)
+PASS Title "Search Results in <folder>" in tab and address bar, top-level folder (Documents) and nested (Documents > Filter test, Documents > Launch planning, Documents > Archive 2019): 1x/2x light/dark
+PASS Size alone, each value (Any, Empty, Tiny, Small, Medium, Large, Huge, Gigantic) on a test set of 0 B / 2 KB / 40 KB / 2 MB files: 1x light by keyboard; window tests
+PASS Date modified alone, each value (Today, Yesterday, This week, Last week, This month, This year): 1x light by keyboard
+PASS Kind alone, each value (Folders, Documents, Images, Audio files, Videos): 1x light by keyboard (a 0-byte .txt is not a Document: GIO types it application/x-zerosize; unchanged behaviour)
+PASS Date + Kind + Size combined (Today + Documents + Tiny -> plan tiny only): 1x/2x light/dark by keyboard
+PASS Filters in Details (xdotool), Tiles and Content (snapshot captures, 1x/2x light/dark)
+PASS Typing updates results; "Searching..." in the strip and status bar while typing: 1x light
+PASS Typing fast in a 10,000-file folder: text appears within ~50 ms of the last key, and only the newest query's results show ("item 09999", then "kind:picture" finds zz holiday.png past the first 500 names)
+FAIL (also fails on main) Emptying the box in the 10,000-file folder stalls input ~0.5-0.9 s while the folder is listed again on the way Back (SRCH-042); unchanged main measured 0.71-0.96 s
+PASS Empty results show the empty page ("No matching items" + reason): 1x/2x light/dark
+PASS Escape in the box and the clear (x) button return to the folder view and its title: Escape at 1x/2x light/dark, x at 1x light
+PASS Back after a search returns to the folder, Forward to the results (Back button): 1x light, 2x dark. Alt+Left inside the box is kept by the box (owner rule CMD-017), so it does not go Back.
+PASS Typed syntax matches the lists ("plan kind:document size:tiny datemodified:today" = Documents + Tiny + Today; kind:folder; size:>30000; modified:"last week"): 1x/2x light/dark
+PASS Keyboard reaches and operates every filter (Tab to Kind, Date modified, Size with a visible focus ring; Enter opens, arrows move, Enter chooses): 1x light, plus combined pass at 1x dark and 2x light/dark
+NOTE Not run: reduced-motion and responsive layout were not changed by this work and were not re-checked; network folders follow the existing rule (a share is only filtered, never walked), unchanged and not exercised (no network in the sandbox).
+
+CAPTURES (tools/native_capture.py path + the snapshot hook's new type=/option=/choose= steps; fictional demo tree)
+search-windows-<1x|2x>-<light|dark>-<results-top|results-nested|menu-kind|menu-date|menu-size|combined|typed|empty|progress|tiles-combined|content-combined>.png (44 files)
+Observed in progress: while a slow walk runs, the empty page already reads "No matching items" under "Searching..." (existing behaviour, not changed).
+
+CONFLICT (owner's behaviour kept)
+- Title: owner "Search Results in <folder>" (SRCH-042); the job asked "Search results in". No Microsoft page found; kept the owner's.
+- Placement: Microsoft puts the filters under "Search options" on the top toolbar (command bar); the owner put them in the search strip above the columns (SRCH-037). Size was added to the strip.
+- Empty text: owner "No matching items" + reason (SRCH-013); "No items match your search." is not on any Microsoft page found. Kept the owner's.
+- Typing pause: owner 120 ms (SRCH-002); Microsoft documents none.
+
+NOT CONFIRMED, needs a Windows check
+1. Exact title text and case ("Search Results in X" vs "Search results in X") and where it shows (tab, title bar, address bar).
+2. Where Search options sits in Windows 11 while searching, and its exact menu labels.
+3. Date modified values in the Windows 11 menu (is there Last month, Last year, Earlier this year?); week start (Monday vs locale).
+4. Kind values in the Windows 11 menu (System.Kind lists Calendar, Communication, Contact, Document, E-mail, Feed, Folder, Game, Instant Message, Journal, Link, Movie, Music, Note, Picture, Playlist, Program, Recorded TV, Saved Search, Task, Video, Web History); ours offer Folders, Documents, Images, Audio files, Videos.
+5. Size menu label text, whether Small starts at 16,383 bytes (documented minValue) or 16 KB, and whether a size filter hides folders.
+6. Whether picking a menu filter writes syntax into the box (as Windows 10's ribbon did) and whether typed syntax changes the menu.
+7. size: with units (size:>1MB), datemodified: this month / last month / this year / last year / dates / ranges.
+8. Typing delay before results update, the progress indicator, and the empty-results text.
+9. What Escape and the clear button do (back to folder vs stay), and Back from results.
