@@ -1,4 +1,4 @@
-STATUS: WORKING
+STATUS: DONE
 HEAD: main 016c33598d3292a52c1b8879c38ec52fc12564e5
 QUESTION: none
-NOTE: second pass running (dialogs, views, archives, slow SMB, drag and drop); first-pass report stays in overnight-review-report.md
+NOTE: two passes; clearly wrong 11, not sure 22, bugs 27, regressions 0, security notes 0 (chat only); report in overnight-review-report.md

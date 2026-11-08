@@ -114,6 +114,106 @@ Notes on the "Smaller items" row:
 - The Open/Save dialog (portal-only).
 - Recent rows (the test HOME had no recent files).
 
-## Security
+
+## E. Second pass
+
+**What it covered.**
+- The Open/Save dialog, driven for real: a script took the portal's bus name on a private session bus and called OpenFile and SaveFile on the app.
+- Views, panes, Properties, Folder Options, archives, the New menu and Undo/Redo, keyboard focus.
+- A slow and stalling SMB share behind a throttling proxy (about 30-50 KB/s).
+- Drag and drop, live changes made by another program, concurrent operations, the Recycle Bin and search.
+
+All of it ran on the release build with fictional files.
+
+### Clearly wrong (a Microsoft source says so)
+
+| Rank | What's wrong | Steps | Windows (source) | Suggested fix |
+|---|---|---|---|---|
+| 2 | Alt+drag copies the file instead of creating a shortcut. | Hold Alt and drag a file onto a folder. A plain copy appears there. | "Alt+mouse drag: create a shortcut to the original file in that location" (KB) | In `window/file_drop/action.rs` `with_keys`, map Alt to Link. On X11 GTK never offers the ASK action the code waits for. |
+| 2 | A .tar.gz opens in a separate "Compressed folder" box instead of browsing like a ZIP. The box also says "Read-only ZIP" and "1 unsafe names or links are hidden". | Double-click a .tar.gz. | File Explorer has "native support for reading" .tar, .tar.gz, .tar.bz2, .tar.zst, .tar.xz, .tgz, .rar and .7z (https://blogs.windows.com/windows-insider/2023/08/18/announcing-windows-11-insider-preview-build-22621-2199-and-22631-2199-beta-channel/) | Browse tar archives in the window with the ZIP browsing code, and fix the wording. 7z and RAR stay a BACKLOG gap. |
+| 3 | Backspace in the Open/Save dialog does not go up a folder. | Open the dialog in a folder with no Back history and press Backspace. Nothing happens. | "Backspace: Open a folder one level up if a folder is selected in the Save As or Open dialog box" (KB, dialog box section) | In the picker, make Backspace go Up when Back has nowhere to go. |
+| 4 | Compress to offers only ZIP File and Additional options, with no TAR or 7z entry. | Right-click a file, then Compress to. | Windows 11 adds "support for creating 7-zip and TAR archives in addition to ZIP" (https://blogs.windows.com/windows-insider/2023/11/08/announcing-windows-11-insider-preview-build-25992-canary-channel/) | Add "TAR File" to the submenu (`window/context_menu/entries.rs:545`); the writer already exists in `ox-core/src/archive/create.rs`. Add 7z once there is an encoder. |
+| 4 | Pressing Alt alone does nothing. | Press and release Alt with the file list focused. | "Alt moves focus to the app bar" (https://support.microsoft.com/en-us/windows/use-a-screen-reader-to-explore-and-navigate-file-explorer-in-windows-e7d3a548-87dd-459f-a991-9fde3f7ce927) | On a lone Alt press and release, focus the command bar's first button. |
+
+### Bugs
+
+| Rank | What's wrong | Steps | What happened | Suggested fix |
+|---|---|---|---|---|
+| 1 | Pictures, web pages, JSON and Python files always show their extension, while other files hide theirs. | Default settings, a folder holding sunset.png, plan.pdf and Budget 2026.txt. | You see "sunset.png", "plan" and "Budget 2026". GIO marks png, html, json and py as "uncertain" (checked). | In `ox-core/src/entry/extension.rs:42`, drop the `!uncertain` check, as `window/picker.rs:404` already does. |
+| 2 | A drop onto a tab leaves a green outline on that tab. | Drag a file from one tab onto another tab's header. | The move works, but the green outline stays through later navigation and drags. Reproduced twice. | Clear the tab's drop-highlight when the drop finishes (`window/file_drop/targets.rs:66-93`). |
+| 2 | One missing item stops the whole paste. | Cut two files, delete one of them from outside the app, then paste. | "Operation stopped: ... No such file or directory" with only OK, and the other file isn't moved either. | Same cause as the unreadable-subfolder bug (`ox-core/src/transfer/guard.rs:111`): skip the missing item and ask about it in the progress window. |
+| 3 | Any tar containing a symbolic link is refused completely. | Extract all on a tar.gz holding a relative link such as `lib/libx.so -> libx.so.1`. | "...contains a symbolic link or special file. Nothing was extracted." | Allow relative links that stay inside the destination; refuse only absolute or escaping links. |
+| 3 | Extracting onto existing files shows an internal staging folder in the conflict window. | Extract all on the same ZIP twice. | "Moving 1 item from .openxplorer-extract-9d0288b2... to normal", then "...has 2 files with the same names". | Name the archive and say "Extracting" (`ox-core/src/archive/extract/staging.rs:31`). |
+| 3 | The Save dialog keeps typed double quotes and still adds the extension. | Save as a Text file, type `"Holiday.txt"` with the quotes, press Enter. | The saved name is `"Holiday.txt".txt`, quotes included. | In `saved_name()` (`window/picker.rs:388`), strip one pair of surrounding quotes and then don't append the extension. |
+| 3 | Cancelling a copy that hasn't started writing pops a modal "Operation was cancelled" with OK. | Run two copies and cancel the one still preparing. | The modal appears. A copy cancelled after writing began closes quietly. | Don't report a cancel the user chose (`window/file_ops/running.rs:356-370`). |
+| 3 | Moving a folder into its own subfolder shows a generic error with a useless Try Again. | Cut Projects, open Projects/Sub, paste. | "Interrupted Action: An unexpected error... Cannot place a folder inside itself", with Try Again / Skip / Cancel. | Refuse it before starting, with a plain message and no Try Again. |
+| 4 | Renaming an item to an empty name in the Open/Save dialog shows the wrong message. | Rename an item in the dialog, erase the name, press Enter. | "Use a name without slashes or control characters." | Cancel the rename and keep the old name, or say the name can't be empty. |
+| 4 | The search bar contradicts itself on a share. | Search inside a folder on an SMB share. | The bar says "Current folder only" while the scope dropdown says "This folder + subfolders". | Show the scope actually used, or disable the dropdown there. |
+| 4 | More tooltips cover open lists and menus. | Open the dialog's file type list, or the search "Search in" menu. | The tooltip sits on the first row. | Same fix as the first-pass tooltip bug. |
+| 5 | Archive safety limits refuse real archives with no way to override. | Extract a ZIP with a 1 GB file of zeros. | Refused: the limits are 8 GB per file, 20 GB in total and a 1000:1 ratio (`ox-core/src/archive/extract/limits.rs:32-34`). | Ask the user when a limit is hit, and keep the disk-space check. |
+| 5 | Smaller items. | Various. | Each listed in the notes below. | Fix each on its own. |
+
+Notes on the "Smaller items" row:
+- Tar files get a plain document icon.
+- The zip-slip refusal says "unsafe for local/SMB extraction" and doesn't name the path.
+- The credentials dialog drops the port ("127.0.0.1" instead of "127.0.0.1:4455").
+- Location shows `\\127.0.0.1:4455\public`, which isn't valid UNC notation.
+- "Working on it..." gets a focus ring while a folder loads.
+- The Delete Folder question wraps "Date created:" onto two lines.
+
+### Not sure (needs a Windows check)
+
+| Rank | What OpenXplorer does | What to check on Windows 11 |
+|---|---|---|
+| 1 | A single big file's copy stays at "0% complete" until the file is done. This is on purpose (OPS-020, `transfer_panel.rs:14-30`). | Do Windows' percentage and bar move during one large file? |
+| 2 | Ctrl+T, Ctrl+N and Ctrl+W do nothing while the address bar or search box has focus. The code (`window/window_keys.rs`) keeps them for the text field, but BACKLOG CMD-017 says they work from text fields. | Ctrl+T in Windows' address bar and search box. Then fix whichever of the code and BACKLOG is wrong. |
+| 3 | The Save dialog's name box shows "Budget 2026.txt" even with extensions hidden. | Does Windows show the extension there? |
+| 3 | Closing the window during a copy asks Keep open or Cancel and close. Ctrl+Q instead refuses with a toast. | Does a Windows copy keep running after its window closes? |
+| 3 | Type-ahead searches forward from the focused item, so "extra_3" can select extra_30. | What Windows selects in the same case. |
+| 4 | The column titles' menu has no "More..." (Windows' Choose Details). | Not in Microsoft docs. |
+| 4 | Save over an existing file asks "Confirm Save As" with Replace and Cancel. Microsoft confirms only that a prompt appears. | The Windows buttons. |
+| 4 | Esc doesn't dismiss the Replace or Skip question. Esc during a drag didn't cancel the drag either, which may be an Xvfb artifact. | Windows' Esc behavior in both cases. |
+| 4 | `?` isn't a search wildcard. Microsoft documents only `*`. | Does Windows accept `?` in search? |
+| 4 | When another program renames the open folder, the app drops to the parent folder. | Does Windows follow the rename? |
+| 5 | Undo of a new file undoes its name first, then the creation. Typing the Recycle Bin's address is refused. | Windows' order for Undo, and whether "Recycle Bin" typed in the address bar opens it. |
+
+### Second pass: worked well
+
+- **Open/Save dialog:**
+  - multiple selection
+  - changing the type updates the extension
+  - the overwrite prompt appears
+  - it reopens in the last folder saved to
+  - Esc cancels
+- **Views and panes:** every view, rubber-band selection, Folder Options Apply and Restore defaults, and folder Properties counting 30,000 files in 0.3 s.
+- **Archives:**
+  - ZIP browsing, Extract all, and Skip on conflicts
+  - zip-slip, absolute paths, tar `../`, escaping links and zip bombs are all refused before anything is written
+- **Multi-rename and Undo:** renaming four items gives "Trip (1)" to "Trip (4)", and one Ctrl+Z restores them all.
+- **Focus:** F6 cycles every region, and Delete moves focus to the next item.
+- **Slow share:** the UI stayed responsive on a stalling share (a new tab opened in under 0.1 s), and Cancel cleaned up partial files.
+- **Drag and drop:** plain, Ctrl, Ctrl+Shift and right-button drags, and drops onto a crumb, a navigation pane item or a tab.
+- **Live changes:** files changed by other programs show within about 2 s.
+- **Recycle Bin:** restore when the original folder is gone, and same-name restores going back to the right folders.
+- **Names:** case-only rename shows at once, and a taken name offers "(2)".
+- **Search:** `*` wildcards, contents search, and search on an SMB share.
+
+### Second pass: not tested
+
+- 7z, RAR and .tar.zst archives (no tools here).
+- The Open with dialog and Send to targets.
+- Focus coming back after a dialog closes (no window manager on Xvfb).
+- Network thumbnails (off by default, and bubblewrap isn't installed).
+- A dropped SMB connection, as opposed to a stalled one.
+- Recycle Bin on a real FAT USB drive.
+
+## Totals (both passes)
+
+| Section | Count |
+|---|---|
+| Clearly wrong | 11 |
+| Not sure | 22 |
+| Bugs | 27 |
+| Regressions | 0 |
 
 Security notes: see chat (count in overnight-review.txt).
