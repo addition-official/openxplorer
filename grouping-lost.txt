@@ -1,3 +1,0 @@
-STATUS: DONE
-HEAD: grouping-lost 4527dee7c3f92b2bd300f45188de63dd2fc9dec6
-NOTE: Split view fix; the user's own case not reproduced yet, waiting for a screenshot

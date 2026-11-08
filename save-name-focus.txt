@@ -1,3 +1,0 @@
-STATUS: DONE
-HEAD: save-name-focus 70e9203d7b5a77c14ba9be0df456fd3048c83b3b
-NOTE: Merged upstream main; Open dialogs show the type list beside File name with no caption, Save keeps Save as type; checks pass. Alt+Tab: KWin lists a modal dialog in place of its parent by design, so no app change.

@@ -1,3 +1,0 @@
-STATUS: DONE
-HEAD: rename-selection d337acaabc5ccdc52f87ac55cca68733f204d7eb
-NOTE: Both review findings fixed with tests, merged with the owner's latest commits; local checks unchanged. The Debian 13 CI log could not be read from this session.

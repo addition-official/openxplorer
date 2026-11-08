@@ -1,4 +1,0 @@
-STATUS: PR-READY
-HEAD: access-denied-continue a13736656694226516475415b706f3187227b096
-QUESTION: none
-NOTE: Newest upstream main (8fea905) merged into the branch without force-push; conflicts were only in docs and the translation template, resolved and regenerated. rustfmt and clippy (1.92.0) clean; named transfer, delete and app tests pass as a normal user. PR title and body in access-denied-continue-pr.md. Overlap with open PRs is listed there.

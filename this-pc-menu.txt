@@ -1,8 +1,0 @@
-STATUS: PR-READY
-HEAD: this-pc-menu efcba1471e49de0a950c18e4ae43cc7e27789dd0
-QUESTION: none
-CODEX native/crates/ox-app/src/window/sidebar/menu.rs:322 FIXED b2e7548 (with b3d2757 and 790e68d, the owner's commits already on this-pc-menu): a Quick access pin that opens a drive (any mounted drive, Local Disk included) now gets that drive's own PlaceMenu::Drive, the same as This PC's tile, so its strip is the drive strip (Copy as on the tile, Rename greyed) and Cut/Rename/Delete are never offered; tests in window/tests/landing_pages.rs pin Local Disk and assert the pin's strip is Copy and Rename, greyed. Compatible with #284: Copy on a pinned drive runs the same item as Copy on the tile.
-NOTE: Re-checked at efcba1471e49de0a950c18e4ae43cc7e27789dd0 (no new commit from this session; the fix was already pushed): rustfmt passes; clippy adds no warnings (the same 12 pre-existing ones as main); named tests menu, sidebar, landing, place_menus: 238 pass, 4 fail the same way on upstream main in this container (root user, no v2.0.0 tag).
-NOTE: Upstream main bab3fb5 (3 newer commits) merges cleanly with this branch (git merge-tree), so it was not merged in, to leave #284 and #287 a stable base.
-NOTE: Remaining edge, not part of the finding: a pin to a removable drive that is later unplugged is no longer among the window's drives, so its row gets the ordinary folder strip for the bare mount-point path (usually gone after unmount, so the commands fail harmlessly). Not changed.
-NOTE: Earlier: approved in deb 17; PR text in this-pc-menu-pr.md; no GitHub posts from this session.

@@ -1,3 +1,0 @@
-STATUS: DONE
-HEAD: details-pane ece34445132c27fdb6ed1f94c25423152e8f176c
-NOTE: ready for PR

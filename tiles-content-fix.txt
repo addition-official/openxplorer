@@ -1,8 +1,0 @@
-STATUS: PR-READY
-HEAD: tiles-content-fix f1b3a2cfdbc741e3516fbf08d6948030d356b51f
-QUESTION: none
-CODEX native/crates/ox-app/src/folder_view/cells.rs:747 FIXED f1b3a2c (heading accessible-label bound to its text; test a_group_headings_accessible_name_follows_its_count)
-CODEX native/crates/ox-app/src/folder_view/cells.rs:710 FIXED f1b3a2c (bind applies the current check-box click targeting; test a_cell_that_showed_a_heading_follows_whether_check_boxes_take_clicks, scrolls so heading cells are reused)
-CODEX native/crates/ox-app/src/folder_view/grid.rs:306 FIXED f1b3a2c (ef16738 already stopped the two-page jump; pages now measured in pixels with heading rows at their own height, fixed by a CSS rule; tests a_page_measures_heading_rows_at_their_height, heading_and_item_rows_are_as_tall_as_a_page_counts_them; group-collapse can reuse RowHeights)
-CODEX native/crates/ox-app/resources/skin/high-contrast.css:35 FIXED f1b3a2c (high contrast clears the slot ring in Tiles/Content; test high_contrast_rings_a_tile_or_content_row_once)
-NOTE: Pulled ef16738..0e64ced first. Both new window tests fail without their fixes. rustfmt and clippy clean for changed files; named view/selection/grouping/check-box/drag/rename/focus/dialog tests 318/319 pass (the one failure is the root-only read-only emblem test, as before). Real input on Xvfb with xdotool (keys and clicks, grouped Downloads): Content click, Down across a heading, Shift+End, Up; Tiles Home, Right across a group, Down, Ctrl+Down (focus only), Shift+Right at the end. Ctrl+Shift+7/8 via xdotool did not reach GTK on bare Xvfb, so views were switched with real clicks in the View menu.

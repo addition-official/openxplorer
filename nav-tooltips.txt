@@ -1,4 +1,0 @@
-STATUS: PR-READY
-HEAD: 72e15be7cd366f91ade9cc2f6654712ff02846b4 (merges upstream main bab3fb5)
-QUESTION: none
-NOTE: Plain Windows 11 version, no switch: tooltips name the target without keys. No switch commits were pushed; the started switch work was discarded locally. Upstream main bab3fb5 merged without conflicts. After the merge: cargo fmt check, clippy on ox-app (no warnings in touched files), history and slow_locations tests (36 passed), i18n.py check and parity/check.py pass. nav-tooltips-pr.md is the original no-keys description, unchanged.

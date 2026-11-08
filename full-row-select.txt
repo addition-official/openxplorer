@@ -1,3 +1,0 @@
-STATUS: DONE
-HEAD: full-row-select 6800bc34810c0e2a4514c4e180bce761c9222483
-NOTE: ready for PR. Merged upstream main a5e5850e; rustfmt, clippy, selection/pointer/focus tests (35) and parity pass.

@@ -1,4 +1,0 @@
-STATUS: PR-READY
-HEAD: replace-skip-details ef9945a41a903a51b96c7c513247c35dc520c515
-QUESTION: none
-NOTE: PR #281. Newest upstream main (e4520a3, 5 more commits incl. #267, #268, #273, #277, #278) merged without force-push; the only conflict was the generated apps/web/public/assets/markdown.json, regenerated with tools/sync-docs.py. rustfmt clean; parity, i18n and docs checks pass; clippy 1.97 (local toolchain) warns only on one pre-existing upstream line (file_ops_captures.rs:93), none in this branch's changes. All 54 named progress window, transfer panel, conflict window, name-conflict and restore-conflict tests pass under Xvfb, including the real-input closing_the_file_conflict_window_returns_to_the_question. Codex on #281 not checked from here: this session can read only addition-official/openxplorer, and AKolenda/openxplorer was refused; the manager reports none outstanding. PR text in replace-skip-details-pr.md is unchanged.

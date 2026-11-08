@@ -1,3 +1,0 @@
-STATUS: DONE
-HEAD: nav-pane 6960700eaf71b02ba978ba97dc596a23bdbdfa9c
-NOTE: ready for PR. Upstream main 3fd8f2a4 merged; check.py (74 executables, 3922 tests) and parity pass.

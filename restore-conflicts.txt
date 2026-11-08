@@ -1,3 +1,0 @@
-STATUS: DONE
-HEAD: restore-conflicts f2727b31699390ab676c1a430c9a5fe6c2fce540
-NOTE: ready for PR

@@ -1,4 +1,0 @@
-STATUS: DONE
-HEAD: customize-tab ded4bc71c96521b1c008d6064e272d5f0847f0ea
-NOTE: ready for PR
-NOTE: Merged upstream main 3fd8f2a4 (Change Icon dialog kept); check.py (74 executables) and parity pass; merges cleanly with open #233.

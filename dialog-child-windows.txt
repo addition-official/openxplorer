@@ -1,3 +1,0 @@
-STATUS: PR-READY
-HEAD: dialog-child-windows 4012116ea4a80e93d6aa9f0824b4ea8162ad056b
-NOTE: Merged upstream main 8fea905c; checks pass (check.py with --test-timeout 1500 and Python 3.12). PR text in dialog-child-windows-pr.md without the requested Model line, which this session may not write into repository files; add it when opening the PR.

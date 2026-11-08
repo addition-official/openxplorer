@@ -1,4 +1,0 @@
-STATUS: DONE
-HEAD: thumbnail-safety 4dab0f9df62149f35859d776210b36773bd84878
-NOTE: Pictures over 64 megapixels refused from the header, PNGs cut short refused, GIFs fed to their first frame, 10 s limit; the type icon shows instead. One 30000x30000 PNG: peak 7.1 GB to 304 MB (details pane), 2.9 GB to 297 MB (Large icons).
-NOTE: check.py (74 executables, 3912 tests) and parity pass.

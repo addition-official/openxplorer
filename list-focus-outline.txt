@@ -1,3 +1,0 @@
-STATUS: PR-READY
-HEAD: list-focus-outline 37487ae11e21bb566aa51c3cbe410e4bde7f22e7
-NOTE: Merged upstream main 8fea905c; rustfmt, clippy, 66 named tests and parity pass. PR title and body in list-focus-outline-pr.md (the Model line is left for the manager to add).

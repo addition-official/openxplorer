@@ -1,3 +1,0 @@
-STATUS: DONE
-HEAD: one-update-button c117af7106945c12d53c4da674a4f4646c6b7984
-NOTE: Command bar Update button removed; upstream main 60a2469 merged; parity check passes. Two Python fixture tests fail here exactly as on upstream main, everything else passes; captures in the chat report.
