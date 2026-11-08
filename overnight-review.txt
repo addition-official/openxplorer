@@ -1,4 +1,4 @@
 STATUS: WORKING
 HEAD: main 016c33598d3292a52c1b8879c38ec52fc12564e5
 QUESTION: none
-NOTE: review started; counts to follow
+NOTE: app built and running under Xvfb; Windows walkthrough done, edge-case and regression passes still running
