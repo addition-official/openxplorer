@@ -1,0 +1,5 @@
+# DO NOT PR
+STATUS: IN-PROGRESS
+HEAD: archives-windows 6f06e48a5129150b73006754970dbe0c4b6d4b18
+QUESTION: none yet
+NOTE: Tests committed first (fail on main), then fixes for all 4 items. Full check.py running now; checklist, captures and PR text to follow.
