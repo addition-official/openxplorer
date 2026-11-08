@@ -1,0 +1,7 @@
+STATUS: WORKING
+HEAD: search-windows 00fd5e34
+QUESTION: none
+NOTE: Size and Last week search options, and typed kind:/datemodified:/size:, built from Microsoft docs (tests first, failed on main). Full check.py running; xdotool checklist and captures next.
+
+CHECKLIST
+(pending)
