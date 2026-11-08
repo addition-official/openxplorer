@@ -1,0 +1,4 @@
+STATUS: IN-PROGRESS
+HEAD: recent-open-fix 016c335 (cut from upstream main, no commits yet)
+QUESTION: none
+NOTE: Started. Reading how Recent rows are built and opened; failing tests come first.
