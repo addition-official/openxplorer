@@ -1,6 +1,22 @@
-STATUS: WORKING (deb pushed; checks and captures running)
+STATUS: DONE
 HEAD: test-combined-26 5269904ad495d7197e83a7bdd09911e7415624bf
 DEB: claude/test-combined-26-deb 1603a727 openxplorer_2.0.15+test26_all.deb sha256 65dcf45871593f545afb44c94f954c0a848ff9f2720d38af4de36e95015775f8
+NOTE: Deb 26 (2.0.15+test26; main is still 2.0.15), app ID io.winspace.Development. All six jobs DONE at the 05:48 UTC poll; built from upstream main 016c3359 (since deb 25 it merged #297 dialog-columns and #299).
+MERGED (in order, full SHAs in the merge commits; each job's branch and SHA from its status file's HEAD line, each tip checked to descend from upstream main 016c3359):
+  dependabot #279 3e3b77e3 (open upstream PR, @types/node for the website)
+  preview-pane-contents dba3b52e (open PR #300; job preview-pane-contents)
+  compact-view 5d7edeb0 (job compact-view)
+  explorer-shortcuts-fixed 51b9fa24 (job explorer-shortcuts; not the old explorer-shortcuts branch)
+  tabs-windows-fixed 654a358d (job tabs-windows; not the tabs-windows ref, which does not descend from main)
+  update-optin-298 5ef8ed37 (job update-optin-298), which carries the owner's #298 062a2052 inside it (#298's three commits, then the opt-in commit), so #298 is in only together with it
+LEFT OUT:
+  search-windows 48e14691 (job search-windows, DONE): REAL CONFLICT with explorer-shortcuts-fixed in native/crates/ox-app/src/snapshot/scene.rs: both add a snapshot step named type=, with different meanings (explorer-shortcuts-fixed: text into the focused field or the dialog opened last, with key= and zoom=; search-windows: text into the search box, with option= and choose=). Per the rule, the later branch is left out; nothing of it is in the deb.
+  #275 (release): already on main. command-bar-menu-switch, explorer-shortcuts (old copy), tabs-windows (bad ref), dialog-name-width: never.
+NOTE: Conflicts resolved (trivial only): compact-view - docs.json word-merged and the generated guides/markdown.json regenerated; explorer-shortcuts-fixed and update-optin-298 - markdown.json regenerated. No glue commit (the usual Details-pane Customize-picture glue was left out this time, since only trivial resolutions were allowed).
+NOTE: "Install updates without asking for a password": off by default. The deb installs only the rule template (/usr/share/openxplorer/install-update.rules) and no file in /etc/polkit-1/rules.d; its install scripts only refresh caches. Installed in my container (dpkg -i, then pkexec added so the app sees the package's install tools), the About page shows the setting OFF; it was never turned on.
+NOTE: Checks (no full suite): release build OK. Clippy clean with -D warnings except the same three new-toolchain lints, allowed on the command line (duration_suboptimal_units, map_unwrap_or, decimal_bitwise_operands), in code no merged branch touched. parity/check.py, i18n.py check and sync-docs.py --check pass. No ox_app tests were run (only docs conflicted).
+NOTE: Captures: 16 pictures (light and dark, 1x, 1440x900) taken with the repo's tools/native_capture.py (bwrap, its own X display and D-Bus, the fictional demo tree, plus a fictional Sample notes.txt and a one-page fictional Sample page.pdf), running the installed /opt/openxplorer/bin/openxplorer as an unprivileged container user (the app refuses root). Kept in the chat report, not on this branch. Not captured: the search results title and filters, since search-windows is not in this deb.
+NOTE: Identity: my commits (merges, deb, status) are addition-official as author and committer with no trailers. Others in the merged history, unchanged: the owner's #298 commits bc253183, 8d7e0e85, 062a2052 (AKolenda) and dependabot's #279 3e3b77e3 (committer GitHub, with "Signed-off-by: dependabot[bot]"). The deb holds the same addresses as decks 12-25 (plus binary noise), nothing new.
 POLL LOG:
   03:55 UTC: compact-view no status file; explorer-shortcuts WORKING; update-optin-298 WORKING; preview-pane-contents DONE; tabs-windows WORKING; search-windows no status file; 
   04:11 UTC: compact-view WORKING; explorer-shortcuts WORKING; update-optin-298 WORKING; preview-pane-contents DONE; tabs-windows WORKING; search-windows no status file; 
