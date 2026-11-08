@@ -1,8 +1,8 @@
-STATUS: PR-READY
-HEAD: recent-open-fix cc4e8a0
-QUESTION: (1) Cut on a Recent files row still refuses the row ("only local paths..."), so Cut never moves a file out of its folder from Recent. Should Cut act on the real file like Copy does? Left unchanged. (2) An smb:// Recent row could not be tested here: GVfs 1.54's Recent backend only lists file: entries and the container has no GVfs FUSE. Please try one on your PC.
-NOTE: Recent files rows are GVfs recent:/// items; opening and most commands used that address, which the opener refuses. Now they use the file in entry.meta.recent_target (Entry::opened_uri / item_uri); navigation_uri unchanged. A gone file says the existing "Item Not Found" wording for Open and Open with. A drag from Recent onto a folder on the same drive moves the real file, as a drag from its folder does. Seen but not changed: typing recent:/// in the address bar, or passing it on the command line, is refused with the "supported in this build" message. Captures come from a driver using tools/native_capture.py's demo tree and bubblewrap isolation with xdotool input (the snapshot hook cannot draw dialogs or other apps). PR text in recent-open-fix-pr.md.
-PASS tests-first: 8 new bug tests fail on upstream main 016c335, all 9 recent_rows tests pass on the branch (Recent locations test passes on both)
+STATUS: WORKING
+HEAD: recent-open-fix c60da76
+QUESTION: none (Cut answered by the manager: keep refused, look like Windows; done. smb:// Recent row stays NOT TESTED)
+NOTE: Full check.py re-run for c60da76 in progress. Recent files rows are GVfs recent:/// items; opening and most commands used that address, which the opener refuses. Now they use the file in entry.meta.recent_target (Entry::opened_uri / item_uri); navigation_uri unchanged. A gone file says the existing "Item Not Found" wording for Open and Open with. A drag from Recent onto a folder on the same drive moves the real file, as a drag from its folder does. Seen but not changed: typing recent:/// in the address bar, or passing it on the command line, is refused with the "supported in this build" message. Captures come from a driver using tools/native_capture.py's demo tree and bubblewrap isolation with xdotool input (the snapshot hook cannot draw dialogs or other apps). PR text in recent-open-fix-pr.md.
+PASS tests-first: 9 new bug tests fail on upstream main 016c335, all 10 recent_rows tests pass on the branch (Recent locations test passes on both)
 PASS rustfmt --check
 PASS clippy (CONTRIBUTING.md pedantic command, Rust 1.92.0)
 PASS python3 native/parity/check.py
@@ -32,6 +32,10 @@ PASS folder (Recent locations): Open in new window
 PASS folder (Recent locations): Open folder with... launches the chosen app on the folder
 PASS folder (Recent locations): Copy as path, Properties ("Projects Properties", Location <home>/Documents)
 PASS folder (Recent locations): drag onto Downloads moves the folder ("Move to Downloads")
-NOT RUN smb:// file: all checklist items (GVfs Recent backend here lists no smb:// entries; no FUSE) - see QUESTION
+NOT TESTED smb:// file: all checklist items (GVfs Recent backend here lists no smb:// entries; no FUSE) - see QUESTION
 NOTE-CHECKLIST: a never-existing file in recently-used.xbel is not listed by GVfs at all, so the missing-file lines used a file whose folder was moved while the row was shown
+PASS Recent file: command bar Cut, Rename and Delete greyed out, Copy enabled
+PASS Recent file: right-click strip has only Copy (Share shows only with the desktop's email portal); rest of the menu unchanged
+PASS Recent file: Ctrl+X does nothing (no message, clipboard unchanged); F2 and Delete do nothing (no rename box, file still there)
+PASS Recent locations folder: Cut, Rename and Delete stay enabled (real folders)
 PASS captures: recent-open-fix-1x-{light,dark}-open.png, recent-open-fix-1x-{light,dark}-item-not-found.png
