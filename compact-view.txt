@@ -1,5 +1,5 @@
 STATUS: WORKING
-HEAD: compact-view 6b2b73a3
-NOTE: Fix pushed (Details, headings, column header, nav pane, Tiles, Content); new tests fail on main and pass with the fix at 1x and 2x. Running the full checks, then the xdotool checklist and captures.
+HEAD: compact-view 7c805573
+NOTE: Fix and tests pushed; the Tiles/Content numbers are in. 1x dark checklist computed from xdotool captures (all PASS but Tiles heading-to-icon 28 vs 26); 2x and light captures running, then PNGs and the PR text.
 
-CHECKLIST (pending; filled in after the Xvfb/xdotool run)
+CHECKLIST (filled in from the captures when they finish)
