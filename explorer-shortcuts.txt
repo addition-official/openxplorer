@@ -1,7 +1,7 @@
 STATUS: DONE
-HEAD: explorer-shortcuts-fixed 51b9fa24
-QUESTION: two CONFLICTs need a decision, both left as the owner made them: (1) Alt+mouse drag: Windows makes a shortcut, OpenXplorer opens the drop menu (Alt asks). (2) Backspace in an Open/Save dialog: Windows goes up one folder, OpenXplorer goes back (NAV-004). Change either?
-NOTE: Added Ctrl+1..9 tabs (and Properties tabs), Ctrl+Shift+E, Num Lock +/-/* in the navigation pane, Ctrl+F5, Ctrl+Insert/Shift+Insert, and fixed typed Ctrl+Shift+1..8 (never worked with a real keyboard). Real input: main 382 cells with 44 FAIL; branch 378 PASS + 4 CONFLICT. 48 captures pushed.
+HEAD: explorer-shortcuts-fixed 8434f278
+QUESTION: none new. The two earlier CONFLICTs (Alt+mouse drag, Backspace in the Save dialog) still wait for a decision.
+NOTE: Codex review fixed: (1) the navigation pane's keypad +/-/* and Left/Right now ignore Caps Lock and Num Lock bits (failing unit tests first, they fail on 51b9fa24); on Xvfb/X11 a real Num Lock never reached the handlers, so real input passed before and after: please try Num +/- in the navigation pane with Num Lock on in the next deb. (2) Guide and manual now say Ctrl+Shift+E works while the navigation pane is shown.
 
 CHECKLIST (shortcut | what Windows does, Microsoft's words | BEFORE: unchanged upstream main 2.0.15, real input | AFTER: explorer-shortcuts-fixed, real input | result)
 Source: Microsoft, "Keyboard shortcuts in Windows", fetched 2026-11-08 (Windows 11 tab: "File Explorer keyboard shortcuts", "Desktop and other general", "Text editing", "Dialog box"; Windows 10 tab only for the Num Lock rows and wordings Windows 11 dropped).
@@ -481,3 +481,26 @@ PASS | Ctrl+Shift+Tab (dialog) | 2x Properties dialog | before (main): PASS | 1-
 PASS | Ctrl+1, 2, 3,... (dialog) | 2x Properties dialog | before (main): FAIL | tabs=['General', 'Security', 'Details', 'Previous Versions'] -> 2
 PASS | Esc (dialog) | 2x Properties dialog | before (main): PASS | frames=['Documents — OpenXplorer']
 PASS | Ctrl+W (the only tab) | 2x Properties dialog | before (main): PASS | running=False windows=[]
+
+REVIEW FIXES ON 8434f278 (Codex, PR #301)
+UNIT | the_folder_tree_keys_work_with_num_lock_on, the_navigation_pane_keys_work_with_num_lock_on | FAIL on 51b9fa24 (tests-only commit d4563f72) | PASS on 8434f278
+PASS | rustfmt --check, workspace Clippy (Rust 1.92), parity check, i18n check
+PASS | ox-app tests: more_explorer_keys 10, sidebar_sections 4, folder_tree 4, picker 86, shortcuts_window 3, help 2, manual 2
+NOT RUN | full native/tools/check.py (not rerun for this small diff)
+REAL INPUT, Num Lock really on (xdotool without --clearmodifiers; the probe cell shows keypad 1 typed "1"):
+PASS | Num Lock is on (probe: keypad 1 types 1) | 1x Num Lock ON, focus in navigation pane | before (51b9fa24): PASS | caret 0->1
+PASS | Num Lock+minus (-) (places, Num Lock on) | 1x Num Lock ON, focus in navigation pane | before (51b9fa24): PASS | collapsed=True focus=list item:'This PC'[FX]
+PASS | Num Lock+plus (+) (places, Num Lock on) | 1x Num Lock ON, focus in navigation pane | before (51b9fa24): PASS | expanded=True
+PASS | Left arrow / Num Lock+asterisk (*) (places, Num Lock on) | 1x Num Lock ON, focus in navigation pane | before (51b9fa24): PASS | left collapsed=True star expanded=True
+PASS | Num Lock+minus (-) (folder tree, Num Lock on) | 1x Num Lock ON, focus in navigation pane | before (51b9fa24): PASS | in tree=True tree=['Home', 'Desktop', 'Documents', 'Downloads', 'Music', 'Pictures', 'Videos']
+PASS | Num Lock+plus (+) (folder tree, Num Lock on) | 1x Num Lock ON, focus in navigation pane | before (51b9fa24): PASS | tree=['Home', 'Desktop', 'Documents', 'Invoices', 'Launch planning', 'Downloads', 'Music', 'Pictures', 'Videos']
+PASS | Num Lock+asterisk (*) (folder tree, Num Lock on) | 1x Num Lock ON, focus in navigation pane | before (51b9fa24): PASS | tree=['Home', 'Desktop', 'Documents', 'Invoices', '2025', 'Launch planning', 'Drafts', 'Old', 'Downloads', 'Music', 'Pictures', 'Videos']
+PASS | Left arrow / Right arrow (folder tree, Num Lock on) | 1x Num Lock ON, focus in navigation pane | before (51b9fa24): PASS | left=True right=True
+PASS | Num Lock is on (probe: keypad 1 types 1) | 2x Num Lock ON, focus in navigation pane | before (51b9fa24): PASS | caret 0->1
+PASS | Num Lock+minus (-) (places, Num Lock on) | 2x Num Lock ON, focus in navigation pane | before (51b9fa24): PASS | collapsed=True focus=list item:'This PC'[FX]
+PASS | Num Lock+plus (+) (places, Num Lock on) | 2x Num Lock ON, focus in navigation pane | before (51b9fa24): PASS | expanded=True
+PASS | Left arrow / Num Lock+asterisk (*) (places, Num Lock on) | 2x Num Lock ON, focus in navigation pane | before (51b9fa24): PASS | left collapsed=True star expanded=True
+PASS | Num Lock+minus (-) (folder tree, Num Lock on) | 2x Num Lock ON, focus in navigation pane | before (51b9fa24): PASS | in tree=True tree=['Home', 'Desktop', 'Documents', 'Downloads', 'Music', 'Pictures', 'Videos']
+PASS | Num Lock+plus (+) (folder tree, Num Lock on) | 2x Num Lock ON, focus in navigation pane | before (51b9fa24): PASS | tree=['Home', 'Desktop', 'Documents', 'Invoices', 'Launch planning', 'Downloads', 'Music', 'Pictures', 'Videos']
+PASS | Num Lock+asterisk (*) (folder tree, Num Lock on) | 2x Num Lock ON, focus in navigation pane | before (51b9fa24): PASS | tree=['Home', 'Desktop', 'Documents', 'Invoices', '2025', 'Launch planning', 'Drafts', 'Old', 'Downloads', 'Music', 'Pictures', 'Videos']
+PASS | Left arrow / Right arrow (folder tree, Num Lock on) | 2x Num Lock ON, focus in navigation pane | before (51b9fa24): PASS | left=True right=True

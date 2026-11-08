@@ -8,7 +8,7 @@ Model: claude-opus-5-5
 I went through every shortcut in Microsoft's page "Keyboard shortcuts in Windows" that acts in File Explorer, and tried each one on unchanged main with real key presses (xdotool on Xvfb). Most already worked. This adds the ones that were missing:
 
 - **Ctrl+1 to Ctrl+9** show the tab of that number (Alt+1 to Alt+9 still work). In the Properties window they show its tab of that number, as Windows dialogs do.
-- **Ctrl+Shift+E** opens the navigation pane down to the folder you are in and moves the keyboard there: in the folder tree when it is shown, otherwise to the place's row (opening This PC or Network if it was collapsed).
+- **Ctrl+Shift+E**, while the navigation pane is shown, opens it down to the folder you are in and moves the keyboard there: in the folder tree when it is shown, otherwise to the place's row (opening This PC or Network if it was collapsed).
 - **Num Lock + plus, minus, asterisk** in the navigation pane open, close, or open everything below the selected folder (and expand or collapse This PC / Network). Before, these keys were typed into the file list.
 - **Ctrl+F5** refreshes, like F5 and Ctrl+R.
 - **Ctrl+Insert / Shift+Insert** copy and paste files in the file list. Text fields keep these keys for their own text.
@@ -42,7 +42,7 @@ The developer snapshot hook (used for the review pictures) gained `key=`, `zoom=
 | Ctrl+N | "Open a new window." | works | same | PASS |
 | Ctrl+Number (1-9) | "Move to that tab number." | nothing (only Alt+1..9) | shows that tab; Alt+1..9 kept | PASS (was FAIL) |
 | Ctrl+Plus (+) (keypad) | "Resize all columns to fit text." | works (upstream 2.0.15) | same | PASS |
-| Ctrl+Shift+E | "Expands all folders from the tree in the navigation pane." (Windows 10: "Display all folders above the selected folder.") | nothing | opens the navigation pane down to the folder shown, opens its subfolders, focus moves there (folder tree, else the place's row) | PASS (was FAIL) |
+| Ctrl+Shift+E (while the navigation pane is shown) | "Expands all folders from the tree in the navigation pane." (Windows 10: "Display all folders above the selected folder.") | nothing | opens the navigation pane down to the folder shown, opens its subfolders, focus moves there (folder tree, else the place's row) | PASS (was FAIL) |
 | Ctrl+Shift+N | "Create a new folder." | works, name box open | same | PASS |
 | Ctrl+Shift+Number (1-9) | "Change the view style. For example, 2 is Large icons and 6 is Details." | typed keys did nothing (GTK got the shifted symbol, such as % for 5) | 1-8 switch the view in all views, main window and Save dialog | PASS (was FAIL) |
 | Ctrl+Shift+Tab | "Move to the previous tab." | works | same | PASS |
@@ -100,6 +100,7 @@ The developer snapshot hook (used for the review pictures) gained `key=`, `zoom=
 - **Unit tests first.** New tests in `window/tests/more_explorer_keys.rs` and `window/tests/properties_width.rs` were added first: the 8 in `more_explorer_keys.rs` fail on upstream main with only the tests added (commit 651611fc), and the Properties test fails without its fix; all 9 pass with the change.
 - **Checks**, run as an unprivileged user with Rust 1.92: `python3 native/parity/check.py`, the i18n check, rustfmt and Clippy pass. `python3 native/tools/check.py` ran every test executable plus the doctests. In ox-app, 2,113 tests passed and 2 failed: the sandboxed thumbnailer tests, which also fail on unchanged main in this container. The ox-core library's link-safety tests need a folder that only its owner can write, so they ran with `OX_TEST_TRUSTED_BASE` set (1,193 passed). The Python-compatibility fixture test was run with Python 3.12 (the system Python is 3.13). The release-source and public-data tests and `tools/audit-public-data.py` pass.
 - **Not run:** `pnpm check` and `pnpm build` (no website code changed; the docs Markdown was regenerated with `tools/sync-docs.py`). No .deb was built.
+- **Num Lock on.** The navigation pane's keypad keys and Left/Right ignore Caps Lock and Num Lock bits in the key state, as the picker and Properties handlers do; unit tests that send those bits failed before the fix. With Num Lock really on (xdotool, X11), the keys worked before and after: X11 did not deliver the lock bits to these handlers here, so please also check on your desktop.
 - **Pictures** were taken with the native capture path (`tools/native_capture.py` and the snapshot hook) at 1x and 2x, light and dark, with the fictional demo tree.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
