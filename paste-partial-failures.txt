@@ -1,7 +1,36 @@
 # DO NOT PR
-STATUS: IN PROGRESS
+STATUS: DONE
 HEAD: paste-partial-failures c3c3cc44e84956a0b9fab9e7ca4e7b6775939699
-QUESTION: none yet
-NOTE: Branch cut from upstream main 016c3359. Cause of items 1 and 2: the protected-location check over the whole selection (preflight in ops/resolved_transfer.rs, using the guard.rs walk) failed the whole paste on any read error. Fix, tests, docs and parity notes pushed; rustfmt, pedantic clippy, parity and i18n checks clean. 1x light real-input run all PASS so far; full matrix (1x/2x, light/dark) and the full test suite are running.
+QUESTION: (1) CONFLICT below: a MOVED folder with an unreadable subfolder is asked about as one item ("Folder Access Denied", Try Again / Skip / Cancel) and kept, because XFER-020 never moves a tree it could not check for protected snapshot folders; Windows moves it. Keep XFER-020 as is (current), or allow it? (2) The repo capture tools (tools/native_capture.py snapshot hook) can only picture the main window or Properties, not the progress window, so the captures are screenshots of the Xvfb display taken during the real-input runs (fictional /home/demo/OX-Test files). OK, or should the snapshot hook learn to save the progress window?
+NOTE: Branch cut from upstream main 016c3359, no PR, no deb. Cause of items 1 and 2: the protected-location check over the whole selection, run before any item (preflight in ops/resolved_transfer.rs, through transfer/guard.rs), failed the whole paste on any read error. It still refuses protected locations up front, but now leaves a missing or unreadable item to the engine, which asks about that item in the progress window while the others go on; a copy no longer walks into a folder it cannot list and asks about that folder by itself. Item 3: new TransferError::InsideSource / FailureCause::InsideSource; the progress window asks "Interrupted Action", "You can't copy a folder into a folder inside it." ("move"), Skip and Cancel only. Docs (docs.json + regenerated Markdown), ui-spec, parity notes (OPS-047, XFER-016) and the .pot updated. PR text in paste-partial-failures-pr.md. Captures: paste-partial-failures-<scale>x-<theme>-<case>.png (unreadable-copy, unreadable-move, nested-unreadable, missing-copy, missing-move, inside-itself-copy, inside-itself-move), 1x and 2x, light and dark; black margins = no compositor. Item 1 Cancel during a copy discards the whole current item (staging), so nothing of CopyTest is left; that is the existing staging design.
 
-PASS core test ops_partial_failures (6/6, as tester); on unchanged main 5/5 failed (missing item, unreadable copy, nested, move, folder-into-itself)
+TESTS (all run as the unprivileged user tester)
+PASS ops_partial_failures (new, 6 tests); on unchanged main the 5 item tests FAIL (missing item and unreadable folders: "the paste runs" Err NotFound/PermissionDenied; folder into itself: cause Other)
+PASS failure_dialog a_folder_pasted_into_itself_is_refused_in_plain_words (new)
+PASS rustfmt --check; PASS clippy --workspace --all-targets -D warnings -W clippy::pedantic (CONTRIBUTING flags), Rust 1.92.0
+PASS native/parity/check.py; PASS native/tools/i18n.py check; PASS tools/sync-docs.py --check; PASS tools/audit-public-data.py (no issues); PASS pnpm check
+PASS native/tools/check.py steps with a keep-going wrapper: inventories, drawn-icon guard, fmt, clippy, 76 test executables plus doctests, except 2 executables:
+FAIL location_fixture_drift (python_fixture_matches_desktop_core_py: system Python 3.13 ipaddress now accepts "[V1.x]") - also FAILS on unchanged main
+FAIL network_python (fuse_export_paths_match_native_opening_py: ImportError cannot import name '_gi') - also FAILS on unchanged main
+(plain check.py stops at the first of these, so it exits 1 on both branch and main in this container)
+
+REAL INPUT (Xvfb + openbox, xdotool keys and pointer, branch debug build as tester, fictional OX-Test tree; 1x light 26/26, 1x dark 26/26, 2x light+dark capture runs 20/20 + 40/40)
+PASS item 1 copy, Skip: ok.txt copied, Locked asked ("Folder Access Denied", Try Again/Skip/Cancel) and left out [1x light, 1x dark, 2x light, 2x dark]
+PASS item 1 copy, Try Again after chmod back: whole folder copied [1x light, 1x dark]
+PASS item 1 copy, Cancel: nothing left in Target, no staging [1x light, 1x dark]
+PASS item 1 move, Skip / Try Again after chmod back / Cancel: whole folder asked about and kept, Try Again moves it (see QUESTION 1) [1x light, 1x dark]
+PASS item 1 move with another item: other.txt moved, CopyTest asked and kept [1x light, 1x dark]
+PASS nested unreadable folder two levels down, Skip: rest copied, CopyTest/Deep/Locked asked [1x light, 1x dark, 2x light, 2x dark]
+PASS item 2 cut+paste, Skip / Try Again (file back) / Cancel: A.txt moved, B.txt asked "Item Not Found" [1x light, 1x dark]
+PASS item 2 copy+paste, Skip / Try Again / Cancel [1x light, 1x dark]
+PASS several missing items: each asked in turn, A.txt moved [1x light, 1x dark]
+PASS item 3 cut and copy by keys: refused in the progress window, Skip/Cancel only, nothing changed [1x light, 1x dark, 2x light, 2x dark]
+PASS item 3 cut and copy by real drag and drop onto Sub (second window): refused the same way [1x light, 1x dark]
+PASS Undo after partial copy (removes only the copy), partial move (moves back only what moved), several-missing move, moved-after-Try-Again [1x light, 1x dark]
+PASS nothing left behind after Cancel (Target empty or only finished items, no staging) [1x light, 1x dark]
+
+NOT CONFIRMED (not built)
+- Windows' text for a folder pasted into its own subfolder, "The destination folder is a subfolder of the source folder.", caption "Interrupted Action", buttons Skip / Cancel: found only in user posts on Microsoft Q&A (learn.microsoft.com/en-us/answers/questions/4307330). Microsoft's only documentation is SHFileOperation's DE_DESTSUBTREE "The destination is a subtree of the source." (learn.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shfileoperationa). Plain wording used instead.
+
+CONFLICT
+- XFER-020 (owner rule, kept as default) vs Windows for a MOVED folder with an unreadable subfolder: the app asks about the whole folder and keeps it; Windows moves it (same volume) or moves the rest and asks about the unreadable folder (other volume). See QUESTION 1.
