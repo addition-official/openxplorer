@@ -1,4 +1,54 @@
-STATUS: WORKING
+STATUS: DONE
 HEAD: search-address-windows d6ca4416cdc3ab0f5a7bba168a5604979cc85850
 QUESTION: none
-NOTE: Fix pushed; real-input checklist passed at 1x/2x, light/dark (xdotool, Xvfb, throwaway HOME, fictional files). Box height fix d6ca441 (not pushed yet). Now taking captures with tools/native_capture.py, then the full checks.
+NOTE: Item 1 (?) already worked on main: tests added, no code change. Item 2: "Recycle Bin" typed in the address bar now opens it (This PC already did). Item 3: a removed or renamed folder keeps its tab and address; F5 shows "Location is not available" with Windows' text and our path. Tests first 99acc7d (fail on main), fix 44a0c51, box size fix d6ca441. No PR, no deb.
+
+PASS test first: typing_recycle_bin_or_this_pc_opens_it, a_folder_removed_while_shown_keeps_its_tab_until_f5_says_it_is_not_available, a_background_tab_whose_folder_is_deleted_keeps_its_address fail on unchanged main (99acc7d on fbd14cb: "the Recycle Bin" times out; no box after F5 because the tab jumped; background tab moved to Documents) and pass after the fix
+PASS ? tests: a_question_mark_stands_for_exactly_one_character (ox-core) and a_question_mark_finds_names_with_one_character_there pass on main too: ? was already a one-character wildcard everywhere (folder filter, live walk, cache, contents); no code change for item 1, only tests and notes
+PASS removed_folder unit test an_unavailable_folder_is_said_in_windows_words
+PASS related app suites (listing, address_input, address_bar, recycle_bin, search, history, tabs, disconnected, split_view, slow_locations, loading): 190 passed
+PASS rustfmt --check; clippy --workspace --all-targets -D warnings with the pedantic flags of CONTRIBUTING.md (Rust 1.92.0)
+PASS python3 native/parity/check.py; native/tools/i18n.py check; tools/sync-docs.py --check; tools/audit-public-data.py (passed, no issues)
+FAIL python3 native/tools/check.py: inventories, icon guard, rustfmt, clippy pass; it stops at location_fixture_drift python_fixture_matches_desktop_core_py (this machine's Python parses smb://[V1.x] differently); the identical list of 31 tests fails on unchanged main (fbd14cb, same isolation, separate checkout and target dir)
+FAIL full suite (every test executable with check.py's isolation, continuing past failures, plus doctests): 4400 passed, 31 failed: 9 admin_copy::tests, 18 admin_delete::tests::parent_path, 2 thumbnails::thumbnailers sandbox tests, python_fixture_matches_desktop_core_py, fuse_export_paths_match_native_opening_py; the identical list of 31 tests fails on unchanged main (fbd14cb, same isolation, separate checkout and target dir)
+PASS search 1x light "extra_??.txt": extra_30, extra_31 (+ extra_32 in a subfolder); current folder only: extra_30, extra_31
+PASS search 1x light "extra_?.txt": extra_2, extra_3 (+ extra_4 in a subfolder); current folder: extra_2, extra_3
+PASS search 1x light "?xtra*": all six extra_ files with subfolders, four in the current folder
+PASS search 1x light "*_3?.txt": extra_30, extra_31 (+ extra_32)
+PASS search 1x light "??": ab, cd (not abc)
+PASS search 1x light no-match pattern "zzz?.none": empty list
+PASS search 1x light literal ?: "what?.txt" finds what?.txt
+PASS search 1x light the same seven patterns with File contents on: same name matches; a plain word ("sample") is found in contents
+PASS search 1x dark, 2x light, 2x dark: the seven patterns with subfolders give the same results
+NOT RUN search on an SMB fixture: the tests have no SMB server (they use simulated devices)
+PASS address bar (1x/2x, light/dark): Ctrl+L "Recycle Bin", Alt+D "recycle bin", Ctrl+L "  Recycle Bin  " open the Recycle Bin; Alt+D "This PC" opens This PC
+PASS address bar Back/Forward afterwards (1x/2x, light/dark): Search, Recycle Bin, Search, This PC in order
+PASS address bar in a new tab (1x/2x, light/dark): Ctrl+T then Ctrl+L "Recycle Bin"; Ctrl+T then Alt+D "This PC"
+PASS address bar with the suggestions dropdown open (1x light): typed a path until it listed a folder, replaced the text with "Recycle Bin", Enter opened it
+PASS folder renamed externally, list focused (1x/2x, light/dark): address, title and rows stay; no message, no box, no jump
+PASS folder deleted externally (1x/2x, light/dark): address and title stay; no jump
+PASS unmounted mount (tmpfs mounted by root as a fixture, 1x light): address stays, the existing "drive or network share ... was disconnected" page shows at once; F5 shows the box; no jump
+PASS split view other side (1x light): the right side's folder deleted while the left side was active keeps its address; F5 there shows the box
+PASS background tab (1x light): its folder renamed while in the background; switching to it shows the old address; F5 shows the box
+PASS F5 shows "Location is not available" with the error sign, the folder's path in Windows' text and OK (1x/2x, light/dark)
+PASS F5 again while the box is open: no second box (1x/2x, light/dark)
+PASS box closed with Esc, Enter and an OK click (1x/2x, light/dark); the tab stays at the old address with the unavailable page
+PASS after the box: typing another address goes there; Back returns to the gone folder's address; Forward works (1x/2x, light/dark)
+PASS no crash, 0 GTK criticals in the app log in each session
+PASS box size: first run showed the box window as tall as the screen (no window manager); fixed in d6ca441 (message wraps no narrower than 40 characters), rechecked 1x/2x
+PASS captures with tools/native_capture.py (snapshot hook, fictional demo tree): search-address-windows-{1x,2x}-{light,dark}-{question-mark-search,recycle-bin-from-address-bar,location-not-available}.png
+
+NOT CONFIRMED, check in the VM:
+- What the folder list shows when the open folder is renamed or deleted by another program, before any F5: does Windows keep the old items, empty the list, or say "This folder is empty."? (Ours keeps the old items for a rename; a delete usually empties as the watch sees the files go.)
+- Whether the "Location is not available" box ever appears before F5 (for example when clicking in the list or after a few seconds). Ours: only on F5/Refresh/Try again.
+- What the list shows behind the box and after OK (old items, empty list, or an error page). Ours: the "This location is unavailable" page.
+- Whether Back/Forward to the gone folder, or typing its path, shows the same box, another message, or nothing. Ours: the unavailable page, no box.
+- With a folder named "Recycle Bin" (or "This PC") inside the current folder, does typing "Recycle Bin" open that folder or the Recycle Bin? Ours: the folder.
+- Other typed names: "Home", "Gallery", "Network", "Desktop", "Documents", "Downloads", "Control Panel", "Quick access", "Trash". Ours already opens Home, Network and Trash (GNOME's name for the Recycle Bin); Gallery, Desktop, Documents and Downloads are not added (they resolve only as folders relative to the current one).
+- Whether the box's OK is the default button for Enter and Esc closes it (ours: both close it).
+- Search: does Windows treat a "?" in a pattern as one character also when the name holds a literal "?" (cannot happen on NTFS), and whether "[a-c]" sets work in Windows search (ours keep them).
+
+CHANGED OWNER DECISIONS:
+- NAV-039 (features.toml "done", Dolphin's fallback to the nearest existing parent with "Current location changed, <path> is no longer accessible."): now Windows' behavior, the tab keeps its address, and F5 shows "Location is not available". Title, behaviour and native_note updated; BACKLOG has a "Changed to Windows 11's behavior (2026-11-09)" entry; the old message is gone from the template (its zh_CN translation no longer applies).
+- NAV-033: typing "Recycle Bin" now opens the Recycle Bin from the address bar (before, the window refused it although OPS-040's note already listed the address); a folder of that name in the current folder still wins, as for Home/This PC/Network.
+- SRCH-004: note added that "?" is one character and also matches a literal "?" in a Linux name, with no escape (no behavior change).
