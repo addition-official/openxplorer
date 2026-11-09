@@ -37,7 +37,7 @@ Home in OpenXplorer opens the home folder, like any other folder. Windows 11 Fil
 These are drawn in the app's own way, or left out:
 
 - The order on screen of Quick access, the switcher and the tabs, and which tab is shown first (Recent here).
-- How many files Recent lists (up to 50 here), and what the status bar shows on Home ("Ready" here).
+- How many files Recent lists (up to 50 here), and whether the column headers can be resized (not here).
 - Whether standard folders have their own full-color folder icons (here the yellow folder carries the folder's colored glyph).
 - The exact wording "Add to Favorites" and "Remove from Favorites", and where they sit in a file's menu.
 - Whether Recent has "Remove from list" (not built).
@@ -59,6 +59,7 @@ Question for the maintainer: this PR makes Windows 11's Home page (Quick access,
 
 - New tests in `native/crates/ox-app/src/window/tests/home_page.rs` (6 tests). They were committed before the feature and do not compile on main, since the setting and the page do not exist there. They all pass with the change. Tests that check the home folder on Home (NAV-012, NAV-015, NAV-038, TAB-001 and others) now turn on "Open the home folder on Home" first; a new window's test (TAB-042) now expects Home.
 - Real input with xdotool on a private Xvfb display, with a throwaway home, fictional files and a mock default app: the Home page with its sections; folding by click and by keyboard; pin from a folder's menu and unpin from a tile's menu; double-click and middle-click on a tile; Recent's double-click opening the real file in the mock app; Open file location; Add to Favorites from a file's menu and Remove from Favorites; the empty states; Back and Forward; F5; the keyboard between sections; a 670 px window.
+- Spacing checked against a Windows 11 Home at 1920x1080, 1x: rows 36 px apart with 20 px icons, Name over the icons with Date accessed and File location 484 and 298 px to the right, 60 px tiles, the gaps between the sections, and the status bar's item count. A test measures each of these.
 - Real input with the Windows 11 layout (1x, dark): tile spacing, three-line tiles, pills, the three columns and 36 px rows were measured on screen; opening a Recent file, the row menu, the Favorites pill, folding and opening a tile.
 - Real input again with the new default (1x, dark): a new window opens the Home page; a Recent file opens; folding; Favorites; Alt+Home and Ctrl+T open Home; turning on "Open the home folder on Home" in Settings makes Alt+Home open the home folder.
 - Pictures taken with `tools/native_capture.py` (fictional demo home) at 1x and 2x, light and dark, normal and Compact view.
