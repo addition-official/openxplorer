@@ -12,8 +12,8 @@ Home in OpenXplorer opens the home folder, like any other folder. Windows 11 Fil
 
 - The navigation pane's Home row, Alt+Home, the HomePage key, a new tab, a new window without a startup folder and a typed `home:` open the Home page (`ox:home`).
 - **Settings > General > Start up > "Open the home folder on Home"** (saved as `homeOpensFolder`, off by default and stored only when on) brings back the earlier behavior: Home, Alt+Home, new tabs and new windows open the home folder (NAV-038). The home folder itself is unchanged either way: reachable and named as before.
-- **Quick access** shows the navigation pane's own Quick access list (one list, so pinning or unpinning anywhere updates both) as tiles. A tile opens its folder (double-click or Enter, middle-click for a background tab) and has the pin's usual right-click menu, Unpin from Quick access included.
-- A **Recent / Favorites** switcher sits below it:
+- **Quick access** shows the navigation pane's own Quick access list (one list, so pinning or unpinning anywhere updates both) as tiles laid out as Windows 11's Home: about 284 px apart across and 60 down, a 48 px folder, then the name, where the folder is ("Home", or the parent folder's name) and a pin glyph. A tile opens its folder (double-click or Enter, middle-click for a background tab) and has the pin's usual right-click menu, Unpin from Quick access included.
+- A **Recent / Favorites** switcher sits below it, as pills with a clock and a star, the shown one in the accent color. Under it is a Details list with **Name**, **Date accessed** and **File location** columns (the folder from the home folder down, with "/" between folders), rows 36 px apart, closer in Compact view:
   - **Recent** lists the files GVfs already lists at `recent:///`, the same source as the navigation pane's Recent files, newest first. It updates as the desktop's list changes. A row opens the real file, and its menu has Open file location.
   - **Favorites** lists the files added with the new **Add to Favorites** command. The command is on a file's right-click menu (not while "Open the home folder on Home" is on) and on Recent rows; **Remove from Favorites** removes a file. Favorites are saved in the settings file (`favorites`).
 - Both sections **fold** with their chevron, by click or with Left and Right, and stay folded (`homeFolded`). The arrow keys move between headings, tabs, tiles and rows, with a visible focus ring. Compact view draws the tiles and rows closer.
@@ -29,15 +29,16 @@ Home in OpenXplorer opens the home folder, like any other folder. Windows 11 Fil
 | A Recent / Favorites / Shared switcher on Home (Shared is left out: it needs a Microsoft account) | https://blogs.windows.com/windows-insider/2024/07/12/announcing-windows-11-insider-preview-build-22635-3930-beta-channel/ |
 | Open file location on Home's files | https://blogs.windows.com/windows-insider/2025/10/21/releasing-windows-11-builds-26100-7015-and-26200-7015-to-the-release-preview-channel/ |
 | Sections fold and Home remembers which are folded; middle-click on a Home folder opens a new tab | https://blogs.windows.com/windows-insider/2026/08/17/improving-file-explorer-context-menu-faster-simpler-and-more-customizable/ |
+| Layout of tiles, pills and list columns (spacing, icon size, three-line tiles, column names) | Measured on a Windows 11 screenshot (the column names Name, Date accessed and File location appear there; Activity and Shared are Microsoft 365 or cloud only and left out) |
 | "Open File Explorer to: Home" (here: a new window with no startup folder opens Home) | https://support.microsoft.com/en-us/windows/file-explorer-in-windows-ef370130-1cca-9dc5-e0df-2f7416fe1cb1 |
 
 ## Not confirmed by Microsoft's documentation (to check in Windows 11)
 
 These are drawn in the app's own way, or left out:
 
-- Layout and sizes: tile size, row height, spacing, whether Home's tiles look like the Tiles view, and the switcher's look.
 - The order on screen of Quick access, the switcher and the tabs, and which tab is shown first (Recent here).
-- Recent's columns (none here: icon and name only) and how many files it lists (up to 50 here).
+- How many files Recent lists (up to 50 here), and what the status bar shows on Home ("Ready" here).
+- Whether standard folders have their own full-color folder icons (here the yellow folder carries the folder's colored glyph).
 - The exact wording "Add to Favorites" and "Remove from Favorites", and where they sit in a file's menu.
 - Whether Recent has "Remove from list" (not built).
 - Whether frequent folders still appear in Home's Quick access (documented for Windows 10 only; not built).
@@ -58,6 +59,7 @@ Question for the maintainer: this PR makes Windows 11's Home page (Quick access,
 
 - New tests in `native/crates/ox-app/src/window/tests/home_page.rs` (6 tests). They were committed before the feature and do not compile on main, since the setting and the page do not exist there. They all pass with the change. Tests that check the home folder on Home (NAV-012, NAV-015, NAV-038, TAB-001 and others) now turn on "Open the home folder on Home" first; a new window's test (TAB-042) now expects Home.
 - Real input with xdotool on a private Xvfb display, with a throwaway home, fictional files and a mock default app: the Home page with its sections; folding by click and by keyboard; pin from a folder's menu and unpin from a tile's menu; double-click and middle-click on a tile; Recent's double-click opening the real file in the mock app; Open file location; Add to Favorites from a file's menu and Remove from Favorites; the empty states; Back and Forward; F5; the keyboard between sections; a 670 px window.
+- Real input with the Windows 11 layout (1x, dark): tile spacing, three-line tiles, pills, the three columns and 36 px rows were measured on screen; opening a Recent file, the row menu, the Favorites pill, folding and opening a tile.
 - Real input again with the new default (1x, dark): a new window opens the Home page; a Recent file opens; folding; Favorites; Alt+Home and Ctrl+T open Home; turning on "Open the home folder on Home" in Settings makes Alt+Home open the home folder.
 - Pictures taken with `tools/native_capture.py` (fictional demo home) at 1x and 2x, light and dark, normal and Compact view.
 - `cargo fmt --check`, Clippy (CONTRIBUTING.md command), `python3 native/parity/check.py` and `python3 native/tools/i18n.py check` pass.

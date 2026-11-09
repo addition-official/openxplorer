@@ -1,7 +1,15 @@
 STATUS: DONE
-HEAD: home-like-windows 1468ea2446a12a860ac32f6c0b6e0eddc8239a31
+HEAD: home-like-windows fb1ff905014b5c7bd7b185a609d4881ba445e861
 QUESTION: none
-NOTE: CONFLICT 1 decided: Windows 11's Home page is now the default; "Open the home folder on Home" (homeOpensFolder, off by default) brings back the home folder on Home (NAV-038); the home folder itself is reachable and named as on main. Test first 8aad1fd (does not compile on 739a1e2: no home_opens_folder), change 1468ea2; NAV-038 parity note updated; PR text has the maintainer question.
+NOTE: Windows 11 layout from the user's VM measurements: Quick access tiles 284 px apart across and 60 down, 48 px yellow folder with the standard folder's glyph, three lines (name, location in the secondary colour, pin); Recent / Favorites pills with clock and star, the shown one in the accent colour; a Details list with Name, Date accessed, File location, rows 36 px apart. Tests first 9b08036 (does not compile on 1468ea2: helpers and file_location missing), feature fb1ff90. Default from the previous round kept (Windows Home page, home folder behind "Open the home folder on Home").
+PASS layout test-first: a_quick_access_tile_shows_its_name_its_location_and_a_pin, the_list_has_name_date_accessed_and_file_location_columns, the_file_location_is_the_folder_from_home_down fail to compile on 1468ea2; pass on fb1ff90
+PASS touched suites after the layout: home_page 10/10, landing (This PC) 28/28, context_menus 26/26; clippy pedantic, rustfmt, parity check, i18n check, public-data audit
+PASS real input 1x dark (xdotool): tiles 284 px apart across, 60 down, three lines with Home and the pin; pills; header Name / Date accessed / File location; rows 36 px apart; Recent double-click opens the real file (mock app); row menu; Favorites pill shows Notes.md with Date accessed and Documents; Quick access folds; a tile opens its folder
+PASS capture: home-like-windows-1x-dark-home-windows-layout.png (tools/native_capture.py capture(), default settings, fictional /home/demo)
+NOT BUILT status bar item count on Home: the Home page shows 'Ready' (as This PC does); what Windows 11 counts on Home is not confirmed (check in the VM: the status bar text on Home)
+NOT CONFIRMED tile emblem: Windows draws standard folders with their own full-colour folder icons; here the yellow folder carries the folder's coloured glyph (compare in the VM)
+NOT CONFIRMED accent pill text colour in dark: the app uses its accent token's text colour (dark text on light blue); the manager's note says white text (compare in the VM)
+NOT CONFIRMED Date accessed for Favorites: the file's access time (Linux relatime may update it only daily); Recent uses the desktop's recent-list time
 PASS default test-first: home_is_windows_home_by_default_and_the_setting_opens_the_home_folder and a_files_menu_adds_it_to_favorites_while_home_shows_them fail to compile on 739a1e2; pass on 1468ea2
 PASS touched suites after the new default: whole ox_app test binary run (11 tests that expected the home folder on Home or a file menu without Add to Favorites were updated: NAV-012/015/038, TAB-001 style ones now turn the setting on first, TAB-042 and TAB-023 and the classic file menu expect the new default; all 11 then pass), home_page 6/6, settings redesign 10/10, ox-core settings 120/120, ox-core integration_* 7 binaries all pass, ox-app display_scale and launch pass; the 2 sandboxed-thumbnailer tests still fail as on main
 PASS clippy (pedantic) and rustfmt after the new default
