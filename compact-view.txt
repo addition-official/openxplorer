@@ -1,6 +1,6 @@
 STATUS: PR-READY
-HEAD: compact-view-spacing ac40ad3f
-NOTE: Review fixes: in Compact view the eject button is 20 px tall so a removable drive's row compacts to 23/24 like the others (test d08de9d7 failed first with [24, 25, 24]); ui-spec records the final 27 px heading box with 2 above and 1 below. Touched suites, sidebar suite, fmt, clippy and parity pass (1x; compact window tests also 2x). The checklist below is from 5f40287c.
+HEAD: compact-view-spacing 63125562
+NOTE: Rename fix: in Compact view the in-place rename field fits the row (Details row stays 19, nothing moves; also List, Tiles, Content). Test 9b5ab5db failed first (row 19 to 26, next row down 7). Real input at 1x dark: F2 in Details moved rows 7 px before, 0 after; Tiles unchanged; 2x unchanged. Picture: compact-view-1x-dark-rename-before-after.png (before, after, Tiles). Touched suites pass (compact, renaming with the pointer marker), fmt and clippy clean. Not changed: in normal view the List layout's item still grows 2 px while renaming, as before. The checklist below is from 5f40287c.
 
 CHECKLIST
 PASS 1x-dark Details 1 rows: row to row 21.0, 21.0, 21.0, 21.0 (target 21)
