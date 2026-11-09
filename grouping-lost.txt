@@ -1,3 +1,3 @@
-STATUS: PR-READY
-HEAD: grouping-lost f0a60594eee8cf73e253580f4e7eeef5fea151c5
-NOTE: Merged upstream main fbd14cbc; split view keeps Downloads grouped; group-by, split, view-style and dialog suites pass (132 tests).
+STATUS: DONE
+HEAD: grouping-lost 1b9a246e1c33b722ef8375b4053962f110dc95f4
+NOTE: Fixed the review finding: the pane just left keeps an unsaved Group by; new test fails before and passes after; group-by, split, tab, view-style and dialog suites pass.
