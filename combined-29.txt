@@ -1,9 +1,16 @@
-STATUS: ON HOLD
-HEAD: none (no deb built or pushed; held at the PC manager's request while home-like-windows gets a redesign)
-NOTE: Base would be upstream main fbd14cbc (2.0.16). home-like-windows head 1468ea24 descends from upstream main (merge base 086aa19b), 7 commits ahead, 9 behind; all commits addition-official, no trailers.
-NOTE: Merging it into fbd14cbc gives real (non-generated) conflicts, so per the instructions no resolution was committed:
-  - native/crates/ox-app/src/window/context_menu/entries.rs: ItemFacts gets is_recent (main) and favorite (home-like-windows); also the test helper literal.
-  - native/crates/ox-app/src/window/context_menu.rs: the ItemFacts literal sets both fields.
-  - native/crates/ox-app/src/settings_page/tests/redesign.rs: doc comment names SRCH-046 (main) and HOME-012 (branch).
-  Keeping both sides in all three compiles (cargo check -p ox-app --tests); not committed, no tests run.
-NOTE: Polkit check not run (no deb).
+STATUS: DONE
+HEAD: test-combined-29 b7eb4bb6 (merge commit; the deb was built from it)
+DEB: claude/test-combined-29-deb 5a8fba13
+  openxplorer_2.0.16+test29_all.deb (io.winspace.Development)
+  SHA256: b72ff65a746ceacba5878aab44f3b0820593569ccc87d2dfa71fb008d6abe69b
+BASE: upstream main fbd14cbc (2.0.16)
+MERGED HEADS:
+  home-like-windows fb1ff905 (descends from upstream main, merge base 086aa19b; 9 commits)
+CONFLICTS (both sides added something; resolved by keeping both, no other edits):
+  - window/context_menu/entries.rs: ItemFacts keeps is_recent (main) and favorite (home-like-windows), and both are set in the test helper.
+  - window/context_menu.rs: the ItemFacts literal sets both fields.
+  - settings_page/tests/redesign.rs: the doc comment names both SRCH-046 and HOME-012.
+CHECKS: clippy workspace all-targets clean (with the 3 new-toolchain lints allowed); docs, i18n and parity checks pass.
+TESTS (conflict areas only, isolated): context_menu 52 passed, 1 failed (a_folder_without_write_permission..., the known root-permission failure); settings_page::tests::redesign 10 passed; home 18 passed. Full suite not run.
+POLKIT: record /var/lib/openxplorer/install-updates-without-password = "off" before install -> no file in /etc/polkit-1/rules.d after install, record still "off". Purge left neither the rule nor the record.
+IDENTITY: clean. All 10 new commits and the deb commit are addition-official, no trailers. The deb's only addresses are the same as deb 28 (maintainer noreply, bundled crate licences, zh_CN translator credit).
