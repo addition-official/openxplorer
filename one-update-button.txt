@@ -1,0 +1,3 @@
+STATUS: WORKING
+HEAD: one-update-button c117af7106945c12d53c4da674a4f4646c6b7984
+NOTE: Merging upstream main fbd14cb and adding an off-by-default setting for the command bar Update button.
