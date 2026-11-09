@@ -1,4 +1,4 @@
 STATUS: WORKING
-HEAD: keys-windows 2d6a3a6feb6772cc5d919ce8f46ee0ad390116e3
+HEAD: keys-windows ce6f3e2de308dcea6571efdf9bebb5e20427c047
 QUESTION: none
-NOTE: Failing tests committed (1c9cc66, 2d6a3a6); implementing. Esc during a real drag (XTest input under Xvfb) FAILS on unchanged main: the Esc key reaches the window, GTK's X11 drag is not cancelled, and the release moves the file.
+NOTE: All three behaviors implemented (ce6f3e2) on top of failing tests (1c9cc66, 2d6a3a6). Captures pushed. Full test run and the run on unchanged main are in progress.
