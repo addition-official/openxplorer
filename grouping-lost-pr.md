@@ -19,7 +19,7 @@ Regression tests also cover the paths where users reported Downloads looking ung
 ## How tested
 
 - New split-view test: it fails before the change, with the inactive Downloads pane ungrouped right after the split, and passes after it.
-- Ran the group-by, split-view, view-style and file-dialog test suites, including all the new tests, on the branch merged with the latest main, in an isolated X display and session bus.
+- Ran the group-by, split-view, view-style and file-dialog test suites, including all the new tests, on the branch merged with the latest main, on a private X display and D-Bus.
 - Checked the real app under Xvfb with a fictional Downloads folder at 2x scale, in light and dark: Downloads beside the active pane loses its groups before the change and keeps them after.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
