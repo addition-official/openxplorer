@@ -1,0 +1,4 @@
+STATUS: WORKING
+HEAD: home-like-windows 086aa19b3d3a9c8e32c2ab93cc5b73b002ff52b0
+QUESTION: none
+NOTE: Branch cut from upstream main 086aa19. Reading the current Home, This PC and Recent code and Microsoft's documentation; nothing built yet.
