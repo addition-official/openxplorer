@@ -1,3 +1,23 @@
-STATUS: WORKING (building)
-HEAD: test-combined-28 (merging)
-NOTE: Deb 28 (2.0.15+test28), from upstream main 086aa19b (now with #279, #298, #300-#304). Merging: #305 recent-open-fix 99e2f665, #306 paste-partial-failures 48e8b065, compact-view-spacing 5f40287c, names-sizes-fixes 0cb96baf, archives-windows c41d22b2, search-windows 698f9495, shortcuts-window-fixes c1de31fe.
+STATUS: DONE
+HEAD: test-combined-28 25264c025ccc0af1714047657593d01706d7f82a (deb built from 41f7a846; 25264c02 after it is a snapshot-hook refactor only, for Clippy, no step changes)
+DEB: claude/test-combined-28-deb fb7f9381 openxplorer_2.0.15+test28_all.deb sha256 138d3f32286c0f9f9faf944bc0b0b40451daa93afccd44ecf1d982af96e89912
+NOTE: Deb 28 (2.0.15+test28; main is still 2.0.15), app ID io.winspace.Development, built from upstream main 086aa19b (it holds #279, #298, #300-#304).
+MERGED (in order, newest heads, full SHAs in the merge commits; each tip descends from an upstream main commit, 086aa19b or 016c3359):
+  #305 recent-open-fix 99e2f665
+  #306 paste-partial-failures 48e8b065
+  compact-view-spacing 5f40287c
+  names-sizes-fixes 0cb96baf
+  archives-windows c41d22b2
+  search-windows 698f9495
+  shortcuts-window-fixes c1de31fe
+NOT MERGED AGAIN (already in main): explorer-shortcuts-fixed (#301), preview-pane-contents (#300), tabs-windows-fixed (#302), update-optin-298 (#303). No other open upstream PR. LEFT OUT: nothing.
+CONFLICTS: trivial ones regenerated or word-merged (markdown.json and the generated guides, docs.json, features.toml, openxplorer.pot) for compact-view-spacing, names-sizes-fixes, archives-windows, shortcuts-window-fixes. By hand:
+  search-windows: it carries an older explorer-shortcuts-fixed (51b9fa24), while main holds #301's final version of that branch, so a plain merge conflicted in 16 files that are explorer-shortcuts' own. I merged it three-way against 51b9fa24 instead (git merge-tree --merge-base), so only search-windows' own commits apply; that left only markdown.json (regenerated), and the result is recorded as a normal merge of 698f9495. explorer-shortcuts-fixed itself was not merged (it would add nothing but markdown.json).
+  shortcuts-window-fixes vs search-windows: native/crates/ox-app/src/snapshot/scene.rs, both add scene steps (search=, option=, choose= vs scroll=end); kept both in the doc list and the SceneStep enum (the parse and run arms merged by themselves). Glue 25264c02: with both, SceneStep::run passed Clippy's 100-line limit; scroll=end and type= share one last_dialog helper now.
+  Tests of the hand-resolved file and the branches around it: snapshot, window::shortcuts_window, window::tests::more_explorer_keys, window::tests::search: 97 passed, 0 failed (before and after the glue).
+POLKIT (main's stable postinst turns "Install updates without asking for a password" on unless the record says off; unchanged in this deb). Tested in my container with this deb, /etc/polkit-1/rules.d present and empty, after purging the old package each time:
+  (a) /var/lib/openxplorer/install-updates-without-password pre-set to "off": dpkg -i ok; /etc/polkit-1/rules.d stays empty (no rule written); the record still says "off".
+  (b) no record: dpkg -i ok; the rule /etc/polkit-1/rules.d/60-io.winspace.Development.install-update.rules is written (0644, identical to /usr/share/openxplorer/install-update.rules) and the record is created saying "on", so passwordless updates are on right after installing.
+  Purging afterwards removed both the rule and the record. The package itself ships no file in /etc/polkit-1/rules.d or /usr/share/polkit-1/rules.d.
+CHECKS (no full suite): release build OK. Clippy clean with -D warnings (after 25264c02) except the same three new-toolchain lints allowed on the command line. parity/check.py, i18n.py check and sync-docs.py --check pass.
+IDENTITY: every new commit (merges, glue, deb, status) is addition-official as author and committer with no trailers; no other identity in the merged history. The deb holds the same addresses as decks 12-27 (plus binary noise), nothing new.
