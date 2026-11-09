@@ -1,7 +1,16 @@
-STATUS: DONE
-HEAD: search-windows 698f9495
+STATUS: PR-READY
+HEAD: search-windows-pr 07febf7e
 QUESTION: none
-NOTE: Round 2 done: Windows 11's search layout is the default (Search options + Close search in the command bar, "<query> - Search Results in <folder>", yellow marks, grouping kept); the filter bar is behind Settings > Search > "Show the search filter bar" (off); results in a 10,000-file folder show in 475 ms instead of 1,688 ms. Full check.py passed on 302a7626 (later commits: parity note only).
+NOTE: search-windows-pr is cut from upstream main 086aa19b and holds only this work's 13 commits (no explorer-shortcuts-fixed); full check.py passed on 07febf7e (78 test executables plus doctests). The approved search-windows branch (698f9495) is unchanged.
+
+PR BRANCH (search-windows-pr, from upstream main 086aa19b)
+- Cherry-picked this work's 13 commits from search-windows in order; the merge of explorer-shortcuts-fixed and its commits are not on it.
+- Conflicts resolved: snapshot/scene.rs in two commits (main's type=, key= and zoom= kept as they are; this work's step is search=, with option= and choose=), and the generated apps/web/public/assets/markdown.json in two commits (main's copy, then regenerated with tools/sync-docs.py).
+- Two commit messages say search= in place of type=, to match the code (reworded before the first push, tree unchanged).
+- Checks on 07febf7e, as tester: python3 native/tools/check.py PASS ("Native checks passed (78 test executables plus doctests)"; it runs rustfmt, clippy, the parity checks and every test, the search, snapshot and settings tests included), without bubblewrap installed, as before. tools/sync-docs.py leaves nothing to commit; i18n check PASS; parity/check.py PASS.
+- A first check.py run failed only because the disk filled up; the second, after cleaning the old build folders, passed.
+- Identity: every commit addition-official <239187859+addition-official@users.noreply.github.com>, no trailers.
+- search-windows-pr.md: title "feat(search): ...", American spelling, the maintainer question paragraph as given, Model line first and Claude Code line last.
 
 ROUND 2 (Windows layout, filter bar setting, speed)
 Commits on search-windows after 05a40024: 5c475a99 perf, 06e02eb7 tests first, f764be40 feature, 78d0f4fa / 27bd2d11 / 302a7626 test and lint fixes, 698f9495 parity note.

@@ -16,11 +16,11 @@ Also:
 
 Question for the maintainer: this PR makes Windows 11's search layout (the "Search options" menu and "Close search" button) the default, and keeps the current filter bar behind the new setting "Show the search filter bar". Would you prefer Windows 11's layout as the default, or your filter bar as the default? Either way it is a one-line change to the setting's default.
 
-## Behaviours and their sources
-| Behaviour | Source |
+## Behaviors and their sources
+| Behavior | Source |
 |---|---|
 | Search options on the toolbar: current folder or all subfolders, date modified, kind, size | Microsoft Support, [Find what you need with Microsoft Search](https://support.microsoft.com/en-us/office/foundations-experiences/find-what-you-need-with-microsoft-search) ("Select Search options on the top toolbar and narrow your search to the all folders from the current one on down or just the current folder. You can also select date modified, kind (like document, picture, or video), size, system, or zipped files.") |
-| Search options and Close search in the command bar, the tab "Notes - Search Results in Downloads", matches marked in names, results grouped as the folder | Windows 11 File Explorer, checked on a Windows 11 PC |
+| Search options and Close search in the command bar, the tab "Notes - Search Results in Downloads", matches marked in names, results grouped as the folder | Windows 11 File Explorer, compared side by side |
 | Size groups and their first byte sizes (Windows 10, version 1809 and later) | [System.Size](https://learn.microsoft.com/en-us/windows/win32/properties/props-system-size) |
 | Last week; `datemodified:` / `modified:` with today, yesterday, this week, last week; `kind:docs/pics/videos/folders/music`; `size:>500`, `size:<500` | [Advanced Query Syntax](https://learn.microsoft.com/en-us/windows/win32/lwef/-search-2x-wds-aqsreference) |
 | `kind:` document, folder, picture, music, video | [System.Kind](https://learn.microsoft.com/en-us/windows/win32/properties/props-system-kind) |
@@ -30,7 +30,7 @@ Left out of Search options: System files (no system files are kept apart from hi
 
 ## How it was tested
 - Tests first: the new tests in `ox-core/src/search/facets.rs`, `ox-core/src/search/syntax.rs`, `ox-core/src/settings/preferences.rs`, `ox-app/src/folder_view/cells/marks.rs`, `ox-app/src/settings_page/tests.rs`, `ox-app/src/window/tests/search.rs`, `search_options.rs` and `search_layout.rs` failed before the changes they cover.
-- `python3 native/tools/check.py`: passed (75 test executables plus doctests). `python3 native/parity/check.py`, `cargo fmt --check` and clippy: passed. `listing::a_slow_listing_says_loading` failed once in one full run and passed three times on its own.
+- `python3 native/tools/check.py`: passed on this branch (78 test executables plus doctests). `python3 native/parity/check.py`, `cargo fmt --check` and clippy: passed. `listing::a_slow_listing_says_loading` failed once in one full run and passed three times on its own.
 - Real keyboard and mouse input with xdotool under Xvfb, with fictional files, at 1x and 2x, light and dark:
   - Search options opens by mouse and keyboard, and each item works: All subfolders, Current folder, each date, kind and size, File contents.
   - Close search, Escape and Back return to the folder.
