@@ -1,0 +1,4 @@
+STATUS: WORKING
+HEAD: dialogs-windows 09183fe7
+QUESTION: none
+NOTE: Branch cut from upstream main fbd14cb. Failing tests committed first (09183fe7): Rename message box, Confirm Save As box, File name without a hidden extension; 5 fail on main as expected. Implementation next.
