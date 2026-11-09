@@ -1,4 +1,4 @@
 STATUS: WORKING
-HEAD: home-like-windows 086aa19b3d3a9c8e32c2ab93cc5b73b002ff52b0
-QUESTION: none
-NOTE: Branch cut from upstream main 086aa19. Reading the current Home, This PC and Recent code and Microsoft's documentation; nothing built yet.
+HEAD: home-like-windows 1d8a99286da475548c3461623cfde60e69bfeb5f
+QUESTION: none yet
+NOTE: Tests first (c52ac1e, fails to compile on upstream main 086aa19: no home_sections preference, no home_page module), feature 1d8a992, pushed. Home page behind an opt-in switch (NAV-038 kept as default). All 7 Home tests pass; real-input run under Xvfb going well; captures and full checks next.
