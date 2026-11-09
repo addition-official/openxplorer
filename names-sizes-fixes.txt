@@ -1,6 +1,8 @@
-STATUS: DONE
-HEAD: names-sizes-fixes 0cb96baf26dfb7f10e9011dd900b0bdac312986f
+STATUS: PR-READY
+HEAD: names-sizes-fixes 9508e074e674aa1ddd8eab74551f98083c760bc6
 QUESTION: none
+NOTE: Approved after the deb 28 test. Newest upstream main 086aa19b merged in (9508e074, no force push); conflicts only in parity/features.toml (ACC-015 note: upstream's text plus the Alt sentence), the guide JSON (See more re-applied, Markdown regenerated with tools/sync-docs.py) and openxplorer.pot (regenerated with tools/i18n.py extract).
+NOTE: After the merge: rustfmt, Clippy -D warnings, parity/check.py, i18n check, sync-docs --check, tests/test_public_data.py and test_release_source.py pass; check.py ox_app 2158 passed, 2 failed (the 2 sandboxed-thumbnailer tests, also failing on main here); ox-core 9 admin_copy failures (also on main), all else passes; ox-app display_scale/launch and doctests pass. Python 3.12 as python3, as before.
 NOTE: Item 3 redone after the user's test of deb 27 (cut off at their desktop font): Size's default and narrowest width are now the rendered width of "9,999,999 KB" in the list's own font (desktop font and text size) plus padding, within 70-600; narrower saved/dragged widths are raised, wider ones kept; it re-measures on every layout, so a text-size or font change widens it. Commits 20c903a8 (failing test) + 0cb96baf (fix).
 NOTE: 22 commits on upstream main 016c3359, failing tests first; items 9-10 are separate test+fix commits (9b8e6ef0+62aa8129, c7a0cc47+9ededa4f), item 6 is fb80ac03+f5c8d000. PR text in names-sizes-fixes-pr.md.
 
