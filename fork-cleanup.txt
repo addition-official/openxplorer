@@ -1,0 +1,15 @@
+STATUS: BLOCKED (nothing deleted)
+DELETED: 0 of 98
+SKIPPED (missing): none. All 98 names existed exactly before starting.
+BRANCHES: 107 before, 107 after (unchanged)
+WHY: The first deletion, git push origin --delete access-denied-continue, was refused with HTTP 403 by this cloud session's git proxy, and the branch is still there. Following the "stop at the first error" rule, I did not try the other 97. This session's GitHub tools have no branch-delete call, and gh is limited to search, so the deletion has to be done elsewhere: in the GitHub web UI, or from a machine with push rights (git push origin --delete <name>).
+BACKUP: every one of the 98 tips is saved as refs/backup/fork/<name> in this session's clone (it disappears when the container is reclaimed). The name-to-SHA list is below.
+KEPT AS ASKED: main, status, home-like-windows, test-combined-29, claude/test-combined-29-deb, thumbnail-safety, grouping-lost, one-update-button, command-bar-menu-switch
+
+REPORTS (nothing deleted):
+thumbnail-safety (1 commit, 4dab0f9d): caps thumbnail and preview decoding through picture_guard.rs (MAX_PIXELS 8192x8192), so a huge or broken picture keeps its icon. Test: a_picture_too_large_to_preview_keeps_its_icon_and_lists_its_dimensions. ALREADY IN MAIN: main has picture_guard.rs with the same MAX_PIXELS and the same test, via #285 (4eefef99), extended by #296. Main's version is a superset, so the branch adds nothing.
+grouping-lost (4 commits plus a merge): keeps Downloads grouped by date after Back/Forward and the sidebar, in the split pane beside the active one (new follow_folder_style_in in view_style.rs, used in split_view.rs) and in Save dialogs (picker.rs). It adds 6 tests (downloads_stays_grouped_*). NOT IN MAIN: main has no follow_folder_style_in, split_view.rs still only restyles that pane when each folder keeps its own view, and none of the 6 tests exist.
+one-update-button (1 commit plus a merge, fafa28b4): removes the command bar's Update button and leaves updates to the update notice or settings. NOT IN MAIN: main's command_bar.rs still builds and shows update_button ("Update"/"Restart" while a release waits). #311 changed the command bar but kept Update.
+
+TIPS OF THE 98 (as they were when listed):
+
