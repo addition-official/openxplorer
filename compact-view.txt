@@ -1,6 +1,6 @@
-STATUS: DONE
-HEAD: compact-view-spacing 5f40287c
-NOTE: Heading hover/selection/focus box now has room round the title: compact Details 27 px tall (title 7 above, 9 below its capitals), compact Tiles 25, from the heading's own margins, so 26/27 spacing unchanged; same left/right edges, corners and colour as the rows' boxes (Tiles inset 4 px; Content full width like its rows). Pairs: compact-view-<scale>-<theme>-<view>-<density>-hover-row-and-heading.png. 128 PASS, 4 FAIL (the known Tiles heading-to-icon 28 vs 26). Compact rows still go below the earlier 24 px lowest-row decision (ui-spec), as asked; please confirm.
+STATUS: PR-READY
+HEAD: compact-view-spacing e68cdb0b
+NOTE: Merged upstream main 086aa19b (conflict only in the user guide's views paragraph: upstream's Preview pane text kept with this branch's Compact view and heading wording; generated guides regenerated). After the merge: fmt, clippy, parity and sync-docs checks pass, and the touched suites pass at 1x and 2x. PR text in compact-view-pr.md. The checklist below is from 5f40287c, before the merge.
 
 CHECKLIST
 PASS 1x-dark Details 1 rows: row to row 21.0, 21.0, 21.0, 21.0 (target 21)
