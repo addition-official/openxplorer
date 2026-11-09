@@ -1,0 +1,4 @@
+STATUS: WORKING
+HEAD: keys-windows fbd14cbc9ecdd8675c5d39ab7645c34e1a6a720b
+QUESTION: none
+NOTE: Started. Branch cut from upstream main fbd14cb; reading the key handling, then tests first.
