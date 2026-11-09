@@ -1,0 +1,35 @@
+STATUS: DONE
+HEAD: test-combined-31 4424dd7d (the deb was built from exactly this tree)
+DEB: claude/test-combined-31-deb 59e55c45
+  openxplorer_2.0.16+test31_all.deb (io.winspace.Development)
+  SHA256: 6d117fa3f27b6c06ce7cd89036faa43f77b6518808ff4103ff676c8f2df59518
+BASE: upstream main fbd14cbc (2.0.16)
+MERGED HEADS, in order (each descends from upstream main):
+  home-like-windows 6249148b (merge base 086aa19b, 17 commits) -> 5fb67ce1
+  grouping-lost     f0a60594 (merge base fbd14cbc, 6 commits; no conflicts) -> a5098423
+  one-update-button 924cea00 (merge base fbd14cbc, 3 commits) -> 4424dd7d
+VERIFIED ON THE BUILT BINARY (/opt/openxplorer/bin/openxplorer inside the .deb):
+  home-like-windows: strings | grep -c homeOpensFolder = 1
+  one-update-button: strings | grep -c "Show the Update button in the command bar" = 2
+  grouping-lost: its 6 tests on the exact 4424dd7d tree, 6 passed, 0 failed:
+    group_by::downloads_stays_grouped_after_back_and_forward_or_the_sidebar ok
+    group_by::downloads_stays_grouped_after_back_and_forward_with_one_style ok
+    group_by::downloads_grouped_by_the_user_stays_grouped_after_back_and_forward ok
+    group_by::downloads_beside_the_active_pane_stays_grouped ok
+    group_by::downloads_stays_grouped_while_another_app_saves_into_it ok
+    picker::a_save_dialog_shows_downloads_grouped_as_it_keeps_it ok
+    (Only 3 of the 6 are named downloads_stays_grouped_*; these are the 6 test functions the branch adds.)
+CONFLICTS RESOLVED BY HAND:
+  home-like-windows (both sides added something; kept both, as in debs 29/30):
+    - window/context_menu/entries.rs and window/context_menu.rs: ItemFacts keeps is_recent (main) and favorite (home).
+    - settings_page/tests/redesign.rs: doc comment.
+  one-update-button:
+    - settings_page/tests/redesign.rs: only the doc comment conflicted, and now names HOME-012 and UPD-001. The test body merged on its own: MOVED_ROWS has 74 rows including "Show the Update button in the command bar", and added_since keeps "Open the home folder on Home". Intent is clear and the test passes.
+CLEAN BUILD: cargo clean (removed 8.0 GiB) right before the release build; a guard checked before every step and after the build that HEAD was branch test-combined-31 at 4424dd7d with a clean tree.
+CHECKS: clippy workspace all-targets clean (3 new-toolchain lints allowed); docs, i18n and parity checks pass.
+TESTS (isolated, on 4424dd7d; filter context_menu settings_page home downloads_stays_grouped group_by command_bar update): 275 passed, 5 failed, all known environment failures:
+  4 settings_page tests that need OX_PYTHON_APP (the Python app's modules; not set by this wrapper): a_theme_card_applies_the_theme_and_saves_it_for_both_apps, the_menu_watch_and_interval_rows_save_the_python_keys, the_rows_show_what_the_python_app_saved, the_text_size_row_draws_and_saves_the_chosen_size
+  1 root-permission test: context_menus::a_folder_without_write_permission_keeps_new_and_paste_and_shows_the_error
+  settings_page::tests::redesign (the hand-resolved file) passed. Full suite not run.
+POLKIT: record "off" before install -> /etc/polkit-1/rules.d empty after install, record still "off". Purge left neither.
+IDENTITY: clean. All 29 new commits and the deb commit are addition-official, no trailers. The deb's email addresses are the same set as debs 28-30 (maintainer noreply, bundled crate licences, zh_CN translator credit); the other address-shaped matches are code strings, not emails.
