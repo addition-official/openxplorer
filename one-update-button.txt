@@ -1,3 +1,3 @@
-STATUS: WORKING
-HEAD: one-update-button c117af7106945c12d53c4da674a4f4646c6b7984
-NOTE: Merging upstream main fbd14cb and adding an off-by-default setting for the command bar Update button.
+STATUS: PR-READY
+HEAD: one-update-button 924cea00328b63132e94d762bc8b0daa3bed9d4f
+NOTE: Merged upstream main fbd14cb; command bar Update hidden by default behind a new Settings > About switch (off). Touched suites, fmt, clippy and parity pass; full check.py not rerun.
