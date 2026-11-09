@@ -1,4 +1,4 @@
 STATUS: WORKING
-HEAD: column-menu-windows 9868fbdc2b430d876154a491f26e057b6ce57da8
+HEAD: column-menu-windows 47f8b1b293b3054ba6890a561b105ee6d8d757bb
 QUESTION: none
-NOTE: Tests first (538451f fails on main: menu tests by assertion, the Choose Details tests do not compile without the window). Feature d710d4d: Windows 11 titles' menu + Choose Details; the related tests pass; full check.py and captures running next.
+NOTE: Feature, snapshot step and captures done (16 PNGs, tools/native_capture.py); full check.py running; adding real-click tests for every title and toggle.
