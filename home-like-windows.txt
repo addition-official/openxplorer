@@ -1,4 +1,64 @@
-STATUS: WORKING
-HEAD: home-like-windows 1d8a99286da475548c3461623cfde60e69bfeb5f
-QUESTION: none yet
-NOTE: Tests first (c52ac1e, fails to compile on upstream main 086aa19: no home_sections preference, no home_page module), feature 1d8a992, pushed. Home page behind an opt-in switch (NAV-038 kept as default). All 7 Home tests pass; real-input run under Xvfb going well; captures and full checks next.
+STATUS: DONE
+HEAD: home-like-windows 739a1e212c4662c29a21d8153e5bc34a997268d7
+QUESTION: CONFLICT 1: should the Windows 11 Home page become the default? It is behind an option (off) because NAV-038 says Home opens the real home folder; Windows 11's Home shows Quick access, Recent and Favorites. If yes, should the home folder stop being titled "Home" (with the option on, the Home page and the home folder's tab/crumb are both "Home")?
+NOTE: Home page (Quick access tiles = the navigation pane's pins, a Recent / Favorites switcher, folding sections) behind Settings > General > Start up > "Show Quick access, Recent and Favorites on Home" (homeSections, off by default). Tests first c52ac1e (does not compile on upstream main 086aa19), feature 1d8a992, fixes 3f3b24b, 5e9d04d, 739a1e2. 7 new tests pass; 88 captures (tools/native_capture.py capture(), fictional /home/demo) on this branch. No PR, no deb.
+
+PASS test-first: window/tests/home_page.rs (7 tests) fails to compile on upstream main 086aa19 (no home_sections preference, no home_page module); all 7 pass on the branch
+PASS Home opens with Quick access and the Recent / Favorites switcher (navigation pane Home row, Alt+Home, new tab, typed home:) (xdotool, 1x light; smoke 1x/2x light/dark normal/compact)
+PASS option off: Home still opens the home folder (test the_option_turns_home_into_quick_access_recent_and_favorites)
+PASS Quick access folds/unfolds by click on its heading (all 8 combinations)
+PASS Quick access folds by Left, unfolds by Right on the heading (xdotool, 1x light; Right unfold in all 8 combinations)
+PASS Recent/Favorites folds/unfolds by click on its chevron and by Left/Right (xdotool 1x light; test)
+PASS folded state saved as homeFolded and kept after F5 (settings file checked; test)
+PASS Quick access: Pin to Quick access from a folder's right-click menu adds its tile (and the navigation pane row)
+PASS Quick access: Unpin from Quick access from the tile's menu removes the tile and the row ("Unpinned. The folder was not deleted.")
+PASS Quick access: double-click on a tile opens the folder; middle-click opens it in a background tab
+PASS Quick access: right-click menu is the pin's menu (Open, Open in new tab, Open in new window, Open in Terminal, Open folder with…, Cache this folder for search, Edit…, Unpin from Quick access, Previous versions, Properties)
+PASS Favorites: Add to Favorites from a file's menu in Documents adds it (settings favorites checked), listed under Favorites
+PASS Favorites: double-click opens the real file in the mock app (opened.log)
+PASS Favorites: Remove from Favorites from the row's menu removes it; empty state shown
+PASS Recent: fictional recently used files (recently-used.xbel) listed newest first from GVfs recent:///
+PASS Recent: double-click opens the real file in the mock app (opened.log shows Documents/Report.txt), in all 8 combinations
+PASS Recent: Open file location opens Documents with Report selected
+PASS Recent: right-click menu has Open, Open file location, Add to Favorites, Copy as path, Properties (all 8 combinations)
+PASS Recent: list follows the desktop's recent list as it changes (test a_recent_file_opens_the_real_file_and_its_location needs it)
+NOT BUILT Recent: Remove from list (not documented by Microsoft)
+PASS empty states: Quick access "Folders you pin to Quick access show here.", Recent "Files you open recently show here.", Favorites "Files you add to Favorites show here." (xdotool, fictional empty home; captures)
+PASS keyboard: Down from heading to tiles, arrows within tiles, Down from last row to the shown tab, Right/Left switch Recent/Favorites, Down to rows, Up back to tab and to Quick access's last tile, focus ring visible
+PASS keyboard: Tab moves heading -> each tile in turn (as on This PC) -> chevron -> tab -> list (note: Tab stops at every tile)
+PASS Back/Forward to and from Home (Alt+Left/Alt+Right; titles and page checked); Back puts focus on the Quick access heading
+PASS F5 on Home draws it again, keeping folded sections
+PASS narrow window 670 px: tiles reflow to one per row, page scrolls to Recent
+PASS 1x and 2x, light and dark, normal and Compact view (smoke pass with xdotool in all 8 combinations; captures in all 8)
+PASS search box disabled on Home, as on This PC
+PASS rustfmt --check
+PASS clippy (CONTRIBUTING.md pedantic command, Rust 1.92.0)
+PASS python3 native/parity/check.py (HOME-012 to HOME-016 added, done, with parity markers)
+PASS python3 native/tools/i18n.py check (template regenerated)
+PASS python3 tools/audit-public-data.py
+FAIL python3 native/tools/check.py (run with python3 = 3.12 through a wrapper that keeps going past failing executables, 78 executables plus doctests): ox_app 2149 passed, 3 failed: a_sandboxed_thumbnailer_runs_within_its_limits and a_sandboxed_thumbnailer_sees_only_its_item (fail the same on unchanged upstream main once bubblewrap is installed) and every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages (caused by the new Settings row; fixed in 739a1e2, the redesign tests then pass: 10 of 10); ox_core lib 27 failed: the 9 admin_copy tests also fail on unchanged upstream main here (no folder only the test user can change), and the other 18 (admin_delete parent_path) fail only because this checkout is owned by root; built from a tester-owned worktree of the branch, ox_core lib has only the same 9 failures as main; integration_file_chooser exited with status 133 once (flaky, see notes). Everything else passed, doctests included. Not re-run after 739a1e2 (test-only change), to save usage.
+PASS captures: home-like-windows-{1x,2x}-{light,dark}-<case>[-compact].png, cases home, quick-access, recent, favorites, folded, quick-access-menu, recent-menu, favorites-menu, file-menu-add-to-favorites, empty, empty-favorites (88 pictures; tools/native_capture.py capture() with the snapshot hook, fictional demo home; the hook's select= step was taught to select Home's tiles, rows, tabs and heading)
+
+NOT CONFIRMED, check in the VM (Windows 11 Home, current build):
+- Layout and sizes: are Quick access items tiles (size, icon size, columns), how tall are Recent/Favorites rows, spacing between sections.
+- Order on screen: Quick access first, then the Recent/Favorites/Shared tabs? Which tab is selected when Home opens?
+- Recent: which columns (Name, Date modified, Location, Activity?), their order, how many files are listed, whether folders appear.
+- Exact wording of the file menu items that add and remove a favorite ("Add to Favorites" / "Remove from Favorites"?) and where they sit in the compact and classic menus.
+- Does Recent's menu have "Remove from list" (or "Remove from Recent")? What else is in Recent's and Favorites' row menus besides Open file location?
+- Are frequent folders still shown in Home's Quick access (Microsoft documents it only for Windows 10)?
+- Section headings: is there a chevron, a count "(N)", a line to the right? Can the tab area itself be folded?
+- Empty-state text for an empty Quick access, Recent and Favorites (the app uses its own sentences).
+- Does a single click open a Quick access item on Home, or a double-click?
+- Keyboard: does Tab stop at each tile or jump between sections? What do arrows do across sections?
+- Home in a narrow window (about 670 px): how tiles and the list reflow.
+- Search on Home (Microsoft: "Recent and pinned files displayed in Home are now searchable", build 22593): what typing in the search box on Home searches. Not built: search stays disabled on Home.
+- The Recommended section (shown for some accounts instead of Quick access): not built.
+
+CONFLICT (owner decision kept as default; Windows behavior noted):
+- NAV-038: Home opens the real home folder (default kept) vs Windows 11 Home page with Quick access, Favorites, Recent (built behind the off-by-default option). See QUESTION.
+- NAV-038 / LOOK icon note: the home folder's tab and first crumb are titled "Home"; with the option on, the Home page is also "Home" (Windows names the user folder by the user's name). See QUESTION.
+- Pin to Quick access takes folders only (pinEntries: "Only folders and network shares can be pinned.") vs Windows 22557 extending Pin to Quick access to files (which became Favorites): kept; Favorites has its own Add to Favorites / Remove from Favorites commands.
+- HOME-011 note: showing recent files on Home "would be a new feature for the owner to schedule": built only behind the option.
+- HOME-001: This PC's Tab stops at every tile; Home does the same for consistency (Windows not confirmed).
+
+Environment notes: xdotool and bubblewrap were not installed; I installed them with apt (bubblewrap is needed by tools/native_capture.py). With bubblewrap installed, the two sandboxed-thumbnailer tests fail (same on unchanged upstream main). The container's python3 is 3.13, under which ox-core location_fixture_drift fails (same on unchanged upstream main); check.py was run with python3 = 3.12. integration_file_chooser once exited with status 133 (GLib critical in a_refused_call_is_an_error) and passed in the run before and 3 of 3 times alone: flaky, not in code this branch touches.

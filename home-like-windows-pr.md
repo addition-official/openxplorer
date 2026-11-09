@@ -57,6 +57,7 @@ These are drawn in the app's own way, or left out:
 - New tests in `native/crates/ox-app/src/window/tests/home_page.rs` (7 tests). They were committed before the feature and do not compile on main, since the option and the page do not exist there. They all pass with the change.
 - Real input with xdotool on a private Xvfb display, with a throwaway home, fictional files and a mock default app: the Home page with its sections; folding by click and by keyboard; pin from a folder's menu and unpin from a tile's menu; double-click and middle-click on a tile; Recent's double-click opening the real file in the mock app; Open file location; Add to Favorites from a file's menu and Remove from Favorites; the empty states; Back and Forward; F5; the keyboard between sections; a 670 px window.
 - Pictures taken with `tools/native_capture.py` (fictional demo home) at 1x and 2x, light and dark, normal and Compact view.
-- `cargo fmt --check`, Clippy (CONTRIBUTING.md command), `python3 native/parity/check.py`, `python3 native/tools/i18n.py check` and `python3 native/tools/check.py`; results in the test notes.
+- `cargo fmt --check`, Clippy (CONTRIBUTING.md command), `python3 native/parity/check.py` and `python3 native/tools/i18n.py check` pass.
+- `python3 native/tools/check.py`: everything this change touches passes. These tests fail the same way on unchanged main in the test container: two sandboxed-thumbnailer tests (bubblewrap installed), nine administrator-copy tests (no folder only the test user can change), and the location fixture drift test under Python 3.13 (it passes under Python 3.12). One file-chooser integration test was flaky once.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
