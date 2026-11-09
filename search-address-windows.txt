@@ -1,4 +1,4 @@
 STATUS: WORKING
-HEAD: search-address-windows fbd14cbc9ecdd8675c5d39ab7645c34e1a6a720b
+HEAD: search-address-windows 44a0c51aa20127219f5b9a8142acc76f5bdebc45
 QUESTION: none
-NOTE: Branch cut from upstream main fbd14cbc; reading the code and building. First look: "?" and typing "Recycle Bin" already appear to be handled in the code on main; checking with real input before changing anything.
+NOTE: Tests first (99acc7d, the Recycle Bin and removed-folder tests fail on main; the ? tests already pass on main, as ? was already a one-character wildcard), fix 44a0c51. Related app suites 190 passed; rustfmt and clippy clean. Now running the real-input checklist under Xvfb.
