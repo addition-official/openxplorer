@@ -6,7 +6,7 @@ feat(views): Space Compact view and draw group headings as Windows 11 does
 
 Model: not stated
 
-Compact view (View > Show > Compact view, and Settings > Appearance) now spaces the file list and the navigation pane the way Windows 11 File Explorer's Compact view does: Details rows, group headings, the column header, the navigation pane, Tiles, and Content's headings and lines all stand closer, to distances measured from Windows at 100% scaling. Everything still grows with the text size and doubles at 2x. The Open and Save dialogs are browser windows, so they follow Compact view too and measure the same as the main window. The List and icon views had no compact spacing and keep theirs.
+Compact view (View > Show > Compact view, and Settings > Appearance) now spaces the file list and the navigation pane the way Windows 11 File Explorer's Compact view does: Details rows, group headings, the column header, the navigation pane, Tiles, and Content's headings and lines all stand closer, to distances measured from Windows at 100% scaling. A removable drive's eject button is 20 px tall in Compact view, so its row compacts with the others. Everything still grows with the text size and doubles at 2x. The Open and Save dialogs are browser windows, so they follow Compact view too and measure the same as the main window. The List and icon views had no compact spacing and keep theirs.
 
 Group headings ("Today", "Yesterday", ...) now look as Windows 11 draws them, in normal and Compact view, in Details, Tiles and Content: the title in regular weight, a quarter larger than the file names (15 px to their 12 at 100%), with no line after it. A heading's hover, selection and focus box leaves room around the title, as a row's box does around a name, and starts and ends where the items' boxes do, with the same corners and colors (in Tiles 4 px in from each side, like the tiles; in Content across the row, like Content's rows). In Compact view that box is taller than a row (27 px in Details, 25 in Tiles at 100%), taking the room from the heading's own space above and below, so the spacing between rows and headings does not change. The chevron, folding and keyboard focus behave as before.
 
@@ -42,7 +42,7 @@ Main had no compact Tiles or Content, so their "before" values are main's usual 
 ## How it was tested
 
 - New tests, written first; the compact and heading ones failed before their changes and pass now, at 1x and at `GDK_SCALE=2`, and the ones that pin the normal view pass before and after:
-  - `window/tests/compact_spacing.rs`: the distances above, measured between labels, and Page Up/Down counting the compact rows; a second test pins the normal view's spacing.
+  - `window/tests/compact_spacing.rs`: the distances above, measured between labels, Page Up/Down counting the compact rows, and a drive with an eject button as tall as the other navigation rows; a second test pins the normal view's spacing.
   - `window/tests/group_heading_look.rs`: in Details, Tiles and Content, normal and compact, a heading's title is 15 px regular where the names are 12, no line is drawn, the heading's box leaves at least 3 px above and below the title's line with the title in its middle and the chevron 8 px in, and in Tiles and Content the box is inset from the row's edges as an item's box is.
   - `tests/display_scale.rs`: the app at `GDK_SCALE=1` and `2`, compact and normal Details rows (21 and 42 device pixels, 32 and 64).
   - `theme/fonts.rs`: the generated compact rules, and the normal rules unchanged.

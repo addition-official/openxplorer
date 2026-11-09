@@ -1,6 +1,6 @@
 STATUS: PR-READY
-HEAD: compact-view-spacing e68cdb0b
-NOTE: Merged upstream main 086aa19b (conflict only in the user guide's views paragraph: upstream's Preview pane text kept with this branch's Compact view and heading wording; generated guides regenerated). After the merge: fmt, clippy, parity and sync-docs checks pass, and the touched suites pass at 1x and 2x. PR text in compact-view-pr.md. The checklist below is from 5f40287c, before the merge.
+HEAD: compact-view-spacing ac40ad3f
+NOTE: Review fixes: in Compact view the eject button is 20 px tall so a removable drive's row compacts to 23/24 like the others (test d08de9d7 failed first with [24, 25, 24]); ui-spec records the final 27 px heading box with 2 above and 1 below. Touched suites, sidebar suite, fmt, clippy and parity pass (1x; compact window tests also 2x). The checklist below is from 5f40287c.
 
 CHECKLIST
 PASS 1x-dark Details 1 rows: row to row 21.0, 21.0, 21.0, 21.0 (target 21)
