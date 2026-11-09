@@ -1,0 +1,4 @@
+STATUS: WORKING
+HEAD: search-address-windows fbd14cbc9ecdd8675c5d39ab7645c34e1a6a720b
+QUESTION: none
+NOTE: Branch cut from upstream main fbd14cbc; reading the code and building. First look: "?" and typing "Recycle Bin" already appear to be handled in the code on main; checking with real input before changing anything.
