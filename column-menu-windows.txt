@@ -1,4 +1,42 @@
 STATUS: WORKING
 HEAD: column-menu-windows 47f8b1b293b3054ba6890a561b105ee6d8d757bb
 QUESTION: none
-NOTE: Feature, snapshot step and captures done (16 PNGs, tools/native_capture.py); full check.py running; adding real-click tests for every title and toggle.
+NOTE: Feature done and pushed; captures pushed. Running every test binary to the end (check.py stopped at ox-core location_fixture_drift, a system-Python difference; this branch touches no ox-core file). Two more real-input tests (every title, every toggle; search and Recycle Bin) are being added.
+
+PASS header menu order/structure: Size Column to Fit, Size All Columns to Fit, divider, Name (checked, greyed), Date modified, Type, Size, Date created, File extension, Owner, Permissions, divider, More... (the_titles_menu_is_windows_11s_with_check_marks_only; failed on main)
+PASS no icons on any row, check marks only (same test; captures)
+PASS real right-click on a title opens the menu (a_real_right_click_on_a_title_opens_the_menu_that_sizes_all_columns; xdotool on Type in a manual Xvfb run)
+PASS real right-click on the empty part of the titles' row after the last column opens it, Size Column to Fit greyed (a_real_click_on_more_opens_choose_details)
+N/A  Shift+F10 / Menu key on a focused header: the column titles take no keyboard focus in the app (their row refuses focus, as on main), so there is nothing to press it on
+PASS Size Column to Fit / Size All Columns to Fit (column_fitting tests, all 8 pass)
+PASS menu now takes the keyboard: Up wraps to More..., Enter opens Choose Details (choose_details_works_with_the_keyboard_alone; xdotool manual run). On main its rows could not take focus.
+PASS Choose Details opens from More... by click, keyboard and xdotool
+PASS layout and text: title, sentence, Details:, list, Move Up/Move Down/Show/Hide, width label + field, OK/Cancel (more_opens_choose_details_as_windows_draws_it)
+PASS greyed states: Name (all four greyed), first row after Name (Move Up greyed), unchecked (Hide greyed), last row (Move Down greyed)
+PASS check/uncheck, Show/Hide, Move Up/Down (ok_applies_the_choice_and_cancel_discards_it, showing_hiding_and_moving_change_the_columns_chosen)
+PASS width valid (222), 0 (narrowest), huge (widest), letters refused, empty changes nothing (the_width_field_takes_digits_and_keeps_the_limits, widths_are_kept_within_the_columns_limits; xdotool typed 2x0 -> 20 -> applied as 100)
+PASS OK applies visibility, order and width; Cancel, close button and Escape discard; Enter in the list or width field is OK
+PASS reopening shows the current state (order, checks, width)
+PASS per-folder save (default) and shared view (ok_saves_the_shared_view_when_folders_share_one; manual run: settings folderViews detailsColumns modified,type,created,size)
+PASS fixed size: not resizable; captures 432x500 at 1x and 864x998 at 2x (same logical size)
+PASS keyboard-only run: arrows, Space, Tab, Shift+Tab, Enter, Escape (real XTEST)
+PASS captures 1x/2x, light/dark, normal/Compact: header menu and Choose Details (16 PNGs, tools/native_capture.py with a new titles-menu= scene step)
+PASS rustfmt, clippy -D warnings (workspace lints), parity/check.py, i18n check
+FAIL check.py: stopped at ox-core location_fixture_drift python_fixture_matches_desktop_core_py ('[V1.x]' now parsed by this machine's Python urllib); no ox-core change on this branch; running it on unchanged main next
+
+NOT CONFIRMED, check in the VM:
+- Choose Details: can Name be moved (Move Up/Down with Name selected), and can another row be moved above Name? Ours keeps Name first.
+- Header menu: are the column rows in a fixed order, or do they follow the current column order (after a drag, or after showing a column with More...)? Does a column shown through Choose Details (e.g. Owner-like ones) get added to the header menu? Ours lists a fixed set.
+- Width field: what OK does with 0, an empty field, a huge number; whether letters are refused (balloon "Unacceptable character"?). Ours keeps digits only and clamps to each column's limits.
+- Choose Details size at 100% scale (ours 432x500) and list height (ours 250 px, 9 rows).
+- Where the keyboard starts when Choose Details opens (ours: the list, Name selected) and whether Enter in the list is OK and Space toggles the selected row.
+- Does Tab from the list go to Move Up (first enabled button)? Shift+Tab back to the list?
+- Header menu opens on right-button press or release? (ours: release)
+- Can the keyboard reach the column headers at all (Tab / Shift+F10 / Menu key)?
+- Search results: does the header menu offer Folder/Folder path as a toggle? Recycle Bin: Original Location / Date Deleted toggles? Ours keeps them always shown, not listed.
+- Name's width shown when Name fills the window (VM showed 272).
+- Does a click on a row's check box also select that row?
+
+CHANGED OWNER DECISIONS:
+- VIEW-033: Name was left out of the titles' menu; now listed checked and greyed (Windows). Native note updated.
+- VIEW-072: the note said the menu does not end with More... (no column chooser); it now ends with More... opening Choose Details, and the fit items use Windows' capitals. Behaviour and note updated.
