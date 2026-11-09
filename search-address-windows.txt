@@ -1,4 +1,4 @@
 STATUS: WORKING
-HEAD: search-address-windows 44a0c51aa20127219f5b9a8142acc76f5bdebc45
+HEAD: search-address-windows d6ca4416cdc3ab0f5a7bba168a5604979cc85850
 QUESTION: none
-NOTE: Tests first (99acc7d, the Recycle Bin and removed-folder tests fail on main; the ? tests already pass on main, as ? was already a one-character wildcard), fix 44a0c51. Related app suites 190 passed; rustfmt and clippy clean. Now running the real-input checklist under Xvfb.
+NOTE: Fix pushed; real-input checklist passed at 1x/2x, light/dark (xdotool, Xvfb, throwaway HOME, fictional files). Box height fix d6ca441 (not pushed yet). Now taking captures with tools/native_capture.py, then the full checks.
