@@ -1,7 +1,7 @@
 STATUS: DONE
-HEAD: shortcuts-window-fixes 59809768
+HEAD: shortcuts-window-fixes 8eb55f6f
 QUESTION: none
-NOTE: Search finds shortcuts by keys however typed (and by name/section words); the list keeps 12 px clear of the scroll bar; names and keys wrap so the window keeps its 510 px width. The app window cannot be narrower than 670 px (its minimum), so widths 670/800/1200 were tested instead of 480. Codex fix (59809768): a query that is only a symbol, such as "+", now finds that key only, not every Ctrl/Alt shortcut.
+NOTE: Search finds shortcuts by keys however typed (and by name/section words); the list keeps 12 px clear of the scroll bar; names and keys wrap so the window keeps its 510 px width. The app window cannot be narrower than 670 px (its minimum), so widths 670/800/1200 were tested instead of 480. Codex fix (59809768): a query that is only a symbol, such as "+", now finds that key only, not every Ctrl/Alt shortcut. Codex round 2 (8eb55f6f): "ctrl + shift + e" with spaced separators finds Ctrl+Shift+E; a query of only a bracket finds nothing.
 
 UNIT TESTS (failing first)
 FAIL on main -> PASS | the_shortcuts_window_finds_a_shortcut_by_its_keys_however_typed
@@ -98,3 +98,9 @@ FAIL on c1de31fe -> PASS | a_symbol_alone_finds_its_key_not_the_separators, the_
 PASS | shortcuts_window tests 10/10, cargo fmt --check, workspace Clippy (Rust 1.92), parity check (as tester); full check.py not rerun for this change
 FAIL before -> PASS | real input, 1x window 800 px: type "+" in the shortcuts window; before: Copy, Paste, Back, New tab, Refresh also shown; after: only Plus key rows (Num +, Larger text)
 FAIL before -> PASS | real input, 2x window 800 px: same
+
+CODEX ROUND 2 ON 8eb55f6f (spaced separators, empty normalized query)
+FAIL on 59809768 -> PASS | separators_with_spaces_join_keys, a_query_with_no_words_finds_nothing (tests-only commit 269c192a)
+PASS | shortcuts_window tests 12/12, cargo fmt --check, workspace Clippy (Rust 1.92), parity check (as tester); full check.py not rerun
+FAIL before -> PASS | real input 1x, window 800 px: type "ctrl + shift + e"; before: Ctrl+Shift+E row hidden; after: shown
+FAIL before -> PASS | real input 1x, window 800 px: type "("; before: every shortcut shown; after: none
