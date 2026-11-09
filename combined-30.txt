@@ -1,0 +1,21 @@
+STATUS: DONE
+HEAD: test-combined-30 406f2acb (merge commit; the deb was built from exactly this tree)
+DEB: claude/test-combined-30-deb db1ed2f7
+  openxplorer_2.0.16+test30_all.deb (io.winspace.Development)
+  SHA256: aedd4a05acc050c1700f77fcd94e4851b26d1324462e95f001e0b224c471c5ab
+BASE: upstream main fbd14cbc (2.0.16)
+MERGED HEADS:
+  home-like-windows 5f84eb18 (descends from upstream main, merge base 086aa19b; 11 commits)
+HOME FEATURE IN THE BUILT BINARY (/opt/openxplorer/bin/openxplorer from inside the .deb):
+  strings | grep -c homeOpensFolder = 1
+  strings | grep -c "Open the home folder on Home" = 1
+  (deb 29 had 0 and 0. It was built from plain upstream main after a mistaken checkout; see combined-29.txt.)
+CLEAN BUILD: cargo clean (removed 31.1 GiB) right before the release build. A guard checked before every step, and again after the build, that HEAD was branch test-combined-30 at 406f2acb with a clean working tree.
+CONFLICTS (both sides added something; kept both, same resolution as deb 29):
+  - window/context_menu/entries.rs: ItemFacts keeps is_recent (main) and favorite (home-like-windows), and the test helper sets both.
+  - window/context_menu.rs: the ItemFacts literal sets both fields.
+  - settings_page/tests/redesign.rs: the doc comment names SRCH-046 and HOME-012.
+CHECKS: clippy workspace all-targets clean (3 new-toolchain lints allowed); docs, i18n and parity checks pass.
+TESTS (conflict areas only, isolated, on 406f2acb): context_menu + settings_page::tests::redesign + home: 91 passed, 1 failed (a_folder_without_write_permission..., the known root-permission failure). Full suite not run.
+POLKIT: record "off" before install -> /etc/polkit-1/rules.d empty after install, record still "off". Purge left neither.
+IDENTITY: clean. All 12 new commits and the deb commit are addition-official, no trailers. The deb's addresses are the same set as debs 28/29 (maintainer noreply, bundled crate licences, zh_CN translator credit).
