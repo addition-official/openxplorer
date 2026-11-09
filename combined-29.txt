@@ -1,3 +1,6 @@
+STATUS: WRONG - do not use deb 29 (superseded by deb 30)
+CAUSE: after committing the merge b7eb4bb6, a mistaken "git checkout upstream/main --" at 17:47 UTC detached the checkout to plain upstream main fbd14cbc. The release build then ran on that tree, so openxplorer_2.0.16+test29_all.deb (sha256 b72ff65a...) is upstream 2.0.16 WITHOUT home-like-windows. In its binary, strings | grep -c homeOpensFolder = 0 and grep -c "Open the home folder on Home" = 0, which confirms the PC manager's finding. The conflict-area test results below were probably compiled from the same main tree and should not be relied on either. The merge resolution, clippy and the polkit result (which depends on packaging only, the same on main) still stand.
+--- original report ---
 STATUS: DONE
 HEAD: test-combined-29 b7eb4bb6 (merge commit; the deb was built from it)
 DEB: claude/test-combined-29-deb 5a8fba13
