@@ -1,7 +1,52 @@
-STATUS: WORKING
-HEAD: search-windows 05a40024
+STATUS: DONE
+HEAD: search-windows 698f9495
 QUESTION: none
-NOTE: New round: Windows 11 search layout as default (Search options menu, Close search, query in the tab title, highlight, grouping), the filter bar behind a setting, and faster results. Earlier round (05a40024) done.
+NOTE: Round 2 done: Windows 11's search layout is the default (Search options + Close search in the command bar, "<query> - Search Results in <folder>", yellow marks, grouping kept); the filter bar is behind Settings > Search > "Show the search filter bar" (off); results in a 10,000-file folder show in 475 ms instead of 1,688 ms. Full check.py passed on 302a7626 (later commits: parity note only).
+
+ROUND 2 (Windows layout, filter bar setting, speed)
+Commits on search-windows after 05a40024: 5c475a99 perf, 06e02eb7 tests first, f764be40 feature, 78d0f4fa / 27bd2d11 / 302a7626 test and lint fixes, 698f9495 parity note.
+
+TESTS FIRST
+- a_walk_that_finds_nothing_more_keeps_the_rows_typing_filtered failed before 5c475a99 ("the walk found nothing more, so the filtered listing stays"), passes after.
+- search_layout.rs (7 tests), the Settings switch test, the preference test and marks.rs did not compile before f764be40 (new setting, actions and accessors); all pass after.
+
+CHECKS (run as tester)
+- python3 native/tools/check.py on 302a7626: PASS ("Native checks passed (75 test executables plus doctests)"), Python 3.12, without bubblewrap installed (with it, two thumbnailer sandbox tests fail here and on unchanged main, see round 1).
+  Earlier full runs this round failed on my mistakes, fixed: an array length in a test and a needless borrow (clippy); the focus test waiting for the filter bar (now turns the setting on). window::tests::listing::a_slow_listing_says_loading failed once (timing) and passed 3/3 on its own and in the final run.
+- python3 native/parity/check.py on 698f9495: PASS. tools/audit-public-data.py: PASS (no issues). i18n check: PASS.
+
+CHECKLIST ROUND 2 (xdotool under Xvfb in the native_capture bwrap sandbox, fictional /home/demo, release build of 302a7626)
+PASS Default: no filter bar while searching; Search options (search-settings glyph + chevron) and Close search (cross + text) after View: 1x/2x light/dark
+PASS Tab title "plan - Search Results in Filter test", address bar "Search Results in Filter test": 1x/2x light/dark; window title follows the tab
+PASS Search options opens by mouse (1x light) and by keyboard (Tab to it, Enter; 1x/2x light/dark); the items are in order: All subfolders, Current folder, -, Date modified >, Kind >, Size >, -, File contents
+PASS All subfolders / Current folder by mouse (Documents "e": Launch planning's results go and come back; the dot moves): 1x light
+PASS Date modified > This year / Yesterday / Any date by mouse (hover opens the submenu): 1x light
+PASS Size > Tiny by keyboard (Down, Right, Down Down, Enter): 1x/2x light/dark; Kind > Documents by keyboard: 1x light
+PASS File contents by keyboard: finds minutes.txt by its text, check mark shown: 1x light
+PASS Close search by mouse (1x light) and by keyboard (1x dark, 2x light/dark) returns to the folder and its title; Escape in the box too: 1x/2x light/dark
+PASS Back after a search returns to the folder, Forward to the results: 1x light (both), 1x dark and 2x light/dark (Back)
+PASS Matching text marked in names (yellow, black text): 1x/2x light/dark
+PASS Grouped folder: Downloads (by date) keeps "Earlier this year" in its results: 1x light, captures
+PASS Setting on: filter bar, "Search Results in Filter test", no Search options, no marks; window chrome differs from the round-1 filter-bar screenshot by 14 pixels (the text cursor): 1x light, also checked 1x dark, 2x light/dark
+PASS Time from the last keystroke to the final results (release build, 1x light, screenshots every ~40 ms):
+     10,000-file folder "item 0999": before 1,688 ms, after 475 ms
+     10,000-file folder "kind:picture": before 762 ms, after 280 ms
+     small folder with subfolders (Documents "e"): before 272 ms, after 261 ms (mostly the 120 ms typing pause)
+     Measured cause (gdb stack samples): new row cells each scanned every registered cell and set a tooltip that waits on the X server; a narrowing keystroke took 1,147 ms, now 161 ms.
+FOUND (not changed, same with Sort) The first time any command bar menu is opened by keyboard in a fresh window, no row has focus and arrows do nothing; Escape and Enter again works. Menu code untouched here; not run on main.
+NOT RUN Reduced motion; network folders (no network in the sandbox; unchanged rules).
+
+CAPTURES ROUND 2 (tools/native_capture.py + snapshot hook; fictional demo tree; 1x/2x light/dark, 64 files)
+search-windows-<scale>-<theme>-<case>.png, cases: results-top, results-nested, menu-options, menu-date, menu-kind, menu-size, combined, typed, empty, progress, tiles-combined, content-combined, grouped (Windows layout, default), bar-results, bar-menu-kind, bar-combined (setting on). The round-1 files of the same names are replaced by these. In the snapshot pictures the Kind/Size/Date submenus open to the left of the menu; under real input they opened to the right.
+
+LEFT OUT / NOT CONFIRMED (round 2)
+- Search options' System files, Zipped (compressed) folders and Change indexed locations: not built (no system-file distinction, no ZIP content search, Windows-only).
+- Current folder + File contents filters names only (does not read text); Current folder is not kept in the tab's history.
+- The yellow of the marks is matched by eye to the screenshots, not documented.
+- Windows' Search options glyphs per row: rows have no glyph here (as Sort); not compared.
+- Whether Windows 11 shows "Last week"/"Last month"/"Last year" in Date modified: still to compare on the VM.
+
+========== ROUND 1 (kept for reference) ==========
 
 SOURCES (Microsoft only)
 - https://support.microsoft.com/en-us/office/foundations-experiences/find-what-you-need-with-microsoft-search : Search options on the top toolbar; date modified, kind, size
