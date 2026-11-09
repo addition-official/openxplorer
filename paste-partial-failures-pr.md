@@ -22,7 +22,7 @@ The protected-location rule still covers what could not be checked first:
 - A copy checks every entry's final location before writing it. A protected folder that becomes readable after Try Again therefore stops the whole item, and nothing of that item is published.
 - A selected folder merged into a folder of the same name is planned entry by entry, so it must be read whole before anything runs. If part of it cannot be read, the paste stops before anything changes, as it did before.
 
-An item that is already gone (or cannot be read) when Paste checks for name conflicts, while the destination has its name, no longer stops that check. It goes in as a free item, never replacing the existing one, and is asked about in its turn. When a copy meets its own staging inside the source (the same share reached under two host names), it is refused the same way as a folder pasted into itself, with Skip and Cancel.
+An item that is already gone (or cannot be read) when Paste checks for name conflicts, while the destination has its name, no longer stops that check. It stays a name conflict, with its own size and date unknown, and is answered like any other: if it is back by its turn the answer applies, otherwise it is asked about as "Item Not Found". The guide states the merged-folder exception. When a copy meets its own staging inside the source (the same share reached under two host names), it is refused the same way as a folder pasted into itself, with Skip and Cancel.
 
 Undo after a partial copy or move reverses only what was done.
 
@@ -42,7 +42,8 @@ Undo after a partial copy or move reverses only what was done.
   - a merged folder that can no longer be listed, which moves nothing;
   - a folder made readable and tried again that holds a snapshot, which publishes nothing;
   - a folder named with `#` and `?` copied under the app's real previous-versions protection;
-  - an item deleted before Paste whose name the destination already has.
+  - an item deleted before Paste whose name the destination already has;
+  - such an item restored before its turn, which takes the answer about its name.
 - New engine test: the late staging-alias refusal is asked about as a folder pasted into itself.
 - New `failure_dialog.rs` test for the refusal's wording.
 - rustfmt and pedantic Clippy (Rust 1.92.0) are clean. `parity/check.py`, `i18n.py check` and `sync-docs.py --check`, the public-data audit and `pnpm check` pass. Every `native/tools/check.py` step passes except two test executables that also fail on unchanged main in the test container: `location_fixture_drift` (its Python 3.13 `ipaddress` now accepts `[V1.x]`) and `network_python` (`gi` fails to import).
