@@ -1,6 +1,6 @@
 STATUS: PR-READY
-HEAD: compact-view-spacing 63125562
-NOTE: Rename fix: in Compact view the in-place rename field fits the row (Details row stays 19, nothing moves; also List, Tiles, Content). Test 9b5ab5db failed first (row 19 to 26, next row down 7). Real input at 1x dark: F2 in Details moved rows 7 px before, 0 after; Tiles unchanged; 2x unchanged. Picture: compact-view-1x-dark-rename-before-after.png (before, after, Tiles). Touched suites pass (compact, renaming with the pointer marker), fmt and clippy clean. Not changed: in normal view the List layout's item still grows 2 px while renaming, as before. The checklist below is from 5f40287c.
+HEAD: compact-view-spacing 897279d0
+NOTE: Docs-only review fixes: the user guide says to click the rest of a heading's row (no line any more), regenerated with sync-docs; the VIEW-022 parity note's old line, click target and 24/26 px heights are replaced by the current look and boxes. parity/check.py and sync-docs --check pass. Code unchanged since 63125562 (rename fix). The checklist below is from 5f40287c.
 
 CHECKLIST
 PASS 1x-dark Details 1 rows: row to row 21.0, 21.0, 21.0, 21.0 (target 21)
