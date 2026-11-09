@@ -1,0 +1,4 @@
+STATUS: WORKING
+HEAD: looks-windows fbd14cbc9ecdd8675c5d39ab7645c34e1a6a720b
+QUESTION: none
+NOTE: Branch cut from upstream main; writing failing tests for the tab menu, tab icons, Properties dates and navigation pane.
