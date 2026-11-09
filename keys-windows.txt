@@ -1,4 +1,4 @@
 STATUS: WORKING
 HEAD: keys-windows ce6f3e2de308dcea6571efdf9bebb5e20427c047
 QUESTION: none
-NOTE: All three behaviors implemented (ce6f3e2) on top of failing tests (1c9cc66, 2d6a3a6). Captures pushed. Full test run and the run on unchanged main are in progress.
+NOTE: Implemented and checked with xdotool; the full ox_app test run and the comparison run on unchanged main are in progress. Esc during a real drag FAILED on unchanged main (proved with XTest input; GTK's X11 drag never sees Esc), so it is fixed.
