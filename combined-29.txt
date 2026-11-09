@@ -1,0 +1,9 @@
+STATUS: ON HOLD
+HEAD: none (no deb built or pushed; held at the PC manager's request while home-like-windows gets a redesign)
+NOTE: Base would be upstream main fbd14cbc (2.0.16). home-like-windows head 1468ea24 descends from upstream main (merge base 086aa19b), 7 commits ahead, 9 behind; all commits addition-official, no trailers.
+NOTE: Merging it into fbd14cbc gives real (non-generated) conflicts, so per the instructions no resolution was committed:
+  - native/crates/ox-app/src/window/context_menu/entries.rs: ItemFacts gets is_recent (main) and favorite (home-like-windows); also the test helper literal.
+  - native/crates/ox-app/src/window/context_menu.rs: the ItemFacts literal sets both fields.
+  - native/crates/ox-app/src/settings_page/tests/redesign.rs: doc comment names SRCH-046 (main) and HOME-012 (branch).
+  Keeping both sides in all three compiles (cargo check -p ox-app --tests); not committed, no tests run.
+NOTE: Polkit check not run (no deb).
