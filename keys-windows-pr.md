@@ -43,5 +43,6 @@ DND-029 (Esc during a drag) is a new parity item. The user guide, the backlog an
 - The app was also checked by hand with xdotool on an Xvfb display, using fictional files, at 1x and 2x and in light and dark.
 - rustfmt, Clippy with the workspace lints, `native/parity/check.py`, the translation template check and the docs sync check pass.
 - Not tested: Wayland. The new keyboard tests cover X11 only.
+- On KDE Wayland the compositor cancels the drag on Esc and keeps its drag cursor until the pointer moves.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
