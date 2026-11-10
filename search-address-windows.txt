@@ -1,7 +1,7 @@
-STATUS: DONE
-HEAD: search-address-windows d6ca4416cdc3ab0f5a7bba168a5604979cc85850
+STATUS: WORKING
+HEAD: search-address-windows bf7b70dc2fba60e02d002554c5af20fd90acacd2
 QUESTION: none
-NOTE: Item 1 (?) already worked on main: tests added, no code change. Item 2: "Recycle Bin" typed in the address bar now opens it (This PC already did). Item 3: a removed or renamed folder keeps its tab and address; F5 shows "Location is not available" with Windows' text and our path. Tests first 99acc7d (fail on main), fix 44a0c51, box size fix d6ca441. No PR, no deb.
+NOTE: Combined-build failure of a_folder_removed_while_shown_keeps_its_tab_until_f5_says_it_is_not_available: reproduced as a race (a refresh asked while the box was open opened a second box after OK), not the size fix. New failing test 967d619, fix bf7b70d. Rerunning the full suite.
 
 PASS test first: typing_recycle_bin_or_this_pc_opens_it, a_folder_removed_while_shown_keeps_its_tab_until_f5_says_it_is_not_available, a_background_tab_whose_folder_is_deleted_keeps_its_address fail on unchanged main (99acc7d on fbd14cb: "the Recycle Bin" times out; no box after F5 because the tab jumped; background tab moved to Documents) and pass after the fix
 PASS ? tests: a_question_mark_stands_for_exactly_one_character (ox-core) and a_question_mark_finds_names_with_one_character_there pass on main too: ? was already a one-character wildcard everywhere (folder filter, live walk, cache, contents); no code change for item 1, only tests and notes
