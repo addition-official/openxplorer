@@ -1,0 +1,4 @@
+STATUS: WORKING
+HEAD: command-bar-menu-switch a119690b (upstream main, nothing committed yet)
+QUESTION: none
+NOTE: Writing real-pointer tests (XTest under Xvfb) first. Design direction after the Windows facts (click passes through, no hover switch): the bar's menus stop grabbing the pointer, so every click reaches what is under it; the window's existing press handler closes the open menu, and a click on another menu button simply opens that one.
