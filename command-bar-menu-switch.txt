@@ -1,5 +1,38 @@
-STATUS: WORKING
+STATUS: DONE
 HEAD: command-bar-menu-switch 57d41dbcd44227456ae58a4cca6706e849f6cb71
 QUESTION: none
-NOTE: Implemented and pushed; 8 real-pointer tests pass on X11 (Xvfb, 1x and 2x) and on Wayland (weston inside Xvfb). Branch: every test binary run; comparison run on unchanged main in progress; final PASS/FAIL list follows.
-Captures: command-bar-menu-switch-<1x|2x>-<light|dark>-sort-from-view-<normal|compact>.png (tools/native_capture.py, fictional demo tree; 2x uses a 780x690 window so it fits the capture screen).
+NOTE: Design: the command bar's menus no longer hold a pointer grab (autohide off), so every click reaches what is under it, as in Windows 11 (switch on one click, click-through on files); the window's existing press handler closes the open menu and now leaves a press on a menu's own button to that button, and one module (command_bar/menu_group.rs) owns which bar menu is open. No timers, idle callbacks or global state; on X11 the module hands a press on the open menu to its row when GTK would misroute it after a relayout (GTK 4.14 gdk_surface_ensure_motion), proven by a test that fails without it.
+Commits on upstream main a119690b: 5737755f tests first (fail on main), 4720c234 the change, f5850b71 command-menu= capture scene step, 57d41dbc more tests + grab assertions updated.
+
+PASS every ordered pair of New, Sort, View, See more: open A by real click, one click on B -> A closed, B open, nothing else; click B again -> closed, nothing open (one_click_on_another_menu_button_opens_its_menu; fails on main: "New open, one click on Sort: open menus [Sort]" timed out)
+PASS Search options (shown while searching) <-> View, both ways, then View closes on its own button (search_options_and_view_open_from_each_other_with_one_click; fails on main)
+N/A  appearance toggle: built but hidden in the bar on main and here, so not clickable
+PASS click on the open menu's own button closes it and opens nothing (every pair above, and the narrow and dark tests)
+PASS open View, click an item (Details pane) -> it runs, menu closes, no other opens (a_click_on_an_item_runs_it_and_opens_no_other_menu; passes on main too)
+PASS same, with the pointer resting on the item while the window lays itself out, then a click without moving -> the item runs, no file under the menu selected (same test; fails on this branch with the X11 repair disabled, so the repair is needed)
+PASS open View, click a file -> View closes AND the file is selected, as in Windows 11 (a_click_elsewhere_closes_the_menu_and_still_acts_there). Main today: the click is spent closing the menu, the file is not selected (the test fails on main there, X11 and weston)
+PASS open Sort, click the bar's empty part -> closes, nothing opens, selection unchanged (same test)
+PASS open New, click the address bar -> closes, the address is edited with the keyboard in it; Escape ends the edit (same test)
+PASS open See more, click This PC in the navigation pane -> closes, This PC shows (same test)
+PASS open View, click Details (a plain command) -> View closes and the details pane opens (the_menus_switch_the_same_in_the_dark_theme_and_compact_view)
+PASS Esc in each of New, Sort, View, See more opened by real click -> closes, keyboard back on its button (escape_and_the_keyboard_still_work_the_menus; real XTEST keys)
+PASS keyboard: Enter and Space on a focused Sort open it with the keyboard in the menu, Down moves inside, Esc closes and gives the keyboard back to Sort (same test)
+FAIL Alt+Down on a focused bar button opens nothing (probe on this branch, X11 and weston). GtkMenuButton has no Alt+Down binding and this change touches no key handling; not run on main. Left as is (see NOT CONFIRMED)
+PASS narrow (672 px, compact) window: See more <-> New, View, Sort, each with one click, then closes on its own button (the_menus_of_a_narrow_window_open_from_each_other_with_one_click; fails on main). Nothing moves into "..." at narrow widths in this app: Cut, Rename and Share are hidden, the menu buttons stay
+PASS rapid clicks Sort, View, See more while New is open -> exactly See more open; Esc closes it; then a click on a file selects it (no stuck grab or popover) (quick_clicks_on_several_menu_buttons_leave_the_last_menu_open; fails on main)
+PASS dark theme + Compact view: View -> Sort -> New -> See more -> View, one click each (the_menus_switch_the_same_in_the_dark_theme_and_compact_view; fails on main)
+PASS all 8 new tests at 1x and at GDK_SCALE=2 under Xvfb (X11)
+PASS all 8 new tests on Wayland: weston 13 (x11 backend inside Xvfb, so XTEST input reaches GTK as Wayland events, GDK_BACKEND=wayland). Main on the same weston setup fails the same 6 switching/click-through tests. KDE Plasma/KWin not available here
+PASS Open and Save dialogs' Sort menu with Group by and More: no popup holds a grab (renamed the_sort_menu_of_a_save_dialog_holds_no_grab / the_sort_menu_of_an_open_dialog_holds_no_grab; they asserted exactly one grabbing popup, the Sort menu, and failed after the change until updated); nested New submenus likewise (nested_submenus_open_beside_each_other, assertion updated). Submenus still never take a grab of their own
+PASS captures with tools/native_capture.py (fictional demo tree), Sort open after View, 1x/2x, light/dark, normal/Compact: command-bar-menu-switch-<1x|2x>-<light|dark>-sort-from-view-<normal|compact>.png. The new snapshot step command-menu=View;command-menu=Sort opens View, then Sort, which closes View through the same group code; the click path itself is proven by the XTEST tests. 2x uses a 780x690 logical window so it fits the tool's 1600x1400 screen
+PASS cargo fmt --check; Clippy -D warnings with the workspace lints (also with the CONTRIBUTING pedantic flags); python3 native/parity/check.py; check.py's parity, driver, i18n and icon-guard steps
+PASS every test binary and the doctests run to the end with check.py's isolation (check.py itself stops at the first failing binary, location_fixture_drift, which also fails on main). Failures on this branch, all also failing on unchanged main a119690b by name: ox-core admin_copy::tests x9, location_fixture_drift python_fixture_matches_desktop_core_py, network_python fuse_export_paths_match_native_opening_py, ox_app thumbnails::thumbnailers::tests::a_sandboxed_thumbnailer_runs_within_its_limits and a_sandboxed_thumbnailer_sees_only_its_item. Main additionally fails the 6 new switching tests
+PASS final full ox_app run on 57d41dbc (rebuilt from the branch): 2316 passed, 2 failed (the two thumbnailer sandbox tests above, also failing on main); all 8 new tests and the 3 updated grab tests pass. The rest of the binaries and the doctests were run on f5850b71 (57d41dbc changes only ox-app tests, picker.rs tests and features.toml)
+
+NOT CONFIRMED (Windows 11):
+- Left/Right while a command bar menu is open: move to the neighboring menu? Here they do not (unchanged).
+- Alt+Down (or F4) on a focused command bar button: opens its menu? Here nothing.
+- A click on a plain command (Copy, Details) while a menu is open: also runs it? Here it does, as every click now reaches its target.
+- A click in another app's window while a menu is open: here the menu closes when the window stops being active.
+- Hover: confirmed in Windows 11 (build 26200) that hovering does not switch; built that way. Click-through on a file row also confirmed there; built.
+- KDE Plasma on Wayland (KWin) not run here; weston was.
