@@ -1,7 +1,7 @@
-STATUS: DONE
-HEAD: looks-windows 6af7808855a13d4144cfcd3a3049be5fd7b34dd9
+STATUS: WORKING
+HEAD: looks-windows a916157fb4d117051f79506628f19fd610201c56
 QUESTION: none
-NOTE: Fixed the review finding: while a tab's menu is open, Ctrl+W closes that menu's tab (the menu has the keyboard, so the window's Ctrl+W never fired there); test first, real keys checked at 1x and 2x; full suite rerun on this branch and main, identical 13 failures by name.
+NOTE: Merged upstream main (#314/#317/#318/#319/#321/#322; kept both sides); fixed the Folder Options finding test-first (Privacy boxes grayed with a tooltip while the pane switch is off); full suite rerunning on this branch and on main.
 CHECKLIST (real input with xdotool on a private Xvfb display, release build, fictional demo home; every line ran at 1x and 2x, light and dark, normal and Compact view unless it says otherwise; 47 screenshots per configuration, window titles checked automatically in all 8, pictures reviewed for 1x light, 1x dark, 2x light Compact and the pane runs of all 8)
 PASS: tab menu, 1 tab, right-click: Close tab (X, Ctrl+W), Close other tabs (grayed), Close tabs to the right (grayed), Duplicate tab; Duplicate tab opens a second Documents tab
 PASS: tab menu, first of 3 tabs: Close tabs to the right leaves only the first tab; Duplicate tab adds a copy

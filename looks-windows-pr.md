@@ -39,6 +39,10 @@ Settings → Appearance → Layout, both off by default and saved only when turn
 
 With the rows hidden, the Recycle Bin, Recent files and Recent locations still open from the address bar (typed by name or address), and the Recycle Bin also from the address bar's first-crumb menu.
 
+Folder Options → General → Privacy's "Show recently used files" and "Show frequently used folders" choose whether those Recent rows show. While "Show more items in the navigation pane" is off they are grayed out, with a tooltip saying they apply when that setting is on in Settings → Appearance; Folder Options does not turn the setting on. With it on they work as before.
+
+While a tab's menu is open, Ctrl+W (shown beside Close tab) closes that menu's tab, which can be a background tab, not the tab in front.
+
 ## Changed owner decisions
 
 Each of these replaces an earlier choice with Windows' default; where it was a feature, the earlier behavior stays behind a setting.
