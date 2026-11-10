@@ -1,4 +1,4 @@
 STATUS: WORKING
-HEAD: windows-details-fixes c111e2cc
+HEAD: windows-details-fixes 9d54bd65
 QUESTION: none
-NOTE: Fixes, tests, parity and docs pushed; captures added. Full native checks and the 2x test pass are running.
+NOTE: All work pushed; running every native test binary on the branch and on unchanged main to compare failures by name, then the 2x real-input pass.
