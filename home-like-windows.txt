@@ -1,7 +1,13 @@
 STATUS: DONE
-HEAD: home-like-windows ecfa2496dce578e0124f8deed12acd89f2369893
+HEAD: home-like-windows 6f25ab497cdb8bd7cecc7dd083668184c3650ea8
 QUESTION: none
-NOTE: The five review findings on PR #316 are fixed test-first (tests 9699b0a and f6ff840, fixes ecfa249), pushed without rebase or force push.
+NOTE: Merged the newest upstream main a119690 (#314, #317, #318, #319, #321, #322) into the branch (merge cc7c50c, no rebase or force push); PR #316 no longer conflicts.
+PASS merge a119690: conflicts in navigation.rs (place_titled keeps main's Recycle Bin and this branch's home_location() for Home) and context_menu.rs (favorite_fact kept beside main's shift_f10_menu_style); both sides kept
+PASS Shift+F10 on Home: tiles and rows open the file list's menu (the right-click style, the classic menu only with main's 'Shift+F10 opens the classic menu'), as This PC does after main's change; new test shift_f10_on_a_home_item_opens_the_file_lists_menu
+PASS main's new ctrl_t_opens_a_tab_from_* tests (3) expected the home folder; on this branch a new tab opens Home (the Home page by default), so they now expect home_location(); they pass (9/9 text_field_tab_keys)
+PASS regenerated: i18n extract (no change), sync-docs (no change); i18n check, sync-docs --check, parity check, rustfmt, clippy pedantic, public-data audit pass
+PASS touched suites on the branch build: home_page 20/20, sidebar 69/69, address 80/80, context_menu 53/53, text_field_tab_keys 9/9, settings_page 106/106 (settings rows and count tests), empty_folder_look 11/11
+FAIL check.py (all 81 executables plus doctests, run to the end): everything passed except ox_app 6 and ox_core 27 tests. Compared by name with unchanged main a119690 built here: the 9 admin_copy and 2 sandboxed-thumbnailer tests fail the same on main; the 18 admin_delete parent_path tests fail only because this checkout is owned by root (they pass on main's tester-owned checkout, and did on a tester-owned checkout of this branch before); a_long_note_wraps_inside_the_pane failed once in the full run and passes alone on the branch (11/11) and on main; the 3 ctrl_t tests are fixed above (6f25ab4). check.py was not re-run after 6f25ab4, a test-only change
 PASS review 1 (P1, Recent privacy): recent_lists_nothing_while_the_desktop_remembers_no_recent_files fails before the fix (Recent still listed the file with GNOME's remember-recent-files off) and passes after; recent_follows_the_desktops_privacy_policy (off, maximum age, undated) passes
 PASS review 2 (P1, no per-frame polling): home_leaves_the_window_idle_and_still_follows_its_width failed before the fix (36 frames in 600 ms on an unchanged page); after it, 2 frames once the lists have filled, and a narrower window still gets fewer tiles per row
 PASS review 3 (P1, normal activation): a_favorite_opens_as_a_double_click_in_its_folder_does fails before the fix (a desktop link favorite timed out instead of opening its folder) and passes after; rows now go through the double-click steps (read again, mount or sign in first, links, Item Not Found)
