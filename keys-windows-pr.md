@@ -42,6 +42,6 @@ DND-029 (Esc during a drag) is a new parity item. The user guide, the backlog an
 - With the changes, these tests pass. They cover Shift+F10 in Details, List, Tiles, Large icons and the compact view, for one file, one folder, several items and blank space, with the pointer moved away, and Esc returning focus. They also cover the navigation pane, a tab, the setting off and on, the Menu key and Shift+right-click. For the text fields they cover Ctrl+T, Ctrl+W and Ctrl+N from the address bar, the empty search box and the search box with text, with 1 and 3 tabs, plus Ctrl+W on the last tab and the text-editing keys. Esc is tested in Replace or Skip for a copy and a move, with one name conflict and with several, and Enter on a focused row is checked. Esc during a drag is tested onto a folder, a navigation pane row, a tab and another window, and a later drag is checked to work.
 - The app was also checked by hand with xdotool on an Xvfb display, using fictional files, at 1x and 2x and in light and dark.
 - rustfmt, Clippy with the workspace lints, `native/parity/check.py`, the translation template check and the docs sync check pass.
-- Not tested: Wayland. Under Xvfb, a real drag over a tab shows no label, and a drop there without Esc moves nothing, so the tab case only shows that nothing happens.
+- Not tested: Wayland. The new keyboard tests cover X11 only.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
