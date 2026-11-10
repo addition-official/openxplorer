@@ -1,12 +1,13 @@
-STATUS: WORKING
+STATUS: DONE
 HEAD: looks-windows 6af7808855a13d4144cfcd3a3049be5fd7b34dd9
 QUESTION: none
-NOTE: Fixed the review finding: Ctrl+W in a tab menu now closes that menu's tab (test first, real keys checked); full suite rerunning on this branch and on main.
+NOTE: Fixed the review finding: while a tab's menu is open, Ctrl+W closes that menu's tab (the menu has the keyboard, so the window's Ctrl+W never fired there); test first, real keys checked at 1x and 2x; full suite rerun on this branch and main, identical 13 failures by name.
 CHECKLIST (real input with xdotool on a private Xvfb display, release build, fictional demo home; every line ran at 1x and 2x, light and dark, normal and Compact view unless it says otherwise; 47 screenshots per configuration, window titles checked automatically in all 8, pictures reviewed for 1x light, 1x dark, 2x light Compact and the pane runs of all 8)
 PASS: tab menu, 1 tab, right-click: Close tab (X, Ctrl+W), Close other tabs (grayed), Close tabs to the right (grayed), Duplicate tab; Duplicate tab opens a second Documents tab
 PASS: tab menu, first of 3 tabs: Close tabs to the right leaves only the first tab; Duplicate tab adds a copy
 PASS: tab menu, middle of 3 tabs: Close other tabs leaves only it; Close tabs to the right leaves the first two
 PASS: tab menu, last of 3 tabs: Close tabs to the right grayed; Close tab and Close other tabs do what they say
+PASS: Ctrl+W with a background tab's menu open (real keys, 1x and 2x): closes that tab and the menu, the tab in front stays; Ctrl+W with no menu open still closes the tab in front
 PASS: tab menu opened by Shift+F10 and by the Menu key on the focused tab (F6 to the tab), first item focused; Down+Enter runs Close other tabs; focus returns to the tab
 PASS: extras setting on: Move tab to new window, Move tab to window…, Open windows… appear after a separator; Move tab to new window opens the tab in its own window, Move tab to window… lists windows, Open windows… opens the windows menu
 PASS: tab icons: folder, Home (folder, unchanged), This PC (laptop), Recycle Bin (bin), Recent (history), Recent locations (clock), search results (magnifier); active and inactive; both themes
@@ -29,7 +30,7 @@ PASS: python3 native/tools/i18n.py check (template regenerated)
 PASS: python3 tools/audit-public-data.py (no issues)
 PASS: new tests written first and seen failing on the unchanged code (compile errors for the new API; the typed-address test timed out), all pass now
 FAIL: python3 native/tools/check.py stops at ox-core location_fixture_drift (python_fixture_matches_desktop_core_py: Python 3.13 here rejects "[V1.x]" differently); same on unchanged main
-FAIL: full workspace tests (isolated, with the Python app sources), compared by test name with unchanged main (fbd14cbc): branch 4422 passed / 13 failed, main 4414 passed / 13 failed; the 13 are the same names on both: 9 ox-core admin_copy tests (/tmp is world-writable here), fuse_export_paths_match_native_opening_py and python_fixture_matches_desktop_core_py (container's Python), 2 thumbnailer-sandbox tests (no user namespaces). No test fails only on this branch.
+FAIL: full workspace tests (isolated, with the Python app sources), compared by test name with unchanged main (fbd14cbc): branch 4423 passed / 13 failed, main 4414 passed / 13 failed; the 13 are the same names on both: 9 ox-core admin_copy tests (/tmp is world-writable here), fuse_export_paths_match_native_opening_py and python_fixture_matches_desktop_core_py (container's Python), 2 thumbnailer-sandbox tests (no user namespaces). No test fails only on this branch.
 CORRECTION: the earlier DONE report missed settings_page escape_leaves_the_search_and_shows_every_row_again, redesign every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages and the_search_finds_settings_by_the_words_people_use, and item_dialogs alt_enter_opens_a_files_properties_in_a_window_of_its_own (my failure filter read only unbroken result lines). Fixed as intended behavior: the two new Layout rows are listed and counted; "wastebasket" also finds "Show more items in the navigation pane" on purpose (it brings the Recycle Bin back to the pane); Properties expects the weekday for Modified and keeps "Today" for Accessed.
 NOT CONFIRMED, check in the VM
 1. Tab menu graying: on a window's only tab, are Close other tabs and Close tabs to the right grayed out (ours: both grayed)? On the last tab, is Close tabs to the right grayed (ours: grayed)?
