@@ -1,7 +1,13 @@
-STATUS: PR-READY
-HEAD: home-like-windows 211dc91fb4c9a220edf401cd25f88200328dcbf9
-QUESTION: none (approved after testing deb 31)
-NOTE: Approved after deb 31. Merged upstream main fbd14cbc into the branch (merge 211dc91, no force push); conflicts kept both sides: ItemFacts has main's is_recent and this branch's favorite (context_menu.rs, context_menu/entries.rs), and the Settings redesign test's comment names both added rows (SRCH-046 and HOME-012). After the merge: context_menu 53/53, settings_page 105/105, home_page 14/14; clippy pedantic, rustfmt, parity check, i18n check, sync-docs --check, public-data audit pass. PR text describes the final look and spacing and keeps the maintainer question.
+STATUS: DONE
+HEAD: home-like-windows ecfa2496dce578e0124f8deed12acd89f2369893
+QUESTION: none
+NOTE: The five review findings on PR #316 are fixed test-first (tests 9699b0a and f6ff840, fixes ecfa249), pushed without rebase or force push.
+PASS review 1 (P1, Recent privacy): recent_lists_nothing_while_the_desktop_remembers_no_recent_files fails before the fix (Recent still listed the file with GNOME's remember-recent-files off) and passes after; recent_follows_the_desktops_privacy_policy (off, maximum age, undated) passes
+PASS review 2 (P1, no per-frame polling): home_leaves_the_window_idle_and_still_follows_its_width failed before the fix (36 frames in 600 ms on an unchanged page); after it, 2 frames once the lists have filled, and a narrower window still gets fewer tiles per row
+PASS review 3 (P1, normal activation): a_favorite_opens_as_a_double_click_in_its_folder_does fails before the fix (a desktop link favorite timed out instead of opening its folder) and passes after; rows now go through the double-click steps (read again, mount or sign in first, links, Item Not Found)
+PASS review 4 (P2, fold saving): folding_both_sections_at_once_saves_both fails before the fix (only one key saved) and passes after
+PASS review 5 (P2, favorites): favorites_keep_only_canonical_locations fails before the fix (the whole list was dropped) and passes after: canonical file, smb and remote addresses kept, user names stripped, passwords, other schemes, virtual places and relative paths left out
+PASS review checks: home_page 19/19, opening 21/21, activation 6/6, recent_privacy 2/2, context_menu 53/53, settings_page 105/105, landing 28/28, sidebar 28/28, ox-core settings 124/124; clippy pedantic, rustfmt, parity check, i18n check, sync-docs --check, public-data audit
 PASS spacing test-first: home_is_spaced_as_windows_11_home failed on 5f84eb1 (helper missing; then measured: pills to headers 32, headers to row 36, Name 70 px in, heading to tile name 31, tiles to pills 10, chevron 16 px in); passes on 6249148 with every metric within its slack
 PASS spacing measured in the test (1600x1000 window): row pitch 36; pills to headers 51±3; headers to first row 50±3; Name to Date accessed 484±2; Date accessed to File location 298±2; Name 90±4 from the pane; row icons under Name, names 36±4 right of them; row date and location under their headers ±1; tile height 60; heading to first tile name 37±4; tiles to pills 45±4; chevron 30±4 from the pane; tile folder 92±4 from the pane; status bar 'N items' = tiles + rows
 PASS columns narrow: the_columns_narrow_name_first (484/298/300 while they fit, Name narrows to 140, then the others to 90)
