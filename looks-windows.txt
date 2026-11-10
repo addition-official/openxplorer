@@ -1,7 +1,7 @@
-STATUS: WORKING
-HEAD: looks-windows a916157fb4d117051f79506628f19fd610201c56
+STATUS: DONE
+HEAD: looks-windows 68abcee7ae5da69e7ffa22a2c73e251e477cd1a4
 QUESTION: none
-NOTE: Merged upstream main (#314/#317/#318/#319/#321/#322; kept both sides); fixed the Folder Options finding test-first (Privacy boxes grayed with a tooltip while the pane switch is off); full suite rerunning on this branch and on main.
+NOTE: Merged upstream main a119690b (kept both sides); Folder Options' Privacy boxes are grayed with a tooltip while the pane switch is off (test first, real clicks checked); updated upstream's new Shift+F10 tab test to Windows' menu; full suite matches main's 13 failures by name.
 CHECKLIST (real input with xdotool on a private Xvfb display, release build, fictional demo home; every line ran at 1x and 2x, light and dark, normal and Compact view unless it says otherwise; 47 screenshots per configuration, window titles checked automatically in all 8, pictures reviewed for 1x light, 1x dark, 2x light Compact and the pane runs of all 8)
 PASS: tab menu, 1 tab, right-click: Close tab (X, Ctrl+W), Close other tabs (grayed), Close tabs to the right (grayed), Duplicate tab; Duplicate tab opens a second Documents tab
 PASS: tab menu, first of 3 tabs: Close tabs to the right leaves only the first tab; Duplicate tab adds a copy
@@ -18,6 +18,7 @@ PASS: navigation pane default: Home, pinned folders with pins, This PC with Loca
 PASS: navigation pane with "Show more items in the navigation pane": today's pane exactly (usage bar under Local Disk, Recent files, Recent locations, Recycle Bin after Network)
 PASS: drives under This PC (Local Disk; no other drives exist in the isolated session)
 PASS: navigation pane keyboard: Shift+Tab into the pane, Down, End, Up, Left collapses This PC, Right expands it
+PASS: Folder Options > General > Privacy (real clicks): by default both check boxes are grayed out with the tooltip naming "Show more items in the navigation pane" in Settings > Appearance, and clicking does nothing; with that switch on they work, and unchecking "Show recently used files" + OK removes Recent files from the pane
 PASS: drag a file (Beach) onto the pinned Documents row moves it there
 PASS: Recycle Bin, Recent and Recent locations reachable while hidden: typed in the address bar (fixed in this branch, it did nothing before) and the Recycle Bin from the first-crumb menu
 PASS: narrow window (640 px wide): pane, address bar and list still laid out
@@ -30,7 +31,8 @@ PASS: python3 native/tools/i18n.py check (template regenerated)
 PASS: python3 tools/audit-public-data.py (no issues)
 PASS: new tests written first and seen failing on the unchanged code (compile errors for the new API; the typed-address test timed out), all pass now
 FAIL: python3 native/tools/check.py stops at ox-core location_fixture_drift (python_fixture_matches_desktop_core_py: Python 3.13 here rejects "[V1.x]" differently); same on unchanged main
-FAIL: full workspace tests (isolated, with the Python app sources), compared by test name with unchanged main (fbd14cbc): branch 4423 passed / 13 failed, main 4414 passed / 13 failed; the 13 are the same names on both: 9 ox-core admin_copy tests (/tmp is world-writable here), fuse_export_paths_match_native_opening_py and python_fixture_matches_desktop_core_py (container's Python), 2 thumbnailer-sandbox tests (no user namespaces). No test fails only on this branch.
+FAIL: full workspace tests (isolated, with the Python app sources), compared by test name with unchanged upstream main a119690b: branch 4510 passed / 13 failed, main 4500 passed / 13 failed; the 13 are the same names on both (9 ox-core admin_copy tests, fuse_export_paths_match_native_opening_py, python_fixture_matches_desktop_core_py, 2 thumbnailer-sandbox tests; all from this container). No test fails only on this branch in the final run.
+NOTE: in the run before it, two tests failed only on the branch: shift_f10_keys::shift_f10_on_a_tab_opens_its_menu (upstream #321's new test expected the old first tab-menu item; updated to "Close tab") and ox-core ops_name_conflicts::undo_brings_back_a_replaced_file_and_redo_replaces_it_again ("report.png: The connection is closed", a Recycle Bin round trip through GVfs). That one failed 1 of 13 runs on the branch and 0 of 16 on main; this branch changes no code it uses (ox-core changes are only date formatting and preferences), so it looks intermittent, but it is not confirmed to happen on main.
 CORRECTION: the earlier DONE report missed settings_page escape_leaves_the_search_and_shows_every_row_again, redesign every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages and the_search_finds_settings_by_the_words_people_use, and item_dialogs alt_enter_opens_a_files_properties_in_a_window_of_its_own (my failure filter read only unbroken result lines). Fixed as intended behavior: the two new Layout rows are listed and counted; "wastebasket" also finds "Show more items in the navigation pane" on purpose (it brings the Recycle Bin back to the pane); Properties expects the weekday for Modified and keeps "Today" for Accessed.
 NOT CONFIRMED, check in the VM
 1. Tab menu graying: on a window's only tab, are Close other tabs and Close tabs to the right grayed out (ours: both grayed)? On the last tab, is Close tabs to the right grayed (ours: grayed)?
