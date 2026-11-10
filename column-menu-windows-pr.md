@@ -39,7 +39,7 @@ Tests were written first and fail on main: the menu tests fail by assertion, and
 
 - New tests for the menu's items, order, check marks and lack of icons; for the Choose Details list order, the greyed buttons, Show, Hide, Move Up and Move Down; for width limits (0, a huge number, letters, an empty field); for OK, Cancel and closing, and reopening; and for saving per folder and in the shared view.
 - With real pointer and keyboard input (XTEST): a right-click on every title and on the empty part of the row, a click on every column row (Name changes nothing), a click on "More...", and a keyboard-only run through Choose Details (arrows, Space, Tab, Shift+Tab, Enter, Escape).
-- The menu also opens in search results and the Recycle Bin. Recent files was not checked, since the test session has no recent items.
+- The menu also opens in search results and the Recycle Bin. Recent files was not checked, since the test setup has no recent items.
 - `cargo fmt --check`, Clippy with the workspace lints, `python3 native/parity/check.py` and the translation template check pass. Every test binary and the doctests ran to the end: four tests unrelated to this change fail, and fail the same way on main (an address-parsing comparison with the Python app, a FUSE path comparison and two sandboxed thumbnailer tests); `python3 native/tools/check.py` stops at the first of them.
 - A new `titles-menu=` step for the snapshot hook opens the menu for pictures.
 - Pictures of the menu and the window at 1x and 2x, light and dark, in normal and Compact view.
