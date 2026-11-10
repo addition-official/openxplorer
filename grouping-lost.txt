@@ -1,3 +1,3 @@
 STATUS: DONE
-HEAD: grouping-lost 1b9a246e1c33b722ef8375b4053962f110dc95f4
-NOTE: Fixed the review finding: the pane just left keeps an unsaved Group by; new test fails before and passes after; group-by, split, tab, view-style and dialog suites pass.
+HEAD: grouping-lost 4bff0236c34daf89e6a460aa07642d81ac2a294d
+NOTE: Fixed the second review finding: the pane beside is restyled when its tab moved to another folder; new test fails before and passes after; group-by, split, tab, activation, view-style and dialog suites pass (368 tests).
