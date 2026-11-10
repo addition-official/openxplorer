@@ -1,11 +1,15 @@
 STATUS: WORKING
-HEAD: column-menu-windows 47f8b1b293b3054ba6890a561b105ee6d8d757bb
+HEAD: column-menu-windows 15baf5d0da2e96accf4af84c110cc87d5ff9c26a
 QUESTION: none
-NOTE: Feature done and pushed; captures pushed. Running every test binary to the end (check.py stopped at ox-core location_fixture_drift, a system-Python difference; this branch touches no ox-core file). Two more real-input tests (every title, every toggle; search and Recycle Bin) are being added.
+NOTE: Done apart from the main comparison of unrelated failing tests. 15baf5d keeps one titles menu per view (a menu destroyed as it closed left GTK pointing at its gone surface: fatal critical under the tests). Full ox_app binary: 2229 passed, 7 failed (none in the touched code); comparing those on unchanged main now.
 
 PASS header menu order/structure: Size Column to Fit, Size All Columns to Fit, divider, Name (checked, greyed), Date modified, Type, Size, Date created, File extension, Owner, Permissions, divider, More... (the_titles_menu_is_windows_11s_with_check_marks_only; failed on main)
 PASS no icons on any row, check marks only (same test; captures)
-PASS real right-click on a title opens the menu (a_real_right_click_on_a_title_opens_the_menu_that_sizes_all_columns; xdotool on Type in a manual Xvfb run)
+PASS real right-click on every title (Name, Date modified, Type, Size) opens the menu fitting that column (real_clicks_on_every_title_and_every_column_row; a_real_right_click_on_a_title_opens_the_menu_that_sizes_all_columns; xdotool on Type in a manual Xvfb run)
+PASS every toggle shows/hides its column with a real click on its row: Date created, File extension, Owner, Permissions, Date modified, Type, Size; Name row greyed, clicking it changes nothing (real_clicks_on_every_title_and_every_column_row)
+PASS menu in search results and the Recycle Bin (the_titles_menu_opens_in_search_results_and_the_recycle_bin)
+N/A  This PC has no column titles (tiles in groups); its heading menu is unchanged
+NOT RUN Recent files: the isolated test session has no recent items, so it shows the empty page without titles
 PASS real right-click on the empty part of the titles' row after the last column opens it, Size Column to Fit greyed (a_real_click_on_more_opens_choose_details)
 N/A  Shift+F10 / Menu key on a focused header: the column titles take no keyboard focus in the app (their row refuses focus, as on main), so there is nothing to press it on
 PASS Size Column to Fit / Size All Columns to Fit (column_fitting tests, all 8 pass)
