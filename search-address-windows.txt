@@ -1,8 +1,12 @@
-STATUS: WORKING
+STATUS: DONE
 HEAD: search-address-windows bf7b70dc2fba60e02d002554c5af20fd90acacd2
 QUESTION: none
-NOTE: Combined-build failure of a_folder_removed_while_shown_keeps_its_tab_until_f5_says_it_is_not_available: reproduced as a race (a refresh asked while the box was open opened a second box after OK), not the size fix. New failing test 967d619, fix bf7b70d. Rerunning the full suite.
-
+NOTE: Combined-build failure fixed: not the size fix (d6ca441); OK always closed the box. A refresh asked while the box was open finished after OK and opened a second box, so the test's wait timed out on a slow machine. Test first 967d619 (fails on d6ca441), fix bf7b70d: a refresh asked while a box is open is not marked as asked. Earlier: tests 99acc7d, feature 44a0c51, box size d6ca441.
+PASS box race (2026-11-10): a_refresh_asked_while_the_box_is_open_opens_no_box_after_ok fails on d6ca441 (a second box after OK) and passes on bf7b70d; a_folder_removed_while_shown_keeps_its_tab_until_f5_says_it_is_not_available now waits for the second reload and passes; both passed 10 runs in a row
+PASS listing + loading suites after the fix: 24 passed
+PASS full suite after the fix (bf7b70d, every test executable isolated as check.py does, plus doctests): 4402 passed, 31 failed; the 31 are the identical list that fails on unchanged main fbd14cb
+PASS clippy -D warnings (pedantic flags), rustfmt, parity/check.py, i18n check after the fix
+PASS real input after the fix (1x light): F5 box closed by an OK click, by Enter and by Esc; no second box, address kept
 PASS test first: typing_recycle_bin_or_this_pc_opens_it, a_folder_removed_while_shown_keeps_its_tab_until_f5_says_it_is_not_available, a_background_tab_whose_folder_is_deleted_keeps_its_address fail on unchanged main (99acc7d on fbd14cb: "the Recycle Bin" times out; no box after F5 because the tab jumped; background tab moved to Documents) and pass after the fix
 PASS ? tests: a_question_mark_stands_for_exactly_one_character (ox-core) and a_question_mark_finds_names_with_one_character_there pass on main too: ? was already a one-character wildcard everywhere (folder filter, live walk, cache, contents); no code change for item 1, only tests and notes
 PASS removed_folder unit test an_unavailable_folder_is_said_in_windows_words
