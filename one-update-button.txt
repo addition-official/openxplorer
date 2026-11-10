@@ -1,3 +1,3 @@
-STATUS: WORKING
-HEAD: one-update-button 924cea00328b63132e94d762bc8b0daa3bed9d4f
-NOTE: Merging the newest upstream main (a119690) and rerunning checks.
+STATUS: DONE
+HEAD: one-update-button 77b7caf55d0825353d6e64be87942dcd72d01d13
+NOTE: Merged upstream main a119690; both new settings rows kept (layout test now 75 rows). fmt, clippy, parity and the touched suites pass; the 11 failing tests fail identically on upstream main here.
