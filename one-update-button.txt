@@ -1,3 +1,3 @@
-STATUS: WORKING
-HEAD: one-update-button 77b7caf55d0825353d6e64be87942dcd72d01d13
-NOTE: Fixing a review finding: keep an update control when the status bar is hidden.
+STATUS: DONE
+HEAD: one-update-button ff899307dfa98fc2ef1f1653e38850726f312d68
+NOTE: Review finding fixed: with the status bar hidden, the command bar shows Update whatever the setting. Touched suites, fmt, clippy and parity pass; PR text updated.
