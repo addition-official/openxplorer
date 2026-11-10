@@ -1,7 +1,7 @@
-STATUS: DONE
-HEAD: looks-windows 00b9a1a07010b9259c5d3580275dfe161372a397
+STATUS: WORKING
+HEAD: looks-windows ec40917b2bb1f365f4624a58edbe17cd5eb6f537
 QUESTION: none
-NOTE: Windows 11 tab menu (with Close tabs to the right), This PC/Recycle Bin/Recent tab icons, weekday Created/Modified and Windows navigation pane are the defaults; two settings off by default bring back our extras. Also fixed: typing Recycle Bin/Recent in the address bar did nothing.
+NOTE: Fixed the 4 tests the combined build found (my earlier failure filter missed them; correction below once the rerun ends); full suite rerunning on this branch and on main for a by-name comparison.
 CHECKLIST (real input with xdotool on a private Xvfb display, release build, fictional demo home; every line ran at 1x and 2x, light and dark, normal and Compact view unless it says otherwise; 47 screenshots per configuration, window titles checked automatically in all 8, pictures reviewed for 1x light, 1x dark, 2x light Compact and the pane runs of all 8)
 PASS: tab menu, 1 tab, right-click: Close tab (X, Ctrl+W), Close other tabs (grayed), Close tabs to the right (grayed), Duplicate tab; Duplicate tab opens a second Documents tab
 PASS: tab menu, first of 3 tabs: Close tabs to the right leaves only the first tab; Duplicate tab adds a copy
