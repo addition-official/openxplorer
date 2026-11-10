@@ -1,4 +1,4 @@
 STATUS: WORKING
-HEAD: windows-details-fixes a119690b
+HEAD: windows-details-fixes f8013d9f
 QUESTION: none
-NOTE: Branch cut from upstream main a119690. Writing failing tests for the three fixes.
+NOTE: Failing tests committed first, then the three fixes, parity and docs. Running the full native checks and the 1x/2x light/dark checklist next.
