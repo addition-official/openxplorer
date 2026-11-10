@@ -1,0 +1,58 @@
+STATUS: DONE
+HEAD: test-combined-33 bd453aa0 (the deb was built from exactly this tree; cargo clean before the release build; guard on HEAD and a clean tree before and after)
+DEB: claude/test-combined-33-deb 2fe19cff
+  openxplorer_2.0.16+test33_all.deb (io.winspace.Development)
+  SHA256: 25d0e504bfc7d9de4143413f35fd090c1f9f2141e1b5469b75f191b6ddc62c30
+BASE: upstream main a119690b (2.0.16)
+
+MERGED HEADS, in order (each descends from a119690b; the newest heads per the follow-up message):
+  one-update-button       7257e9c34e6fc2f17986d98c8768960fa327e5d4 -> dc38de27 (clean)
+  home-like-windows       e85b25716cde74e55f32dbd1dcdc19cb4518eb9f -> 6aa3b4e8
+  looks-windows           03ea2ad802b1b2a15a9880cb991345e31f369f0a -> abb0b574
+  windows-details-fixes   266596816d313ffbfc063733144f96d1e6f52c2c -> d9caed18
+  command-bar-menu-switch 57d41dbcd44227456ae58a4cca6706e849f6cb71 -> 025a16ae (clean; included at the user's explicit go-ahead, lifting the earlier "never include" rule)
+  glue                    bd453aa0
+OWNER'S COMMITS (AKolenda), merged as they are:
+  0ca76194 Show the command bar's Update button by default
+  7257e9c3 Merge the author's hidden-status-bar fallback into the default-on Update button
+  03ea2ad8 Keep the app's tab menu and navigation pane by default, with Windows 11's a switch away
+SWITCHES THE OWNER'S COMMITS CHANGED (none added, none renamed; only defaults flipped to ON, each stored only when OFF):
+  Settings > About: "Show the Update button in the command bar"   key showUpdateButton          default ON  (off hides the command bar's Update; it still shows while Folder Options hides the status bar)
+  Settings > Appearance > Layout: "Show more items in the tab menu"        key moreTabMenuItems         default ON  (on: the app's tab menu; off: Windows 11's)
+  Settings > Appearance > Layout: "Show more items in the navigation pane" key moreNavigationPaneItems  default ON  (on: capacity bars and Recent files, Recent locations, Recycle Bin rows; off: Windows 11's pane)
+
+CONFLICTS AND RESOLUTIONS (both sides kept):
+- home-like-windows / settings_page/tests/redesign.rs: doc comment only (SRCH-046, CMD-013, UPD-001, HOME-012).
+- looks-windows (Home + looks, as in deb 32):
+  - window/navigation.rs: looks' single place_titled path ("Home" -> home_location(); Page::from_title for This PC/Network; listed_place for Recycle Bin, Trash, Recent, Recent locations); doc comment combined.
+  - window/environment.rs: Home's 4-argument sidebar_entries (Home row) plus looks' more_navigation_pane_items gate for the Recent/Recycle Bin rows and capacity bars.
+  - window/location_view.rs: tab icons keep Home's Page::Home glyph plus looks' tinted This PC and listed-place glyphs.
+  - settings_page/tests/redesign.rs: MOVED_ROWS 75 (main + Update) vs 76 (main + looks' 2) -> 77, the real entry count; doc names every added row.
+  - markdown.json regenerated with tools/sync-docs.py.
+- windows-details-fixes + looks (tab menu):
+  - tab_menu.rs: the owner's two menus and graying are kept as they are. Default (Show more items in the tab menu ON): Move tab to new window, Move tab to window…, Duplicate tab, Open windows…, separator, Close tab (Ctrl+W), Close other tabs, Close tabs to the right. Switch OFF: Windows 11's Close tab, Close other tabs, Close tabs to the right, Duplicate tab. Close other tabs is grayed on the only tab, Close tabs to the right on the last tab. Duplicate tab in BOTH menus is details' win.duplicate-tab (copies the tab right after the original, in front, with its history) instead of looks' open-the-same-URI-as-a-new-tab, so tab_menu no longer takes the uri.
+  - tab_strip.rs: looks' menu_facts / open_menu_of_tab / dismiss_tab_menu kept; details' right-click and Menu/Shift+F10 handlers (no uri) kept; all call tab_menu(id, facts).
+  - tab_commands.rs, window_action.rs: both CloseTabsToTheRight and DuplicateTab actions kept.
+  - parity TAB-012: the owner's text with details' Duplicate tab sentence.
+  - markdown.json regenerated.
+- details + keys (Shift+F10 anchor): merged without conflict; details' keyboard-menu anchor tests pass.
+- .pot: no conflict; i18n check passes on the result.
+GLUE bd453aa0: SceneStep::run went to 101 lines with looks' tab-menu step and command-bar-menu-switch's command-menu step (clippy::too_many_lines, merge-only); the Type step moved into type_into_focus. command-bar-menu-switch's own doc comments in picker.rs and tests/command_bar.rs got backticks around command_bar/menu_group.rs (clippy::doc_markdown; that branch's own finding).
+
+CHECKS on bd453aa0:
+- native/tools/check.py: inventories, parity, i18n and tool tests pass; it then stops at clippy on duration_suboptimal_units in ox-core files no branch touches (same on main). I ran its remaining steps with that lint (and map_unwrap_or, decimal_bitwise_operands) allowed: no drawn icons, rustfmt clean, clippy clean, every test binary plus doctests with OX_PYTHON_APP set.
+- native/parity/check.py, i18n check, sync-docs --check: pass.
+- Tests: 4547 passed, 23 failed. All 23 also fail on main a119690b (environment: root permissions, sandbox, Python fixtures, display scale); so no failure is branch-only and none is merge-only:
+  a_gtk_environment_file_that_cannot_be_written_leaves_dialogs_off, a_kde_script_that_cannot_be_written_leaves_dialogs_off, admin_copy::an_fstab_that_cannot_be_read_refuses, an_item_gio_reports_without_a_trash_is_planned_for_permanent_delete, compact_view_rows_keep_their_spacing_at_twice_the_scale, twice_the_scale_draws_the_bars_on_whole_device_pixels, fuse_export_paths_match_native_opening_py, launches_share_one_instance_that_quits_and_restarts_on_request, mount_assistant::the_assistant_prepares_a_command_and_hands_over_the_linux_folder, python_fixture_matches_desktop_core_py, thumbnailers::a_sandboxed_thumbnailer_runs_within_its_limits, thumbnailers::a_sandboxed_thumbnailer_sees_only_its_item, file_drop::the_drop_menu_reads_what_the_items_and_the_folder_allow, clipboard::cancel_in_the_failed_item_dialog_just_stops_and_undo_takes_back_what_was_copied, clipboard::the_panels_cancel_stops_a_copy_without_a_report, context_menus::a_folder_without_write_permission_keeps_new_and_paste_and_shows_the_error, empty_folder::ctrl_v_pastes_nothing_into_a_folder_that_could_not_be_read, empty_folder::new_and_paste_stay_off_while_an_unavailable_folder_is_listed_again, file_operations::delete_reads_delete_and_asks_only_for_items_without_a_trash, new_folder::a_folder_that_cannot_take_a_new_folder_says_why, views::listed_links_and_read_only_files_carry_their_emblems, worker_questions::an_item_in_a_folder_only_an_administrator_may_change_offers_continue, worker_questions::destination_folder_access_denied_offers_continue_with_the_shield
+  (deb 32's looks/search/keys failures are gone: the branches fixed them.)
+
+ONE UNIQUE STRING PER BRANCH IN THE BUILT BINARY (/opt/openxplorer/bin/openxplorer in the .deb, strings | grep -cF; none of these is in main's sources):
+  one-update-button:       "Show the Update button in the command bar" = 2
+  home-like-windows:       "Open the home folder on Home" = 1 (homeOpensFolder = 1)
+  looks-windows:           "Show more items in the tab menu" = 1, "Show more items in the navigation pane" = 2
+  windows-details-fixes:   "duplicate-tab" = 1 (its Duplicate tab action; it adds no translatable string)
+  command-bar-menu-switch: "the command bar shows no menu" = 1 (its snapshot command-menu step; it adds no translatable string)
+POLKIT: record /var/lib/openxplorer/install-updates-without-password = "off" before install -> /etc/polkit-1/rules.d empty after install, record still "off". Purge left neither.
+IDENTITY: every commit I made (57) is addition-official <239187859+addition-official@users.noreply.github.com> with no trailers, and so is the deb commit. The only other identity is AKolenda <akole779@mtroyal.ca> on the owner's 3 commits listed above, merged as asked. The added lines contain no email addresses. In the deb, AKolenda appears only in the upstream repository and update-check URLs (github.com/AKolenda/openxplorer, as in deb 31), and the other addresses are the same third-party set as before.
+NOTE: Old branches: after pushing, the fork has no test-combined-8..32 or claude/test-combined-8..32-deb branches left (someone already deleted them), so there was nothing for me to delete. Only test-combined-33 and claude/test-combined-33-deb remain. (My own branch deletes from this session were refused with HTTP 403 earlier.)
+NOTE: one-update-button and looks-windows were first merged at the heads in the first message (ff899307, 68abcee7); that attempt was discarded unpushed and redone from main with the newer heads.
