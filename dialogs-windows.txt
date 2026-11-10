@@ -1,7 +1,7 @@
-STATUS: WORKING
+STATUS: DONE
 HEAD: dialogs-windows 5cbb1803
 QUESTION: none
-NOTE: All three dialogs done (tests first 09183fe7, failing on main; feature 062a0a4f; captures helper 5cbb1803). Real input under Xvfb with xdotool: 60/60 rename and 72/72 Save-dialog checks pass at 1x and 2x, light and dark. Full test run with the Python app sources is running now; results and the main comparison follow.
+NOTE: All three dialogs built as checked in Windows 11: the Rename extension question and Confirm Save As are compact message boxes sharing one new message-box style of the dialog frame (warning icon warning_32_color from the pinned Fluent package), and the Save dialog's File name hides a known extension when extensions are hidden. Tests first (09183fe7, fail on main), feature 062a0a4f, capture helper 5cbb1803. Real input (xdotool, Xvfb, fictional files): 60/60 rename and 72/72 Save-dialog checks pass at 1x and 2x, light and dark. The Save dialog was opened through the app's FileChooser backend by a stand-in that owns org.freedesktop.portal.Desktop on the private bus, as the unit tests do. The "Properties fixed size" rule does not apply: the boxes are separate dialogs, Properties is unchanged.
 
 PASS Properties name field: asks; Enter = Yes renames (light, 1x)
 PASS extensions hidden: F2 shows extra_2, typed plan -> plan.txt, no question (light, 1x)
@@ -135,3 +135,33 @@ PASS Save dialog extensions hidden, typed "summary": Save writes summary.txt (da
 PASS Save dialog extensions shown, new file report.txt: Save writes report.txt (dark, 2x)
 PASS Save dialog extensions shown, type changed to Markdown: Save writes report.md (dark, 2x)
 PASS Save dialog extensions shown, typed "summary": Save writes summary.txt (dark, 2x)
+PASS tests first: on unchanged main the new and updated tests fail (changing_the_extension_in_place_asks_first_as_windows_explorer_does, the_name_in_properties_asks_before_changing_the_extension, a_file_without_an_extension_gaining_one_asks_first, saving_over_a_file_asks_in_windows_confirm_save_as_box, confirm_save_as_wraps_a_long_name_in_a_compact_box, with_extensions_hidden_file_name_leaves_out_the_extension, with_extensions_hidden_a_selected_file_is_saved_with_the_types_extension, and the updated Yes/No presses); they pass on the branch, also at GDK_SCALE 2
+PASS rustfmt --check, cargo clippy --workspace --all-targets --locked -D warnings
+PASS python3 native/parity/check.py; python3 native/tools/i18n.py check
+PASS full suite (cargo test --workspace --no-fail-fast under Xvfb, private bus, disposable home, OX_PYTHON_APP from v2.0.0:desktop): ox-app 2232/2232 pass; 4423 passed in all
+FAIL python3 native/tools/check.py: stops at ox-core location_fixture_drift (host python3 is 3.13 and parses "[V1.x]" differently); ox-core is unchanged by this branch
+FAIL ox-core, environment only, 11 tests: admin_copy::tests x9 (root/fstab), location_fixture_drift python_fixture_matches_desktop_core_py, network_python fuse_export_paths_match_native_opening_py (python3 3.13 has no gi); the same 11 fail on an unchanged upstream main build (2188 passed, 11 failed, same names)
+PASS captures: dialogs-windows-{1x,2x}-{light,dark}-{rename-question,save-dialog-extensions-hidden,save-dialog-extensions-shown,confirm-save-as-short,confirm-save-as-long}.png via the test harness capture hook (OX_NATIVE_CAPTURE_DIR; the snapshot hook cannot open the Save dialog or capture a dialog window), fictional fixtures
+
+NOT CONFIRMED, check in the VM:
+- Rename question, after No: does the in-place name box stay open with the typed name (ours: yes, kept), or close with the old name?
+- Rename question: is Yes drawn as a filled accent button, or only with the default-button border? Ours fills the default button (Yes; No in Confirm Save As).
+- Rename question: do plain Y and N (without Alt) answer it, and are Y/N underlined while Alt is held? Ours: Alt+Y and Alt+N only, no underline.
+- Rename question from Properties: after No, does Properties show anything (ours keeps "The name was not changed.") and stay open?
+- Extensions hidden, typing an extension in the rename box (extra_2 -> plan.md): ours asks nothing and makes plan.md.txt. Does Windows ask, or keep plan.md.txt?
+- Multi-item rename (one file without an extension gaining one): does Windows ask, once?
+- Message box metrics: width rule for wrapping (ours wraps at 62 characters, ~500 px), button size (ours 88 x 30 px), caption height (ours 32 px), text size, and whether the long-name text wraps mid-name or only at spaces.
+- Confirm Save As with a long name: how wide is Windows' box and where does it wrap?
+- Save dialog, extensions hidden, user types a different extension (extra_2.md with type Text): ours keeps today's rule (a known extension is kept as typed -> extra_2.md). Same in Windows?
+- Save dialog, extensions hidden, changing the type: does the box stay "extra_2" (ours) and save with the new type's extension (ours: extra_2.md)?
+- Save dialog, extensions hidden, File name selection: is the whole name selected (ours) on open?
+- Save dialog, toggling hidden/shown extensions while the dialog is open: ours does not refresh File name.
+- Open dialog with extensions hidden: does File name show a selected file without its extension? Ours keeps the whole name (unchanged).
+- Saving several files where more than one exists ("Confirm Save"): ours keeps Replace / Cancel in the same compact box. Windows' wording?
+
+CHANGED OWNER DECISIONS:
+- OPS-049 (features.toml): "Change the extension?" with Cancel / "Change extension" -> Windows 11's "Rename" message box with Yes (focused) / No; behaviour text and native_note updated. OPS-050 note: "Cancel keeping" -> "No keeping".
+- INT-032 (features.toml): replace question Replace (focused) / Cancel -> Yes / No with No focused, compact Confirm Save As box; several files keep Replace / Cancel.
+- INT-032 (features.toml): File name showed the whole name with the stem selected -> with extensions hidden it shows the name without a known extension, whole name selected.
+- Parity tests updated: renaming.rs, renaming_several.rs, item_dialogs.rs, file_operations.rs (Yes/No, the Rename title), picker.rs (Yes/No, the two-line text). BACKLOG.md had nothing on these dialogs; unchanged.
+- New Fluent icon warning_32_color added, listed in SOURCES.md as awaiting the owner's review.
