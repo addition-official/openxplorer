@@ -1,7 +1,12 @@
 STATUS: DONE
-HEAD: home-like-windows 6f25ab497cdb8bd7cecc7dd083668184c3650ea8
+HEAD: home-like-windows e85b25716cde74e55f32dbd1dcdc19cb4518eb9f
 QUESTION: none
-NOTE: Merged the newest upstream main a119690 (#314, #317, #318, #319, #321, #322) into the branch (merge cc7c50c, no rebase or force push); PR #316 no longer conflicts.
+NOTE: The three new review findings on PR #316 are fixed test-first (tests fcb0dff, fix e85b257), pushed without rebase or force push.
+PASS review 2-1 (favorites by canonical address): a_favorite_is_added_and_removed_by_its_gio_address (ox-core) and a_favorite_with_parentheses_is_known_and_removed_by_its_gio_address (app) do not compile on 6f25ab4 (no favorite_key or Preferences::is_favorite) and pass on e85b257; adding, removing, the file menu and Home's rows now compare the canonical form, user names stripped
+PASS review 2-2 (Favorites list): favorites_rows_come_at_once_and_their_dates_only_when_shown does not compile on 6f25ab4 (no read counter) and passes on e85b257: rows are drawn at once from their addresses, no date is read while Recent is shown, each date is read on its own once Favorites shows, and the reads are cancelled when Home is drawn again
+PASS review 2-3 (Compact view tiles): compact_view_draws_quick_access_tiles_closer does not compile on 6f25ab4 (test helper) and passes on e85b257: tiles 60 px high, 48 in Compact view
+PASS captures: home-like-windows-{1x,2x}-{light,dark}-quick-access-compact.png (tools/native_capture.py capture(), fictional /home/demo); Recent shows its empty note there because the demo's recent dates are older than the desktop's default 30-day limit, which Recent honors
+PASS checks after the fixes: home_page 23/23, sidebar 69/69, address 81/81, context_menu 53/53, settings_page 106/106, compact_density 2/2, landing 28/28, ox-core settings 126/126; clippy pedantic, rustfmt, parity check, i18n check, public-data audit. check.py not re-run in full this round
 PASS merge a119690: conflicts in navigation.rs (place_titled keeps main's Recycle Bin and this branch's home_location() for Home) and context_menu.rs (favorite_fact kept beside main's shift_f10_menu_style); both sides kept
 PASS Shift+F10 on Home: tiles and rows open the file list's menu (the right-click style, the classic menu only with main's 'Shift+F10 opens the classic menu'), as This PC does after main's change; new test shift_f10_on_a_home_item_opens_the_file_lists_menu
 PASS main's new ctrl_t_opens_a_tab_from_* tests (3) expected the home folder; on this branch a new tab opens Home (the Home page by default), so they now expect home_location(); they pass (9/9 text_field_tab_keys)
