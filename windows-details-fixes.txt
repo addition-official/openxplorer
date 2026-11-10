@@ -1,0 +1,4 @@
+STATUS: WORKING
+HEAD: windows-details-fixes a119690b
+QUESTION: none
+NOTE: Branch cut from upstream main a119690. Writing failing tests for the three fixes.
