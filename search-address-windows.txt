@@ -1,7 +1,11 @@
 STATUS: DONE
-HEAD: search-address-windows bf7b70dc2fba60e02d002554c5af20fd90acacd2
+HEAD: search-address-windows 5627760b278ac3cb2bdcc5bf1113fdcd07ae44bd
 QUESTION: none
-NOTE: Combined-build failure fixed: not the size fix (d6ca441); OK always closed the box. A refresh asked while the box was open finished after OK and opened a second box, so the test's wait timed out on a slow machine. Test first 967d619 (fails on d6ca441), fix bf7b70d: a refresh asked while a box is open is not marked as asked. Earlier: tests 99acc7d, feature 44a0c51, box size d6ca441.
+NOTE: PR review finding fixed: F5 on a search shown in a folder found gone only reran the search, so the box never showed. The tab now remembers the folder was found gone (Tab::folder_gone, cleared by a successful listing or a navigation); F5 there ends the search, keeps the folder's address and lists it, so "Location is not available" shows. Test first adca364 (fails on bf7b70d: no box), fix 5627760.
+PASS review finding: f5_on_a_search_in_a_removed_folder_says_it_is_not_available fails on bf7b70d (timed out waiting for the box) and passes on 5627760; the other removed-folder tests still pass
+PASS after the finding: listing, loading, search, search_history, search_layout, search_options, history and address suites: 128 passed; clippy -D warnings (pedantic), rustfmt, parity/check.py, i18n check
+PASS full suite after the finding (5627760, every test executable isolated as check.py does, plus doctests): 4403 passed, 31 failed; the identical 31 fail on unchanged main fbd14cb
+PASS real input after the finding (1x light): searched "plan" in Sub, deleted Sub externally, F5 ended the search, address Sub, box shown; Enter closed it; F5 again showed it once more; Esc closed it
 PASS box race (2026-11-10): a_refresh_asked_while_the_box_is_open_opens_no_box_after_ok fails on d6ca441 (a second box after OK) and passes on bf7b70d; a_folder_removed_while_shown_keeps_its_tab_until_f5_says_it_is_not_available now waits for the second reload and passes; both passed 10 runs in a row
 PASS listing + loading suites after the fix: 24 passed
 PASS full suite after the fix (bf7b70d, every test executable isolated as check.py does, plus doctests): 4402 passed, 31 failed; the 31 are the identical list that fails on unchanged main fbd14cb
@@ -43,6 +47,7 @@ PASS box size: first run showed the box window as tall as the screen (no window 
 PASS captures with tools/native_capture.py (snapshot hook, fictional demo tree): search-address-windows-{1x,2x}-{light,dark}-{question-mark-search,recycle-bin-from-address-bar,location-not-available}.png
 
 NOT CONFIRMED, check in the VM:
+- What Windows does on F5 in search results whose folder was deleted: ends the search and shows the box (ours), reruns the search, or something else.
 - What the folder list shows when the open folder is renamed or deleted by another program, before any F5: does Windows keep the old items, empty the list, or say "This folder is empty."? (Ours keeps the old items for a rename; a delete usually empties as the watch sees the files go.)
 - Whether the "Location is not available" box ever appears before F5 (for example when clicking in the list or after a few seconds). Ours: only on F5/Refresh/Try again.
 - What the list shows behind the box and after OK (old items, empty list, or an error page). Ours: the "This location is unavailable" page.
