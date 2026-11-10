@@ -1,4 +1,5 @@
 STATUS: WORKING
-HEAD: command-bar-menu-switch a119690b (upstream main, nothing committed yet)
+HEAD: command-bar-menu-switch f5850b719dcdaa8b16482659c7ca84696300f5f5
 QUESTION: none
-NOTE: Writing real-pointer tests (XTest under Xvfb) first. Design direction after the Windows facts (click passes through, no hover switch): the bar's menus stop grabbing the pointer, so every click reaches what is under it; the window's existing press handler closes the open menu, and a click on another menu button simply opens that one.
+NOTE: Implemented and pushed; the new real-pointer tests pass on X11 (Xvfb) and on Wayland (weston inside Xvfb). Full check.py runs on the branch and on unchanged main are in progress; final PASS/FAIL list follows.
+Captures: command-bar-menu-switch-<1x|2x>-<light|dark>-sort-from-view-<normal|compact>.png (tools/native_capture.py, fictional demo tree; 2x uses a 780x690 window so it fits the capture screen).
