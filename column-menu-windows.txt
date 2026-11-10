@@ -1,7 +1,7 @@
 STATUS: DONE
-HEAD: column-menu-windows f3ad05c8985ba72a8266196ad3cb92db8308174d
+HEAD: column-menu-windows a6937debc082789505f02cc641899a082ef80afc
 QUESTION: none
-NOTE: Capture review fixes in f3ad05c: with Name selected only Move Up, Show and Hide are grayed (Move Down enabled; Name may move down and rows may sit above it); Name row drawn normally, its check box stays checked; "grayed" everywhere this branch wrote. Name not first is saved as "name" in detailsColumns; Name first is left out, so old settings keep their keys. Choose Details recaptured (8 PNGs).
+NOTE: PR finding fixed (Choose Details signal reference cycles): test first 80a39da (choose_details_is_freed_once_it_closes, a weak ref to the dialog after OK, Cancel and Escape; fails on f3ad05c: "timed out waiting for Choose Details to be freed after OK"), fix a6937de: every callback now reaches the controls through a weak handle on the window; the test passes. Also fixed two Clippy findings in the tests (one from f3ad05c that my earlier Clippy pass missed).
 
 PASS header menu order/structure: Size Column to Fit, Size All Columns to Fit, divider, Name (checked, grayed), Date modified, Type, Size, Date created, File extension, Owner, Permissions, divider, More... (the_titles_menu_is_windows_11s_with_check_marks_only; failed on main)
 PASS no icons on any row, check marks only (same test; captures). On main each column row had an icon.
@@ -21,6 +21,10 @@ PASS Name row drawn normally (not grayed), check box checked; clicking or Space 
 PASS Name moved down: shows after the column above it, saved per folder as modified,name,type,size, listed there on reopening; moved back to the top it is saved as modified,type,size again (name_moved_down_shows_after_the_column_above_it, showing_hiding_and_moving_change_the_columns_chosen)
 PASS after f3ad05c: rustfmt, clippy -D warnings, parity/check.py, i18n check; choose_details + column_fitting + titles menu + column_choice + view_styles 39/39; details, search, Recycle Bin, views, listing, group by, split view, compact 163/163 (full ox_app binary not rerun after this commit)
 PASS Choose Details recaptured 1x/2x, light/dark, normal/Compact
+PASS Choose Details is freed once it closes by OK, Cancel or Escape (choose_details_is_freed_once_it_closes; failed before a6937de)
+PASS after a6937de: rustfmt, clippy -D warnings (workspace lints), parity/check.py, i18n check; choose_details + column_fitting + titles menu + column_choice + view_styles 40/40
+PASS after a6937de, every test binary and the doctests run to the end with the Python app sources: ox_app 2236 passed, 2 failed (thumbnailers sandboxed x2, also fail on unchanged main); all failures listed below also fail on unchanged main
+FAIL ox-core lib admin_copy::tests x9 (expect "removable drive" message, get "other users can change" for this container's /tmp) - fail the same on unchanged main fbd14cb (run there with the same isolation); this branch changes no ox-core file
 PASS check/uncheck, Show/Hide, Move Up/Down (ok_applies_the_choice_and_cancel_discards_it, showing_hiding_and_moving_change_the_columns_chosen)
 PASS width valid (222), 0 (column's narrowest), huge (widest), letters refused, empty changes nothing (the_width_field_takes_digits_and_keeps_the_limits, widths_are_kept_within_the_columns_limits; xdotool typed "2x0" -> field "20" -> applied as Date created's narrowest, 100)
 PASS OK applies visibility, order and width; Cancel, the close button and Escape discard; Enter in the list or the width field is OK
