@@ -1,4 +1,4 @@
 STATUS: WORKING
-HEAD: windows-details-fixes f8013d9f
+HEAD: windows-details-fixes c111e2cc
 QUESTION: none
-NOTE: Failing tests committed first, then the three fixes, parity and docs. Running the full native checks and the 1x/2x light/dark checklist next.
+NOTE: Fixes, tests, parity and docs pushed; captures added. Full native checks and the 2x test pass are running.
