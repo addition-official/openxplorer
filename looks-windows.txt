@@ -1,7 +1,7 @@
-STATUS: DONE
-HEAD: looks-windows ec40917b2bb1f365f4624a58edbe17cd5eb6f537
+STATUS: WORKING
+HEAD: looks-windows 6af7808855a13d4144cfcd3a3049be5fd7b34dd9
 QUESTION: none
-NOTE: Fixed the 4 tests the combined build found (2 settings-row lists, the wastebasket search, the Properties weekday); my earlier report missed them because stderr split their result lines. Full suite rerun on this branch and on main, compared by name: identical 13 failures.
+NOTE: Fixed the review finding: Ctrl+W in a tab menu now closes that menu's tab (test first, real keys checked); full suite rerunning on this branch and on main.
 CHECKLIST (real input with xdotool on a private Xvfb display, release build, fictional demo home; every line ran at 1x and 2x, light and dark, normal and Compact view unless it says otherwise; 47 screenshots per configuration, window titles checked automatically in all 8, pictures reviewed for 1x light, 1x dark, 2x light Compact and the pane runs of all 8)
 PASS: tab menu, 1 tab, right-click: Close tab (X, Ctrl+W), Close other tabs (grayed), Close tabs to the right (grayed), Duplicate tab; Duplicate tab opens a second Documents tab
 PASS: tab menu, first of 3 tabs: Close tabs to the right leaves only the first tab; Duplicate tab adds a copy
