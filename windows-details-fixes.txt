@@ -1,4 +1,52 @@
-STATUS: WORKING
-HEAD: windows-details-fixes 9d54bd65
+STATUS: DONE
+HEAD: windows-details-fixes 26659681
 QUESTION: none
-NOTE: All work pushed; running every native test binary on the branch and on unchanged main to compare failures by name, then the 2x real-input pass.
+NOTE: Three fixes done test-first (new tests failed on main, pass now). The full native test run fails the same 31 environment tests on unchanged main and on this branch (none only here); check.py itself stops at the first of them (location_fixture_drift).
+
+CHECKLIST (real XTEST keyboard and pointer on check.py's Xvfb display; 1x and GDK_SCALE=2; light and dark theme)
+PASS Shift+F10 and Menu key, one item: Details, List, Tiles, Large icons, compact density (1x, 2x; light, dark)
+PASS Shift+F10 and Menu key, Shift+Down multi-select, focus last: menu at the focused (last) row, every view above
+PASS Shift+F10 and Menu key, Shift+Up multi-select, focus first: menu at the focused (first) row, every view above
+PASS Shift+F10 and Menu key, Ctrl+Space selecting the focused row: menu at that row; every view above
+PASS Shift+F10 and Menu key, Ctrl+Space unselecting it (focus on an unselected row): menu at the first selected row (old rule kept); every view above
+PASS Shift+F10 and Menu key, Ctrl+A: menu at the focused row; every view above
+PASS Shift+F10 and Menu key, focused row scrolled off-screen: it scrolls into view, menu points at it; every view above
+PASS Rename question No button -> name box closed, old name shown, item still selected, F2 again works (light, dark; 1x, 2x)
+PASS Rename question Escape -> same
+PASS Rename question close button (caption X) and the window close request -> same
+PASS Rename question plain N -> same (plain N did nothing before)
+PASS Rename question Alt+N -> same
+PASS Rename question Yes button, plain Y, Alt+Y, Enter -> renamed, new name shown
+PASS Properties name field: No -> old name back in the field, no message; OK+No closes the window with the name kept; Yes renames
+PASS Multi-item rename unaffected (renaming_several tests, 1x and 2x)
+PASS Duplicate tab (tab menu, tab right-clicked while behind) on first, middle, last of 3 tabs -> copy right after the original, active, same folder, same view (Tiles), same Back history; right-click does not activate the tab
+PASS Duplicate tab keyboard path: Shift+F10 on the tab, Down, Enter -> copy right after it, active, same history
+PASS Double-click on a tab -> copy right after it, active, same history
+PASS Single tab: "Close other tabs" grayed (existing test, still passes)
+NOT RUN Rename question and Duplicate tab in compact density (ran in normal density only; Shift+F10 cases ran in both)
+PASS Captures (tools/native_capture.py, snapshot hook, fictional demo tree): Shift+F10 menu at the focused 4th row; tab strip after duplicating the middle tab from the keyboard; 1x/2x light/dark (2x captured at a 780x680 logical window so it fits the capture display)
+
+CHECKS
+PASS python3 native/parity/check.py
+PASS rustfmt (cargo fmt --check), clippy -D warnings on all targets
+PASS python3 tools/sync-docs.py --check, python3 tools/audit-public-data.py (no issues)
+FAIL python3 native/tools/check.py: stops at ox-core location_fixture_drift::python_fixture_matches_desktop_core_py (this machine's Python 3.13 urllib now accepts smb://[V1.x]). Ran every test binary and the doctests with the same Python-app setup on both trees: branch 4493 passed / 31 failed, main 4482 passed / 31 failed, identical failing names (location_fixture_drift x2, network_python fuse/mount/server-key/user-name x5, ox_core admin_copy x9 and admin_delete::parent_path x18 that need a trusted home, ox_app thumbnailers sandbox x2). Doctests passed.
+
+NOT CONFIRMED, check in the VM
+- Plain Y answers the Rename question (only N was checked); we accept Y.
+- Properties: after OK -> No in the Rename question, does Windows close Properties? We keep the old name and close (nothing else failed). After Apply -> No we show the old name again.
+- Duplicate tab copies the Back/Forward history (the checklist asked for it; we do it, TAB-013 said the opposite before).
+- Shift+F10 when the focused item is not selected (Ctrl+arrows off the selection, or Ctrl+Space unselecting it): we keep the old rule, first selected item.
+- Shift+F10 after Ctrl+A: we open at the focused item.
+- After No, Windows keeps the item selected and the keyboard on the list (we do).
+- Multi-item rename (F2 on several) whose name adds an extension, then No: we still keep the name box open as before; Windows unchecked.
+- Our tab menu has no "Close tabs to the right" (Windows has it, grayed on the last/only tab); not added, out of scope.
+
+CHANGED OWNER DECISIONS
+- CMD-014 (and CMD-013 wording): keyboard menu at the first selected item -> at the focused selected item.
+- OPS-049: after No the in-place field stayed open with the typed name -> closes with the old name; plain Y/N added.
+- PROP-005: No in Properties showed "The name was not changed." -> old name restored silently; other changes still apply.
+- TAB-012, TAB-013: Duplicate tab opened like a tab from the active tab, fresh history -> right after the original, in front, with its history.
+- TAB-014: double-click on a tab copies like Duplicate tab.
+- TAB-017: Duplicate tab and the double-click ignore the "New tabs open" setting.
+- BACKLOG.md: no entry covered these; unchanged. Docs (interface guide) updated to match.

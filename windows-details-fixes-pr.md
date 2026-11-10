@@ -41,7 +41,8 @@ The docs (Rename, Tabs and the context menu sections of the interface guide) say
   - Duplicate tab on the first, middle and last of three tabs from the tab menu, from the keyboard (Shift+F10 on the tab, Down, Enter) and by double-click.
 - The same real-input tests also ran with `GDK_SCALE=2`.
 - Updated tests for the extension question in place and in Properties, and for the tab menu.
-- `python3 native/tools/check.py` (rustfmt, Clippy with the workspace lints, all native tests) and `python3 native/parity/check.py`.
+- rustfmt, Clippy with the workspace lints and `python3 native/parity/check.py` pass. `python3 native/tools/check.py` stops on this machine at a location-parsing fixture test that also fails on unchanged main (this Python version parses one sample address differently), so every native test binary and the doctests were run with the same setup on both trees: the same 31 tests fail on main and on this branch (environment-dependent fixture, administrator-path and sandboxed-thumbnailer tests), and none fails only here.
+- The existing Properties test for closing during OK now checks that No lets the window close with the old name.
 - `python3 tools/sync-docs.py --check` and `python3 tools/audit-public-data.py`.
 - Pictures of the menu at the focused row and of the tab strip after duplicating the middle tab were taken with the repository's capture tool at 1x and 2x, light and dark, with fictional files.
 
