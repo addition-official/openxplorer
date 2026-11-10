@@ -1,46 +1,50 @@
-STATUS: WORKING
+STATUS: DONE
 HEAD: column-menu-windows 15baf5d0da2e96accf4af84c110cc87d5ff9c26a
 QUESTION: none
-NOTE: Done apart from the main comparison of unrelated failing tests. 15baf5d keeps one titles menu per view (a menu destroyed as it closed left GTK pointing at its gone surface: fatal critical under the tests). Full ox_app binary: 2229 passed, 7 failed (none in the touched code); comparing those on unchanged main now.
+NOTE: Branch cut from upstream main fbd14cb; tests first (538451f: menu tests fail on main by assertion, Choose Details tests do not compile without the window), feature d710d4d, zh_CN kept for the renamed fit items 9868fbd, snapshot titles-menu= step 47f8b1b, one titles menu per view 15baf5d. No PR, no deb. Installed bubblewrap (needed by tools/native_capture.py) and xdotool in this container.
 
 PASS header menu order/structure: Size Column to Fit, Size All Columns to Fit, divider, Name (checked, greyed), Date modified, Type, Size, Date created, File extension, Owner, Permissions, divider, More... (the_titles_menu_is_windows_11s_with_check_marks_only; failed on main)
-PASS no icons on any row, check marks only (same test; captures)
+PASS no icons on any row, check marks only (same test; captures). On main each column row had an icon.
 PASS real right-click on every title (Name, Date modified, Type, Size) opens the menu fitting that column (real_clicks_on_every_title_and_every_column_row; a_real_right_click_on_a_title_opens_the_menu_that_sizes_all_columns; xdotool on Type in a manual Xvfb run)
+PASS real right-click on the empty part of the titles' row after the last column opens it, Size Column to Fit greyed (a_real_click_on_more_opens_choose_details). On main nothing opened there.
 PASS every toggle shows/hides its column with a real click on its row: Date created, File extension, Owner, Permissions, Date modified, Type, Size; Name row greyed, clicking it changes nothing (real_clicks_on_every_title_and_every_column_row)
-PASS menu in search results and the Recycle Bin (the_titles_menu_opens_in_search_results_and_the_recycle_bin)
-N/A  This PC has no column titles (tiles in groups); its heading menu is unchanged
-NOT RUN Recent files: the isolated test session has no recent items, so it shows the empty page without titles
-PASS real right-click on the empty part of the titles' row after the last column opens it, Size Column to Fit greyed (a_real_click_on_more_opens_choose_details)
-N/A  Shift+F10 / Menu key on a focused header: the column titles take no keyboard focus in the app (their row refuses focus, as on main), so there is nothing to press it on
+N/A  Shift+F10 / Menu key on a focused header: the column titles take no keyboard focus in the app (their row refuses focus, same as main), so there is nothing to press them on
 PASS Size Column to Fit / Size All Columns to Fit (column_fitting tests, all 8 pass)
-PASS menu now takes the keyboard: Up wraps to More..., Enter opens Choose Details (choose_details_works_with_the_keyboard_alone; xdotool manual run). On main its rows could not take focus.
-PASS Choose Details opens from More... by click, keyboard and xdotool
-PASS layout and text: title, sentence, Details:, list, Move Up/Move Down/Show/Hide, width label + field, OK/Cancel (more_opens_choose_details_as_windows_draws_it)
-PASS greyed states: Name (all four greyed), first row after Name (Move Up greyed), unchecked (Hide greyed), last row (Move Down greyed)
+PASS menu in search results and the Recycle Bin (the_titles_menu_opens_in_search_results_and_the_recycle_bin)
+N/A  This PC has no column titles (grouped tiles); its heading menu is unchanged
+NOT RUN Recent files: the isolated session has no recent items, so it shows the empty page without titles
+PASS menu takes the keyboard: starts on the first item, Up wraps to More..., Enter opens Choose Details (choose_details_works_with_the_keyboard_alone; xdotool). On main its rows could not take focus (attached to the titles' row, rows drawn greyed before it was in the window).
+PASS Choose Details opens from More... by real click, keyboard and xdotool
+PASS layout and text: title, sentence, Details:, list, Move Up/Move Down/Show/Hide, width label + field, OK/Cancel (more_opens_choose_details_as_windows_draws_it; captures)
+PASS greyed states: Name (all four greyed), first row after Name (Move Up greyed), unchecked row (Hide greyed), last row (Move Down greyed)
 PASS check/uncheck, Show/Hide, Move Up/Down (ok_applies_the_choice_and_cancel_discards_it, showing_hiding_and_moving_change_the_columns_chosen)
-PASS width valid (222), 0 (narrowest), huge (widest), letters refused, empty changes nothing (the_width_field_takes_digits_and_keeps_the_limits, widths_are_kept_within_the_columns_limits; xdotool typed 2x0 -> 20 -> applied as 100)
-PASS OK applies visibility, order and width; Cancel, close button and Escape discard; Enter in the list or width field is OK
+PASS width valid (222), 0 (column's narrowest), huge (widest), letters refused, empty changes nothing (the_width_field_takes_digits_and_keeps_the_limits, widths_are_kept_within_the_columns_limits; xdotool typed "2x0" -> field "20" -> applied as Date created's narrowest, 100)
+PASS OK applies visibility, order and width; Cancel, the close button and Escape discard; Enter in the list or the width field is OK
 PASS reopening shows the current state (order, checks, width)
-PASS per-folder save (default) and shared view (ok_saves_the_shared_view_when_folders_share_one; manual run: settings folderViews detailsColumns modified,type,created,size)
-PASS fixed size: not resizable; captures 432x500 at 1x and 864x998 at 2x (same logical size)
-PASS keyboard-only run: arrows, Space, Tab, Shift+Tab, Enter, Escape (real XTEST)
-PASS captures 1x/2x, light/dark, normal/Compact: header menu and Choose Details (16 PNGs, tools/native_capture.py with a new titles-menu= scene step)
-PASS rustfmt, clippy -D warnings (workspace lints), parity/check.py, i18n check
-FAIL check.py: stopped at ox-core location_fixture_drift python_fixture_matches_desktop_core_py ('[V1.x]' now parsed by this machine's Python urllib); no ox-core change on this branch; running it on unchanged main next
+PASS per-folder save (default; manual xdotool run: folderViews detailsColumns modified,type,created,size, created width 100) and shared view (ok_saves_the_shared_view_when_folders_share_one)
+PASS fixed size: not resizable; 432x500 at 1x and 864x998 px at 2x (same logical size)
+PASS keyboard-only run through Choose Details: arrows, Space, Tab, Shift+Tab, Enter, Escape (real XTEST; xdotool)
+PASS captures 1x/2x, light/dark, normal/Compact: header menu and Choose Details, 16 PNGs column-menu-windows-<scale>-<theme>-<case>-<normal|compact>.png (tools/native_capture.py with the new titles-menu= scene step, fictional demo tree)
+PASS rustfmt, clippy -D warnings with the workspace lints, native/parity/check.py, i18n check, tools/sync-docs.py
+PASS full ox_app test binary run to the end (all 2236 tests): 2229 passed, 7 failed; 5 of those need the Python app sources my runner did not extract and pass with them; the other 2 below
+FAIL check.py stops at ox-core location_fixture_drift python_fixture_matches_desktop_core_py ('[V1.x]' now parsed by this machine's Python urllib) - fails the same on unchanged main
+FAIL ox-core network_python fuse_export_paths_match_native_opening_py - fails the same on unchanged main
+FAIL ox_app thumbnails::thumbnailers::tests::a_sandboxed_thumbnailer_runs_within_its_limits and a_sandboxed_thumbnailer_sees_only_its_item - fail the same on unchanged main (bubblewrap sandbox in this container)
+PASS all other test binaries and the doctests
 
 NOT CONFIRMED, check in the VM:
 - Choose Details: can Name be moved (Move Up/Down with Name selected), and can another row be moved above Name? Ours keeps Name first.
-- Header menu: are the column rows in a fixed order, or do they follow the current column order (after a drag, or after showing a column with More...)? Does a column shown through Choose Details (e.g. Owner-like ones) get added to the header menu? Ours lists a fixed set.
-- Width field: what OK does with 0, an empty field, a huge number; whether letters are refused (balloon "Unacceptable character"?). Ours keeps digits only and clamps to each column's limits.
-- Choose Details size at 100% scale (ours 432x500) and list height (ours 250 px, 9 rows).
-- Where the keyboard starts when Choose Details opens (ours: the list, Name selected) and whether Enter in the list is OK and Space toggles the selected row.
-- Does Tab from the list go to Move Up (first enabled button)? Shift+Tab back to the list?
+- Header menu: are the column rows a fixed list, or do they follow the current column order (after a drag, or after More...)? Does a column shown through Choose Details get added to the header menu? Ours lists a fixed set.
+- Width field: what OK does with 0, an empty field and a huge number; are letters refused (balloon "Unacceptable character"?). Ours takes digits only and clamps to each column's limits.
+- Choose Details size at 100% (ours 432x500 logical) and the list's height (ours 250 px, 9 rows).
+- Where the keyboard starts when Choose Details opens (ours: the list, Name selected); is Enter in the list OK; does Space toggle the selected row?
+- Does Tab from the list go to Move Up (or the first enabled button), and Shift+Tab back to the list?
 - Header menu opens on right-button press or release? (ours: release)
-- Can the keyboard reach the column headers at all (Tab / Shift+F10 / Menu key)?
-- Search results: does the header menu offer Folder/Folder path as a toggle? Recycle Bin: Original Location / Date Deleted toggles? Ours keeps them always shown, not listed.
+- Can the keyboard reach the column headers at all (Tab, Shift+F10, Menu key)?
+- Search results: is Folder/Folder path offered as a toggle in the header menu? Recycle Bin: Original Location / Date Deleted toggles? Ours keeps them always shown, not listed.
 - Name's width shown when Name fills the window (VM showed 272).
 - Does a click on a row's check box also select that row?
 
 CHANGED OWNER DECISIONS:
-- VIEW-033: Name was left out of the titles' menu; now listed checked and greyed (Windows). Native note updated.
-- VIEW-072: the note said the menu does not end with More... (no column chooser); it now ends with More... opening Choose Details, and the fit items use Windows' capitals. Behaviour and note updated.
+- VIEW-033: Name was left out of the titles' menu; now listed checked and greyed (Windows). Native note updated with the new tests.
+- VIEW-072: the note said the menu does not end with More... because the app had no column chooser; it now ends with More... opening Choose Details, and the fit items use Windows' capitals ("Size Column to Fit", "Size All Columns to Fit"). Behaviour and note updated. The Keyboard shortcuts window keeps "Size all columns to fit" for Ctrl+keypad plus.
