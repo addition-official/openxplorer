@@ -1,4 +1,63 @@
-STATUS: WORKING
-HEAD: keys-windows ce6f3e2de308dcea6571efdf9bebb5e20427c047
+STATUS: DONE
+HEAD: keys-windows 7db7e88879baa378814538a35435c9a5eae163c0
 QUESTION: none
-NOTE: Implemented and checked with xdotool; the full ox_app test run and the comparison run on unchanged main are in progress. Esc during a real drag FAILED on unchanged main (proved with XTest input; GTK's X11 drag never sees Esc), so it is fixed.
+NOTE: Branch cut from upstream main fbd14cb. Tests first (1c9cc66 fails on main; 2d6a3a6 adds the setting tests, which do not build on main), feature ce6f3e2, test note 7db7e88. Esc during a real drag FAILED on unchanged main with XTest input (the same input xdotool sends): the Esc key reached the window, GTK's X11 drag was never cancelled, and the release moved the file onto the folder, a navigation row, a tab or another window. Fixed by cancelling the app's file drag from the window's own key handler, the way GTK does. Real input: in-process XTest tests (pointer + keyboard of check.py's Xvfb) plus manual xdotool sessions on Xvfb with fictional files (1x light, 1x dark, 2x dark). Tooling notes: installed xdotool and bubblewrap (bwrap, needed by tools/native_capture.py); with bwrap present, the two thumbnailer sandbox tests fail here, and they fail on unchanged main too. OPENXPLORER_SETTINGS_SEARCH is documented in the snapshot hook but never used (existing), so the setting-row pictures use OPENXPLORER_SETTINGS=appearance; at 2x those use a 780x1150 window on a taller Xvfb screen so the row shows.
+
+PASS Shift+F10 setting off, one file: Windows 11 menu (strip + Show more options) next to the file, pointer parked in the corner (xdotool 1x light; XTest test in Details, List, Tiles, Large icons, compact view)
+PASS Shift+F10 setting off, one folder: Windows 11 folder menu at the folder (xdotool + XTest test, all 5 views)
+FAIL Shift+F10 setting off, several items: Windows 11 menu opens, but it points at the FIRST selected item, not the keyboard-focused one (Shift+Down selection, xdotool). This is the existing rule (CMD-014, keyboard_menu_anchor), unchanged; Windows' placement is in the NOT CONFIRMED list
+PASS Shift+F10 setting off, empty space: Windows 11 folder menu (View, Sort by, Group by, ...) near the top-left of the view (xdotool + XTest test)
+PASS Shift+F10 setting off, navigation pane row (reached with F6): Windows 11 row menu at the row; Esc returns focus to the row (xdotool + XTest test). Focus return was BROKEN before (went to the pane splitter, also with the Menu key) and is fixed
+PASS Shift+F10 on a tab (reached with F6): tab menu under the tab, Esc returns focus to the tab (unchanged; xdotool + XTest test)
+PASS Shift+F10 in Details, List, Tiles, Large icons: menu at the item (xdotool 1x light); plus Compact view in the XTest test
+PASS Shift+F10 setting on (2x dark, xdotool): classic menu on a file and on a navigation row; Menu key still opens the Windows 11 menu; Esc returns focus
+PASS Shift+F10 setting on (XTest test): classic menu for one file, one folder, several items, empty space, a navigation row; turning it off gives the Windows 11 menu again
+PASS Shift+F10 with "Right-click menu" set to Windows 10: classic menu (XTest test)
+PASS Menu key unchanged (setting off and on)
+PASS Shift+right-click unchanged: classic menu, setting off and on (xdotool + XTest test)
+PASS Esc closes the menu and focus returns (file list in every tested view, navigation row, tab)
+PASS Ctrl+T from the file list: new Home tab (xdotool)
+PASS Ctrl+T from the address bar (edit mode): new Home tab, 1 and 3 tabs (XTest test; xdotool 1 tab)
+PASS Ctrl+T from the search box, empty and with text: new Home tab, 1 and 3 tabs (XTest test; xdotool)
+PASS Ctrl+W from the address bar and the search box (empty and with text) with 3 tabs: closes the tab (XTest test; xdotool with 2 and 3 tabs)
+PASS Ctrl+W on the last tab closes the window, from the address bar and from the search box (XTest test; xdotool from the address bar)
+PASS Ctrl+N from the address bar and the search box (empty and with text), 1 and 3 tabs: nothing, no window, text and keyboard unchanged (XTest test; xdotool)
+PASS Ctrl+N from the file list still opens a window (existing tests; tab_commands)
+PASS Text in the fields is not changed by Ctrl+T/Ctrl+W/Ctrl+N (checked for Ctrl+N directly; Ctrl+T/W leave the field when its tab changes)
+PASS Ctrl+A/Ctrl+C/Ctrl+V/Ctrl+Z act on the search box's text, not the files (XTest test)
+PASS Esc on Replace or Skip, copy, one conflict: closes, nothing changed, no partial files, progress window gone (XTest test)
+PASS Esc on Replace or Skip, copy, two conflicts (XTest test; xdotool 1x light)
+PASS Esc on Replace or Skip, move, one conflict (XTest test; xdotool 1x light: both files stayed where they were)
+PASS Esc on Replace or Skip, move, two conflicts (XTest test)
+PASS Enter on a row reached with the keyboard answers with that row (XTest test, Skip this file)
+FAIL "Enter picks the default": with no row focused, Enter does nothing, as on unchanged main; there is no default row in our question. Windows' default is in the NOT CONFIRMED list
+PASS Esc during drag within the list onto a folder: release moves nothing (XTest test fails on main; xdotool 1x dark: "Move to Archive" label, Esc, release, file stayed)
+PASS Esc during drag onto a navigation pane row (XTest test, fails on main)
+PASS Esc during drag onto a tab (XTest test, fails on main)
+PASS Esc during drag onto another window of the app (XTest test, fails on main)
+PASS After Esc, a normal drag still works (XTest tests onto a folder and another window; xdotool 1x dark)
+PASS rustfmt; clippy -D warnings with the workspace lints; native/parity/check.py; native/tools/i18n.py check; tools/sync-docs.py --check
+PASS ox_app full run on the branch (no other load): 2247 passed, 3 failed: the two thumbnailer sandbox tests (also fail on unchanged main here, bwrap environment) and renaming::the_name_fields_own_menu_keeps_the_rename_going (passes on main, then passed 3 of 3 reruns on the branch: one-off)
+FAIL native/tools/check.py did not finish green here. Its first run stopped at integration_file_chooser::another_program_is_refused (GLib-CRITICAL crash); that executable passed in two later runs, branch and main. Running every executable separately, these also fail on unchanged main in this container: ox_core admin_copy (9 tests), location_fixture_drift::python_fixture_matches_desktop_core_py, network_python::fuse_export_paths_match_native_opening_py, the two thumbnailer sandbox tests. search_live was killed once when my session-stop helper killed the test run (my mistake, fixed); it passes on main
+PASS New/changed key tests on unchanged main (1c9cc66 + final tests): all 21 fail there for the expected reason
+
+CAPTURES (status branch, tools/native_capture.py snapshot hook, fictional demo tree; 1x and 2x, light and dark):
+keys-windows-<scale>-<theme>-shift-f10-menu.png (file, setting off), -shift-f10-menu-folder.png, -shift-f10-classic-menu.png (setting on), -setting-row.png (off), -setting-row-on.png
+
+NOT CONFIRMED, check in the VM:
+1. Several items selected with Shift+Down (focus on the last): does Shift+F10's menu open at the focused item or the first selected? (ours: first selected)
+2. Windows 11's new menu: does "Show more options" show "Shift+F10" as its key, and does pressing Shift+F10 while the new menu is open switch to the classic menu? (ours: the row still shows "Shift+F10"; pressing it in the open menu does nothing)
+3. Ctrl+W from the search box (only the address bar was checked): does it close the tab, or the window with the last tab? (ours: it does)
+4. Ctrl+T / Ctrl+W while renaming an item in place, and in a dialog's text box: do they open/close tabs? (ours: no, the field keeps them)
+5. Ctrl+H, Ctrl+Tab, Ctrl+Shift+Tab, Alt+Left/Right/Up and Ctrl+1..9 from the address bar and the search box: do they act? (ours: no, the field keeps them)
+6. Replace or Skip Files with no row focused: does Enter pick a row, and which? (ours: Enter does nothing until a row has the keyboard)
+7. Paste a mix of a file with a namesake and a file without: is the one without a namesake copied before Replace or Skip shows, and does it stay after Esc? (ours: yes and yes, the owner's existing design)
+8. Two copies running, both asking Replace or Skip: which one does Esc cancel? (ours: the one with the keyboard, else the first asking)
+9. Dragging a file over a tab: does Windows 11 switch to that tab after a moment, and what does the tooltip say?
+10. Esc during a right-button drag: does it cancel the same way?
+11. Shift+F10 on a selected tab: which menu opens? (ours: the tab menu, unchanged)
+
+CHANGED OWNER DECISIONS:
+- CMD-013 (with CMD-008, CMD-014 and the Send to note): Shift+F10 opened the classic menu. It now opens the right-click menu's style, as the Menu key does. The owner's behavior is the setting Settings > Appearance > Layout > "Shift+F10 opens the classic menu" (off by default, stored as shiftF10Classic only while on). The keyboard shortcuts window now names Shift+F10 "Context menu" instead of "Show more options".
+- CMD-017 / TAB-001 / TAB-002 (window/window_keys.rs, BACKLOG): Ctrl+T and Ctrl+W were left to text fields (app.js). They now work from the address bar in edit mode and the search box; Ctrl+N, Ctrl+H, Ctrl+Tab and Alt+arrows stay with the field. BACKLOG and the CMD-017 note also claimed Ctrl+H/N/T/W/Tab/Alt+arrows already acted from text fields, which window_keys.rs never did; both now describe the code. Changed tests: tabs.rs (renamed ctrl_tab_stays_out_of_text_fields_ctrl_t_works_from_search_and_properties_keep_none), tab_commands.rs (the_tab_keys_reach_the_window_through_its_shortcuts), context_menus.rs (renamed shift_f10_and_the_menu_key_open_the_right_click_menu).
+- New: DND-029 (Esc during a drag). Esc in Replace or Skip now cancels the job like the close button (OPS-026 docs; no earlier decision covered Esc there).
