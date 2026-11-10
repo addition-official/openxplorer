@@ -1,4 +1,49 @@
-STATUS: WORKING
-HEAD: looks-windows ce9521ef87fec5a1ca60659bd0a059a3b2ee302e
+STATUS: DONE
+HEAD: looks-windows 00b9a1a07010b9259c5d3580275dfe161372a397
 QUESTION: none
-NOTE: All four changes and their tests are pushed; the full test suite, real-input checks and captures are running next.
+NOTE: Windows 11 tab menu (with Close tabs to the right), This PC/Recycle Bin/Recent tab icons, weekday Created/Modified and Windows navigation pane are the defaults; two settings off by default bring back our extras. Also fixed: typing Recycle Bin/Recent in the address bar did nothing.
+CHECKLIST (real input with xdotool on a private Xvfb display, release build, fictional demo home; every line ran at 1x and 2x, light and dark, normal and Compact view unless it says otherwise; 47 screenshots per configuration, window titles checked automatically in all 8, pictures reviewed for 1x light, 1x dark, 2x light Compact and the pane runs of all 8)
+PASS: tab menu, 1 tab, right-click: Close tab (X, Ctrl+W), Close other tabs (grayed), Close tabs to the right (grayed), Duplicate tab; Duplicate tab opens a second Documents tab
+PASS: tab menu, first of 3 tabs: Close tabs to the right leaves only the first tab; Duplicate tab adds a copy
+PASS: tab menu, middle of 3 tabs: Close other tabs leaves only it; Close tabs to the right leaves the first two
+PASS: tab menu, last of 3 tabs: Close tabs to the right grayed; Close tab and Close other tabs do what they say
+PASS: tab menu opened by Shift+F10 and by the Menu key on the focused tab (F6 to the tab), first item focused; Down+Enter runs Close other tabs; focus returns to the tab
+PASS: extras setting on: Move tab to new window, Move tab to window…, Open windows… appear after a separator; Move tab to new window opens the tab in its own window, Move tab to window… lists windows, Open windows… opens the windows menu
+PASS: tab icons: folder, Home (folder, unchanged), This PC (laptop), Recycle Bin (bin), Recent (history), Recent locations (clock), search results (magnifier); active and inactive; both themes
+PASS: Properties, file modified today: Created/Modified "Monday, November 9, 2026, 23:53:10" style (24-hour in this C.UTF-8 session); Accessed "Today, ..." unchanged
+PASS: Properties, yesterday / 5 days ago / last year: Modified "Sunday, November 8, 2026, ...", "Wednesday, November 4, 2026, ...", "Sunday, October 5, 2025, ..."; Accessed for yesterday still "Yesterday, ..."
+PASS: Properties, folder: only Created, weekday form; several items: no dates shown (as before)
+PASS: navigation pane default: Home, pinned folders with pins, This PC with Local Disk, Network; no usage bar; no Recent files, Recent locations or Recycle Bin rows; no Gallery (the app has none)
+PASS: navigation pane with "Show more items in the navigation pane": today's pane exactly (usage bar under Local Disk, Recent files, Recent locations, Recycle Bin after Network)
+PASS: drives under This PC (Local Disk; no other drives exist in the isolated session)
+PASS: navigation pane keyboard: Shift+Tab into the pane, Down, End, Up, Left collapses This PC, Right expands it
+PASS: drag a file (Beach) onto the pinned Documents row moves it there
+PASS: Recycle Bin, Recent and Recent locations reachable while hidden: typed in the address bar (fixed in this branch, it did nothing before) and the Recycle Bin from the first-crumb menu
+PASS: narrow window (640 px wide): pane, address bar and list still laid out
+PASS: settings rows: Settings > Appearance > Layout "Show more items in the navigation pane" and "Show more items in the tab menu", off by default
+CHECKS
+PASS: cargo fmt --check
+PASS: cargo clippy (workspace lints, -D warnings)
+PASS: python3 native/parity/check.py
+PASS: python3 native/tools/i18n.py check (template regenerated)
+PASS: python3 tools/audit-public-data.py (no issues)
+PASS: new tests written first and seen failing on the unchanged code (compile errors for the new API; the typed-address test timed out), all pass now
+FAIL: python3 native/tools/check.py stops at ox-core location_fixture_drift (python_fixture_matches_desktop_core_py: Python 3.13 here rejects "[V1.x]" differently); same on unchanged main
+FAIL: full workspace tests (isolated, with the Python app sources): 4418 passed, 13 failed: 9 ox-core admin_copy tests (/tmp is world-writable here), fuse_export_paths_match_native_opening_py and python_fixture_matches_desktop_core_py (Python 3.13 / missing module), 2 thumbnailer-sandbox tests (no user namespaces); all 13 fail the same way on unchanged main; every interface test passes
+NOT CONFIRMED, check in the VM
+1. Tab menu graying: on a window's only tab, are Close other tabs and Close tabs to the right grayed out (ours: both grayed)? On the last tab, is Close tabs to the right grayed (ours: grayed)?
+2. Properties Accessed: when does Windows write "Today, ..., 36 minutes ago" / "1 minute ago" and when the clock time? Ours is unchanged ("Today, November 9, 2026, 4:38:11 PM").
+3. Address bar icon when the Recycle Bin is open (ours: the bin glyph, as on its tab); also for Recent (ours: history glyph).
+4. Home tab icon: Windows' Home tab shows which icon? Ours keeps the yellow folder (our Home is the home folder).
+5. Where Duplicate tab puts the copy: right after the original or at the end of the strip (ours: at the end).
+6. After Close tabs to the right closes the tab in front, which tab is in front (ours: the right-clicked tab)?
+7. Duplicate tab's icon: compare with our Copy glyph (two overlapping sheets).
+8. Folder Properties: does the General tab show only Created? Several items: no Created/Modified/Accessed at all?
+9. After clicking a navigation pane row, does keyboard focus stay in the pane (ours moves it to the file list; same on main)?
+CHANGED OWNER DECISIONS
+- TAB-012 tab menu: Python app's items -> Windows' four items; Move tab to new window, Move tab to window…, Open windows… behind "Show more items in the tab menu" (TAB-060, off by default)
+- TAB-015 Close other tabs: now second, no icon
+- TAB-010 tab icons: This PC and Recycle Bin no longer the folder; no setting (icon only)
+- SIDE-001, SIDE-018, SIDE-025, SIDE-026 navigation pane: usage bars and Recent files, Recent locations, Recycle Bin rows hidden by default, behind "Show more items in the navigation pane" (SIDE-034)
+- PROP-003 Properties dates: Created and Modified always the weekday (PROP-038); Accessed keeps Today/Yesterday; no setting (text format only)
+- New: TAB-059 Close tabs to the right; NAV fix: typed "Recycle Bin"/"Recent"/"Recent locations" and their addresses now open (noted under SIDE-034)
