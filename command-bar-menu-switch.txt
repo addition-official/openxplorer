@@ -1,5 +1,5 @@
 STATUS: WORKING
-HEAD: command-bar-menu-switch f5850b719dcdaa8b16482659c7ca84696300f5f5
+HEAD: command-bar-menu-switch 57d41dbcd44227456ae58a4cca6706e849f6cb71
 QUESTION: none
-NOTE: Implemented and pushed; the new real-pointer tests pass on X11 (Xvfb) and on Wayland (weston inside Xvfb). Full check.py runs on the branch and on unchanged main are in progress; final PASS/FAIL list follows.
+NOTE: Implemented and pushed; 8 real-pointer tests pass on X11 (Xvfb, 1x and 2x) and on Wayland (weston inside Xvfb). Branch: every test binary run; comparison run on unchanged main in progress; final PASS/FAIL list follows.
 Captures: command-bar-menu-switch-<1x|2x>-<light|dark>-sort-from-view-<normal|compact>.png (tools/native_capture.py, fictional demo tree; 2x uses a 780x690 window so it fits the capture screen).
