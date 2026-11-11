@@ -1,7 +1,7 @@
 STATUS: DONE
-HEAD: open-folder-follows (not pushed; no commits made)
+HEAD: none
 QUESTION: none
-NOTE: Cancelled: Windows recheck matched main's behavior; no change needed.
+NOTE: Cancelled: Windows recheck matched main; no change needed.
 NOTE: Upstream main 0406518 does not have #317's keep-the-address behavior: the #317 merge (0d05778) dropped it (head commit 25e3b91 restored Dolphin's NAV-039), so a removed folder still moves to the nearest existing parent with "Current location changed, <path> is no longer accessible." Check that against the VM result before closing.
 
 No code changed, no tests run, no captures taken.
