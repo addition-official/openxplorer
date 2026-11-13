@@ -1,7 +1,7 @@
-STATUS: WORKING
+STATUS: DONE
 HEAD: windows-details-fixes f40a2895
 QUESTION: none
-NOTE: Merged upstream main 04065186 (merge, no rebase); both tab menus keep Duplicate tab right after the original. Rerunning check.py and full tests on the merge and on main.
+NOTE: Merged upstream main 04065186 (merge commit, no rebase or force-push). Main's two tab menus and the switch kept; Duplicate tab goes right after the original in both. Shift+F10 anchor and rename No kept. Full tests: same 31 environment failures on main 04065186 and on the merge, none only here.
 
 CHECKLIST (real XTEST keyboard and pointer on check.py's Xvfb display; 1x and GDK_SCALE=2; light and dark theme)
 PASS Shift+F10 and Menu key, one item: Details, List, Tiles, Large icons, compact density (1x, 2x; light, dark)
@@ -32,6 +32,16 @@ PASS rustfmt (cargo fmt --check), clippy -D warnings on all targets
 PASS python3 tools/sync-docs.py --check, python3 tools/audit-public-data.py (no issues)
 FAIL python3 native/tools/check.py: stops at ox-core location_fixture_drift::python_fixture_matches_desktop_core_py (this machine's Python 3.13 urllib now accepts smb://[V1.x]). Ran every test binary and the doctests with the same Python-app setup on both trees: branch 4493 passed / 31 failed, main 4482 passed / 31 failed, identical failing names (location_fixture_drift x2, network_python fuse/mount/server-key/user-name x5, ox_core admin_copy x9 and admin_delete::parent_path x18 that need a trusted home, ox_app thumbnailers sandbox x2). Doctests passed.
 
+AFTER MERGING UPSTREAM MAIN 04065186 (2026-11-13)
+PASS Merge: conflicts in tab_menu.rs, tab_strip.rs, tab_commands.rs, window_action.rs, features.toml and the docs resolved keeping both sides; tab_menu() no longer takes the URI, Duplicate tab runs win.duplicate-tab in both menus
+PASS Duplicate tab in Windows 11's tab menu ("Show more items in the tab menu" off): first, middle, last of 3 tabs, right-click on a tab behind, and Shift+F10/Down/Enter -> copy right after the original, active, same folder/view/history (new cases in duplicate_tab.rs, light and dark)
+PASS Suites on the merge: duplicate_tab, tab_commands, tab_menu, context_menus, rename_question, renaming, renaming_several, shift_f10_keys, tabs, item_dialogs (166 passed, 0 failed, 1x)
+PASS rustfmt --check, clippy -D warnings (all targets), parity/check.py, i18n.py extract (the .pot was already current) and check, sync-docs.py (markdown.json regenerated) and --check, audit-public-data.py (no issues)
+FAIL check.py: stops again at location_fixture_drift::python_fixture_matches_desktop_core_py, also failing on main
+PASS Every test binary plus doctests, same Python-app setup: merge 4533 passed / 31 failed, main 04065186 4522 passed / 31 failed; identical failing names (the same 31 as before the merge), none only on the merge
+PASS Captures retaken from the merged build (1x/2x, light/dark), replacing the earlier ones
+NOTE TAB-059's open question (which Close items Windows grays out) now records the Windows check given with this task: only tab -> Close other tabs and Close tabs to the right grayed; last tab -> Close tabs to the right grayed, as here.
+
 NOT CONFIRMED, check in the VM
 - Plain Y answers the Rename question (only N was checked); we accept Y.
 - Properties: after OK -> No in the Rename question, does Windows close Properties? We keep the old name and close (nothing else failed). After Apply -> No we show the old name again.
@@ -40,7 +50,6 @@ NOT CONFIRMED, check in the VM
 - Shift+F10 after Ctrl+A: we open at the focused item.
 - After No, Windows keeps the item selected and the keyboard on the list (we do).
 - Multi-item rename (F2 on several) whose name adds an extension, then No: we still keep the name box open as before; Windows unchecked.
-- Our tab menu has no "Close tabs to the right" (Windows has it, grayed on the last/only tab); not added, out of scope.
 
 CHANGED OWNER DECISIONS
 - CMD-014 (and CMD-013 wording): keyboard menu at the first selected item -> at the focused selected item.
