@@ -10,7 +10,7 @@ Three small differences from Windows 11 File Explorer, each compared with Window
 
 - **Shift+F10 and the Menu key with several items selected** now open the menu at the selected item the keyboard is on, the one it moved to last, instead of at the first selected item. When the keyboard is on an item that is not selected, the menu still opens at the first selected item. An item scrolled out of sight comes into view first and the menu opens once it is drawn there.
 - **No in the "Rename" extension question** now ends the rename: the name box closes and the row shows the old name. Escape, the box's close button, N and Alt+N do the same. Y and N now answer the question without Alt too. Yes, Y, Alt+Y and Enter still rename. In Properties, No puts the old name back in the name field without the "The name was not changed." message.
-- **Duplicate tab** now puts the copy right after the tab it copies and brings it to the front, with the same folder, view and Back and Forward history. This works from the tab's right-click menu, from Shift+F10 or the Menu key on a tab, and from a double-click on a tab. Right-clicking a tab behind still leaves it behind.
+- **Duplicate tab** now puts the copy right after the tab it copies and brings it to the front, with the same folder, view and Back and Forward history. This works in both tab menus (the app's own, and Windows 11's when "Show more items in the tab menu" is off), whether opened with a right-click or with Shift+F10 or the Menu key on a tab, and from a double-click on a tab. Right-clicking a tab behind still leaves it behind.
 
 | Case | Before | After | Windows 11 |
 | --- | --- | --- | --- |
@@ -38,7 +38,7 @@ The docs (Rename, Tabs and the context menu sections of the interface guide) say
 - New tests drive the app on the private test display with its real keyboard and pointer, in the light and the dark theme:
   - Shift+F10 and the Menu key with one item, Shift+Down, Shift+Up, Ctrl+Space selecting and unselecting the focused item, and Ctrl+A, in Details, List, Tiles, Large icons and the compact view; and with the focused row scrolled out of sight in each view.
   - The Rename question answered with No, Escape, the close button, the window's close request, N, Alt+N, Yes, Y, Alt+Y and Enter, each followed by F2.
-  - Duplicate tab on the first, middle and last of three tabs from the tab menu, from the keyboard (Shift+F10 on the tab, Down, Enter) and by double-click.
+  - Duplicate tab on the first, middle and last of three tabs from both tab menus, from the keyboard in both menus (Shift+F10 on the tab, Down, Enter) and by double-click.
 - The same real-input tests also ran with `GDK_SCALE=2`.
 - Updated tests for the extension question in place and in Properties, and for the tab menu.
 - rustfmt, Clippy with the workspace lints and `python3 native/parity/check.py` pass. `python3 native/tools/check.py` stops on this machine at a location-parsing fixture test that also fails on unchanged main (this Python version parses one sample address differently), so every native test binary and the doctests were run with the same setup on both trees: the same 31 tests fail on main and on this branch (environment-dependent fixture, administrator-path and sandboxed-thumbnailer tests), and none fails only here.

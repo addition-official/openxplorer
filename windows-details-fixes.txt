@@ -1,7 +1,7 @@
-STATUS: DONE
-HEAD: windows-details-fixes 26659681
+STATUS: WORKING
+HEAD: windows-details-fixes f40a2895
 QUESTION: none
-NOTE: Three fixes done test-first (new tests failed on main, pass now). The full native test run fails the same 31 environment tests on unchanged main and on this branch (none only here); check.py itself stops at the first of them (location_fixture_drift).
+NOTE: Merged upstream main 04065186 (merge, no rebase); both tab menus keep Duplicate tab right after the original. Rerunning check.py and full tests on the merge and on main.
 
 CHECKLIST (real XTEST keyboard and pointer on check.py's Xvfb display; 1x and GDK_SCALE=2; light and dark theme)
 PASS Shift+F10 and Menu key, one item: Details, List, Tiles, Large icons, compact density (1x, 2x; light, dark)
