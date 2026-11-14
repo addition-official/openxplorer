@@ -56,7 +56,7 @@ No failure points at an app regression.
 | 2 | **The tab keeps the old search's title.** | Documents, search `a?b`, Enter. Then search `a?b.txt`, then `Notes`. The tab still reads "a?b - Search Results in Documents" until something else redraws it. | `record_search_step` (`window/search_steps.rs:83-91`) only calls `render_location()` when `History::set_current_search` (`history.rs:227-231`) reports a change of kind. Since #310 (69e9d749) added the query to the title (`window/location_view.rs:83-93`), a new query must redraw too. Redraw the tab and window title whenever the query changes. | Yes (X11) |
 | 2 | **Keyboard focus is lost after a Home menu closes.** | With "Open Quick access on Home" on, click a Quick access tile, press Right, then Shift+F10, then Esc. Left and Enter now do nothing. | `window/home_page.rs:204-231` and `:925-950` (#316, 24064bab) only unparent the popover. Return focus to the tile or row on close, as #321's `menu_opener` does for the navigation pane. Add a focus test to `window/tests/home_page.rs`. | Yes (X11) |
 | 2 | **Pictures on an `smb://` share never get thumbnails**, so #327 has no effect for shares opened through GVfs. | Open `smb://127.0.0.1/Studio/Small` (3 small PNGs) in Large icons: type icons only. The same PNGs in ~/Pictures get thumbnails. `gio info` on the share reports only `standard::fast-content-type` (image/png) and no `standard::content-type`. | `ox-core/src/entry/info.rs:37` reads only `standard::content-type`. With none, `PreviewRequest::for_entry` (`thumbnails.rs:187`) returns `None`. Fall back to `fast-content-type`, or guess from the name, for remote entries. Decide this together with the default question in C. | Yes (X11; gvfs on Ubuntu 24.04) |
-| 3 | **An offline share shows a raw system error, pre-selected.** | Open the share, stop the server, press F5. The page reads "This location is unavailable / Software caused connection abort", with that line highlighted as if selected. | Say what Windows says (the location is not available, check the network) and keep the raw error under details. Don't select the label's text on show (`window/loading/disconnected.rs`). | Yes (X11) |
+| 3 | **An offline share shows a raw system error, pre-selected.** | Open the share, stop the server, press F5. The page reads "This location is unavailable / Software caused connection abort", with that line highlighted as if selected. An unreachable server gives "Failed to mount Windows share: Connection refused" the same way. | Say what Windows says (the location is not available, check the network) and keep the raw error under details. Don't select the label's text on show (`window/loading/disconnected.rs`). | Yes (X11) |
 | 3 | **Home's Recent and Favorites show file extensions** while every other view hides known ones (the default). | With Quick access on Home and the default settings, Recent lists "sunset.png", "plan.pdf" and "Budget 2026.txt", while Documents lists "plan" and "Budget 2026". | `file_row` in `window/home_page.rs:577-585` (#316) uses the raw name. Use the same shown-name helper as the file list. | Yes (X11) |
 | 3 | **Browsing a TAR hides a safe relative link** and says "1 unsafe names or links are hidden.", which also has a plural error. | Open Bundle.tar.gz, which has `bundle/lib/libx.so -> libx.so.1`. Only libx.so.1 shows, and the toast appears. #308 extracts that same link. | `ox-core/src/archive/browse.rs:196` (`is_listable`) still treats every link as unsafe. Apply the extract rule (`archive/extract/plan.rs:303`) when listing. Fix the singular message (`archive_view/browser.rs:430`). | Yes (Wayland) |
 | 3 | **About a quarter of the Chinese UI is English.** | `LANGUAGE=zh_CN`: Home shows "Favorites" and "Files you open recently show here."; the file menu shows "Add to Favorites" and "Compress to"; the status bar says "1 item selected". 630 of the 2,475 msgids in `po/openxplorer.pot` are missing from `po/zh_CN.po`, including #316's Home strings. No string was cut off in the views checked. | Update `po/zh_CN.po` from the .pot, or hide the language until it's complete. | Yes (X11) |
@@ -66,7 +66,7 @@ No failure points at an app regression.
 | 4 | **Changing the view loses the focused item.** | Big (12,000 files): press End (file 11999 is focused), then Ctrl+Shift+2. The view jumps to the top and file 11999 is out of sight. | Scroll the focused item into view after a view change. | Yes (X11) |
 | 4 | **An archive is named two ways, and search is off inside it.** | Open Bundle.tar.gz. The tab says "Bundle.tar.gz", while the address bar and file list say "Bundle.tar". The search box is grayed out. | Use the shown name for the tab. Search inside archives is a separate gap (`location_view.rs:261`). | Yes (Wayland) |
 | 4 | **Split view at 1x cuts off columns.** | Start in split view at 1x. The right pane shows Name, Date modified and a clipped Type, with no Size and no horizontal scroll bar. The left pane has a scroll bar. | Fit the columns to the pane, or show a scroll bar in both panes. | Yes (X11) |
-| 4 | **Compact Home looks cramped and uneven.** | Compact view with Quick access on Home: tile rows touch (the pin icon sits on the next tile's name), and there's an empty band about one row tall between Recent's column titles and the first row. | Check the `.home-*` compact spacing (#316, `compact_density.rs:46`). | Yes (X11, 1x and 2x) |
+| 4 | **Home looks cramped and uneven.** | Quick access on Home: in Compact view tile rows touch (the pin icon sits on the next tile's name). In both normal and Compact views there's an empty band about one row tall between Recent's column titles and the first row. | Check the `.home-*` spacing (#316, `compact_density.rs:46`). | Yes (X11, 1x and 2x) |
 | 5 | **The share's name changes case.** | Type `smb://127.0.0.2/Studio/Photos`. The address bar shows "Studio", the navigation pane "studio on 127.0.0.2". | Use one source for the share's display name. | Yes (X11) |
 | 5 | **TAR members with time 0 show "1/1/1980 12:00 AM".** | Open a TAR whose members have mtime 0. 1980 is the ZIP/DOS epoch; a TAR uses Unix time. | Leave Date modified empty for a zero TAR time, or show 1970. | Yes (Wayland) |
 
@@ -129,6 +129,59 @@ No failure points at an app regression.
 | 4 | Type-ahead shows "Jump to: no" and the matching name (Notes 1.md) in the status bar. | Windows shows nothing there while you type. |
 | 4 | Properties: Created and Modified use the weekday ("Friday, ..."), Accessed uses "Yesterday, ..." for the same date. | Which wording does each date use on the General tab? |
 | 5 | A click within the top 4 px of a tab (or of the caption buttons) of a floating window starts a resize instead of selecting the tab (#322, `resize_edges.rs:44`, `:371`). | How tall Explorer's inside top resize band is over its tabs. |
+
+## Second pass
+
+A second session added keyboard paths, data-loss edge cases, a 10,000-file share, a 2,000-entry Recent list, Wayland at 2x, Chinese at 2x and startup with offline shares. Same build, same isolation, real xdotool input.
+
+### More bugs
+
+| Rank | What happens | Exact steps | Suggested fix | Reproduced |
+|---|---|---|---|---|
+| 2 | **The window can open larger than the screen.** The default size is 1320 × 810 logical pixels with no check against the monitor. On a 1366 × 768 laptop, or any screen at 150-200% scaling, the bottom or right edge (status bar, Details, caption buttons) is off-screen. | Weston at scale 2 on a 1650 × 1050 output (825 × 525 logical): the window ran off the right and bottom. Maximizing didn't fit it either. At 800 × 560 the layout does adapt (one Quick access column), so only the default size is wrong. | Clamp the default and the restored size to the monitor's work area (`resources/ui/window.ui:20`, `window/window_size.rs:131`). | Yes (Wayland 2x) |
+| 3 | **The "Move by copying?" question is hidden under the progress window.** Only its buttons (Cancel, "Copy, then remove originals") show, beside "0% complete", so you're asked to agree without seeing the question. | Cut plan.pdf in Documents and paste it into `smb://127.0.0.1/Studio/Small`. The question and the progress window are separate windows, and the progress window covers the question's title and text. Xvfb has no window manager, so both opened at the top-left; please check placement on a real desktop. | Ask inside the progress window, as Replace or Skip does, or make the question transient for the progress window (`window/file_ops/move_by_copying_dialog.rs`). | Yes (X11 1x and 2x, no WM) |
+| 4 | **A finished move reports a failure.** | Move a 400 MB file to the share and stop the server just after it finishes copying. The file is complete on the share and the original is gone (no data lost), but the app shows "Interrupted Action ... Error deleting file: Software caused connection abort" with only OK. The error comes from gvfsd-smb, so the app tried to delete something on the share after the copy. | Find which delete runs after a successful copy, and don't report an error for a move whose copy and source removal both finished. | Yes (X11, once) |
+| 5 | **Text in the Preview pane has no margin.** | Alt+P on Budget 2026.txt: the text starts at the pane's top-left edge. | Add padding to the text preview. | Yes (X11) |
+| 5 | **"This folder is empty." takes the keyboard focus ring** in an empty folder. | Open an empty read-only folder: the label has a focus ring. | Keep focus on the file list. | Yes (X11) |
+
+### More differences that Microsoft confirms
+
+| Rank | What OpenXplorer does | Steps | What Windows does (source) | Suggested fix | Reproduced |
+|---|---|---|---|---|---|
+| 3 | Alt+drag makes a plain copy, not a shortcut (from the first review, still there). | Hold Alt and drag Notes 2.md onto Projects: Projects gets a copy. Ctrl+drag copies and a plain drag moves, as they should. | "Alt+mouse drag a file: When you drop the file, create a shortcut to the original file in that location." (https://support.microsoft.com/en-us/windows/keyboard-shortcuts-in-windows-dcc61a57-8ff0-cffe-9796-cb9706c75eec) | Map Alt to Link in `window/file_drop/action.rs` (`with_keys`). | Yes (X11) |
+
+### More "Not sure"
+
+| Rank | What OpenXplorer does | What to look at on Windows 11 |
+|---|---|---|
+| 3 | Renaming Notes 2.md to "Notes 1" asks "Would you like to rename "Notes 1.md" to "Notes 1 (2).md"?", naming the existing file rather than the one being renamed. | Rename a file to an existing name: which file does the question name? |
+| 3 | Moving to another drive or a share first asks "Move by copying?". The code says this is a deliberate safety choice (`move_by_copying_dialog.rs:5-8`). | Cut and paste to a share or another drive: does Windows ask anything? |
+| 4 | On X11 without a window manager, after a dialog closes, X keyboard focus falls back to the root window, and then Esc during a drag is ignored and the drop moves the file. Three of three attempts after closing "Empty Recycle Bin" with Esc; ten of ten worked in a fresh session. | Not a Windows question: check on a real X11 desktop (GNOME/KDE on Xorg) that Esc still cancels a drag after closing any confirmation dialog. |
+
+### Also checked and working
+
+- **Keyboard.**
+  - F6 cycles the tab strip, address bar, search box, command bar and navigation pane.
+  - Alt alone focuses the command bar's New button.
+  - Ctrl+Shift+E shows the current folder in the navigation pane.
+  - F4 selects the address bar (Microsoft's Windows 11 table: "F4: Select the address bar to change the current path").
+  - Alt+Up goes up and focuses the folder you came from.
+  - Ctrl+1 switches tabs.
+- **Moves and undo.** A plain drag moves a file and Ctrl+Z puts it back.
+- **Read-only destination.** Pasting a cut file into a read-only folder gives "Destination Folder Access Denied" with Continue, Skip and Cancel. Cancel keeps the source.
+- **Rename conflict** asks the Rename File question with Yes and No. Yes gives "Notes 1 (2).md".
+- **Unreadable subfolder** (a first-review bug, now fixed): "Folder Access Denied" with "Do this for all current items"; Skip copies everything else.
+- **Recycle Bin.**
+  - "Restore the selected items" restores.
+  - "Empty Recycle Bin" asks "Are you sure you want to permanently delete this file?" first.
+- **Network.**
+  - 10,000 files on the share listed within 2 s.
+  - Search there returned 11 results within 3 s, with `\\127.0.0.1\studio\Many` paths.
+  - Startup with two offline shares and a pin on an unreachable host opened in 1.3 s, with red offline badges.
+  - Opening the unreachable pin failed fast and left the app responsive.
+  - Try again reconnected once the server was back.
+- **Home** with 2,000 recent files showed the newest 50 within 3 s.
+- **Chinese at 2x:** nothing cut off in Settings or the file view (untranslated strings are in A).
 
 ## Worked well
 

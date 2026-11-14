@@ -1,4 +1,4 @@
 STATUS: DONE
 HEAD: none
 QUESTION: needs the manager (private)
-NOTE: reviewed upstream main 04065186 on X11 (1x/2x, light/dark, normal/Compact) and Wayland (Weston); A bugs 18, B regressions 1 (Home search off since #316) plus 18 features checked OK, C Microsoft-confirmed 6, not sure 10; tests 4542 passed, 11 failed (environmental); report in overnight-review-2-report.md
+NOTE: two passes on upstream main 04065186, X11 (1x/2x, light/dark, normal/Compact) and Wayland (Weston); A bugs 23, B regressions 1 (Home search off since #316) plus 18 features checked OK, C Microsoft-confirmed 7, not sure 13; tests 4542 passed, 11 failed (environmental); report in overnight-review-2-report.md
