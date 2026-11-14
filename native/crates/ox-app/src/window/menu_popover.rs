@@ -503,7 +503,7 @@ impl MenuPopover {
     /// Replaces the menu's entries.
     pub(super) fn set_entries(&self, entries: Vec<MenuEntry>) {
         self.imp().entries.replace(entries);
-        self.redraw();
+        self.redraw_keeping_the_keyboard();
     }
 
     /// Shows the menu in `style`, with `strip_items` as the compact
@@ -511,7 +511,68 @@ impl MenuPopover {
     pub(super) fn set_style_and_strip(&self, style: MenuStyle, strip_items: Vec<MenuItem>) {
         self.imp().strip_items.replace(strip_items);
         self.set_style(style);
+        self.redraw_keeping_the_keyboard();
+    }
+
+    /// Rebuilds the rows of a menu that may be open, as when the New
+    /// menu's templates are read again just after it opened. Removing
+    /// the row the keyboard is on leaves the window's keyboard nowhere
+    /// in the menu, and an open menu gets no new `show` or `map` to take
+    /// it again, so it takes it back here: on the row at the same place,
+    /// else the first item that can be chosen.
+    fn redraw_keeping_the_keyboard(&self) {
+        let focus = self.root().and_then(|root| root.focus());
+        let had_keyboard = self.is_mapped() && focus.as_ref().is_some_and(|focus| focus.is_ancestor(self));
+        let place = focus
+            .and_then(|focus| focus.ancestor(gtk::ListBoxRow::static_type()))
+            .and_downcast::<gtk::ListBoxRow>()
+            .filter(|row| row.parent().as_ref() == Some(self.list().upcast_ref()))
+            .map(|row| row.index());
         self.redraw();
+        if !had_keyboard {
+            return;
+        }
+        let same_place = place
+            .and_then(|index| self.list().row_at_index(index))
+            .filter(WidgetExt::is_sensitive);
+        match same_place {
+            Some(row) => {
+                row.grab_focus();
+            }
+            None => self.focus_first_item(),
+        }
+    }
+
+    /// Scrolls the rows as GTK's scrolled window does for `scroll`, a
+    /// wheel or touchpad scroll over the menu that GTK sent to the window
+    /// under it (`command_bar/menu_group.rs`): a wheel notch moves them
+    /// by the page's height to the power of 2/3, a touchpad by its
+    /// pixels.
+    pub(super) fn scroll_rows_for(&self, scroll: &gdk::ScrollEvent) {
+        let Some(rows) = self
+            .list()
+            .ancestor(gtk::ScrolledWindow::static_type())
+            .and_downcast::<gtk::ScrolledWindow>()
+        else {
+            return;
+        };
+        let adjustment = rows.vadjustment();
+        let notch = adjustment.page_size().powf(2.0 / 3.0);
+        let delta = match scroll.direction() {
+            gdk::ScrollDirection::Up => -notch,
+            gdk::ScrollDirection::Down => notch,
+            gdk::ScrollDirection::Smooth => {
+                let (_, dy) = scroll.deltas();
+                if scroll.unit() == gdk::ScrollUnit::Surface {
+                    dy
+                } else {
+                    dy * notch
+                }
+            }
+            _ => 0.0,
+        };
+        let last = (adjustment.upper() - adjustment.page_size()).max(adjustment.lower());
+        adjustment.set_value((adjustment.value() + delta).clamp(adjustment.lower(), last));
     }
 
     /// Draws the menu in `style` and names it for screen readers.

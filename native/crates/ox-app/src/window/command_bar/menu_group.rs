@@ -35,7 +35,7 @@
 //! item before the release, or a right or middle click runs nothing. The
 //! wheel and the touchpad's scrolling and gestures are sent the same
 //! wrong way, and are taken too, so they never scroll or zoom the files
-//! under the menu.
+//! under the menu; a scroll scrolls the menu's own rows instead.
 //!
 //! The keyboard is unchanged: a menu takes it when it opens, Escape
 //! closes it and gives it back to the button.
@@ -259,11 +259,19 @@ impl CommandBar {
                     }
                 }
             }
-            // GTK sends these to the same remembered target as presses.
-            gdk::EventType::Scroll
-            | gdk::EventType::TouchpadSwipe
-            | gdk::EventType::TouchpadPinch
-            | gdk::EventType::TouchpadHold
+            // GTK sends these to the same remembered target as presses:
+            // a scroll goes to the menu's rows instead, so a tall menu
+            // still scrolls before the pointer moves again.
+            gdk::EventType::Scroll => match self.menu_sent_past(event) {
+                Some(menu) => {
+                    if let Some(scroll) = event.downcast_ref::<gdk::ScrollEvent>() {
+                        menu.scroll_rows_for(scroll);
+                    }
+                    glib::Propagation::Stop
+                }
+                None => glib::Propagation::Proceed,
+            },
+            gdk::EventType::TouchpadSwipe | gdk::EventType::TouchpadPinch | gdk::EventType::TouchpadHold
                 if self.menu_sent_past(event).is_some() =>
             {
                 glib::Propagation::Stop
