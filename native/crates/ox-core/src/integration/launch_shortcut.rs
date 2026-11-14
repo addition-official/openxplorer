@@ -755,7 +755,11 @@ impl<G: GlobalShortcuts> LaunchShortcut<G> {
     /// its own record), with the records it led through; `None` when it
     /// ends at a removed app, at a removed package without a record, or
     /// goes round.
-    fn way_back(&self, mut action: ShortcutAction, past_ours: bool) -> (Option<ShortcutAction>, Vec<PathBuf>) {
+    fn way_back(
+        &self,
+        mut action: ShortcutAction,
+        past_ours: bool,
+    ) -> (Option<ShortcutAction>, Vec<PathBuf>) {
         let mut seen: Vec<String> = Vec::new();
         let mut used = Vec::new();
         loop {
@@ -787,7 +791,8 @@ impl<G: GlobalShortcuts> LaunchShortcut<G> {
         if holds_super_e {
             paths.push(earlier.clone());
         }
-        let record = read_record_at(&own).or_else(|| holds_super_e.then(|| read_record_at(&earlier)).flatten());
+        let record =
+            read_record_at(&own).or_else(|| holds_super_e.then(|| read_record_at(&earlier)).flatten());
         (record, paths)
     }
 
@@ -801,7 +806,9 @@ impl<G: GlobalShortcuts> LaunchShortcut<G> {
     /// `OpenXplorer` gives Super+E to, or the launch action an earlier
     /// version gave it to.
     fn is_removed_package(&self, action: &ShortcutAction) -> bool {
-        self.is_other_package(action) && is_super_e_action_of(action, &action.component) && self.is_removed(action)
+        self.is_other_package(action)
+            && is_super_e_action_of(action, &action.component)
+            && self.is_removed(action)
     }
 
     /// True when the settings folder holds any record of what Super+E was

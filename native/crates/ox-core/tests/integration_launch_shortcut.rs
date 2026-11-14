@@ -1244,7 +1244,10 @@ fn a_removed_package_that_had_super_e_gives_it_back_when_the_other_starts() {
     assert!(shortcuts.keys_of(DOLPHIN).contains(&SUPER_E));
     assert_eq!(shortcuts.keys_of(OURS), Vec::<KeySequence>::new());
     assert!(no_record_names(settings.path(), OURS));
-    assert_eq!(preview.status(), LaunchShortcutStatus::Other("Dolphin".to_owned()));
+    assert_eq!(
+        preview.status(),
+        LaunchShortcutStatus::Other("Dolphin".to_owned())
+    );
     assert_eq!(preview.restore().unwrap(), RestoredShortcut::NotOurs);
     preview.enable().unwrap();
     assert_eq!(preview.restore().unwrap(), RestoredShortcut::GivenBack);
@@ -1325,7 +1328,10 @@ fn turning_it_off_never_gives_super_e_to_a_removed_package() {
 
         assert_eq!(preview.restore().unwrap(), RestoredShortcut::GivenBack);
 
-        assert!(shortcuts.keys_of(DOLPHIN).contains(&SUPER_E), "started: {started}");
+        assert!(
+            shortcuts.keys_of(DOLPHIN).contains(&SUPER_E),
+            "started: {started}"
+        );
         assert_eq!(shortcuts.keys_of(OURS), Vec::<KeySequence>::new());
         assert_eq!(records_in(settings.path()), Vec::<String>::new());
     }
@@ -1493,7 +1499,11 @@ fn stale_records_of_removed_packages_are_cleaned_up_at_start() {
 
     stable.forget_removed_apps().unwrap();
 
-    assert!(no_record_names(settings.path(), PREVIEW), "{:?}", records_in(settings.path()));
+    assert!(
+        no_record_names(settings.path(), PREVIEW),
+        "{:?}",
+        records_in(settings.path())
+    );
     assert_eq!(*shortcuts.actions.borrow(), before, "KDE's shortcuts stay");
 
     // An old record pointing only at the removed package goes entirely.

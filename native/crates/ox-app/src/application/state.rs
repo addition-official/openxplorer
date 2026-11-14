@@ -98,7 +98,9 @@ impl AppState {
         let context = self.context.downgrade();
         glib::timeout_add_seconds_local_once(SHORTCUT_TIDY_DELAY, move || {
             if let Some(context) = context.upgrade() {
-                context.desktop_integration().forget_removed_launch_shortcut_apps();
+                context
+                    .desktop_integration()
+                    .forget_removed_launch_shortcut_apps();
             }
         });
     }
