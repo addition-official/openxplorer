@@ -160,6 +160,10 @@ impl EmptyPage {
         };
         self.title.set_text(title);
         self.message.set_text(message);
+        // Only a message worth copying (an error, a search's reason) can
+        // be selected; Gallery's hint would show selected when focused.
+        self.message
+            .set_selectable(!matches!(state, EmptyState::NoPhotos));
         self.message.set_visible(!message.is_empty());
         self.retry
             .set_visible(matches!(state, EmptyState::Unavailable(_)));

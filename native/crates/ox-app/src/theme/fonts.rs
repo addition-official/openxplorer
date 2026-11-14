@@ -464,9 +464,9 @@ fn tile_rule(icon_size: IconSize, text_size: TextSize) -> String {
     // the item's own box, so a heading's row is a line of text tall.
     format!(
         "gridview.files.{class} > child {{ min-width: {width}px; min-height: {height}px; }}\n\
-         gridview.files.icon-groups.{class} > child {{ min-height: 0; padding-top: 0; padding-bottom: 0; }}\n\
+         gridview.files.icon-groups.{class} > child {{ min-height: 0; padding: 0; }}\n\
          gridview.files.icon-groups.{class} > child > box:not(.group-slot) \
-         {{ min-height: {height}px; padding-top: 12px; padding-bottom: 12px; }}"
+         {{ min-height: {height}px; padding: 12px 10px; }}"
     )
 }
 
