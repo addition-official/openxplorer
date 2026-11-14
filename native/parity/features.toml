@@ -1334,6 +1334,130 @@ native = "done"
 native_note = "native/crates/ox-app/src/window/home_page.rs (set_folded, connect_fold_keys, connect_tab_keys, connect_edge_keys, KeptFocus); native/crates/ox-app/resources/skin/landing.css. Tested in native/crates/ox-app/src/window/tests/home_page.rs (each_section_folds_by_click_and_by_keyboard). Microsoft: 'Home now preserves whether sections are expanded or collapsed' (2026-08-17). Chevrons, counts and keyboard order are not documented."
 
 [[feature]]
+id = "HOME-017"
+area = "HOME"
+title = "Gallery in the navigation pane, right under Home"
+behaviour = "The navigation pane lists 'Gallery' (photo glyph) right under Home, in Home's group, whether Settings' 'Show more items in the navigation pane' is on or off. Activating it opens Gallery (ox:gallery) in the tab, titled 'Gallery' with the same glyph on the tab and in the address bar. Windows 11 lists Gallery as a node in the navigation pane (build 23435); where it sits and its icon are not documented and are to be checked in Windows."
+origin = ["openxplorer"]
+priority = "could"
+openxplorer = "missing"
+sources = [
+  "https://blogs.windows.com/windows-insider/2023/04/14/announcing-windows-11-insider-preview-build-23435/",
+]
+python_tests = []
+bridge = []
+native = "todo"
+
+[[feature]]
+id = "HOME-018"
+area = "HOME"
+title = "Gallery from the address bar, history and tabs"
+behaviour = "Typing 'Gallery' (any case, surrounding spaces ignored) or 'ox:gallery' in the address bar and pressing Enter opens Gallery, unless a folder of that name is in the current folder, as for 'Recycle Bin' and 'This PC'. Back and Forward step to and from Gallery as to any location, and a new tab can show it."
+origin = ["openxplorer"]
+priority = "could"
+openxplorer = "missing"
+sources = [
+  "https://blogs.windows.com/windows-insider/2023/04/14/announcing-windows-11-insider-preview-build-23435/",
+]
+python_tests = []
+bridge = []
+native = "todo"
+
+[[feature]]
+id = "HOME-019"
+area = "HOME"
+title = "Gallery: photos of Pictures and its subfolders, newest first, in month groups"
+behaviour = "Gallery lists the photos (image/* files) of the Pictures folder (XDG_PICTURES_DIR) and every subfolder walked as a search walks them (no links, other filesystems or system folders; only local folders are walked below the top level), as thumbnails in the icon view, the most recently taken at the top (Windows: 'Your most recently taken photos appear at the top of Gallery'). They are grouped by month, headed with the month's name and year ('March 2026'), newest month first and newest photo first within a month. A photo's date is its EXIF DateTimeOriginal, read in local time, else its date modified. Folders, videos and other files are not listed. Hidden photos follow Show hidden items."
+origin = ["openxplorer"]
+priority = "could"
+openxplorer = "missing"
+sources = [
+  "https://support.microsoft.com/en-us/topic/september-26-2023-windows-configuration-update-542780c2-594c-46cb-979d-11116fe164ba",
+  "https://blogs.windows.com/windows-insider/2023/04/14/announcing-windows-11-insider-preview-build-23435/",
+]
+python_tests = []
+bridge = []
+native = "todo"
+
+[[feature]]
+id = "HOME-020"
+area = "HOME"
+title = "Gallery reads EXIF dates off the main thread and remembers them"
+behaviour = "Each photo's EXIF date taken is read from at most the first 256 KiB of the file on the listing's worker thread, never on the main thread, and kept in memory by location, size and date modified, so a reload reads only new or changed photos. Nothing is written to disk and nothing is sent anywhere."
+origin = ["openxplorer"]
+priority = "could"
+openxplorer = "missing"
+sources = [
+  "https://support.microsoft.com/en-us/topic/september-26-2023-windows-configuration-update-542780c2-594c-46cb-979d-11116fe164ba",
+]
+python_tests = []
+bridge = []
+native = "todo"
+
+[[feature]]
+id = "HOME-021"
+area = "HOME"
+title = "Gallery follows photos added and removed while it is open"
+behaviour = "While Gallery is shown, the Pictures folder and the subfolders it walked are watched with inotify (one reader thread for all of them, at most 4,096 folders); a photo saved, moved in, renamed or deleted anywhere in them updates Gallery within about a second, in its month, without losing the selection or the scroll position. F5 lists it again."
+origin = ["openxplorer"]
+priority = "could"
+openxplorer = "missing"
+sources = [
+  "https://blogs.windows.com/windows-insider/2023/04/14/announcing-windows-11-insider-preview-build-23435/",
+]
+python_tests = []
+bridge = []
+native = "todo"
+
+[[feature]]
+id = "HOME-022"
+area = "HOME"
+title = "Gallery's photos open and act as files"
+behaviour = "In Gallery a double-click or Enter opens a photo in its default application; the right-click menu, the Menu key and Shift+F10 offer the file's menu (Open, Open with, Cut, Copy, Rename, Delete, Properties and the rest), with 'Open file location' (also in a new tab or window), which opens the photo's folder with the photo selected. Selection is as in any folder: click, Ctrl+click, Shift+click, rubber band, Ctrl+A; Delete moves the selection to the Recycle Bin; F2 renames. New and Paste are off, as Gallery is no folder. Item check boxes show while their setting is on, Ctrl+mouse wheel resizes the thumbnails, and Alt+P / Alt+Shift+P open the preview and details panes (builds 23451, 23440, 22631.2191)."
+origin = ["openxplorer"]
+priority = "could"
+openxplorer = "missing"
+sources = [
+  "https://blogs.windows.com/windows-insider/2023/04/14/announcing-windows-11-insider-preview-build-23435/",
+  "https://blogs.windows.com/windows-insider/2023/05/04/announcing-windows-11-insider-preview-build-23451/",
+  "https://blogs.windows.com/windows-insider/2023/04/19/announcing-windows-11-insider-preview-build-23440/",
+  "https://blogs.windows.com/windows-insider/2023/08/10/announcing-windows-11-insider-preview-build-22621-2191-and-22631-2191/",
+]
+python_tests = []
+bridge = []
+native = "todo"
+
+[[feature]]
+id = "HOME-023"
+area = "HOME"
+title = "Gallery's empty state, and no Pictures folder"
+behaviour = "With no photos, or no Pictures folder at all, Gallery shows no error, only an empty page that says 'No photos to show' and 'Photos in your Pictures folder show here.' While the first photos are still being read, the page says it is loading rather than that it is empty, as Windows does since build 23565."
+origin = ["openxplorer"]
+priority = "could"
+openxplorer = "missing"
+sources = [
+  "https://blogs.windows.com/windows-insider/2023/10/11/announcing-windows-11-insider-preview-build-23565-dev-channel/",
+]
+python_tests = []
+bridge = []
+native = "todo"
+
+[[feature]]
+id = "HOME-024"
+area = "HOME"
+title = "Gallery stays responsive with large libraries"
+behaviour = "Gallery's listing runs on a worker thread and hands photos over in batches as each folder is read, the first within moments; the interface never waits for it. Leaving Gallery, or listing it again, cancels the walk. 10,000 photos list without the window freezing."
+origin = ["openxplorer"]
+priority = "could"
+openxplorer = "missing"
+sources = [
+  "https://blogs.windows.com/windows-insider/2023/10/11/announcing-windows-11-insider-preview-build-23565-dev-channel/",
+]
+python_tests = []
+bridge = []
+native = "todo"
+
+[[feature]]
 id = "TAB-001"
 area = "TAB"
 title = "New tab via '+' button and Ctrl+T"
