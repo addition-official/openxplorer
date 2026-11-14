@@ -863,3 +863,88 @@ fn a_press_on_the_open_menus_button_dragged_off_never_strands_the_menu() {
         gtk::prelude::GtkWindowExt::focus(&session.test.window).map(|focus| focus.type_().name())
     );
 }
+
+/// Entries for the New menu: `count` items, as many templates give.
+fn many_new_entries(count: usize) -> Vec<crate::window::menu_popover::MenuEntry> {
+    use crate::window::menu_popover::MenuItem;
+    (0..count)
+        .map(|number| {
+            MenuItem::new(
+                &format!("Template {number:02}"),
+                crate::icons::Icon::Document,
+                crate::window::window_action::WindowAction::NewFolder,
+            )
+            .into()
+        })
+        .collect()
+}
+
+/// The New menu rebuilt while it is open, as when the templates are read
+/// again just after it opened, keeps the keyboard in the menu: the arrows
+/// still move in it.
+///
+/// parity: CMD-005, CMD-031
+#[gtk::test]
+fn the_new_menu_keeps_the_keyboard_when_its_items_change_while_open() {
+    let mut session = Session::open(None);
+    session.open_by_click("New");
+    let menu = menu_of(&session.test, "New");
+    wait_until("the keyboard in the menu", || has_keyboard(&session.test, &menu));
+
+    menu.set_entries(many_new_entries(4));
+    assert!(
+        has_keyboard(&session.test, &menu),
+        "the keyboard is in the rebuilt menu at once, not on a row it removed"
+    );
+    wait_for_frames(&menu, 3);
+
+    assert_eq!(session.open_menus(), ["New"]);
+    assert!(has_keyboard(&session.test, &menu), "and stays there");
+    let before = gtk::prelude::GtkWindowExt::focus(&session.test.window);
+    session.pointer.tap_key(gdk::Key::Down);
+    wait_until("Down to move in the menu", || {
+        let now = gtk::prelude::GtkWindowExt::focus(&session.test.window);
+        now != before && has_keyboard(&session.test, &menu)
+    });
+}
+
+/// The wheel over a menu too tall for the screen scrolls the menu, also
+/// right after the window laid itself out with the pointer resting on
+/// it, and never the file list under it.
+///
+/// parity: CMD-005
+#[gtk::test]
+fn the_wheel_scrolls_a_tall_menu_after_a_layout() {
+    let mut session = session_over_many_files();
+    let files = file_list_scroller(&session.test);
+    let files_top = files.vadjustment().value();
+    let menu = menu_of(&session.test, "New");
+    menu.set_entries(many_new_entries(80));
+    session.open_by_click("New");
+    let rows = descendants::<gtk::ScrolledWindow>(&menu)
+        .into_iter()
+        .next()
+        .expect("the menu's rows scroll");
+    let adjustment = rows.vadjustment();
+    assert!(
+        adjustment.upper() > adjustment.page_size() + 1.0,
+        "the menu is taller than the screen"
+    );
+    let top = adjustment.value();
+    let row = row_of(&menu, "Template 03");
+    let point = session.on_screen(&row, (24.0, f64::from(row.height()) / 2.0));
+
+    rest_on_menu_through_a_layout(&mut session, point);
+    for _ in 0..3 {
+        session.pointer.press(Button::WheelDown);
+        session.pointer.release(Button::WheelDown);
+    }
+    wait_for(QUIET);
+
+    assert!(adjustment.value() > top + 1.0, "the menu scrolled");
+    assert!(
+        (files.vadjustment().value() - files_top).abs() < f64::EPSILON,
+        "the file list did not scroll"
+    );
+    assert_eq!(session.open_menus(), ["New"]);
+}
