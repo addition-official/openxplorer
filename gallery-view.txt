@@ -1,0 +1,4 @@
+STATUS: WORKING
+HEAD: gallery-view 269a78a34a74b98d11b28e353170738bf511584c
+QUESTION: none
+NOTE: Tests-first commits pushed (5ddbaf29 page tests, 269a78a3 Collection test; all 8 fail on upstream main 04065186). Implementation in progress: Gallery listed like a folder (ox:gallery) reusing the folder view, search walk, thumbnails, group headings and context menus.
