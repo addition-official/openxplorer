@@ -1,0 +1,10 @@
+STATUS: WORKING
+HEAD: supere-uninstall 4f171e4bf5b0c87e97b37977e276ab07459e4a93
+QUESTION: none
+NOTE: Tests first (d2ac8ed, 10 of 13 new Rust tests fail on main with only API stubs added) then fix. Super+E is per-user only (KDE kglobalaccel D-Bus + records in ~/.config/winspace); package scripts write nothing for it. Full check.py running.
+
+WHAT EACH PACKAGE WRITES (before this change, unchanged by it):
+- System level: nothing for Super+E. No .desktop X-KDE-Shortcuts, no /usr/share/kglobalaccel, no khotkeys. The deb postinst/postrm only refresh caches; the stable postinst/postrm also add/remove the polkit update rule (/etc/polkit-1/rules.d/60-io.winspace.Development.install-update.rules, /var/lib/openxplorer/install-updates-without-password).
+- Per user, only when the switch is turned on (KDE Plasma, not Flatpak): via org.kde.kglobalaccel setForeignShortcutKeys, Meta+E is removed from the action that had it (e.g. [org.kde.dolphin.desktop] _launch) and added to [<own desktop file>] NewWindow; kglobalacceld saves this in ~/.config/kglobalshortcutsrc. The app writes ~/.config/winspace/launch-shortcut-<desktop file>.json = the "previous owner" action (stable: io.winspace.Development.desktop, preview: io.winspace.Development.Native.desktop; old test builds: shared launch-shortcut.json) plus launch-shortcut.lock.
+- Turning off: Meta+E is removed from NewWindow and added back to the recorded previous action; when one package took it from the other, records are chained so it ends at the first owner.
+- Bug: uninstalling leaves kglobalshortcutsrc entries and the records; turning off in the other package gave Meta+E back to the removed package's action (or to a removed Dolphin).
