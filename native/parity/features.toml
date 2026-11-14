@@ -1346,7 +1346,8 @@ sources = [
 ]
 python_tests = []
 bridge = []
-native = "todo"
+native = "done"
+native_note = "native/crates/ox-app/src/window/sidebar/entries.rs (gallery row in Section::Home); native/crates/ox-app/src/window/gallery.rs; native/crates/ox-core/src/location/virtual_place.rs (GALLERY_URI, VirtualPlace::Gallery). Tests: native/crates/ox-app/src/window/tests/gallery.rs (the_gallery_row_is_right_under_home_and_opens_gallery); native/crates/ox-app/src/window/tests/sidebar_layout.rs (pinned_rows_line_up_with_home_on_the_32_pixel_pitch); native/crates/ox-app/src/window/location_view.rs (tab and address icon table). Microsoft names the node 'Gallery' (build 23435) and changed its icon (build 23451); its place in the pane and its icon are not documented: the Fluent image glyph is used, in the text colour. Check both in Windows."
 
 [[feature]]
 id = "HOME-018"
@@ -1361,7 +1362,8 @@ sources = [
 ]
 python_tests = []
 bridge = []
-native = "todo"
+native = "done"
+native_note = "native/crates/ox-app/src/window/navigation.rs (resolve_address, listed_place). Test: native/crates/ox-app/src/window/tests/gallery.rs (typing_gallery_opens_it_and_back_and_forward_step_through_it)."
 
 [[feature]]
 id = "HOME-019"
@@ -1377,7 +1379,8 @@ sources = [
 ]
 python_tests = []
 bridge = []
-native = "todo"
+native = "done"
+native_note = "native/crates/ox-app/src/folder_view/gallery.rs (list_gallery on ox-core's walk_search with KindFacet::Images); native/crates/ox-app/src/folder_view/groups.rs (GroupBy::Month, month_group); native/crates/ox-app/src/folder_view/sort_roles.rs (SortRole::Taken, photo_date); native/crates/ox-app/src/window/gallery.rs (show_gallery_style: Large icons, never saved); native/crates/ox-app/src/folder_view/grid.rs and cells/heading_span.rs (headings in the icon sizes for Gallery only). Tests: native/crates/ox-app/src/window/tests/gallery.rs (photos_are_grouped_by_month_newest_first_by_date_taken_or_modified); native/crates/ox-app/src/folder_view/groups.rs (photos_group_by_the_month_taken_newest_first). Microsoft documents only that the most recently taken photos come first (KB of September 26, 2023); the month grouping, heading format, the date used, videos and the default folders are not documented: check them in Windows."
 
 [[feature]]
 id = "HOME-020"
@@ -1392,7 +1395,8 @@ sources = [
 ]
 python_tests = []
 bridge = []
-native = "todo"
+native = "done"
+native_note = "native/crates/ox-app/src/folder_view/gallery.rs (date_taken_in, date_taken_of, DATES). Tests: native/crates/ox-app/src/folder_view/gallery.rs (the_date_taken_is_read_from_exif_in_local_time); native/crates/ox-app/src/window/tests/gallery.rs (photos_are_grouped_by_month_newest_first_by_date_taken_or_modified). EXIF is parsed in the app's process (kamadak-exif, pure Rust, inside catch_unwind, at most 256 KiB read), not in the Details tab's child reader process."
 
 [[feature]]
 id = "HOME-021"
@@ -1407,7 +1411,8 @@ sources = [
 ]
 python_tests = []
 bridge = []
-native = "todo"
+native = "done"
+native_note = "native/crates/ox-core/src/search/tree_watch.rs (TreeWatch on the search cache's LocalWatch); native/crates/ox-app/src/folder_view/gallery.rs (GalleryWatch, polled every 400 ms); native/crates/ox-app/src/window/loading.rs. Tests: native/crates/ox-app/src/window/tests/gallery.rs (photos_added_or_removed_while_gallery_is_open_follow_at_once); native/crates/ox-core/src/search/tree_watch.rs (a_change_anywhere_in_the_tree_is_seen_and_links_are_not_followed)."
 
 [[feature]]
 id = "HOME-022"
@@ -1425,7 +1430,8 @@ sources = [
 ]
 python_tests = []
 bridge = []
-native = "todo"
+native = "done"
+native_note = "native/crates/ox-app/src/window/result_location.rs (located_file for Gallery); the folder view's selection, menus and commands. Test: native/crates/ox-app/src/window/tests/gallery.rs (a_photo_opens_in_its_application_and_its_location_opens_with_it_selected). Microsoft documents check boxes (build 23451), Ctrl+mouse wheel resizing (build 23440), Alt+P and Shift+Alt+P (build 22631.2191) and a tooltip on hover (build 23471); single-click, double-click and the context menu are not documented: check them in Windows."
 
 [[feature]]
 id = "HOME-023"
@@ -1440,7 +1446,8 @@ sources = [
 ]
 python_tests = []
 bridge = []
-native = "todo"
+native = "done"
+native_note = "native/crates/ox-app/src/window/empty_page.rs (EmptyState::NoPhotos). Test: native/crates/ox-app/src/window/tests/gallery.rs (an_empty_or_missing_pictures_folder_leaves_gallery_empty_without_an_error). The wording is the app's own: Windows' empty Gallery is not documented. While the first folder is read, the pane shows the list without the empty page (VIEW-068's loading rule)."
 
 [[feature]]
 id = "HOME-024"
@@ -1455,7 +1462,8 @@ sources = [
 ]
 python_tests = []
 bridge = []
-native = "todo"
+native = "done"
+native_note = "native/crates/ox-app/src/folder_view/gallery.rs (a walk thread, batches merged for 200 ms, CancelOnDrop). Test: native/crates/ox-app/src/window/tests/gallery.rs (a_large_library_arrives_in_batches_and_leaving_stops_it, 2,000 photos in 20 folders)."
 
 [[feature]]
 id = "HOME-025"
@@ -1472,7 +1480,8 @@ sources = [
 ]
 python_tests = []
 bridge = []
-native = "todo"
+native = "done"
+native_note = "native/crates/ox-app/src/window/gallery.rs (gallery_collection, install_gallery_actions, gallery_collection_entries); native/crates/ox-app/src/window/command_bar.rs (show_collection); native/crates/ox-core/src/settings.rs (set_gallery_folder) and settings/preferences.rs (galleryFolders, gallery_folder_key). Tests: native/crates/ox-app/src/window/tests/gallery.rs (the_collection_menu_chooses_folders_and_added_folders_join_gallery); native/crates/ox-core/src/settings/preferences.rs (gallery_folders_keep_only_local_folders_once). The labels 'All folders', 'Add folder…' and 'Remove folder' are the app's: Windows' Collection menu items and its Manage Collection dialog are not documented."
 
 [[feature]]
 id = "TAB-001"
@@ -5455,7 +5464,7 @@ native_note = "native/crates/ox-app/src/window/select_matching.rs: 'Select items
 id = "SIDE-001"
 area = "SIDE"
 title = "Sidebar sections and order"
-behaviour = "The sidebar is ordered as Windows 11's navigation pane: 'Home' (blue home icon); divider; the pinned folders (the standard folders and the user's pins, each with the pin glyph; no visible heading or counter); divider; 'This PC' (chevron), then indented 'Local Disk' and every non-SMB volume or device, then 'Network' (chevron) with its indented network locations, with no divider between This PC and Network. Places Windows has no twin of follow after Network behind one divider: saved searches, Recent files, Recent locations and the Recycle Bin; with Settings' 'Show more items in the navigation pane' off (SIDE-034) only saved searches, as Windows 11's navigation pane lists none of the other three. Windows 11's Gallery is not listed while the app has no Gallery view. The chevrons collapse and expand their sections (SIDE-033). Nothing is pinned below the list, as in Windows 11's navigation pane: Map network drive is on This PC's and Network's right-click menus (SIDE-033) and in their '...' (CMD-007)."
+behaviour = "The sidebar is ordered as Windows 11's navigation pane: 'Home' (blue home icon), then 'Gallery' (photo glyph, HOME-017); divider; the pinned folders (the standard folders and the user's pins, each with the pin glyph; no visible heading or counter); divider; 'This PC' (chevron), then indented 'Local Disk' and every non-SMB volume or device, then 'Network' (chevron) with its indented network locations, with no divider between This PC and Network. Places Windows has no twin of follow after Network behind one divider: saved searches, Recent files, Recent locations and the Recycle Bin; with Settings' 'Show more items in the navigation pane' off (SIDE-034) only saved searches, as Windows 11's navigation pane lists none of the other three. The chevrons collapse and expand their sections (SIDE-033). Nothing is pinned below the list, as in Windows 11's navigation pane: Map network drive is on This PC's and Network's right-click menus (SIDE-033) and in their '...' (CMD-007)."
 origin = ["openxplorer", "dolphin"]
 priority = "must"
 openxplorer = "has"
@@ -5478,7 +5487,7 @@ python_tests = [
 bridge = ["environment", "bookmark", "pin"]
 dolphin = "Places panel; show_places_panel: F9"
 native = "done"
-native_note = "Changed to match Windows 11 (2026-11-06): the order and dividers are Windows 11's (Home | pins | This PC and Network), the pinned rows are full width on the 32 px pitch with every top-level icon in one column (a chevron's room in, as in Windows), drives and network locations a 16 px level in, and saved searches moved from below Quick access to the last group after Network, with Recent files, Recent locations and the Recycle Bin, where they were. Gallery is left out until the app has a Gallery view. native/crates/ox-app/src/window/sidebar/entries.rs (rows_follow_windows_11_order_and_smb_mounts_appear_once_under_network, the_places_windows_lacks_follow_network_in_a_group_of_their_own, home_this_pc_and_network_show_their_glyphs_in_their_own_colours); native/crates/ox-app/src/window/tests/sidebar_layout.rs (pinned_rows_line_up_with_home_on_the_32_pixel_pitch); native/crates/ox-app/src/window/tests/sidebar.rs (nothing_is_pinned_below_the_navigation_pane); native/crates/ox-app/src/window/tests/sidebar.rs (quick_access_has_no_heading_and_this_pc_opens_from_its_name). The order, the blue Home glyph, the section separators, non-SMB volumes and devices under This PC, the chevrons (buttons that collapse their section, SIDE-033; activating This PC's row opens it and its drives stay listed) and the absence of a Quick access heading or counter are tested. On 2026-11-10 the owner chose to keep this as the default and to offer Windows 11 File Explorer's layout (as checked in Windows 11 build 26200) as an opt-in (SIDE-034). Test: native/crates/ox-app/src/window/tests/sidebar.rs (the_navigation_pane_keeps_more_rows_by_default_and_a_setting_gives_windows_pane)."
+native_note = "Changed to match Windows 11 (2026-11-06): the order and dividers are Windows 11's (Home | pins | This PC and Network), the pinned rows are full width on the 32 px pitch with every top-level icon in one column (a chevron's room in, as in Windows), drives and network locations a 16 px level in, and saved searches moved from below Quick access to the last group after Network, with Recent files, Recent locations and the Recycle Bin, where they were. Gallery is left out until the app has a Gallery view; since HOME-017 it is listed right under Home, in Home's group, in both states of 'Show more items in the navigation pane' (native/crates/ox-app/src/window/tests/gallery.rs the_gallery_row_is_right_under_home_and_opens_gallery). native/crates/ox-app/src/window/sidebar/entries.rs (rows_follow_windows_11_order_and_smb_mounts_appear_once_under_network, the_places_windows_lacks_follow_network_in_a_group_of_their_own, home_this_pc_and_network_show_their_glyphs_in_their_own_colours); native/crates/ox-app/src/window/tests/sidebar_layout.rs (pinned_rows_line_up_with_home_on_the_32_pixel_pitch); native/crates/ox-app/src/window/tests/sidebar.rs (nothing_is_pinned_below_the_navigation_pane); native/crates/ox-app/src/window/tests/sidebar.rs (quick_access_has_no_heading_and_this_pc_opens_from_its_name). The order, the blue Home glyph, the section separators, non-SMB volumes and devices under This PC, the chevrons (buttons that collapse their section, SIDE-033; activating This PC's row opens it and its drives stay listed) and the absence of a Quick access heading or counter are tested. On 2026-11-10 the owner chose to keep this as the default and to offer Windows 11 File Explorer's layout (as checked in Windows 11 build 26200) as an opt-in (SIDE-034). Test: native/crates/ox-app/src/window/tests/sidebar.rs (the_navigation_pane_keeps_more_rows_by_default_and_a_setting_gives_windows_pane)."
 
 [[feature]]
 id = "SIDE-002"

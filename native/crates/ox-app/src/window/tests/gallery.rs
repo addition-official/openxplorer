@@ -320,7 +320,7 @@ fn an_empty_or_missing_pictures_folder_leaves_gallery_empty_without_an_error() {
         crate::test_support::harness::wait_for_frames(&test.window, 2);
         let shown: Vec<String> = crate::test_support::harness::descendants::<gtk::Label>(&test.window)
             .into_iter()
-            .filter(|label| label.is_mapped())
+            .filter(WidgetExt::is_mapped)
             .map(|label| label.text().to_string())
             .collect();
         assert!(shown.iter().any(|text| text.contains("No photos")), "{shown:?}");

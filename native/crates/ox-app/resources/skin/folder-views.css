@@ -439,6 +439,10 @@ gridview.files.tiles .item-cell.heading-row.row-end { margin-right: 4px; }
 gridview.files.tiles .group-slot .group-header.group-heading { margin-left: 8px; }
 gridview.files.content .group-slot .group-header.group-heading { margin-left: 16px; }
 gridview.files .group-slot .group-header { border-spacing: 8px; }
+/* Gallery's months in the icon sizes (HOME-019): a heading's row is a
+   line of text tall, not a tile (src/theme/fonts.rs), and the heading
+   runs on over the row (src/folder_view/cells/heading_span.rs). */
+gridview.files.icon-groups .group-slot .group-header.group-heading { margin-left: 8px; }
 /* A heading's row acts as one, as Windows 11's does (VIEW-022): the
    pointer anywhere over it lights the whole row in the items' hover
    colour, the row is filled as selected while its group is
