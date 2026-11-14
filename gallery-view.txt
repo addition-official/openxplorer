@@ -1,4 +1,53 @@
-STATUS: WORKING
-HEAD: gallery-view 41a9589fabcd1c91827ed76f0cf8a7281b63cfcc
+STATUS: DONE
+HEAD: gallery-view 649a924b13d5bf6defa3768b2e3b6888e956c79e
 QUESTION: none
-NOTE: Feature commit 41a9589f on the two tests-first commits; the 9 Gallery tests pass, rustfmt, both Clippy runs, parity and i18n checks pass. Full test run of every binary, the xdotool checklist and the captures are next.
+NOTE: Gallery under Home (ox:gallery, listed like a folder): Pictures and subfolders, newest first in month groups by EXIF date taken else date modified, live inotify updates, Collection menu (documented by Microsoft) with saved galleryFolders. Tests first (8 window tests fail on main), full suite matches main's failures by name; 40 captures and gallery-view-pr.md pushed here.
+Commits on upstream main 04065186: 5ddbaf29 tests first (page), 269a78a3 test first (Collection) - all 8 window tests fail on unchanged main (navigate to ox:gallery refused, no Gallery row); 41a9589f the feature; 649a924b two fixes found by the xdotool checklist (tile hover drawn on a heading row's empty slot, empty-page hint shown selected).
+Design: Gallery is a place listed like a folder (ox:gallery), not a hand-drawn page, so the folder view's selection, menus, commands, thumbnails, rubber band, panes and keys all apply. The listing reuses ox-core's live search walk (images only, no links/other filesystems/system folders) on its own thread, batches merged for 200 ms, cancelled when dropped. Dates: EXIF DateTimeOriginal (kamadak-exif, already a dependency; at most 256 KiB read, catch_unwind, cached per session by uri+size+mtime), else date modified. Live updates: one inotify thread over the whole tree (ox-core search's LocalWatch wrapped as TreeWatch, max 4,096 folders). Month headings in the icon sizes are switched on for Gallery only (other folders unchanged). No new dependencies; nothing touches the network or writes outside settings.json (galleryFolders, only when a folder is added).
+Test tooling installed in this container only (not app dependencies): xdotool (real input), bubblewrap (needed by tools/native_capture.py), libfuse2 + fusepy in a venv (slow-mount simulation).
+
+PASS Gallery row right under Home with "Show more items in the navigation pane" on (Home, Gallery, pins..., Recent files, Recent locations, Recycle Bin) and off (Home, Gallery, pins, This PC, Network); real click on the row opens Gallery (1x, light, normal; also seen in dark+Compact and 2x dark)
+PASS keyboard reaches it: F6 x5 from the file list lands on the navigation pane (Home), Down puts the focus ring on Gallery, Enter opens it (real keys)
+PASS typing "Gallery" (and "gallery", "ox:gallery" in the unit test) in the address bar opens it; Alt+Left/Alt+Right step back and forward through it; Ctrl+T then typing gallery opens it in a new tab; tab and address bar show the photo glyph (real keys, screenshots)
+PASS month grouping and order with generated photos over Sept/Aug/May/Mar 2026 and Dec/Oct 2025 (3+ months, 2 years): newest month first, newest photo first within a month; EXIF date taken places a photo (eXIf PNGs), photos without EXIF fall back to date modified (Chart draft in March 2026, the demo gradients in August); same-day ordering covered by the unit test (evening before morning)
+PASS subfolders of Pictures included (Holiday 2025, Garden, Screenshots); a .txt and a fake .mp4 excluded; a hidden photo shows (in June 2026) only after Ctrl+H, count 14 -> 15 -> 14
+PASS a photo saved into Pictures/Garden while open appears in January 2026 within ~2.5 s; deleting it from the shell removes it (real app, inotify)
+PASS 10,000 generated photos in 100 folders: first screen within 0.5 s ("5,604 items - Loading..."), all 10,014 listed by 1 s; 30 Page Down presses and 40 wheel notches redrawn without stalls while thumbnails filled in; RSS 310 MB -> 395 MB; CPU 0-1% once loaded and after leaving (Alt+Home)
+PASS leaving cancels the walk: unit test a_large_library_arrives_in_batches_and_leaving_stops_it (2,000 photos) and the slow-mount run below (left mid-walk, Home shown at once, no later rows)
+PASS Enter and double-click open the photo in the mock default application (a .desktop + mimeapps.list in the disposable home; its log got both paths)
+PASS right-click menu and Shift+F10 menu: Cut, Copy, Rename, Delete strip, Open, Open file location (+ in new tab / new window), Open with..., Compress to, ...
+PASS Delete moves the photo to the Recycle Bin (~/.local/share/Trash/files/Tide pools.png) and it leaves Gallery (14 -> 13)
+PASS Properties (Alt+Enter) opens "Dunes.png Properties" with its folder; Open file location (Shift+F10, Down, Enter) opens Pictures/Holiday 2025 with Dunes selected
+PASS selection: click (1), Ctrl+click (2), Shift+click (5, from the anchor), rubber band across two months (5), Ctrl+A (14), status bar counts each
+PASS empty Pictures and missing Pictures: "No photos to show / Photos in your Pictures folder show here.", no error, 0 items
+PASS Pictures on a slow mount (FUSE passthrough sleeping 50 ms per getattr/read, 250 ms per readdir): "Working on it..." then 7 -> 13 -> 14 items in batches, window usable throughout, Alt+Home mid-way works
+PASS narrow window 670 px (two columns, headings in full), maximized 1600x1100 (seven columns), 2x (GDK_SCALE=2) dark
+PASS no crash and no GTK criticals in the app log across every run above; a first attempt that styled the grid's own child during bind did crash with GTK criticals, and that approach was dropped before the commit
+PASS rustfmt --check; Clippy -D warnings with the workspace lints, and with the CONTRIBUTING pedantic flags; python3 native/parity/check.py; native/tools/i18n.py check; tools/audit-public-data.py (no issues)
+PASS python3 native/tools/check.py on 649a924b: inventories, driver tests, i18n, rustfmt and Clippy pass, then it stops at location_fixture_drift (python_fixture_matches_desktop_core_py), exactly where it stops on unchanged main 04065186
+PASS every test binary and the doctests at 649a924b with check.py's isolation (keep-going driver, nothing else running): 4,450 tests, 4,437 passed, 13 failed. 11 are exactly unchanged main's failures by name (ox-core admin_copy x9, python_fixture_matches_desktop_core_py, fuse_export_paths_match_native_opening_py; main 04065186: 4,440 tests, same 11). The other 2 are thumbnails::thumbnailers a_sandboxed_thumbnailer_runs_within_its_limits and a_sandboxed_thumbnailer_sees_only_its_item: they passed in the main baseline only because bubblewrap was not installed yet; rerun on unchanged main with bubblewrap installed they fail too (2/2). An earlier full run at 41a9589f, done while the xdotool runs loaded the machine, also had renaming::the_name_fields_own_menu_keeps_the_rename_going fail once; alone it passes 2/2 and it passed in this run. empty_folder_look::a_long_note_wraps_inside_the_pane fails intermittently with the filter "empty" on both (main 3/3, branch 2/3) and passes alone and in the full runs
+PASS captures: 40 PNGs via tools/native_capture.py and the snapshot hook (generated gradient photos only), 1x/2x x light/dark x normal/Compact x page, nav (photo selected), menu (right-click on Beach), collection (Collection menu open), empty. The driver widened the capture tool's virtual screen for 2x only (1440x900 at scale 2 does not fit 1600x1400; the plain home folder fails the same way), and two "page" pictures needed a second attempt ("the window has not been drawn yet" when the listing ends on the first frame)
+FAIL not checked: Pictures over a real SMB/NFS share (only the FUSE simulation above)
+
+NOT CONFIRMED, check in the VM (Microsoft's docs do not say; what I built is in brackets):
+- Where Gallery sits in the navigation pane and its icon/colour [right under Home in Home's group, Fluent "image" glyph in text colour]
+- Which folders Gallery shows by default and whether subfolders count [Pictures (XDG) and all subfolders]. Microsoft only says it matches the Photos app's All Photos view
+- Whether videos are shown, and which image formats [images only; videos left out]
+- Which date orders the photos (date taken / modified / created) and the fallback [EXIF DateTimeOriginal in local time, else date modified]
+- Month grouping, heading text format, chevrons/collapse, counts [one group per month, "September 2026", chevron collapses]
+- Default thumbnail size, the View menu's choices in Gallery, whether a size is remembered [Large icons each time; Ctrl+wheel and View change it for the visit; never saved]
+- What single-click and double-click do, and the right-click menu's items in Gallery [as for a file in a folder]
+- The Collection dropdown's exact items and labels, the Manage Collection dialog, whether Pictures can be removed, and whether choosing a folder includes its subfolders ["All folders", each folder as a choice, "Add folder...", "Remove folder" submenu; Pictures fixed; subfolders included]
+- Empty-state text/look and the loading state's look [own wording above; "Working on it..." / status "Loading..."]
+- Any date scrubber on Gallery's scrollbar [none]
+- Whether Sort and Group by are offered in Gallery and what they do there [Sort/Group by menus stay; the month grouping is reapplied on each visit]
+- Arrow-key movement across month groups and the F6 order in Gallery [the app's grouped grid keys]
+- Hidden files in Gallery [follow Show hidden items]
+- Status bar text in Gallery [item count]
+- Details/preview pane contents in Gallery [the app's usual panes]
+- Hover tooltip contents [the app's usual Type/Size/Date modified]
+Left out as Windows-only: OneDrive Camera Roll backup, "Add Phone Photos" QR button, Gallery inside the file picker, OneDrive for Business hydration, iCloud Photos (documented only for the Photos app), anything needing a Microsoft account.
+
+CONFLICT:
+- The owner made Windows 11's Home page opt-in (HOME-012, 2026-11-10) and kept the owner's navigation pane as the default with Windows' layout opt-in (SIDE-034). This job adds the Gallery row by default in both pane states, as the task asked; the owner may prefer Gallery behind a setting like Home's.
+- The Details tab reads untrusted media in a child process (media_details.rs); Gallery reads EXIF in the app's own process (pure-Rust kamadak-exif, 256 KiB cap, catch_unwind) because a process per photo is too slow for 10,000 photos. Flagging the difference, not a known issue.
