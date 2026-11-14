@@ -1,4 +1,4 @@
 STATUS: WORKING
-HEAD: gallery-view 269a78a34a74b98d11b28e353170738bf511584c
+HEAD: gallery-view 41a9589fabcd1c91827ed76f0cf8a7281b63cfcc
 QUESTION: none
-NOTE: Tests-first commits pushed (5ddbaf29 page tests, 269a78a3 Collection test; all 8 fail on upstream main 04065186). Implementation in progress: Gallery listed like a folder (ox:gallery) reusing the folder view, search walk, thumbnails, group headings and context menus.
+NOTE: Feature commit 41a9589f on the two tests-first commits; the 9 Gallery tests pass, rustfmt, both Clippy runs, parity and i18n checks pass. Full test run of every binary, the xdotool checklist and the captures are next.
