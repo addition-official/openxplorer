@@ -612,7 +612,16 @@ impl<G: GlobalShortcuts> LaunchShortcut<G> {
         // has Super+E.
         let found = self.read_record_and_source(owner.is_some());
         let used_earlier = found.as_ref().is_some_and(|(_, earlier)| *earlier);
-        let record = found.map(|(record, _)| record);
+        // Should mending the record have failed, it still never leads to a
+        // removed app.
+        let record = found.map(|(record, _)| record).and_then(|record| {
+            if self.is_removed(&record.previous) {
+                let previous = self.way_back(record.previous.clone(), false).0?;
+                Some(Record { previous, ..record })
+            } else {
+                Some(record)
+            }
+        });
         let Some(owner) = owner else {
             // Another package of `OpenXplorer` may have taken Super+E from
             // this one; it now gives it back to where this one took it.
@@ -726,9 +735,9 @@ impl<G: GlobalShortcuts> LaunchShortcut<G> {
                 Some(previous) => {
                     let text = serde_json::to_string_pretty(&Record { previous, ..record })
                         .expect("a record serialises");
-                    if (self.write_file)(&path, ".winspace-", text.as_bytes()).is_err() {
-                        continue;
-                    }
+                    // Should this fail, the record stays, and turning the
+                    // switch off still passes over the removed app.
+                    let _ = (self.write_file)(&path, ".winspace-", text.as_bytes());
                 }
                 None => {
                     let _ = std::fs::remove_file(&path);
@@ -819,7 +828,11 @@ impl<G: GlobalShortcuts> LaunchShortcut<G> {
         };
         entries.filter_map(Result::ok).any(|entry| {
             entry.file_name().to_str().is_some_and(|name| {
-                name == EARLIER_RECORD || (name.starts_with(RECORD_PREFIX) && name.ends_with(".json"))
+                name == EARLIER_RECORD
+                    || (name.starts_with(RECORD_PREFIX)
+                        && Path::new(name)
+                            .extension()
+                            .is_some_and(|extension| extension == "json"))
             })
         })
     }

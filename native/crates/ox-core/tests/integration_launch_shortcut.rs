@@ -1181,7 +1181,11 @@ fn records_in(settings: &std::path::Path) -> Vec<String> {
             entries
                 .filter_map(Result::ok)
                 .filter_map(|entry| entry.file_name().into_string().ok())
-                .filter(|name| name.ends_with(".json"))
+                .filter(|name| {
+                    std::path::Path::new(name)
+                        .extension()
+                        .is_some_and(|extension| extension == "json")
+                })
                 .collect()
         })
         .unwrap_or_default();
