@@ -1458,6 +1458,23 @@ bridge = []
 native = "todo"
 
 [[feature]]
+id = "HOME-025"
+area = "HOME"
+title = "Gallery's Collection menu chooses and adds folders"
+behaviour = "While Gallery is shown, the command bar has a 'Collection' menu button (hidden elsewhere). Its menu lists 'All folders', then the collection's folders: the Pictures folder and the folders the user added, each a choice that shows only that folder's photos (and its subfolders'), the current choice marked with a dot; 'Add folder…' asks for a folder (local folders only) and adds it to the collection; 'Remove folder' lists the added folders and removes the one chosen. The added folders are saved in settings.json as galleryFolders (stored only when there is one) and Gallery is listed again in every window when they change. The Pictures folder cannot be removed. Windows: 'You can choose which folders are shown in Gallery through the Collection dropdown. You can also add subfolders of existing sources' (build 23435); its 'Manage Collection' dialog is not copied, its look is not documented."
+origin = ["openxplorer"]
+priority = "could"
+openxplorer = "missing"
+sources = [
+  "https://blogs.windows.com/windows-insider/2023/04/14/announcing-windows-11-insider-preview-build-23435/",
+  "https://blogs.windows.com/windows-insider/2023/06/14/announcing-windows-11-insider-preview-build-23481/",
+  "https://blogs.windows.com/windows-insider/2023/05/24/announcing-windows-11-insider-preview-build-23466/",
+]
+python_tests = []
+bridge = []
+native = "todo"
+
+[[feature]]
 id = "TAB-001"
 area = "TAB"
 title = "New tab via '+' button and Ctrl+T"

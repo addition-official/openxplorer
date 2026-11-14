@@ -14,13 +14,13 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use gtk::gdk_pixbuf::{Colorspace, Pixbuf};
 use gtk::glib;
 use gtk::prelude::*;
 use ox_core::location::file_uri;
 use ox_core::places::FolderLocations;
 
 use crate::test_support::harness::{wait_for, wait_until, TestWindow};
+use crate::test_support::pictures::{jpeg_bytes, png_bytes};
 
 /// Gallery's address.
 pub(super) const GALLERY: &str = "ox:gallery";
@@ -63,60 +63,6 @@ impl PicturesHome {
     pub(super) fn locations(&self) -> FolderLocations {
         FolderLocations::new(self.home.clone(), &self.config)
     }
-}
-
-/// A small picture of one flat colour, as PNG bytes.
-fn png_bytes(colour: u32) -> Vec<u8> {
-    let pixbuf = Pixbuf::new(Colorspace::Rgb, false, 8, 64, 48).expect("a picture");
-    pixbuf.fill(colour << 8 | 0xff);
-    pixbuf.save_to_bufferv("png", &[]).expect("PNG bytes")
-}
-
-/// A JPEG of one flat colour whose EXIF says it was taken at `taken`
-/// (`2025:12:24 10:00:00`, as cameras write it), or carries no EXIF.
-fn jpeg_bytes(colour: u32, taken: Option<&str>) -> Vec<u8> {
-    let pixbuf = Pixbuf::new(Colorspace::Rgb, false, 8, 64, 48).expect("a picture");
-    pixbuf.fill(colour << 8 | 0xff);
-    let plain = pixbuf.save_to_bufferv("jpeg", &[]).expect("JPEG bytes");
-    let Some(taken) = taken else {
-        return plain;
-    };
-    let mut bytes = vec![0xff, 0xd8];
-    bytes.extend(exif_segment(taken));
-    bytes.extend_from_slice(&plain[2..]);
-    bytes
-}
-
-/// An APP1 segment with TIFF IFD0 pointing at an EXIF IFD that holds
-/// only `DateTimeOriginal`.
-fn exif_segment(taken: &str) -> Vec<u8> {
-    let mut tiff = Vec::new();
-    tiff.extend_from_slice(b"II*\0");
-    tiff.extend_from_slice(&8_u32.to_le_bytes());
-    // IFD0 at 8: one entry, ExifIFDPointer, then no next IFD.
-    tiff.extend_from_slice(&1_u16.to_le_bytes());
-    tiff.extend_from_slice(&0x8769_u16.to_le_bytes());
-    tiff.extend_from_slice(&4_u16.to_le_bytes());
-    tiff.extend_from_slice(&1_u32.to_le_bytes());
-    tiff.extend_from_slice(&26_u32.to_le_bytes());
-    tiff.extend_from_slice(&0_u32.to_le_bytes());
-    // EXIF IFD at 26: DateTimeOriginal, 20 ASCII bytes at 44.
-    tiff.extend_from_slice(&1_u16.to_le_bytes());
-    tiff.extend_from_slice(&0x9003_u16.to_le_bytes());
-    tiff.extend_from_slice(&2_u16.to_le_bytes());
-    tiff.extend_from_slice(&20_u32.to_le_bytes());
-    tiff.extend_from_slice(&44_u32.to_le_bytes());
-    tiff.extend_from_slice(&0_u32.to_le_bytes());
-    let mut date = taken.as_bytes().to_vec();
-    date.resize(19, b' ');
-    date.push(0);
-    tiff.extend(date);
-    let mut segment = vec![0xff, 0xe1];
-    let length = u16::try_from(2 + 6 + tiff.len()).expect("a short segment");
-    segment.extend_from_slice(&length.to_be_bytes());
-    segment.extend_from_slice(b"Exif\0\0");
-    segment.extend(tiff);
-    segment
 }
 
 /// Writes a JPEG taken at `taken` (EXIF text) to `path`.
@@ -411,4 +357,63 @@ fn a_large_library_arrives_in_batches_and_leaving_stops_it() {
     test.wait_for_listing("the home folder");
     wait_for(Duration::from_millis(300));
     assert!(!test.names().iter().any(|name| name.starts_with("frame")));
+}
+
+/// Sets the folders added to Gallery's collection in the settings file,
+/// as another window or process would.
+fn set_gallery_folders(test: &TestWindow, folders: &[String]) {
+    let update = ox_core::settings::PreferencesUpdate::from_json(&serde_json::json!({
+        "galleryFolders": folders,
+    }))
+    .expect("an update");
+    ox_core::settings::Settings::open(test.settings_directory())
+        .update_preferences(&update)
+        .expect("the settings file takes the folders");
+    test.context.reload_settings();
+}
+
+/// Whether the command bar shows Gallery's Collection menu button.
+fn shows_collection(test: &TestWindow) -> bool {
+    crate::test_support::harness::descendants::<gtk::MenuButton>(&test.window)
+        .iter()
+        .any(|button| button.has_css_class("collection-command") && button.is_visible())
+}
+
+/// Gallery's Collection menu, shown only in Gallery, lists Pictures and
+/// the folders added to the collection; choosing one shows only its
+/// photos, and a folder added or removed joins or leaves Gallery
+/// ("You can choose which folders are shown in Gallery through the
+/// Collection dropdown", build 23435).
+///
+/// parity: HOME-025
+#[gtk::test]
+fn the_collection_menu_chooses_folders_and_added_folders_join_gallery() {
+    let home = PicturesHome::new();
+    write_taken(&home.pictures().join("lighthouse.jpg"), "2025:01:10 10:00:00");
+    let camera = home.home.join("Camera imports");
+    write_taken(&camera.join("dunes.jpg"), "2025:02:20 10:00:00");
+    let camera_uri = file_uri(&camera);
+    let test = gallery_window(&home);
+    assert_eq!(test.names(), ["lighthouse.jpg"]);
+    assert!(shows_collection(&test));
+
+    set_gallery_folders(&test, std::slice::from_ref(&camera_uri));
+    wait_until("the added folder's photo", || test.names().len() == 2);
+    assert_eq!(test.names(), ["dunes.jpg", "lighthouse.jpg"]);
+
+    test.activate("gallery-collection", Some(&camera_uri));
+    wait_until("only the added folder", || test.names() == ["dunes.jpg"]);
+    test.activate("gallery-collection", Some("all"));
+    wait_until("every folder again", || test.names().len() == 2);
+
+    test.activate("gallery-remove-folder", Some(&camera_uri));
+    wait_until("the removed folder to leave", || {
+        test.names() == ["lighthouse.jpg"]
+    });
+    let saved = std::fs::read_to_string(test.settings_directory().join("settings.json")).unwrap_or_default();
+    assert!(!saved.contains("Camera imports"), "the folder is no longer saved");
+
+    test.window.navigate(&file_uri(&home.home)).expect("home");
+    test.wait_for_listing("the home folder");
+    assert!(!shows_collection(&test), "Collection shows only in Gallery");
 }
