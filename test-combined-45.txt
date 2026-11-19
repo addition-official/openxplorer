@@ -3,7 +3,7 @@ HEAD: test-combined-45 9d4342c3 (the deb was built from exactly this tree; cargo
 DEB: claude/test-combined-45-deb e1b6bba6
   openxplorer_2.0.20+test45_all.deb (io.winspace.Development)
   SHA256: b267594dbcaf190660de4ec0c96d93f0a0a1afc90456e9dfadb96fa8daa6672d
-BASE: upstream main a77936a7 (2.0.20 plus #365), as asked. Upstream main moved to 3124cb6e while this was built (it adds #364 "Show File Explorer's real icons ..." by the owner); that is not in this deb.
+BASE: upstream main a77936a7 (2.0.20 plus #365), as asked. Upstream main moved to 3124cb6e while this was built (it adds the owner's #364 "Take native captures at GDK_SCALE 2 on a screen as many times larger", a capture-tool change); that is not in this deb.
 
 MERGED HEADS, in this order (each the branch tip; all descend from main):
   1 media-preview-crash            445f1098670c430e3e9347bd7bf3274285221fe6 -> 265214f6 (clean)
@@ -25,10 +25,10 @@ ZH_CN: native/po/zh_CN.po in the merge is byte-identical to main a77936a7's (cmp
 CHECKS on 9d4342c3:
 - native/tools/check.py: inventories, parity, i18n and tool tests pass; it then stops at clippy on duration_suboptimal_units in ox-core files no branch touches (same on main). I ran its remaining steps with that lint (and map_unwrap_or, decimal_bitwise_operands) allowed: no drawn icons, rustfmt clean, clippy clean, every test binary plus doctests with OX_PYTHON_APP set.
 - parity/check.py, i18n check, sync-docs --check pass; cargo-sources.json matches a fresh run; the deb has rust-crates/sevenz-rust2-0.20.2.
-- Tests: 4968 passed, 23 failed: the same 23 as decks 43-44, which all fail on main a77936a7 (rerun there by name for deb 43; environment: root, sandbox, Python fixtures, display scale). No branch-only, merge-only or flaky failure.
+- Tests: 4968 passed, 23 failed: the same 23 as debs 43-44, which all fail on main a77936a7 (rerun there by name for deb 43; environment: root, thumbnailer setup, Python fixtures, display scale). No branch-only, merge-only or flaky failure.
 REQUESTED SUITES on the merged tree (all pass, from that same full run):
 - media job, window/tests/preview_player.rs: arrowing_through_200_recordings_leaves_nothing_behind, a_player_that_aborts_leaves_the_icon_and_the_app_running, deleting_moving_or_replacing_a_playing_recording_stops_its_player_first, renaming_a_playing_recording_stops_its_player_first; plus media_player::protocol (3) and media_player::tests (2).
-- crash-proofing broken-file corpus: picture_guard::decoder::tests::a_corpus_of_broken_pictures_leaves_the_app_running, picture_guard::tests::the_guarded_decoding_refuses_the_broken_corpus_within_its_limits, and the other decoder tests (crash, hang, endless picture, child answer, sandboxed decoder: 9 in all), crash_guard (3).
+- crash-proofing broken-file corpus: picture_guard::decoder::tests::a_corpus_of_broken_pictures_leaves_the_app_running, picture_guard::tests::the_guarded_decoding_refuses_the_broken_corpus_within_its_limits, and the other decoder tests (crash, hang, endless picture, child answer, the child decoder: 9 in all), crash_guard (3).
 - crash-proofing stall tests: bounded_io::tests::a_look_that_does_not_answer_gives_up_in_time, settings_page::startup::tests::a_folder_on_a_stalled_mount_is_accepted_at_once, window::activation::tests::a_link_on_a_stalled_mount_is_given_up_at_once, window::tests::shortcut_tab::properties_on_a_stalled_mount_or_of_a_pipe_open_at_once, and the shortcut_tab tests (3 more).
 - 1de19a08's SVG tests on the resolution: an_svg_slow_to_draw_is_refused_at_the_time_limit, an_svg_too_large_to_draw_whole_is_drawn_in_part_or_refused, svgs_are_drawn_at_the_size_shown_and_broken_ones_refused, vector::tests (3). All 25 picture_guard tests also passed on their own before the merge was committed.
 
@@ -37,7 +37,7 @@ SMOKE RUN (installed deb, Xvfb): /opt/openxplorer/bin/openxplorer as a non-root 
   Both runs: 0 "Bail out", 0 CRITICAL, 0 panic, 0 SIGSEGV/abort/core lines (the logs hold only GVFS/D-Bus environment warnings); no child process left after exit.
   Main process, sampled every second (/proc): run 1 fds 20 at start, max 27, 25 at the end; threads 20 at start, max 34, 24 at the end; at most 3 child processes at once; RSS steady at about 325 MB after the first listing. Run 2 fds max 31, 27 at the end; threads max 34, 24 at the end; at most 3 children. No growth over the 600 moves.
 
-NO WINDOWS ICON DATA: 382 files in the deb, none named .dll/.mun/.ico/.exe/.cur/.res, none starting with a PE or ICO/CUR header, file(1) reports no Windows type, no RT_GROUP_ICON data; "imageres"/"shell32" only in the binary's Settings text and file-name matching (as in decks 43-44). No merged branch adds such a file.
+NO WINDOWS ICON DATA: 382 files in the deb, none named .dll/.mun/.ico/.exe/.cur/.res, none starting with a PE or ICO/CUR header, file(1) reports no Windows type, no RT_GROUP_ICON data; "imageres"/"shell32" only in the binary's Settings text and file-name matching (as in debs 43-44). No merged branch adds such a file.
 
 UNIQUE STRINGS IN THE BUILT BINARY (/opt/openxplorer/bin/openxplorer, grep -caF; none in main a77936a7's sources):
   1 media-preview-crash:  "run_as_player" (its player mode; the flag text itself is compiled into byte compares and not kept as a string)
