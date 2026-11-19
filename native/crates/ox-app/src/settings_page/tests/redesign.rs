@@ -234,12 +234,26 @@ fn every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages() {
     );
     let rows = every_row(&settings);
     // "Open Quick access on Home" came later, and so did the rows of the
-    // folder options Windows users look for in settings.
+    // folder options Windows users look for in settings, and icons from
+    // Windows icon files (LOOK-030).
     let added_since = [
+        "Icons from Windows icon files",
+        "Windows icon files",
         "Open Quick access on Home",
         "Show hidden files, folders, and drives",
         "Hide extensions for known file types",
         "Folder Options",
+        // File icons (LOOK-029).
+        "Folder icon",
+        "ZIP archive icon",
+        "Document icon",
+        "Text file icon",
+        "Spreadsheet icon",
+        "Picture icon",
+        "Video icon",
+        "Music icon",
+        "Code icon",
+        "File name endings",
     ];
     for title in added_since {
         settings.row(title);
@@ -632,6 +646,8 @@ fn the_search_finds_settings_by_the_words_people_use() {
         (
             "wastebasket",
             &[
+                // It can draw the Recycle Bin with a Windows file's icon.
+                "Icons from Windows icon files",
                 // It brings the Recycle Bin back to the navigation pane.
                 "Show more items in the navigation pane",
                 "When replacing a file, move the old one to the Recycle Bin",

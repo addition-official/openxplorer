@@ -12,6 +12,7 @@
 use ox_core::places::KnownFolder;
 
 use super::art::{Art, Connection, NetworkArt, NetworkPlace};
+use super::file_type::FileType;
 use super::tint::Tint;
 use super::Icon;
 
@@ -143,11 +144,16 @@ pub(super) fn compose(art: Art, size: i32) -> Composition {
             picture: Picture::coloured(icon, size, tint.css_classes()),
             ..plain(icon, size)
         },
-        Art::Folder => plain(Icon::FileFolder, size),
+        Art::Folder | Art::StandardFolder(_) => plain(Icon::FileFolder, size),
+        Art::RemovableDrive(_) => plain(Icon::HardDrive, size),
         Art::File(file_type) => plain(file_type.icon(size), size),
         Art::ZipFolder => Composition {
             badge: Some(zip_badge(size)),
             ..plain(Icon::FileFolder, size)
+        },
+        Art::ZipDocument => Composition {
+            badge: Some(zip_badge(size)),
+            ..plain(FileType::Document.icon(size), size)
         },
         Art::Network(network) => on_network_bar(network, size),
     }
@@ -162,7 +168,7 @@ fn plain(icon: Icon, size: i32) -> Composition {
     }
 }
 
-/// The zip badge in the bottom-right corner of the folder.
+/// The zip badge in the bottom-right corner of the folder or document.
 fn zip_badge(size: i32) -> Badge {
     Badge {
         icon: Icon::FolderZip,

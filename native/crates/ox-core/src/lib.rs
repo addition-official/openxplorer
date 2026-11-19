@@ -32,6 +32,7 @@
 //! | [`integration`] | Default apps, Show in folder, Brave's download folder, opening files, Open in Terminal | `desktop_integration.py`, `reveal_integration.py`, `filemanager_bus.py`, `brave_integration.py`, `activation.py`, `native_opening.py`, `terminal_integration.py`, `app_catalog.py` |
 //! | [`update`] | Update checks, installation, restart and the running-instance guard | `updater.py`, `runtime_guard.py`, `winspace.py` |
 //! | [`session`] | Tab handoff state and `FileManager1` request validation | `window_state.py` |
+//! | [`windows_icons`] | Icons read at run time from Windows icon files the user chooses | (new) |
 //! | [`ops`] | File operations as the interface starts them: New, Rename, paste conflicts, the Delete plan, copy and move, Duplicate, the Recycle Bin, Undo and tab moves | `winspace.py`, `file_services.py`, `gio_backend.py`, `tab_transfers.py`, `ui/app.js` |
 
 pub mod admin_copy;
@@ -61,6 +62,7 @@ pub mod sizes;
 pub mod transfer;
 pub mod update;
 pub mod versions;
+pub mod windows_icons;
 
 mod private_storage;
 mod random;

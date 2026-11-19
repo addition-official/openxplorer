@@ -361,7 +361,7 @@ msgstr ""
 msgid "Extract all…"
 msgstr ""
 
-#: crates/ox-app/src/archive_view/browser.rs crates/ox-app/src/window/command_bar/menus.rs crates/ox-app/src/window/conflict_window.rs crates/ox-core/src/search/facets.rs
+#: crates/ox-app/src/archive_view/browser.rs crates/ox-app/src/icons/file_icons.rs crates/ox-app/src/window/command_bar/menus.rs crates/ox-app/src/window/conflict_window.rs crates/ox-core/src/search/facets.rs
 msgid "Folder"
 msgstr ""
 
@@ -999,6 +999,42 @@ msgstr ""
 msgid "Size"
 msgstr ""
 
+#: crates/ox-app/src/icons/file_icons.rs
+msgid "Code"
+msgstr ""
+
+#: crates/ox-app/src/icons/file_icons.rs crates/ox-core/src/search/facets.rs
+msgid "Document"
+msgstr ""
+
+#: crates/ox-app/src/icons/file_icons.rs
+msgid "Document with a zipper"
+msgstr ""
+
+#: crates/ox-app/src/icons/file_icons.rs
+msgid "Folder with a zipper"
+msgstr ""
+
+#: crates/ox-app/src/icons/file_icons.rs crates/ox-app/src/properties/custom_icon/folder_type.rs crates/ox-core/src/places/known_folders.rs crates/ox-core/src/search/facets.rs
+msgid "Music"
+msgstr ""
+
+#: crates/ox-app/src/icons/file_icons.rs crates/ox-core/src/search/facets.rs
+msgid "Picture"
+msgstr ""
+
+#: crates/ox-app/src/icons/file_icons.rs
+msgid "Spreadsheet"
+msgstr ""
+
+#: crates/ox-app/src/icons/file_icons.rs crates/ox-core/src/ops/templates.rs
+msgid "Text document"
+msgstr ""
+
+#: crates/ox-app/src/icons/file_icons.rs crates/ox-app/src/properties/details_rows.rs crates/ox-core/src/search/facets.rs
+msgid "Video"
+msgstr ""
+
 #: crates/ox-app/src/integration/applications.rs crates/ox-app/src/integration/open_with_dialog.rs
 msgid "Choose a program file or an app launcher (.desktop)."
 msgstr ""
@@ -1413,7 +1449,7 @@ msgstr ""
 msgid "Change Icon for {folder} Folder"
 msgstr ""
 
-#: crates/ox-app/src/properties/change_icon.rs crates/ox-app/src/properties/custom_icon.rs
+#: crates/ox-app/src/properties/change_icon.rs crates/ox-app/src/properties/custom_icon.rs crates/ox-app/src/settings_page/file_icons.rs
 msgid "Images"
 msgstr ""
 
@@ -1463,10 +1499,6 @@ msgstr ""
 
 #: crates/ox-app/src/properties/custom_icon/folder_type.rs
 msgid "General items"
-msgstr ""
-
-#: crates/ox-app/src/properties/custom_icon/folder_type.rs crates/ox-core/src/places/known_folders.rs crates/ox-core/src/search/facets.rs
-msgid "Music"
 msgstr ""
 
 #: crates/ox-app/src/properties/custom_icon/folder_type.rs
@@ -1833,10 +1865,6 @@ msgstr ""
 
 #: crates/ox-app/src/properties/details_rows.rs
 msgid "Vertical resolution"
-msgstr ""
-
-#: crates/ox-app/src/properties/details_rows.rs crates/ox-core/src/search/facets.rs
-msgid "Video"
 msgstr ""
 
 #: crates/ox-app/src/properties/details_rows.rs
@@ -2982,6 +3010,18 @@ msgid "Buttons in the right-click menu"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "Choose Windows icon files"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "Choose files…"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs crates/ox-app/src/settings_page/indexed_folders/suggestions.rs
+msgid "Clear"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "Ctrl + and Ctrl − change it anywhere; Ctrl 0 resets. Desktop scaling is unchanged."
 msgstr ""
 
@@ -3003,6 +3043,10 @@ msgid "Hide expand arrows in the sidebar"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "Icons from Windows icon files"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "Language"
 msgstr ""
 
@@ -3019,10 +3063,26 @@ msgid "Near the pointer (default)"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "No files chosen"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "Off: OpenXplorer's own icons"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "On, but no file is chosen yet"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "OpenXplorer shows its menus, buttons and messages in your desktop's language when a translation for it is installed, and in English otherwise. Change the language in your desktop's language or region settings, then start OpenXplorer again."
 msgstr ""
 
-#: crates/ox-app/src/settings_page/appearance.rs crates/ox-app/src/window/type_applications.rs
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "Reading the chosen files…"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs crates/ox-app/src/settings_page/file_icons.rs crates/ox-app/src/window/type_applications.rs
 msgid "Reset"
 msgstr ""
 
@@ -3047,6 +3107,10 @@ msgid "Show more items in the tab menu"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "Shows folders, the standard folders, drives, Home, Gallery, This PC, Network, the Recycle Bin, Settings and common file types with the icons of Windows icon files you choose, for example imageres.dll.mun and shell32.dll.mun from a Windows installation. OpenXplorer includes no Windows icons: it reads the files you choose while it runs and keeps their pictures only in your cache folder. Anything the files do not have keeps OpenXplorer's own icon."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "Sidebar and column widths"
 msgstr ""
 
@@ -3063,7 +3127,15 @@ msgid "Text uses your desktop's interface font and size instead of Segoe UI."
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "The .dll, .mun or .exe files the icons are read from. Only where they are is saved, never the icons. Choosing files again replaces the list."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "The app, menus, and network sign-in use the same theme."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "The chosen files have none of these icons, so OpenXplorer's own are shown"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
@@ -3092,6 +3164,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
 msgid "Windows 11 · Compact actions (default)"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "Windows icon files"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -3140,7 +3216,20 @@ msgid "tab menu right-click move tab new window open windows extra more items wi
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "windows icons icon files choose browse imageres shell32 dll mun exe clear remove"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "windows icons icon files imageres shell32 dll mun exe resources folder drive recycle bin this pc home gallery look classic original"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "zoom font larger smaller ctrl plus minus reset accessibility scale. Ctrl + makes text larger, Ctrl − smaller, and Ctrl 0 resets it. Saved for all windows; desktop scaling is unchanged."
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "{found} of {total} icons come from the chosen files"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -3531,6 +3620,173 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/default_apps/view.rs
 msgid "OpenXplorer isn't your default file explorer yet"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid ".mp3, .flac, .ogg, .wav and other audio files."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid ".ods, .xlsx, .xls, .csv and .tsv files."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid ".txt, .md, .log and .rst files."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid ".zip files, which look like folders unless you choose another icon."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "Browse for a picture…"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "Change the icon of {ending} files"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "Change…"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "Choose an Icon"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "Choose icon…"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "Code icon"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "Document icon"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "Ending, such as .iso"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "Every folder, unless you gave it its own icon in its Properties."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "File icons"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "File name ending"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "File name endings"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "Folder icon"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "Give files whose names end a certain way, such as .iso or .tar.gz, an icon of their own. It takes the place of their type's icon."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "Music icon"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "PDFs, Word and OpenDocument files, slides, and files of no other type."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "Picture icon"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "Pictures that show no preview."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs crates/ox-app/src/window/type_applications.rs
+msgid "Remove"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "Remove the icon of {ending} files"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "Source code, HTML, JSON, XML and similar files."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "Spreadsheet icon"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "Text file icon"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "The icon could not be saved: {error}"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "Video icon"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "Videos that show no preview."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "ZIP archive icon"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "file icons icon code source script html json xml kind type change"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "file icons icon document documents pdf docx odt word kind type change"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "file icons icon ending endings suffix name type custom add iso tar gz"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "file icons icon folder folders directory kind type change vision accessibility tell apart"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "file icons icon music audio song mp3 flac kind type change"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "file icons icon picture pictures image images photo png jpg kind type change"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "file icons icon spreadsheet spreadsheets excel calc csv xlsx ods kind type change"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "file icons icon text txt markdown md log kind type change"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "file icons icon video videos movie mp4 mkv kind type change"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "file icons icon zip archive archives compressed folder zipped kind type change vision accessibility tell apart"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs
@@ -4087,10 +4343,6 @@ msgstr ""
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/settings_page/indexed_folders/suggestions.rs
 msgid "Cache {label}"
-msgstr ""
-
-#: crates/ox-app/src/settings_page/indexed_folders/suggestions.rs
-msgid "Clear"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/indexed_folders.rs crates/ox-app/src/settings_page/indexed_folders/suggestions.rs
@@ -7785,10 +8037,6 @@ msgid "Only applications you added to this type can be removed."
 msgstr ""
 
 #: crates/ox-app/src/window/type_applications.rs
-msgid "Remove"
-msgstr ""
-
-#: crates/ox-app/src/window/type_applications.rs
 msgid "Reset apps"
 msgstr ""
 
@@ -9633,10 +9881,6 @@ msgstr ""
 msgid "Markdown document"
 msgstr ""
 
-#: crates/ox-core/src/ops/templates.rs
-msgid "Text document"
-msgstr ""
-
 #: crates/ox-core/src/ops/undo.rs
 msgid "Link"
 msgstr ""
@@ -9857,15 +10101,7 @@ msgid "Any size"
 msgstr ""
 
 #: crates/ox-core/src/search/facets.rs
-msgid "Document"
-msgstr ""
-
-#: crates/ox-core/src/search/facets.rs
 msgid "Last year"
-msgstr ""
-
-#: crates/ox-core/src/search/facets.rs
-msgid "Picture"
 msgstr ""
 
 #: crates/ox-core/src/search/facets.rs

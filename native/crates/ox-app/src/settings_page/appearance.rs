@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! Appearance: the theme, the text size and font, the compact view, the
 //! navigation pane's arrows, the app's extra navigation pane rows and tab
-//! menu items, the right-click menu and the pane widths.
+//! menu items, the right-click menu, the pane widths and the icons of
+//! kinds of item ([`super::file_icons`], LOOK-029), including icons from
+//! Windows icon files the user chooses (LOOK-030).
 //!
 //! Ports the "Appearance & layout" section of `renderSettingsPage`,
 //! `textSizeControls` and `menuPreferenceControls` in
@@ -12,8 +14,8 @@
 //! of three, and the arrow keys move between them. Text size changes at
 //! once too, through the shared skin.
 
-use gtk::glib;
 use gtk::prelude::*;
+use gtk::{gio, glib};
 use ox_core::settings::{ContextMenu, PreferencesUpdate, StripPosition, Theme};
 
 use super::bindings::{position_u32, Choice, PreferenceBinding};
@@ -25,8 +27,9 @@ use super::row::{ControlName, RowLayout, SettingRow};
 use super::search::RowText;
 use super::section::{PageKind, SettingsSection};
 use super::SettingsPage;
-use crate::icons::Icon;
+use crate::icons::{user_icons, Icon};
 use crate::text_size::TextSize;
+use crate::window::ButtonStyle;
 use crate::window::WindowAction;
 
 const THEME: RowText = RowText {
@@ -104,6 +107,24 @@ const MORE_TAB_MENU_ITEMS: RowText = RowText {
     keywords: "tab menu right-click move tab new window open windows extra more items windows",
 };
 
+const ICON_FILES: RowText = RowText {
+    title: "Icons from Windows icon files",
+    description: "Shows folders, the standard folders, drives, Home, Gallery, This PC, Network, the \
+                  Recycle Bin, Settings and common file types with the icons of Windows icon files you choose, for example \
+                  imageres.dll.mun and shell32.dll.mun from a Windows installation. OpenXplorer includes \
+                  no Windows icons: it reads the files you choose while it runs and keeps their pictures \
+                  only in your cache folder. Anything the files do not have keeps OpenXplorer's own icon.",
+    keywords: "windows icons icon files imageres shell32 dll mun exe resources folder drive recycle bin \
+               this pc home gallery look classic original",
+};
+
+const CHOSEN_ICON_FILES: RowText = RowText {
+    title: "Windows icon files",
+    description: "The .dll, .mun or .exe files the icons are read from. Only where they are is saved, \
+                  never the icons. Choosing files again replaces the list.",
+    keywords: "windows icons icon files choose browse imageres shell32 dll mun exe clear remove",
+};
+
 const PANE_WIDTHS: RowText = RowText {
     title: "Sidebar and column widths",
     description: "Restore the default widths in every window.",
@@ -173,6 +194,7 @@ pub(super) fn build(page: &SettingsPage) -> SettingsSection {
     let category = Category::Appearance;
     let appearance = SettingsSection::new(category.title(), category.lead(), PageKind::Category);
     appearance.append_group(&theme_group(page));
+    appearance.append_group(&super::file_icons::group(page));
     appearance.append_group(&layout_group(page));
     appearance
 }
@@ -330,6 +352,153 @@ fn theme_preview() -> gtk::Box {
     body.append(&content);
     preview.append(&body);
     preview
+}
+
+/// The rows of icons from Windows icon files the user chooses, off until
+/// turned on (LOOK-030), which close the File icons group as one more
+/// source of the same icons: a choice above wins over them. The first
+/// row's switch turns them on and says how many of the icons the files
+/// gave; the second chooses the files.
+pub(super) fn icon_files_rows(page: &SettingsPage) -> [SettingRow; 2] {
+    let use_files = SettingRow::new(ICON_FILES);
+    let switch = page.preference_switch(PreferenceBinding {
+        read: |preferences| preferences.use_icon_files,
+        write: |on| PreferencesUpdate {
+            use_icon_files: Some(on),
+            ..PreferencesUpdate::default()
+        },
+    });
+    use_files.add_control(&switch, ControlName::RowTitle);
+    let context = page.context().clone();
+    let row = use_files.downgrade();
+    user_icons::follow_status(move |status| {
+        let Some(row) = row.upgrade() else {
+            return false;
+        };
+        row.set_description(&icon_files_status(&context.settings_data().preferences, status));
+        true
+    });
+    page.follow_preferences(glib::clone!(
+        #[weak]
+        use_files,
+        move |preferences| use_files.set_description(&icon_files_status(preferences, user_icons::status()))
+    ));
+    [use_files, chosen_icon_files_row(page)]
+}
+
+/// What the switch's row says: whether the icons are on, being read, or
+/// how many the chosen files gave.
+fn icon_files_status(preferences: &ox_core::settings::Preferences, status: user_icons::Status) -> String {
+    if !preferences.use_icon_files {
+        return ox_core::i18n::gettext("Off: OpenXplorer's own icons");
+    }
+    match status {
+        _ if preferences.icon_files.is_empty() => ox_core::i18n::gettext("On, but no file is chosen yet"),
+        user_icons::Status::Off | user_icons::Status::Reading => {
+            ox_core::i18n::gettext("Reading the chosen files…")
+        }
+        user_icons::Status::Ready { found: 0 } => ox_core::i18n::gettext(
+            "The chosen files have none of these icons, so OpenXplorer's own are shown",
+        ),
+        user_icons::Status::Ready { found } => ox_core::i18n::format_message(
+            "{found} of {total} icons come from the chosen files",
+            &[
+                ("found", &found.to_string()),
+                ("total", &ox_core::windows_icons::IconRole::ALL.len().to_string()),
+            ],
+        ),
+    }
+}
+
+/// "Windows icon files": the chosen files' names, Choose files… to pick
+/// them in a file dialog and Clear to forget them.
+fn chosen_icon_files_row(page: &SettingsPage) -> SettingRow {
+    let row = SettingRow::new(CHOSEN_ICON_FILES);
+    let choose = parts::button(&ox_core::i18n::gettext("Choose files…"), ButtonStyle::Bordered);
+    let clear = parts::button(&ox_core::i18n::gettext("Clear"), ButtonStyle::Bordered);
+    choose.connect_clicked(glib::clone!(
+        #[weak]
+        page,
+        move |_| choose_icon_files(&page)
+    ));
+    clear.connect_clicked(glib::clone!(
+        #[weak]
+        page,
+        move |_| {
+            page.save_preferences(PreferencesUpdate {
+                icon_files: Some(Vec::new()),
+                ..PreferencesUpdate::default()
+            });
+        }
+    ));
+    page.follow_preferences(glib::clone!(
+        #[weak]
+        row,
+        #[weak]
+        clear,
+        move |preferences| {
+            row.set_description(&chosen_icon_files_text(&preferences.icon_files));
+            clear.set_sensitive(!preferences.icon_files.is_empty());
+        }
+    ));
+    row.add_control(&choose, ControlName::OwnLabel);
+    row.add_control(&clear, ControlName::OwnLabel);
+    row
+}
+
+/// The chosen files' names, or that none is chosen.
+fn chosen_icon_files_text(files: &[String]) -> String {
+    if files.is_empty() {
+        return ox_core::i18n::gettext("No files chosen");
+    }
+    let names: Vec<&str> = files
+        .iter()
+        .map(|path| path.rsplit('/').next().unwrap_or(path))
+        .collect();
+    names.join(", ")
+}
+
+/// Asks for Windows icon files and saves the paths of those chosen.
+fn choose_icon_files(page: &SettingsPage) {
+    let filter = gtk::FileFilter::new();
+    filter.set_name(Some(&ox_core::i18n::gettext("Windows icon files")));
+    for pattern in ["*.dll", "*.mun", "*.exe", "*.DLL", "*.MUN", "*.EXE"] {
+        filter.add_pattern(pattern);
+    }
+    let filters = gio::ListStore::new::<gtk::FileFilter>();
+    filters.append(&filter);
+    let picker = gtk::FileDialog::builder()
+        .title(ox_core::i18n::gettext("Choose Windows icon files"))
+        .modal(true)
+        .filters(&filters)
+        .default_filter(&filter)
+        .build();
+    let window = page.root().and_downcast::<gtk::Window>();
+    picker.open_multiple(
+        window.as_ref(),
+        gio::Cancellable::NONE,
+        glib::clone!(
+            #[weak]
+            page,
+            move |chosen| {
+                let Ok(chosen) = chosen else {
+                    return;
+                };
+                let paths: Vec<String> = chosen
+                    .iter::<gio::File>()
+                    .filter_map(Result::ok)
+                    .filter_map(|file| file.path())
+                    .filter_map(|path| path.to_str().map(str::to_owned))
+                    .collect();
+                if !paths.is_empty() {
+                    page.save_preferences(PreferencesUpdate {
+                        icon_files: Some(paths),
+                        ..PreferencesUpdate::default()
+                    });
+                }
+            }
+        ),
+    );
 }
 
 /// "Right-click menu": the menu's style.
