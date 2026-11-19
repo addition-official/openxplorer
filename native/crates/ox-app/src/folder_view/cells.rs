@@ -68,6 +68,12 @@ const COMPACT_ICON_GAP: i32 = 6;
 /// Compact view caps its columns the same way).
 const COMPACT_NAME_CHARS: i32 = 28;
 
+/// The narrowest a Small icons item's name asks to be, in characters: its
+/// column's width comes from the stylesheet (`small_icons_rule` in
+/// `theme/fonts.rs`), and the name fills it, ending in an ellipsis only
+/// when it is wider.
+const SMALL_ICONS_NAME_CHARS: i32 = 1;
+
 /// Lines of name a tile shows (`.tile-name{max-height:33px}` at a 1.35
 /// line height).
 const TILE_NAME_LINES: i32 = 2;
@@ -123,6 +129,9 @@ pub(crate) enum CellLayout {
     /// A compact-view item: a small icon left of a name
     /// [`COMPACT_NAME_CHARS`] wide (VIEW-008).
     CompactItem,
+    /// A Small icons item: a 16-pixel icon left of a name that fills its
+    /// column, as Windows 11 draws Small icons.
+    SmallIconItem,
     /// One of Explorer's Tiles: the icon left of three lines, the name,
     /// the type and, for a file, the size (VIEW-071).
     Tile,
@@ -339,7 +348,11 @@ impl FileCell {
         match layout {
             CellLayout::DetailsRow => cell.lay_out_as_row(),
             CellLayout::IconTile => cell.lay_out_as_tile(),
-            CellLayout::CompactItem => cell.lay_out_as_compact_item(),
+            CellLayout::CompactItem => cell.lay_out_as_compact_item(COMPACT_NAME_CHARS),
+            CellLayout::SmallIconItem => {
+                cell.lay_out_as_compact_item(SMALL_ICONS_NAME_CHARS);
+                cell.imp().label.set_hexpand(true);
+            }
             CellLayout::Tile => cell.lay_out_with_lines(false),
             CellLayout::ContentRow => cell.lay_out_with_lines(true),
         }
@@ -703,9 +716,10 @@ impl FileCell {
         label.set_single_line_mode(true);
     }
 
-    /// The check box and the icon left of a one-line name
-    /// [`COMPACT_NAME_CHARS`] wide.
-    fn lay_out_as_compact_item(&self) {
+    /// The check box and the icon left of a one-line name `name_chars`
+    /// wide: [`COMPACT_NAME_CHARS`] in List, at least
+    /// [`SMALL_ICONS_NAME_CHARS`] in Small icons, whose column sets it.
+    fn lay_out_as_compact_item(&self, name_chars: i32) {
         self.set_orientation(gtk::Orientation::Horizontal);
         self.set_spacing(COMPACT_ICON_GAP);
         self.put_check_before_icon();
@@ -713,8 +727,8 @@ impl FileCell {
         label.set_xalign(0.0);
         label.set_ellipsize(pango::EllipsizeMode::End);
         label.set_single_line_mode(true);
-        label.set_width_chars(COMPACT_NAME_CHARS);
-        label.set_max_width_chars(COMPACT_NAME_CHARS);
+        label.set_width_chars(name_chars);
+        label.set_max_width_chars(name_chars);
     }
 
     /// The icon above a centred name wrapped to [`TILE_NAME_LINES`].
@@ -895,6 +909,14 @@ impl FileCell {
     #[cfg(test)]
     pub(crate) fn name(&self) -> String {
         self.imp().label.text().to_string()
+    }
+
+    /// The icon's frame and the name label, for tests of where a view
+    /// draws them.
+    #[cfg(test)]
+    pub(crate) fn icon_and_name(&self) -> (gtk::Widget, gtk::Widget) {
+        let imp = self.imp();
+        (imp.icon_frame.clone().upcast(), imp.label.clone().upcast())
     }
 
     /// The art the icon shows, for tests.

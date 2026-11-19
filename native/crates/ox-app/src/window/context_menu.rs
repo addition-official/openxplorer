@@ -324,6 +324,11 @@ impl BrowserWindow {
             is_symlink: entry.is_symlink,
             comparison: Comparison::Unavailable,
             editors: self.context().desktop_integration().known_editor_shortcuts(),
+            text_editor: if is_single && !entry.is_dir {
+                integration::text_editor_for(entry.content_type.as_deref())
+            } else {
+                None
+            },
             applications: if is_single {
                 let content_type = entry.content_type.as_deref();
                 integration::menu_applications(
@@ -345,13 +350,11 @@ impl BrowserWindow {
         }
     }
 
-    /// What a file's menu says of Favorites while Home shows them
-    /// (HOME-014): the real file, a Recent row's included, and whether it
-    /// is one already.
+    /// What a file's menu says of Favorites (HOME-014): the real file, a
+    /// Recent row's included, and whether it is one already. Every file's
+    /// menu offers it, as Windows 11's does, whatever Home shows.
     fn favorite_fact(&self, entry: &Entry, is_single: bool) -> Option<(String, bool)> {
-        // Gallery's photo menu always offers it, as Windows 11's does.
-        let offered = self.context().settings_data().preferences.home_quick_access || self.shows_gallery();
-        if !is_single || entry.is_dir || !offered {
+        if !is_single || entry.is_dir {
             return None;
         }
         let uri = entry.meta.recent_target.as_deref().unwrap_or(&entry.uri);
