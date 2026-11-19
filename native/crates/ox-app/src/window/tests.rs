@@ -120,5 +120,6 @@ mod tooltips;
 mod undo_without_recycle_bin;
 pub(super) mod view_styles;
 mod views;
+mod windows_icon_files;
 mod worker_questions;
 mod zip_folder;

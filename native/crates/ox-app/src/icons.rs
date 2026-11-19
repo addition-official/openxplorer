@@ -36,9 +36,11 @@ mod art;
 mod art_image;
 mod composition;
 mod emblem;
+pub(crate) mod file_icons;
 mod file_type;
 mod icon;
 mod tint;
+pub(crate) mod user_icons;
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -47,7 +49,7 @@ use std::sync::Once;
 use gtk::prelude::*;
 use gtk::{gdk, glib};
 
-pub(crate) use art::{Art, Connection, Storage};
+pub(crate) use art::{Art, Connection, Medium, Storage};
 pub(crate) use art_image::ArtImage;
 pub(crate) use emblem::Emblems;
 pub(crate) use file_type::FileType;

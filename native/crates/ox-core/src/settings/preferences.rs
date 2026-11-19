@@ -12,6 +12,7 @@ use serde::Serialize;
 use serde_json::Value;
 
 use super::choices::{ContextMenu, StripPosition, Theme, View, ZipOpening};
+use super::file_icons::{canonical_file_icons, read_file_icons, FileIcons};
 use super::pane_options::DetailsPaneOptions;
 use super::tree_options::FolderTreeOptions;
 use super::view_options::ViewOptions;
@@ -434,6 +435,20 @@ pub struct Preferences {
     /// Stored only when there is one.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub gallery_folders: Vec<String>,
+    /// Draw folder, drive and place icons from the Windows icon files in
+    /// [`Self::icon_files`] (LOOK-030). Off by default; stored only when on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub use_icon_files: bool,
+    /// The Windows icon files the user chose (`.dll`, `.mun` or `.exe`),
+    /// as absolute paths, in the order chosen; only the paths are stored,
+    /// never the icons. Stored only when there is one.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub icon_files: Vec<String>,
+    /// The icon each kind of item shows, where the user chose one
+    /// (LOOK-029); see [`super::file_icons`]. Stored only when there is
+    /// one.
+    #[serde(skip_serializing_if = "FileIcons::is_empty")]
+    pub file_icons: FileIcons,
     /// A start without locations reopens the tabs of the last window
     /// closed (Dolphin's `RememberOpenedTabs`, Explorer's "Restore
     /// previous folder windows at logon"); off, as in Explorer.
@@ -656,6 +671,9 @@ impl Default for Preferences {
             favorites: Vec::new(),
             home_folded: Vec::new(),
             gallery_folders: Vec::new(),
+            use_icon_files: false,
+            icon_files: Vec::new(),
+            file_icons: FileIcons::new(),
             restore_session: false,
             startup_folder: None,
             begin_in_split_view: false,
@@ -783,6 +801,13 @@ impl Preferences {
         }
         if let Some(folders) = &update.gallery_folders {
             self.gallery_folders = canonical_gallery_folders(folders);
+        }
+        replace_if_some(&mut self.use_icon_files, update.use_icon_files);
+        if let Some(files) = &update.icon_files {
+            self.icon_files = canonical_icon_files(files);
+        }
+        if let Some(icons) = &update.file_icons {
+            self.file_icons = canonical_file_icons(icons);
         }
     }
 
@@ -1081,6 +1106,14 @@ pub struct PreferencesUpdate {
     /// Replaces the folders added to Gallery; local folders only, up to
     /// 64, each once.
     pub gallery_folders: Option<Vec<String>>,
+    /// Turn icons from Windows icon files on or off.
+    pub use_icon_files: Option<bool>,
+    /// Replaces the chosen Windows icon files; see
+    /// [`Preferences::icon_files`].
+    pub icon_files: Option<Vec<String>>,
+    /// Replaces the chosen file icons; kinds and icons the app does not
+    /// know are dropped.
+    pub file_icons: Option<FileIcons>,
     /// Reopen the last window's tabs on a start without locations.
     pub restore_session: Option<bool>,
     /// Where new windows open; empty for Home. A location the location
@@ -1211,6 +1244,9 @@ impl PreferencesUpdate {
             favorites: values.get("favorites").and_then(read_keys),
             home_folded: values.get("homeFolded").and_then(read_keys),
             gallery_folders: values.get("galleryFolders").and_then(read_keys),
+            use_icon_files: flag("useIconFiles"),
+            icon_files: values.get("iconFiles").and_then(read_keys),
+            file_icons: values.get("fileIcons").and_then(read_file_icons),
             restore_session: flag("restoreSession"),
             startup_folder: text("startupFolder").map(str::to_owned),
             begin_in_split_view: flag("beginInSplitView"),
@@ -1289,6 +1325,35 @@ fn canonical_gallery_folders(folders: &[String]) -> Vec<String> {
             kept.push(location);
         }
         if kept.len() == MAX_GALLERY_FOLDERS {
+            break;
+        }
+    }
+    kept
+}
+
+/// The kinds of file icons are read from, by extension.
+const ICON_FILE_EXTENSIONS: [&str; 3] = ["dll", "mun", "exe"];
+
+/// The icon files of `files` that may be read: absolute paths of at most
+/// 4096 bytes without control characters, ending in `.dll`, `.mun` or
+/// `.exe` in any letter case, each once, at most
+/// [`crate::windows_icons::MAX_FILES`]. The file may have been
+/// edited by hand, and the app opens each one.
+fn canonical_icon_files(files: &[String]) -> Vec<String> {
+    let mut kept: Vec<String> = Vec::new();
+    for path in files {
+        let extension = std::path::Path::new(path)
+            .extension()
+            .and_then(std::ffi::OsStr::to_str)
+            .map(str::to_ascii_lowercase);
+        let usable = path.starts_with('/')
+            && path.len() <= MAX_PLACE_LOCATION
+            && !path.contains(char::is_control)
+            && extension.is_some_and(|extension| ICON_FILE_EXTENSIONS.contains(&extension.as_str()));
+        if usable && !kept.contains(path) {
+            kept.push(path.clone());
+        }
+        if kept.len() == crate::windows_icons::MAX_FILES {
             break;
         }
     }
@@ -1412,6 +1477,77 @@ mod tests {
             ["file:///home/demo/Camera%20imports"]
         );
         assert_eq!(gallery_folder_key("smb://nas/photos"), None);
+    }
+
+    /// Icons from Windows icon files are off and no file is chosen by
+    /// default, and neither is stored until the user chooses (LOOK-030).
+    ///
+    /// parity: LOOK-030
+    #[test]
+    fn icon_files_are_off_by_default_and_stored_only_when_chosen() {
+        let preferences = Preferences::default();
+        assert!(!preferences.use_icon_files);
+        assert!(preferences.icon_files.is_empty());
+        let stored = serde_json::to_value(&preferences).expect("serializable");
+        assert!(stored.get("useIconFiles").is_none());
+        assert!(stored.get("iconFiles").is_none());
+
+        let mut chosen = Preferences::default();
+        chosen.apply(&PreferencesUpdate {
+            use_icon_files: Some(true),
+            icon_files: Some(vec![
+                "/mnt/windows/Windows/SystemResources/imageres.dll.mun".to_owned()
+            ]),
+            ..PreferencesUpdate::default()
+        });
+        let stored = serde_json::to_value(&chosen).expect("serializable");
+        assert_eq!(stored["useIconFiles"], json!(true));
+        assert_eq!(
+            stored["iconFiles"],
+            json!(["/mnt/windows/Windows/SystemResources/imageres.dll.mun"])
+        );
+        let read = PreferencesUpdate::from_json(&stored).expect("an update");
+        assert_eq!(read.use_icon_files, Some(true));
+    }
+
+    /// Only absolute paths of `.dll`, `.mun` and `.exe` files are kept,
+    /// each once and at most 16, from a hand-edited file.
+    ///
+    /// parity: LOOK-030
+    #[test]
+    fn icon_files_keep_only_absolute_icon_file_paths() {
+        let update = PreferencesUpdate::from_json(&json!({
+            "useIconFiles": "yes",
+            "iconFiles": [
+                "/mnt/windows/Windows/SystemResources/imageres.dll.mun",
+                "/mnt/windows/Windows/SystemResources/imageres.dll.mun",
+                "/mnt/windows/Windows/SystemResources/SHELL32.DLL.MUN",
+                "/srv/icons/explorer.exe",
+                "icons/imageres.dll",
+                "/srv/icons/notes.txt",
+                "/srv/icons/line\\nbreak.dll",
+                "/srv/icons/new\nline.dll",
+            ],
+        }))
+        .expect("an update");
+        assert_eq!(update.use_icon_files, None, "not a boolean");
+        let mut preferences = Preferences::default();
+        preferences.apply(&update);
+        assert_eq!(
+            preferences.icon_files,
+            [
+                "/mnt/windows/Windows/SystemResources/imageres.dll.mun",
+                "/mnt/windows/Windows/SystemResources/SHELL32.DLL.MUN",
+                "/srv/icons/explorer.exe",
+                "/srv/icons/line\\nbreak.dll",
+            ]
+        );
+        let many: Vec<String> = (0..40).map(|index| format!("/srv/icons/{index}.dll")).collect();
+        preferences.apply(&PreferencesUpdate {
+            icon_files: Some(many),
+            ..PreferencesUpdate::default()
+        });
+        assert_eq!(preferences.icon_files.len(), 16);
     }
 
     /// Favorites from a damaged or hand-edited file keep only locations
