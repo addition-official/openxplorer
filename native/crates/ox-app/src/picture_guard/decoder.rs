@@ -558,7 +558,17 @@ fn parse_parameters<'a>(mut words: impl Iterator<Item = &'a str>) -> Option<(i32
 
 /// Decodes the picture on standard input with the parameters given, and
 /// writes the answer to standard output: what the child does.
+/// Set in the decoder's child, which then draws a vector picture itself,
+/// within the drawing limits of one, rather than starting another process.
+static IN_CHILD: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// True in the picture decoder's child process.
+pub(super) fn in_child() -> bool {
+    IN_CHILD.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 fn decode_standard_input(width: i32, height: i32, limits: Limits) -> bool {
+    IN_CHILD.store(true, std::sync::atomic::Ordering::Relaxed);
     // A picture that keeps the child busy, or makes it allocate without
     // end, is stopped by the kernel too; it writes no files and leaves no
     // core.

@@ -528,7 +528,9 @@ fn software_rendering_notice(asks: bool, is_remote: bool, renderer: Option<&str>
 /// Started with `--ox-read-media-details`, it is the Details tab's reader
 /// process instead, which shows nothing (see `media_details.rs`), with
 /// `--ox-play-media` the details pane's player process (`media_player.rs`),
-/// and with `--ox-decode-picture` a picture decoder (see `picture_guard`).
+/// with `--ox-decode-picture` a picture decoder (see `picture_guard`), and
+/// with `--ox-draw-vector-picture` it draws one vector picture for the app
+/// (see `picture_guard/vector.rs`).
 pub fn run() -> glib::ExitCode {
     raise_open_file_limit();
     let arguments: Vec<String> = std::env::args().collect();
@@ -539,6 +541,9 @@ pub fn run() -> glib::ExitCode {
         return status;
     }
     if let Some(status) = crate::picture_guard::run_as_decoder(&arguments) {
+        return status;
+    }
+    if let Some(status) = crate::picture_guard::run_as_drawer(&arguments) {
         return status;
     }
     crate::crash_guard::install_panic_hook();
