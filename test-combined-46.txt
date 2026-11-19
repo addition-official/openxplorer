@@ -1,0 +1,51 @@
+STATUS: DONE
+HEAD: test-combined-46 fff65a74 (the deb was built from exactly this tree; cargo clean before the release build; guard on HEAD and a clean tree before and after)
+DEB: claude/test-combined-46-deb 58529bd6
+  openxplorer_2.0.20+test46_all.deb (io.winspace.Development)
+  SHA256: 80bb4a9d8ef08218467952e74e78ced9f7da83358756585418150e5e84a1e1fe
+BASE: upstream main a77936a7 (2.0.20 plus #365), as asked. Upstream main is at 3124cb6e (adds the owner's #364, a capture-tool change); not in this deb.
+
+MERGED HEADS, in this order (each the branch tip; as deb 45 except crash-proofing):
+  1 media-preview-crash            445f1098670c430e3e9347bd7bf3274285221fe6 -> 6314be4a (clean)
+  2 crash-proofing                 571e31769f9fa1d5b2aa65d8f4f90c40ef2959d8 -> 14b5e126 (was 03c654f8; adds 571e3176, the pool of long-lived picture decoders)
+  3 claude/determined-mayer-ovwbv9 1de19a087a178a89fd3cf515e55d010114289298 -> 2a3afd72
+  4 review4-bugs                   04fa7ff92b91fdcb1a1f8db7eca49c0db19c5b44 -> 912c430c (clean)
+  5 review4-diffs                  7241d18a8f5173c986a80c95a676f93c7b3860ae -> 98a7a87d
+  6 user-icon-files                575caaec19e0ca9143c791774518edb77c3e7e2a -> fff65a74 (clean; contains the owner's PR #366)
+
+CONFLICTS AND RESOLUTIONS:
+- application.rs: as in deb 45, every child-process mode kept (--ox-read-media-details, --ox-play-media, --ox-decode-picture, --ox-draw-vector-picture), then crash_guard::install_panic_hook(); raise_open_file_limit() first.
+- picture_guard.rs, re-checked against the pool: SVG drawing limits kept.
+  Deb 45 lowered the picture child's own limits before drawing an SVG. With 571e3176 a decoder serves up to 500 pictures, and a processor-time limit counts its whole life and cannot be raised again, so lowering it in place would carry over to later pictures. So now:
+  * a pool decoder that meets a vector picture sets processor time to what it has used so far plus 10 s (1de19a08's figure) and data to 1 GiB (never raising a lower limit), draws the picture (1de19a08's 32 MiB document cap still applies), answers, and ends. Its answer carries one mark byte before the answer's magic ("E", ENDING_MARK; parse_answer reads from the magic on), and the app then drops that decoder instead of returning it to the pool; the next picture gets a fresh decoder with the pool's normal limits.
+  * the picture time limit is the app's, as for every picture: a decoder that has not answered by the time limit plus the pool's 3 s grace is stopped (an_svg_slow_to_draw_is_refused_at_the_time_limit passes: refused as TimedOut within 6 s at a 2 s limit).
+  * decoders get no DISPLAY/WAYLAND_DISPLAY (crash-proofing's environment list), as 1de19a08's drawing process does.
+  * where the pool cannot start (crash-proofing's in-app fallback), a vector picture goes to 1de19a08's drawing process (--ox-draw-vector-picture) with the same limits, as in deb 45.
+  Code (in merge 2a3afd72): decoder::in_child / end_after_this_picture / ENDING_MARK and the pool's check of it; vector::limit_drawing_after_use (processor time used so far, read with clock_gettime(CLOCK_PROCESS_CPUTIME_ID), plus 10 s) and limit_drawing (shared with the drawing process); the vector branch of decode_read_to_fit; module docs. ox-app's rustix dependency gains the "time" feature for that clock (Cargo.lock and cargo-sources.json unchanged).
+  New test: picture_guard::decoder::tests::a_decoder_ends_after_a_vector_picture_and_the_next_picture_is_decoded (a pool decoder draws an SVG, is not kept, and the next PNG is decoded by a new decoder). All 28 picture_guard tests pass (twice), including the pool test the_pool_reuses_its_decoders_and_replaces_one_that_crashed and 1de19a08's SVG tests.
+- markdown.json: regenerated with tools/sync-docs.py.
+- status_bar.rs (4x5): as in debs 44-45.
+
+ZH_CN: native/po/zh_CN.po in the merge is byte-identical to main a77936a7's (cmp).
+
+CHECKS on fff65a74:
+- native/tools/check.py: inventories, parity, i18n and tool tests pass; it then stops at clippy on duration_suboptimal_units in ox-core files no branch touches (same on main). I ran its remaining steps with that lint (and map_unwrap_or, decimal_bitwise_operands) allowed: no drawn icons, rustfmt clean, clippy clean, every test binary plus doctests with OX_PYTHON_APP set.
+- parity/check.py, i18n check, sync-docs --check pass; cargo-sources.json matches a fresh run; the deb has rust-crates/sevenz-rust2-0.20.2.
+- Tests: 4972 passed, 24 failed: the same 23 as debs 43-45 (all fail on main a77936a7; environment: root, thumbnailer setup, Python fixtures, display scale) plus 1 flaky: window::tests::context_menus::a_pinned_folder_menu_copies_compresses_and_creates_in_that_folder (timed out waiting for the 7z once in the full run; passed 3 of 3 alone and in its module, and passed in deb 45). No merge-only failure.
+- Requested suites, all pass in that run (70 tests): window/tests/preview_player.rs (4), media_player (5), the broken-file corpus tests (2) and the other picture decoder and pool tests, crash_guard, and the stall tests (bounded_io, startup folder, link activation, shortcut tab).
+
+SMOKE RUNS (installed deb, Xvfb, non-root user with a throwaway HOME under /var/tmp, own D-Bus session and display, driven by the snapshot hook):
+- 300 files (the same set as deb 45: 100 mp3, 100 mp4, 100 broken pictures, PDFs and archives), Details view: Details pane on and Down through all 300, then Preview pane on, Home and Down through all 300 again. Exit 0 after 380 s, ended on song-100 (the last file) with the Preview pane's player shown (test-combined-46-smoke.png). 0 "Bail out", 0 CRITICAL, 0 panic, 0 SIGSEGV/abort/core lines; no child process left after exit. Main process sampled every second: fds 24 at start, max 30, 26 at the end; threads 35 / max 36 / 26; at most 6 child processes at once (pool decoders, player, readers); RSS steady at about 333 MB.
+- 500 generated JPEGs (1280x960, test pattern), Large icons: 120 x Page Down at 200 ms from the first photo. Exit 0 after 76 s, ended at photo-499/500 with every tile drawn (test-combined-46-scroll.png); 496 of the 500 thumbnails written to the cache during the fast scroll. 0 "Bail out", 0 CRITICAL, 0 panic, 0 SIGSEGV/abort/core lines; no child process left. fds 23 / max 32 / 26 at the end; threads 32 / max 37 / 23; at most 12 child processes at once, 0 at the end; RSS about 326 MB.
+
+NO WINDOWS ICON DATA: 382 files in the deb, none named .dll/.mun/.ico/.exe/.cur/.res, none starting with a PE or ICO/CUR header, file(1) reports no Windows type, no RT_GROUP_ICON data; "imageres"/"shell32" only in the binary's Settings text and file-name matching (as in debs 43-45).
+
+UNIQUE STRINGS IN THE BUILT BINARY (/opt/openxplorer/bin/openxplorer, grep -caF; none in main a77936a7's sources):
+  1 media-preview-crash:  "run_as_player"
+  2 crash-proofing:       "--ox-decode-picture" and the pool's request mark "OXREQ1"
+  3 1de19a08:             "--ox-draw-vector-picture" and "OX-VECTOR-PICTURE-1"
+  4 review4-bugs:         "Items View"
+  5 review4-diffs:        "(this PC)"
+  6 user-icon-files:      "Icons from Windows icon files"; #366: "File name endings"
+POLKIT: record /var/lib/openxplorer/install-updates-without-password = "off" before install -> /etc/polkit-1/rules.d empty after install, record still "off". Purge left neither.
+IDENTITY: 40 new commits: 38 (branches and merges) by addition-official <239187859+addition-official@users.noreply.github.com>, and the owner's 2 #366 commits (5cfe748c, b80e9b0a) by AKolenda <akole779@mtroyal.ca>, as asked. No trailers; no other author, committer or personal name (the only keyword hit is the merge subject naming the branch claude/determined-mayer-ovwbv9). The added lines contain no email address. In the deb, AKolenda appears only in the upstream repository and update-check URLs.
