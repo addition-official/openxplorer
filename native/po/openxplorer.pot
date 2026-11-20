@@ -3008,6 +3008,14 @@ msgstr ""
 msgid "Choose files…"
 msgstr ""
 
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "Choose font…"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "Choose the Windows symbol font"
+msgstr ""
+
 #: crates/ox-app/src/settings_page/appearance.rs crates/ox-app/src/settings_page/indexed_folders/suggestions.rs
 msgid "Clear"
 msgstr ""
@@ -3027,6 +3035,10 @@ msgstr ""
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/settings_page/appearance.rs
 msgid "English: no translation for {language} is installed"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "Fonts"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
@@ -3055,6 +3067,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
 msgid "No files chosen"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "No font chosen"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
@@ -3122,6 +3138,10 @@ msgid "The .dll, .mun or .exe files the icons are read from. Only where they are
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "The Segoe Fluent Icons font (SegoeIcons.ttf) or Segoe MDL2 Assets (segmdl2.ttf) from a Windows installation, whose glyphs then draw the command bar, menus, navigation buttons and address bar, in your theme's colors. Only where the font is is saved; it is read, never installed. Glyphs it lacks keep OpenXplorer's own."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "The app, menus, and network sign-in use the same theme."
 msgstr ""
 
@@ -3161,6 +3181,10 @@ msgstr ""
 msgid "Windows icon files"
 msgstr ""
 
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "Windows symbol font"
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/settings_page/appearance.rs
 msgid "Your desktop's language ({language})"
@@ -3187,11 +3211,19 @@ msgid "hide expand arrows chevron expander triangle sidebar navigation pane tree
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "it has none of these glyphs, so OpenXplorer's own are shown"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "language languages translation translations locale localization interface display chinese english region"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
 msgid "navigation pane sidebar recent files locations recycle bin trash drive space capacity usage bar extra more rows windows"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "reading…"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
@@ -3207,11 +3239,19 @@ msgid "tab menu right-click move tab new window open windows extra more items wi
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "used while Icons from Windows icon files is on"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "windows icons icon files choose browse imageres shell32 dll mun exe clear remove"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
 msgid "windows icons icon files imageres shell32 dll mun exe resources folder drive recycle bin this pc home gallery look classic original"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "windows symbol font glyphs segoe fluent icons mdl2 assets segoeicons segmdl2 ttf command bar menu buttons"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
@@ -3221,6 +3261,16 @@ msgstr ""
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/settings_page/appearance.rs
 msgid "{found} of {total} icons come from the chosen files"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "{found} of {wanted} glyphs"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "{name} · {state}"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.

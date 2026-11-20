@@ -239,6 +239,7 @@ fn every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages() {
     let added_since = [
         "Icons from Windows icon files",
         "Windows icon files",
+        "Windows symbol font",
         "Open Quick access on Home",
         "Show hidden files, folders, and drives",
         "Hide extensions for known file types",

@@ -444,6 +444,12 @@ pub struct Preferences {
     /// never the icons. Stored only when there is one.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub icon_files: Vec<String>,
+    /// The Windows symbol font the user chose (`SegoeIcons.ttf` or
+    /// `segmdl2.ttf`), as an absolute path, whose glyphs the app draws
+    /// while [`Self::use_icon_files`] is on (LOOK-031); only the path is
+    /// stored, never the font. Stored only when chosen.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub symbol_font: Option<String>,
     /// The icon each kind of item shows, where the user chose one
     /// (LOOK-029); see [`super::file_icons`]. Stored only when there is
     /// one.
@@ -673,6 +679,7 @@ impl Default for Preferences {
             gallery_folders: Vec::new(),
             use_icon_files: false,
             icon_files: Vec::new(),
+            symbol_font: None,
             file_icons: FileIcons::new(),
             restore_session: false,
             startup_folder: None,
@@ -805,6 +812,13 @@ impl Preferences {
         replace_if_some(&mut self.use_icon_files, update.use_icon_files);
         if let Some(files) = &update.icon_files {
             self.icon_files = canonical_icon_files(files);
+        }
+        if let Some(font) = &update.symbol_font {
+            if font.is_empty() {
+                self.symbol_font = None;
+            } else if is_symbol_font_path(font) {
+                self.symbol_font = Some(font.clone());
+            }
         }
         if let Some(icons) = &update.file_icons {
             self.file_icons = canonical_file_icons(icons);
@@ -1111,6 +1125,9 @@ pub struct PreferencesUpdate {
     /// Replaces the chosen Windows icon files; see
     /// [`Preferences::icon_files`].
     pub icon_files: Option<Vec<String>>,
+    /// The Windows symbol font to read glyphs from; empty forgets it. A
+    /// path that is not an absolute `.ttf` or `.otf` path is ignored.
+    pub symbol_font: Option<String>,
     /// Replaces the chosen file icons; kinds and icons the app does not
     /// know are dropped.
     pub file_icons: Option<FileIcons>,
@@ -1246,6 +1263,7 @@ impl PreferencesUpdate {
             gallery_folders: values.get("galleryFolders").and_then(read_keys),
             use_icon_files: flag("useIconFiles"),
             icon_files: values.get("iconFiles").and_then(read_keys),
+            symbol_font: text("symbolFont").map(str::to_owned),
             file_icons: values.get("fileIcons").and_then(read_file_icons),
             restore_session: flag("restoreSession"),
             startup_folder: text("startupFolder").map(str::to_owned),
@@ -1358,6 +1376,21 @@ fn canonical_icon_files(files: &[String]) -> Vec<String> {
         }
     }
     kept
+}
+
+/// Whether `path` may name the symbol font: an absolute path of at most
+/// 4096 bytes without control characters, ending in `.ttf` or `.otf` in
+/// any letter case. The file may have been edited by hand, and the app
+/// reads the font it names.
+fn is_symbol_font_path(path: &str) -> bool {
+    let extension = std::path::Path::new(path)
+        .extension()
+        .and_then(std::ffi::OsStr::to_str)
+        .map(str::to_ascii_lowercase);
+    path.starts_with('/')
+        && path.len() <= MAX_PLACE_LOCATION
+        && !path.contains(char::is_control)
+        && matches!(extension.as_deref(), Some("ttf" | "otf"))
 }
 
 /// The form Gallery's collection keeps the folder `uri` in: a local
@@ -1508,6 +1541,50 @@ mod tests {
         );
         let read = PreferencesUpdate::from_json(&stored).expect("an update");
         assert_eq!(read.use_icon_files, Some(true));
+    }
+
+    /// The Windows symbol font is unset by default and not stored until
+    /// chosen; only an absolute `.ttf` or `.otf` path is taken, and an
+    /// empty one forgets it (LOOK-031).
+    ///
+    /// parity: LOOK-031
+    #[test]
+    fn the_symbol_font_is_unset_by_default_and_takes_only_font_paths() {
+        let mut preferences = Preferences::default();
+        assert_eq!(preferences.symbol_font, None);
+        let stored = serde_json::to_value(&preferences).expect("serializable");
+        assert!(stored.get("symbolFont").is_none(), "not stored until chosen");
+        let choose = |path: &str| PreferencesUpdate {
+            symbol_font: Some(path.to_owned()),
+            ..PreferencesUpdate::default()
+        };
+        preferences.apply(&choose("/mnt/windows/Windows/Fonts/SegoeIcons.ttf"));
+        assert_eq!(
+            preferences.symbol_font.as_deref(),
+            Some("/mnt/windows/Windows/Fonts/SegoeIcons.ttf")
+        );
+        let stored = serde_json::to_value(&preferences).expect("serializable");
+        let read = PreferencesUpdate::from_json(&stored).expect("an update");
+        assert_eq!(
+            read.symbol_font.as_deref(),
+            Some("/mnt/windows/Windows/Fonts/SegoeIcons.ttf")
+        );
+        for refused in [
+            "fonts/segmdl2.ttf",
+            "/srv/fonts/notes.txt",
+            "/srv/fonts/new\nline.ttf",
+        ] {
+            preferences.apply(&choose(refused));
+            assert_eq!(
+                preferences.symbol_font.as_deref(),
+                Some("/mnt/windows/Windows/Fonts/SegoeIcons.ttf"),
+                "{refused}"
+            );
+        }
+        preferences.apply(&choose("/srv/fonts/SEGMDL2.TTF"));
+        assert_eq!(preferences.symbol_font.as_deref(), Some("/srv/fonts/SEGMDL2.TTF"));
+        preferences.apply(&choose(""));
+        assert_eq!(preferences.symbol_font, None, "empty forgets it");
     }
 
     /// Only absolute paths of `.dll`, `.mun` and `.exe` files are kept,

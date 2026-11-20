@@ -553,6 +553,7 @@ fn escape_leaves_the_search_and_shows_every_row_again() {
             "File name endings",
             "Icons from Windows icon files",
             "Windows icon files",
+            "Windows symbol font",
             "Compact view",
             "Hide expand arrows in the sidebar",
             "Show more items in the navigation pane",
@@ -636,8 +637,9 @@ fn every_setting_of_the_python_page_has_a_row() {
 /// to do, as Restore previous with no handler recorded (INT-030), or the
 /// Super+E switch outside KDE Plasma (INT-033), or Clear while no Windows
 /// icon file is chosen (LOOK-030).
-const ROWS_FOLLOWING_THEIR_STATE: [&str; 5] = [
+const ROWS_FOLLOWING_THEIR_STATE: [&str; 6] = [
     "Windows icon files",
+    "Windows symbol font",
     "Restore the previous file handlers",
     "Give ZIP files back to the previous app",
     "Open ZIP files from other apps with OpenXplorer",
@@ -1480,9 +1482,15 @@ fn icons_from_windows_icon_files_are_off_until_chosen() {
         .expect("Appearance has File icons");
     let titles: Vec<&str> = file_icons.rows().iter().map(|row| row.text().title).collect();
     assert_eq!(
-        titles[titles.len() - 2..],
-        ["Icons from Windows icon files", "Windows icon files"]
+        titles[titles.len() - 3..],
+        [
+            "Icons from Windows icon files",
+            "Windows icon files",
+            "Windows symbol font"
+        ]
     );
+    let font_row = settings.row("Windows symbol font");
+    assert_eq!(font_row.shown_description(), "No font chosen");
     let clear = files_row
         .controls()
         .into_iter()
@@ -1533,6 +1541,62 @@ fn icons_from_windows_icon_files_are_off_until_chosen() {
         !sidebar_drive.shows_user_icon()
     });
     switch.set_active(false);
+    wait_until("the switch to be saved off", || {
+        !settings.saved_preferences().use_icon_files
+    });
+}
+
+/// "Windows symbol font" names no font by default; a chosen font is
+/// saved by its path alone, the row says how many glyphs it gave while
+/// Windows icon files are on, and Clear forgets it. The font is
+/// synthetic; the file dialog itself is GTK's and is not driven.
+///
+/// parity: LOOK-031
+#[gtk::test]
+fn the_windows_symbol_font_row_saves_the_path_and_counts_the_glyphs() {
+    use ox_core::windows_glyphs::synthetic::SyntheticFont;
+
+    use crate::icons::user_glyphs;
+
+    let settings = SettingsTest::open();
+    let row = settings.row("Windows symbol font");
+    assert_eq!(row.shown_description(), "No font chosen");
+    let clear = row
+        .controls()
+        .into_iter()
+        .filter_map(|control| control.downcast::<gtk::Button>().ok())
+        .find(|button| button.label().as_deref() == Some("Clear"))
+        .expect("a Clear button");
+    assert!(!clear.is_sensitive());
+
+    let folder = tempfile::tempdir().expect("a temporary folder");
+    let font = folder.path().join("SegoeIcons.ttf");
+    std::fs::write(&font, SyntheticFont::with_codepoints(&[0xE710, 0xE72B]).build()).expect("written");
+    settings
+        .page
+        .save_preferences(ox_core::settings::PreferencesUpdate {
+            symbol_font: Some(font.display().to_string()),
+            ..ox_core::settings::PreferencesUpdate::default()
+        });
+    wait_until("the font to be saved", || {
+        settings.saved_preferences().symbol_font.is_some()
+    });
+    wait_until("the row to say it waits for the switch", || {
+        row.shown_description() == "SegoeIcons.ttf · used while Icons from Windows icon files is on"
+    });
+    switch_of(&settings.row("Icons from Windows icon files")).set_active(true);
+    let expected = format!("SegoeIcons.ttf · 2 of {} glyphs", user_glyphs::glyph_count());
+    wait_until("the glyphs to be counted", || row.shown_description() == expected);
+    assert!(clear.is_sensitive());
+
+    clear.emit_clicked();
+    wait_until("the font to be forgotten", || {
+        settings.saved_preferences().symbol_font.is_none()
+    });
+    wait_until("the row to say so", || {
+        row.shown_description() == "No font chosen"
+    });
+    switch_of(&settings.row("Icons from Windows icon files")).set_active(false);
     wait_until("the switch to be saved off", || {
         !settings.saved_preferences().use_icon_files
     });

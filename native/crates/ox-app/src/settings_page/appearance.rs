@@ -27,7 +27,7 @@ use super::row::{ControlName, RowLayout, SettingRow};
 use super::search::RowText;
 use super::section::{PageKind, SettingsSection};
 use super::SettingsPage;
-use crate::icons::{user_icons, Icon};
+use crate::icons::{user_glyphs, user_icons, Icon};
 use crate::text_size::TextSize;
 use crate::window::ButtonStyle;
 use crate::window::WindowAction;
@@ -123,6 +123,16 @@ const CHOSEN_ICON_FILES: RowText = RowText {
     description: "The .dll, .mun or .exe files the icons are read from. Only where they are is saved, \
                   never the icons. Choosing files again replaces the list.",
     keywords: "windows icons icon files choose browse imageres shell32 dll mun exe clear remove",
+};
+
+const SYMBOL_FONT: RowText = RowText {
+    title: "Windows symbol font",
+    description: "The Segoe Fluent Icons font (SegoeIcons.ttf) or Segoe MDL2 Assets (segmdl2.ttf) from a \
+                  Windows installation, whose glyphs then draw the command bar, menus, navigation buttons \
+                  and address bar, in your theme's colors. Only where the font is is saved; it is read, \
+                  never installed. Glyphs it lacks keep OpenXplorer's own.",
+    keywords: "windows symbol font glyphs segoe fluent icons mdl2 assets segoeicons segmdl2 ttf command bar \
+               menu buttons",
 };
 
 const PANE_WIDTHS: RowText = RowText {
@@ -359,7 +369,7 @@ fn theme_preview() -> gtk::Box {
 /// source of the same icons: a choice above wins over them. The first
 /// row's switch turns them on and says how many of the icons the files
 /// gave; the second chooses the files.
-pub(super) fn icon_files_rows(page: &SettingsPage) -> [SettingRow; 2] {
+pub(super) fn icon_files_rows(page: &SettingsPage) -> [SettingRow; 3] {
     let use_files = SettingRow::new(ICON_FILES);
     let switch = page.preference_switch(PreferenceBinding {
         read: |preferences| preferences.use_icon_files,
@@ -383,7 +393,113 @@ pub(super) fn icon_files_rows(page: &SettingsPage) -> [SettingRow; 2] {
         use_files,
         move |preferences| use_files.set_description(&icon_files_status(preferences, user_icons::status()))
     ));
-    [use_files, chosen_icon_files_row(page)]
+    [use_files, chosen_icon_files_row(page), symbol_font_row(page)]
+}
+
+/// "Windows symbol font": the chosen font's name and how many of the
+/// glyphs it gave, Choose font… to pick it in a file dialog and Clear to
+/// forget it (LOOK-031). The switch above turns it on with the icon files.
+fn symbol_font_row(page: &SettingsPage) -> SettingRow {
+    let row = SettingRow::new(SYMBOL_FONT);
+    let choose = parts::button(&ox_core::i18n::gettext("Choose font…"), ButtonStyle::Bordered);
+    let clear = parts::button(&ox_core::i18n::gettext("Clear"), ButtonStyle::Bordered);
+    choose.connect_clicked(glib::clone!(
+        #[weak]
+        page,
+        move |_| choose_symbol_font(&page)
+    ));
+    clear.connect_clicked(glib::clone!(
+        #[weak]
+        page,
+        move |_| {
+            page.save_preferences(PreferencesUpdate {
+                symbol_font: Some(String::new()),
+                ..PreferencesUpdate::default()
+            });
+        }
+    ));
+    let context = page.context().clone();
+    let weak_row = row.downgrade();
+    user_glyphs::follow_status(move |status| {
+        let Some(row) = weak_row.upgrade() else {
+            return false;
+        };
+        row.set_description(&symbol_font_text(&context.settings_data().preferences, status));
+        true
+    });
+    page.follow_preferences(glib::clone!(
+        #[weak]
+        row,
+        #[weak]
+        clear,
+        move |preferences| {
+            row.set_description(&symbol_font_text(preferences, user_glyphs::status()));
+            clear.set_sensitive(preferences.symbol_font.is_some());
+        }
+    ));
+    row.add_control(&choose, ControlName::OwnLabel);
+    row.add_control(&clear, ControlName::OwnLabel);
+    row
+}
+
+/// What the symbol font's row says: the font's name and whether its
+/// glyphs are in use, being read, or how many of them it has.
+fn symbol_font_text(preferences: &ox_core::settings::Preferences, status: user_glyphs::Status) -> String {
+    let Some(font) = &preferences.symbol_font else {
+        return ox_core::i18n::gettext("No font chosen");
+    };
+    let name = font.rsplit('/').next().unwrap_or(font);
+    let state = match status {
+        _ if !preferences.use_icon_files => {
+            ox_core::i18n::gettext("used while Icons from Windows icon files is on")
+        }
+        user_glyphs::Status::Off | user_glyphs::Status::Reading => ox_core::i18n::gettext("reading…"),
+        user_glyphs::Status::Ready { found: 0, .. } => {
+            ox_core::i18n::gettext("it has none of these glyphs, so OpenXplorer's own are shown")
+        }
+        user_glyphs::Status::Ready { found, wanted } => ox_core::i18n::format_message(
+            "{found} of {wanted} glyphs",
+            &[("found", &found.to_string()), ("wanted", &wanted.to_string())],
+        ),
+    };
+    ox_core::i18n::format_message("{name} · {state}", &[("name", name), ("state", &state)])
+}
+
+/// Asks for the Windows symbol font and saves its path.
+fn choose_symbol_font(page: &SettingsPage) {
+    let filter = gtk::FileFilter::new();
+    filter.set_name(Some(&ox_core::i18n::gettext("Fonts")));
+    for pattern in ["*.ttf", "*.otf", "*.TTF", "*.OTF"] {
+        filter.add_pattern(pattern);
+    }
+    let filters = gio::ListStore::new::<gtk::FileFilter>();
+    filters.append(&filter);
+    let picker = gtk::FileDialog::builder()
+        .title(ox_core::i18n::gettext("Choose the Windows symbol font"))
+        .modal(true)
+        .filters(&filters)
+        .default_filter(&filter)
+        .build();
+    let window = page.root().and_downcast::<gtk::Window>();
+    picker.open(
+        window.as_ref(),
+        gio::Cancellable::NONE,
+        glib::clone!(
+            #[weak]
+            page,
+            move |chosen| {
+                let Some(path) = chosen.ok().and_then(|file| file.path()) else {
+                    return;
+                };
+                if let Some(path) = path.to_str() {
+                    page.save_preferences(PreferencesUpdate {
+                        symbol_font: Some(path.to_owned()),
+                        ..PreferencesUpdate::default()
+                    });
+                }
+            }
+        ),
+    );
 }
 
 /// What the switch's row says: whether the icons are on, being read, or

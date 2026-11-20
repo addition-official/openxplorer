@@ -172,3 +172,64 @@ fn every_place_of_a_window_takes_the_files_pictures() {
         !network.shows_user_icon() && !tile.shows_user_icon() && glyph_shows()
     });
 }
+
+/// With Windows icon files on and a symbol font chosen, the window's
+/// glyphs come from the font: the command bar's New, the Back button and
+/// a tab's close button; a glyph the font lacks keeps the app's own; and
+/// turning it off brings every bundled glyph back. The font is synthetic,
+/// built in the test.
+///
+/// parity: LOOK-031
+#[gtk::test]
+fn the_windows_glyphs_come_from_the_chosen_symbol_font() {
+    use ox_core::windows_glyphs::synthetic::SyntheticFont;
+
+    use crate::icons::user_glyphs;
+
+    let home = TestHome::new();
+    let font = home.home.parent().expect("the root").join("SegoeIcons.ttf");
+    // Add, Back and Cancel (the tab's close button); Cut is left out.
+    let codepoints = [0xE710, 0xE72B, 0xE711];
+    std::fs::write(&font, SyntheticFont::with_codepoints(&codepoints).build()).expect("written");
+    let folders = FolderLocations::new(home.home.clone(), &home.config);
+    let test = TestWindow::open_with_standard_folders(&file_uri(&home.home), folders, |_| {});
+    test.context.update_preferences(
+        PreferencesUpdate {
+            use_icon_files: Some(true),
+            symbol_font: Some(font.display().to_string()),
+            ..PreferencesUpdate::default()
+        },
+        |result| result.expect("saved"),
+    );
+    wait_until("the font to be read", || {
+        matches!(user_glyphs::status(), user_glyphs::Status::Ready { found: 3, .. })
+    });
+    let shown = |name: &str| {
+        descendants::<gtk::Image>(&test.window)
+            .iter()
+            .any(|image| image.icon_name().as_deref() == Some(name))
+    };
+    for glyph in [
+        "ox-win-add-20-symbolic",
+        "ox-win-arrow-left-20-symbolic",
+        "ox-win-dismiss-16-symbolic",
+    ] {
+        wait_until(&format!("{glyph} on screen"), || shown(glyph));
+    }
+    assert!(shown(Icon::Cut.name()), "Cut keeps the app's glyph");
+    assert!(!shown(Icon::Add.name()), "New uses the font's");
+
+    test.context.update_preferences(
+        PreferencesUpdate {
+            use_icon_files: Some(false),
+            ..PreferencesUpdate::default()
+        },
+        |result| result.expect("saved"),
+    );
+    wait_until("the app's glyphs to return", || {
+        shown(Icon::Add.name())
+            && !descendants::<gtk::Image>(&test.window)
+                .iter()
+                .any(|image| image.icon_name().is_some_and(|name| name.starts_with("ox-win-")))
+    });
+}
