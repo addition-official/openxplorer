@@ -3630,6 +3630,10 @@ msgid ".zip files, which look like folders unless you choose another icon."
 msgstr ""
 
 #: crates/ox-app/src/settings_page/file_icons.rs
+msgid "A picture of yours"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
 msgid "Browse for a picture…"
 msgstr ""
 
@@ -3726,6 +3730,10 @@ msgstr ""
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/settings_page/file_icons.rs
 msgid "The icon could not be saved: {error}"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/file_icons.rs
+msgid "This picture cannot be used as an icon."
 msgstr ""
 
 #: crates/ox-app/src/settings_page/file_icons.rs
@@ -10172,6 +10180,10 @@ msgid "Tab history must contain 1–200 locations."
 msgstr ""
 
 #: crates/ox-core/src/settings.rs
+msgid "No more icons can be chosen. Reset one first."
+msgstr ""
+
+#: crates/ox-core/src/settings.rs
 msgid "This folder's settings cannot be kept."
 msgstr ""
 
@@ -10803,6 +10815,10 @@ msgstr ""
 
 #: packaging/data/io.winspace.Development.Native.metainfo.xml packaging/data/io.winspace.Development.metainfo.xml
 msgid "Search results no longer refresh every few seconds while folders are being indexed, so a result you select stays selected. A search of a folder nobody indexed no longer starts over, and a cached search updates in place instead of showing Searching again."
+msgstr ""
+
+#: packaging/data/io.winspace.Development.Native.metainfo.xml packaging/data/io.winspace.Development.metainfo.xml
+msgid "Settings › Appearance › File icons chooses the icon of folders, ZIP archives, each file type and files whose names end a certain way, such as .iso: one of the app's own pictures, including a document with a zipper so a ZIP archive no longer looks like a folder, or a picture of your own. Folder views and the details pane change at once, and screen readers name the chosen icon."
 msgstr ""
 
 #: packaging/data/io.winspace.Development.Native.metainfo.xml packaging/data/io.winspace.Development.metainfo.xml
