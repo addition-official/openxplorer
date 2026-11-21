@@ -249,15 +249,15 @@ fn the_rename_dialog_refuses_a_forbidden_character_with_the_balloon() {
     assert!(fixture.path("Documents").is_dir(), "nothing was renamed");
 }
 
-/// F2 on the selected item scrolled out of the view's sight renames it
-/// where the user sees it: the Rename dialog asks for the name (OPS-009),
-/// as for an item with no row at all. GTK keeps rows just outside the
-/// visible area alive, and the name field used to open in such a row,
-/// out of sight, taking what the user typed. F2 is the real key.
+/// F2 on the selected item scrolled out of the view's sight scrolls it
+/// back and renames it in place where the user sees it. GTK keeps rows
+/// just outside the visible area alive, and the name field used to open
+/// in such a row, out of sight, taking what the user typed. F2 is the
+/// real key.
 ///
-/// parity: OPS-009
+/// parity: OPS-010
 #[gtk::test]
-fn f2_on_an_item_scrolled_out_of_sight_asks_in_the_rename_dialog() {
+fn f2_on_an_item_scrolled_out_of_sight_scrolls_it_back_to_rename() {
     let fixture = Fixture::with_files(80);
     let mut pointer = Pointer::connect();
     let test = TestWindow::open(&fixture.uri());
@@ -278,18 +278,17 @@ fn f2_on_an_item_scrolled_out_of_sight_asks_in_the_rename_dialog() {
     pointer.move_to(inside.0, inside.1);
 
     pointer.tap_key(gdk::Key::F2);
-    wait_until("the name to be asked for", || {
-        super::file_ops_support::dialog_over(&test).is_some() || is_renaming_in_place(&test)
-    });
+    let field = name_editor(&test);
+    wait_for_frames(&test.window, 5);
 
-    let in_place = is_renaming_in_place(&test);
-    let dialog = super::file_ops_support::dialog_over(&test);
-    assert!(!in_place, "no name field out of sight");
-    let dialog = dialog.expect("the Rename dialog");
-    assert_eq!(
-        super::file_ops_support::text_field(&dialog).text(),
-        "file 0000.txt"
+    assert_eq!(field.text(), "file 0000.txt");
+    let bounds = field.compute_bounds(&view).expect("the field is in the view");
+    assert!(
+        f64::from(bounds.y()) >= 0.0 && f64::from(bounds.y() + bounds.height()) <= f64::from(view.height()),
+        "the field is in sight: {bounds:?} in a view {} high",
+        view.height()
     );
-    dialog.close();
-    super::file_ops_support::wait_for_no_dialog(&test);
+    assert!(super::file_ops_support::dialog_over(&test).is_none(), "no dialog");
+    pointer.tap_key(gdk::Key::Escape);
+    wait_until("the rename to end", || !is_renaming_in_place(&test));
 }

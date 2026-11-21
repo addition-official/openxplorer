@@ -65,6 +65,23 @@ pub(super) fn selected_name_length(entry: &Entry) -> usize {
     }
 }
 
+/// Whether `cell` shows at least in part in `view`'s visible area, or
+/// has not been laid out yet, as a row just added is not.
+fn is_in_sight(cell: &FileCell, view: &gtk::Widget) -> bool {
+    if !cell.is_mapped() || cell.width() == 0 {
+        return true;
+    }
+    let Some(bounds) = cell.compute_bounds(view) else {
+        return true;
+    };
+    #[expect(clippy::cast_precision_loss, reason = "view sizes are small")]
+    let (width, height) = (view.width() as f32, view.height() as f32);
+    bounds.y() + bounds.height() > 0.0
+        && bounds.y() < height
+        && bounds.x() + bounds.width() > 0.0
+        && bounds.x() < width
+}
+
 /// Where `shown` is after the folder `old` was renamed to `new`: `None`
 /// unless `shown` is `old` or inside it.
 fn moved_location(shown: &str, old: &str, new: &str) -> Option<String> {
@@ -102,34 +119,33 @@ impl BrowserWindow {
         let Some(item) = model.item(position) else {
             return;
         };
-        match self.shown_cell(position) {
+        match self.shown_cell(position).await {
             Some(cell) => self.rename_in_place(&cell, item.entry(), None),
             None => self.rename_with_dialog(item.entry()).await,
         }
     }
 
-    /// The cell of the item at `position` when the user can see it, at
-    /// least in part, scrolled wholly into view; `None` when it is out of
-    /// sight. GTK keeps a few rows alive just outside the visible area: a
-    /// name field opened in one would take what the user types unseen, so
-    /// such an item, like one with no row, is renamed with the dialog.
-    fn shown_cell(&self, position: u32) -> Option<FileCell> {
+    /// The cell of the item at `position`, scrolled wholly into view;
+    /// `None` when the item has no row, for the Rename dialog. GTK keeps a
+    /// few rows alive just outside the visible area: a name field opened
+    /// in one would take what the user types unseen, so such a row is
+    /// scrolled into sight first and the field opens once the view has
+    /// laid it out there.
+    async fn shown_cell(&self, position: u32) -> Option<FileCell> {
         let pane = self.folder_pane();
         let view = pane.view_widget();
         let cell = pane.owners().file_cell_at(position, &view)?;
-        let bounds = cell.compute_bounds(&view)?;
-        #[expect(clippy::cast_precision_loss, reason = "view sizes are small")]
-        let (width, height) = (view.width() as f32, view.height() as f32);
-        let in_sight = cell.is_mapped()
-            && bounds.y() + bounds.height() > 0.0
-            && bounds.y() < height
-            && bounds.x() + bounds.width() > 0.0
-            && bounds.x() < width;
-        if !in_sight {
-            return None;
+        if is_in_sight(&cell, &view) {
+            pane.scroll_into_view(position);
+            return Some(cell);
         }
         pane.scroll_into_view(position);
-        Some(cell)
+        // After GTK's layout, which runs before idle callbacks.
+        glib::timeout_future_with_priority(glib::Priority::DEFAULT_IDLE, std::time::Duration::ZERO).await;
+        let view = pane.view_widget();
+        pane.owners()
+            .file_cell_at(position, &view)
+            .filter(|cell| is_in_sight(cell, &view))
     }
 
     /// Rename items…: renames the several selected items with the "Rename
@@ -165,7 +181,7 @@ impl BrowserWindow {
         else {
             return;
         };
-        match self.shown_cell(position) {
+        match self.shown_cell(position).await {
             Some(cell) => self.rename_in_place(&cell, item.entry(), Some(entries)),
             None => self.rename_numbered_with_dialog(&entries, item.entry()).await,
         }
