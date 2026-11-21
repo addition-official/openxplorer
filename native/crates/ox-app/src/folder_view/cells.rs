@@ -745,6 +745,9 @@ impl FileCell {
         // own size, so nothing moves.
         let imp = self.imp();
         imp.is_tile.set(true);
+        // Grouped, a heading's row draws its height, hover, selection and
+        // focus on the cells of its slots, as in Tiles (VIEW-022).
+        self.add_css_class("item-cell");
         imp.icon_frame.set_halign(gtk::Align::Fill);
         imp.image.set_halign(gtk::Align::Center);
         imp.custom_icon.set_halign(gtk::Align::Center);
