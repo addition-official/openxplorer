@@ -547,25 +547,30 @@ fn arrows_move_in_two_dimensions_in_the_icon_grid() {
     assert_eq!(selected(&test), [above], "Up remembers the column");
 }
 
-/// Small icons fill columns top to bottom, as List does: Down and Up move
-/// to the next and previous item in the column, Right and Left to the
-/// same row of the next and previous column, as Windows 11 moves.
+/// Small icons fill rows left to right, as in Windows 11 (VM-checked):
+/// Right and Left move to the next and previous item in the row, Down to
+/// the item below it in the next row.
 ///
 /// parity: SEL-010, VIEW-005
 #[gtk::test]
-fn arrows_move_down_columns_in_small_icons() {
+fn arrows_move_across_rows_in_small_icons() {
     let fixture = Fixture::with_files(PRIME_FOLDER);
     let test = TestWindow::open(&fixture.uri());
     show_view(&test, "small");
     let none = gdk::ModifierType::empty();
     start_at(&test, 0);
-    press_key(&test, gdk::Key::Down, none);
-    assert_eq!(selected(&test), [1], "Down goes to the next item below");
-    press_key(&test, gdk::Key::Up, none);
-    assert_eq!(selected(&test), [0]);
     press_key(&test, gdk::Key::Right, none);
-    let rows = test.window.folder_pane().icon_view().grid().max_columns();
-    assert_eq!(selected(&test), [rows], "Right goes to the next column");
+    assert_eq!(selected(&test), [1], "Right goes to the next item in the row");
+    press_key(&test, gdk::Key::Left, none);
+    assert_eq!(selected(&test), [0]);
+    press_key(&test, gdk::Key::Down, none);
+    let columns = test.window.folder_pane().icon_view().grid().max_columns();
+    assert!(columns >= 2);
+    assert_eq!(
+        selected(&test),
+        [columns],
+        "Down goes to the item below, in the next row"
+    );
 }
 
 /// In Tiles the arrows move across and down the tiles, Down keeping to
@@ -620,7 +625,7 @@ fn arrows_cross_the_group_headings_in_tiles_and_content() {
     let none = gdk::ModifierType::empty();
     let shift = gdk::ModifierType::SHIFT_MASK;
     let last = test.window.folder_pane().model().n_items() - 1;
-    for view in ["tiles", "content", "medium", "large", "extra-large"] {
+    for view in ["tiles", "content", "small", "medium", "large", "extra-large"] {
         show_view(&test, view);
         start_at(&test, 0);
         press_key(&test, gdk::Key::Down, none);

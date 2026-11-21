@@ -307,13 +307,13 @@ fn tiles_and_content_keep_the_folders_groups_under_headings() {
 }
 
 /// Group by keeps a folder's groups in the icon sizes too, as Windows 11
-/// does: Extra large, Large and Medium icons, and the sizes Ctrl+wheel
+/// does: Extra large, Large, Medium and Small icons, and the sizes Ctrl+wheel
 /// steps through between them, head each group as Details does, each
 /// group starts a row under its heading, and a heading row is as tall as
 /// a line of title while an item row keeps its tile's height. Before,
 /// they listed the items in group order with no heading, so a 7-Zip
-/// archive came before the folders. Small icons and List, which fill
-/// columns top to bottom, keep the group order without headings.
+/// archive came before the folders. Small icons, which fill rows as in
+/// Windows 11, head their groups too.
 ///
 /// parity: VIEW-022, VIEW-005, VIEW-010
 #[gtk::test]
@@ -337,7 +337,7 @@ fn icon_sizes_keep_the_folders_groups_under_headings() {
     test.activate("group-by", Some("type"));
     let expected = details_headings(&test);
     assert!(expected.len() >= 8, "a group for each type: {expected:?}");
-    let sizes = ["extra-large", "large", "medium", "icons-64", "icons-28"];
+    let sizes = ["extra-large", "large", "medium", "icons-64", "icons-28", "small"];
     for key in sizes {
         let view = FolderView::from_key(key).expect("an icon size");
         show(&test, view);
@@ -385,7 +385,7 @@ fn icon_sizes_keep_the_folders_groups_under_headings() {
         pane.model().select_only(1);
         assert_eq!(test.selected_names().len(), 1, "{key}: the listing's positions");
     }
-    for key in ["small", "compact"] {
+    for key in ["compact"] {
         let view = FolderView::from_key(key).expect("a view");
         show(&test, view);
         assert!(grid_headings(&test).is_empty(), "{key}: no headings");

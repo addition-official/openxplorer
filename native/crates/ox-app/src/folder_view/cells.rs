@@ -355,6 +355,9 @@ impl FileCell {
             CellLayout::SmallIconItem => {
                 cell.lay_out_as_compact_item(SMALL_ICONS_NAME_CHARS);
                 cell.imp().label.set_hexpand(true);
+                // Grouped, a heading's row draws on its slots' cells
+                // (VIEW-022), as in the other icon sizes.
+                cell.add_css_class("item-cell");
             }
             CellLayout::Tile => cell.lay_out_with_lines(false),
             CellLayout::ContentRow => cell.lay_out_with_lines(true),
