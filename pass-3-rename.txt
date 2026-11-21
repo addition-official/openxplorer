@@ -1,0 +1,47 @@
+STATUS: DONE
+HEAD: pass-3-rename 11b31baea15412b61aceddb52e95f34daabaf3ba
+QUESTION: none. Renaming a folder in the navigation pane in place (Windows) instead of the Rename dialog is left to pass 4, which owns the sidebar and folder tree; say if pass 3 should do it instead.
+NOTE: Branched from upstream main 5336b108. Five rename bugs fixed, each with a test that failed first: (1) a click on blank space or another item while renaming dropped the typed name (GTK rebinding the row closed the field before it committed); now committed, selection as the click left it; (2) slow second click on a tile's name did nothing in Large/Medium icons (centered name hit-tested as left-aligned); (3) F2 on an item scrolled just out of view opened the name field off screen, so typing went into an unseen field; the row is now scrolled back into sight and edited there (an item with no row still gets the Rename dialog, OPS-009); (4) the Properties name box and the Rename dialog accepted \ / : * ? " < > | (Properties renamed a file to "Pic:2. .jpg"); both now refuse them with Windows' balloon, and Properties trims trailing periods/spaces as in place; (5) a refused rename showed GIO's "Error moving file /full/path: Permission denied"; now "You don't have permission to rename “locked.txt” here." (also Undo). Translation template regenerated (one new message); no .po edits; nothing from user-icon-files touched. Merged pass-1-copy-move (shared file: native/po/openxplorer.pot; merged cleanly, template check passes). Decision on forbidden characters: Linux allows all but / and NUL, but the app refuses Windows' set at typing time in all three name fields, on every drive, because such a name cannot be copied as is to a Windows share, NTFS/exFAT or a FAT USB stick; names that already have one keep it while edited. Captures were made at 1x light and dark (Xvfb + xcompmgr; without a compositing manager every popover, old and new, draws a black box) and are in the chat only.
+
+PASS click on blank space while renaming commits the typed name (real XTEST pointer, normal click and press+release tap; Details, Large, Medium); failed before the fix
+PASS click on another item while renaming commits and leaves the clicked item selected (same matrix); the tap case failed before the fix
+PASS manual xdotool: Details and Extra large icons, click on blank space / another file / the address bar while renaming (blank space and another file lost the name before; address bar always worked)
+PASS slow second click on a tile's name renames in place (Large, Medium, Details; real pointer); Large failed before the fix
+PASS F2 on the selected item scrolled out of sight scrolls it back and edits it in place, in sight (real F2); failed before (field opened off screen, seen manually with 60 "Scan NN.pdf" files)
+PASS Properties name box refuses "/" with the balloon (real key) and "Papers. " renames the folder to "Papers"; failed before (no balloon)
+PASS Rename dialog refuses "/" with the balloon (real key); failed before
+PASS read-only folder: "You don't have permission to rename “Budget 2027.ods” here." (ox-core test run as an unprivileged user; returns early as root); failed before with GIO's message and path; manual run shows the toast in light and dark
+PASS F2, Enter, Esc, Tab and Shift+Tab (also after the renamed item re-sorts), slow click in Details, right-click Rename (existing tests), stem selected with extensions shown and hidden, whole name for folders and shortcuts
+PASS several items: Clip.mp4, Invoice 2026.pdf, Morning song.mp3 -> "Batch (1).mp4", "Batch (2).pdf", "Batch (3).mp3"; one Ctrl+Z renames all back
+PASS taken name: Notes.txt -> "Todo" asks "Do you want to rename "Notes.txt" to "Todo (2).txt"? There is already a file with the same name in this location."; Yes renames, Ctrl+Z renames back
+PASS case-only rename resume.txt <-> Resume.txt on ext4 in the app; on a FAT16 image (fusefat) through gio move (the app itself was not run on FAT)
+FAIL exFAT case-only check: exfat-fuse here is case-sensitive (it let SONG.mp3 and Song.mp3 coexist), so it is no stand-in for a real exFAT drive; not tested on real exFAT or SMB
+PASS stale focus outline (manual): before the fixes, after F2, Tab and Escape the first row kept its focus outline beside the newly clicked row; after the fixes it does not; no automated test reproduces it, so none is claimed
+PASS name over 255 bytes refused with "This name is longer than 255 bytes.", field stays
+PASS renaming a playing mp3 (preview pane): renamed, app alive, no CRITICAL/Bail out/panicked/SIG on stderr; playback stops and the preview restarts at 0:00
+PASS Undo of a single rename, a batch, a Properties rename and a taken-name rename
+PASS 214 existing rename/properties/new-item tests after the fixes: 213 pass; the one failure (properties::mount_assistant setup command) is untouched by this branch
+PASS rustfmt, parity/check.py, i18n check; Clippy -D warnings clean for this branch's files (check.py stops at Clippy on this container's Clippy 1.97: duration_suboptimal_units in 5 untouched ox-core files, plus group_day.rs and picture_guard.rs, all also on main)
+PASS full run, every test executable in check.py's isolation (as root): 4,885 passed, 27 failed; each failure rerun on unchanged main 5336b108: 21 fail there too (non-root, Python-app sources, admin helper, display scale, trash); 5 were new-folder/new-text-document renames broken by a first version of the off-screen fix, reworked, now pass; dialog_keys::the_file_keys_wait_for_a_dialog_window_in_front passes when rerun
+FAIL flaky once: renaming_by_pointer::a_click_on_another_item_keeps_the_typed_name_and_selects_that_item failed in one combined run and passed in about ten other runs; message not captured
+FAIL not run: Weston/Wayland, GDK_SCALE 2, real SMB share, real exFAT drive
+
+VM CHECK (Windows 11, File Explorer; use a scratch folder with a few files such as a.txt, b.txt, c.jpg and a folder "Alpha" and "Beta"):
+1. Click away: select a.txt, F2, type "x", then click empty space in the list. Look for: renamed to x.txt, and whether anything is still selected afterwards (the app now selects nothing).
+2. Click another item: select a.txt, F2, type "y", click b.txt. Look for: renamed to y.txt and b.txt selected (the app does this).
+3. Off-screen F2: in a folder with ~80 files, select the first, scroll it just out of view with the wheel, press F2; then scroll it far away (to the bottom) and press F2 again. Look for: does Explorer scroll back and edit in place both times? (The app scrolls back when the row is near; for an item far away it shows a Rename dialog.)
+4. Properties name box: right-click a.txt > Properties, click the name box, type ":" . Look for: the same balloon "A file name can't contain any of the following characters:" and nothing inserted.
+5. Properties trailing period: in Properties of folder Alpha, type "Alpha2. " and press OK. Look for: the folder is named "Alpha2" (periods and spaces trimmed).
+6. Leading space: F2 on a.txt, type " lead" (space first), Enter. Look for: is the leading space kept (" lead.txt") or removed? The app keeps it.
+7. Hidden extension + trailing period: with File name extensions off, F2 on c.jpg, type "pic. " and Enter. Look for: the resulting name ("pic.jpg" or "pic. .jpg"; the app gives "pic. .jpg").
+8. Folder name taken: F2 on Alpha, type "Beta", Enter. Look for: a "Confirm Folder Replace"/merge question (the app refuses with "An item named “Beta” already exists. Nothing was overwritten.").
+9. Several items: select a.txt, b.txt, c.jpg, F2 on the focused one, type "Batch", Enter. Look for: which item gets (1) (view order or the edited item first) and "Batch (1).txt", "Batch (2).txt", "Batch (3).jpg".
+10. Tab at the ends: F2 on the last item, press Tab. Look for: does it wrap to the first item, stop, or end renaming? Then Shift+Tab on the first item.
+11. Up/Down while renaming in Details: F2 on a.txt, press Down. Look for: does it commit and rename the next item (the app does, as Dolphin does) or move the caret?
+12. Re-sort after rename: sort by name, rename a.txt to "zzz", Enter. Look for: does it jump to the end at once or stay until F5? (The app sorts at once.)
+13. Read-only folder: in a folder you cannot write (e.g. C:\Program Files\some folder), F2 a file and Enter. Look for: the exact dialog title and text (the app shows "You don't have permission to rename “name” here." in its toast).
+14. Playing file: play an mp3 in the preview pane (Alt+P, Play), F2 and rename it. Look for: refused as "open in another program", or renamed with playback stopping?
+15. Long names: F2 and type more than 255 characters. Look for: does the box stop accepting characters, or is the name refused after Enter?
+16. Home Recent files: on Home, right-click a file under Recent. Look for: is Rename offered and working? (The app grays Rename there.)
+17. Properties focus: open Properties of a file. Look for: is the name box focused with its text selected when the window opens? (The app focuses OK.)
+18. Rename on a FAT32 USB stick: rename a file to differ only in case (a.txt -> A.txt). Look for: it works with no "already exists" message.
