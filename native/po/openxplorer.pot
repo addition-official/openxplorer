@@ -1060,6 +1060,10 @@ msgid "That installed application is unavailable for this file/location."
 msgstr ""
 
 #: crates/ox-app/src/integration/applications.rs
+msgid "The default app could not be changed."
+msgstr ""
+
+#: crates/ox-app/src/integration/applications.rs
 msgid "The list of installed applications could not be read."
 msgstr ""
 
@@ -1313,6 +1317,10 @@ msgid "Super+E will stop opening OpenXplorer once you log out and back in."
 msgstr ""
 
 #: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "A default app can be set for files whose extension tells their type."
+msgstr ""
+
+#: crates/ox-app/src/integration/open_with_dialog.rs
 msgid "All files"
 msgstr ""
 
@@ -1330,6 +1338,10 @@ msgstr ""
 
 #: crates/ox-app/src/integration/open_with_dialog.rs
 msgid "No matching installed applications."
+msgstr ""
+
+#: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "Only an installed app (.desktop) can be the default."
 msgstr ""
 
 #: crates/ox-app/src/integration/open_with_dialog.rs
@@ -1351,6 +1363,15 @@ msgstr ""
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/integration/open_with_dialog.rs
 msgid "Select an app to open this {extension} file"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "Select an app to open {extension} files"
+msgstr ""
+
+#: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "Set default"
 msgstr ""
 
 #: crates/ox-app/src/integration/status.rs

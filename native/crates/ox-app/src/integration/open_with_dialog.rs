@@ -13,6 +13,11 @@
 //! default for the file's type (OPEN-012) and is never offered for folders.
 //! Nothing changes a default otherwise.
 //!
+//! Properties' Change... opens the dialog to change the default instead
+//! ([`OpenWithDialog::present_to_change_default`]), as Windows does: "Select
+//! an app to open .txt files" and "Set default", which makes the chosen
+//! application the default of the file's type and opens nothing.
+//!
 //! "Choose an app on your PC" picks a program file: an installed launcher
 //! (`.desktop`) is chosen in the list, and an executable becomes the
 //! command line, which "Use a custom command…" also opens (OPEN-014). A
@@ -26,7 +31,8 @@ use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
 
 use super::applications::{
-    application_image, list_applications_in_background, prepare_launch, prepare_target, program_file,
+    application_image, list_applications_in_background, make_default, prepare_launch, prepare_target,
+    program_file,
     ApplicationChoice, ApplicationList, ApplicationScope, DefaultChoice, OpenWithError, PreparedLaunch,
     ProgramFile,
 };
@@ -37,6 +43,16 @@ use crate::icons::{self, Icon};
 const NO_DEFAULT_FOR_TYPE: &str = crate::i18n::message_id(
     "Always is available for files whose extension tells their type. Use Just once for this file.",
 );
+
+/// Why Set default is off for a file whose extension does not name its
+/// type.
+const NO_SET_DEFAULT_FOR_TYPE: &str = crate::i18n::message_id(
+    "A default app can be set for files whose extension tells their type.",
+);
+
+/// Why a program file picked while changing the default is not used.
+const ONLY_APPS_AS_DEFAULT: &str =
+    crate::i18n::message_id("Only an installed app (.desktop) can be the default.");
 
 /// The glyph of each application row (app.js drew its grid icon at 25).
 const ROW_GLYPH: i32 = 24;
@@ -99,11 +115,7 @@ pub(crate) fn heading(name: &str, is_folder: bool) -> String {
     if is_folder {
         return ox_core::i18n::gettext("Select an app to open this folder");
     }
-    let extension = name
-        .rfind('.')
-        .filter(|&dot| dot > 0 && dot + 1 < name.len())
-        .map(|dot| &name[dot..]);
-    match extension {
+    match extension(name) {
         Some(extension) => ox_core::i18n::format_message(
             "Select an app to open this {extension} file",
             &[("extension", extension)],
@@ -112,13 +124,37 @@ pub(crate) fn heading(name: &str, is_folder: bool) -> String {
     }
 }
 
+/// The heading when the dialog changes the default of the type of a file
+/// named `name`: "Select an app to open .txt files", or "… this file"
+/// without an extension.
+pub(crate) fn default_heading(name: &str) -> String {
+    match extension(name) {
+        Some(extension) => ox_core::i18n::format_message(
+            "Select an app to open {extension} files",
+            &[("extension", extension)],
+        ),
+        None => ox_core::i18n::gettext("Select an app to open this file"),
+    }
+}
+
+/// The extension of `name` with its dot: not a hidden file's leading dot,
+/// and not an empty one after a trailing dot.
+fn extension(name: &str) -> Option<&str> {
+    name.rfind('.')
+        .filter(|&dot| dot > 0 && dot + 1 < name.len())
+        .map(|dot| &name[dot..])
+}
+
+/// Called with the name of the application made the default.
+type DefaultChanged = Box<dyn Fn(&str)>;
+
 mod imp {
     use std::cell::{Cell, OnceCell, RefCell};
 
     use gtk::glib;
     use gtk::subclass::prelude::*;
 
-    use super::{Launcher, OpenWithSubject, Report};
+    use super::{DefaultChanged, Launcher, OpenWithSubject, Report};
     use crate::integration::applications::ApplicationList;
 
     /// Private state of [`super::OpenWithDialog`].
@@ -170,6 +206,9 @@ mod imp {
         pub(super) launcher: OnceCell<Launcher>,
         /// Shows the result in the window.
         pub(super) report: OnceCell<Report>,
+        /// The dialog changes the default of the file's type (Properties'
+        /// Change...) instead of opening the file; told the new default.
+        pub(super) default_changed: OnceCell<DefaultChanged>,
         /// The applications as last listed.
         pub(super) applications: RefCell<Option<ApplicationList>>,
         /// The applications are being listed.
@@ -252,25 +291,64 @@ impl OpenWithDialog {
         launcher: Launcher,
         report: impl Fn(&str) + 'static,
     ) -> Self {
+        let dialog = Self::new_for(parent, &subject);
+        let imp = dialog.imp();
+        assert!(imp.launcher.set(launcher).is_ok(), "a new dialog has no launcher");
+        dialog.present_listing(subject, Box::new(report))
+    }
+
+    /// Opens the dialog over `parent` to change which application opens
+    /// the type of the file `subject`, as Properties' Change... does in
+    /// Windows: "Set default" makes the chosen application the default,
+    /// calls `changed` with its name and closes; nothing is opened.
+    pub(crate) fn present_to_change_default(
+        parent: &impl IsA<gtk::Window>,
+        subject: OpenWithSubject,
+        report: impl Fn(&str) + 'static,
+        changed: impl Fn(&str) + 'static,
+    ) -> Self {
+        let dialog = Self::new_for(parent, &subject);
+        let imp = dialog.imp();
+        let changed: DefaultChanged = Box::new(changed);
+        assert!(imp.default_changed.set(changed).is_ok(), "a new dialog changes nothing yet");
+        imp.heading.set_text(&default_heading(&subject.name));
+        imp.just_once_button.set_visible(false);
+        imp.custom_command_button.set_visible(false);
+        imp.always_button.set_label(&ox_core::i18n::gettext("Set default"));
+        imp.always_button.remove_css_class("bordered");
+        imp.always_button.add_css_class("accent");
+        dialog.present_listing(subject, Box::new(report))
+    }
+
+    /// A dialog over `parent` headed for `subject`.
+    fn new_for(parent: &impl IsA<gtk::Window>, subject: &OpenWithSubject) -> Self {
         let dialog: Self = glib::Object::builder().property("transient-for", parent).build();
         crate::window::follow_text_size_keys(&dialog);
-        let imp = dialog.imp();
-        imp.heading.set_text(&heading(&subject.name, subject.is_folder));
+        dialog.imp().heading.set_text(&heading(&subject.name, subject.is_folder));
         dialog.update_property(&[gtk::accessible::Property::Description(&subject.name)]);
+        dialog
+    }
+
+    /// Shows the dialog for `subject` and lists its applications.
+    fn present_listing(self, subject: OpenWithSubject, report: Report) -> Self {
+        let imp = self.imp();
         imp.always_button.set_visible(!subject.is_folder);
         let is_folder = subject.is_folder;
         imp.subject.set(subject).expect("a new dialog has no subject");
-        assert!(imp.launcher.set(launcher).is_ok(), "a new dialog has no launcher");
-        let report: Report = Box::new(report);
         assert!(imp.report.set(report).is_ok(), "a new dialog has no report");
-        dialog.present();
+        self.present();
         if is_folder {
             // A folder lists every application; opening More apps lists them.
             imp.more_expander.set_expanded(true);
         } else {
-            dialog.fetch();
+            self.fetch();
         }
-        dialog
+        self
+    }
+
+    /// Whether the dialog changes the default instead of opening the file.
+    fn changes_default(&self) -> bool {
+        self.imp().default_changed.get().is_some()
     }
 
     fn subject(&self) -> &OpenWithSubject {
@@ -519,6 +597,12 @@ impl OpenWithDialog {
         let may_change_default = self.may_change_default();
         imp.always_button
             .set_sensitive(idle && has_app && !has_command && !is_folder && may_change_default);
+        if self.changes_default() {
+            let why_not = (!may_change_default && imp.applications.borrow().is_some())
+                .then(|| ox_core::i18n::gettext_static(NO_SET_DEFAULT_FOR_TYPE));
+            imp.always_button.set_tooltip_text(why_not);
+            return;
+        }
         let why_not = (!is_folder && !may_change_default && imp.applications.borrow().is_some())
             .then(|| ox_core::i18n::gettext_static(NO_DEFAULT_FOR_TYPE));
         imp.always_button.set_tooltip_text(why_not);
@@ -618,6 +702,9 @@ impl OpenWithDialog {
         let imp = self.imp();
         match program {
             Err(message) => self.set_status(Some(&message)),
+            Ok(ProgramFile::Command(_)) if self.changes_default() => {
+                self.set_status(Some(ox_core::i18n::gettext_static(ONLY_APPS_AS_DEFAULT)));
+            }
             Ok(ProgramFile::Command(command)) => {
                 self.set_status(None);
                 self.show_command(&command);
@@ -655,7 +742,7 @@ impl OpenWithDialog {
             return;
         }
         if let Some(command) = self.custom_command() {
-            if default == DefaultChoice::Keep {
+            if default == DefaultChoice::Keep && !self.changes_default() {
                 self.run_command(command);
             }
             return;
@@ -663,6 +750,10 @@ impl OpenWithDialog {
         let Some(app_id) = imp.chosen.borrow().clone() else {
             return;
         };
+        if self.changes_default() {
+            self.set_chosen_as_default(app_id);
+            return;
+        }
         let default = if self.subject().is_folder || !self.may_change_default() {
             DefaultChoice::Keep
         } else {
@@ -676,6 +767,38 @@ impl OpenWithDialog {
             async move {
                 let prepared = prepare_launch(uri, app_id.clone()).await;
                 dialog.finish_open(&app_id, prepared, default);
+            }
+        ));
+    }
+
+    /// Set default: checks the chosen application again, makes it the
+    /// default of the file's type and closes; a failure stays in the
+    /// dialog. Nothing is opened.
+    fn set_chosen_as_default(&self, app_id: String) {
+        if !self.may_change_default() {
+            return;
+        }
+        self.set_busy(true);
+        let uri = self.subject().uri.clone();
+        glib::spawn_future_local(glib::clone!(
+            #[weak(rename_to = dialog)]
+            self,
+            async move {
+                let changed = prepare_launch(uri, app_id.clone())
+                    .await
+                    .and_then(|prepared| make_default(&app_id, &prepared));
+                match changed {
+                    Ok(name) => {
+                        if let Some(changed) = dialog.imp().default_changed.get() {
+                            changed(&name);
+                        }
+                        dialog.close();
+                    }
+                    Err(error) => {
+                        dialog.set_status(Some(&error.to_string()));
+                        dialog.set_busy(false);
+                    }
+                }
             }
         ));
     }
@@ -837,6 +960,17 @@ impl OpenWithDialog {
                 Some((section, row))
             })
             .unwrap_or_else(|| panic!("{name} is listed"))
+    }
+
+    /// The labels of the buttons shown at the foot of the dialog, in
+    /// order.
+    pub(crate) fn footer_buttons(&self) -> Vec<String> {
+        let imp = self.imp();
+        [&imp.just_once_button, &imp.always_button, &imp.cancel_button]
+            .into_iter()
+            .filter(|button| button.is_visible())
+            .filter_map(|button| button.label().map(String::from))
+            .collect()
     }
 
     /// Clicks Just once.

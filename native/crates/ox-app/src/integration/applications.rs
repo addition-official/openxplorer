@@ -55,6 +55,12 @@ pub(crate) enum OpenWithError {
         ox_core::i18n::gettext("The selected application could not be started.")
     )]
     NotStarted,
+    /// The default application could not be changed.
+    #[error(
+        "{}",
+        ox_core::i18n::gettext("The default app could not be changed.")
+    )]
+    DefaultNotChanged,
     /// The worker thread stopped without an answer.
     #[error(
         "{}",
@@ -477,6 +483,26 @@ pub(crate) fn launch(
     app.launch(&[prepared.target.to_file()], Some(launch_context))
         .map_err(|_| OpenWithError::NotStarted)?;
     Ok(default_after_launch(&app, prepared, default))
+}
+
+/// Makes `app_id` the default of the type of the file `prepared`, without
+/// opening it (Properties' Change...), and returns its name. Only a type
+/// the file's extension names gets a new default
+/// ([`extension_names_type`]), never a folder's.
+///
+/// # Errors
+///
+/// [`OpenWithError::NotInstalled`], or
+/// [`OpenWithError::DefaultNotChanged`] when the type may not get a new
+/// default or the desktop refused it.
+pub(crate) fn make_default(app_id: &str, prepared: &PreparedLaunch) -> Result<String, OpenWithError> {
+    let app = installed_application(app_id).ok_or(OpenWithError::NotInstalled)?;
+    if prepared.is_folder || !prepared.may_change_default {
+        return Err(OpenWithError::DefaultNotChanged);
+    }
+    app.set_as_default_for_type(&prepared.content_type)
+        .map_err(|_| OpenWithError::DefaultNotChanged)?;
+    Ok(app.display_name().to_string())
 }
 
 /// Makes `app` the default when asked, and returns the toast.
