@@ -9691,6 +9691,11 @@ msgstr ""
 msgid "Undo can only rename an item back within its own folder."
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-core/src/ops/rename.rs
+msgid "You don't have permission to rename “{name}” here."
+msgstr ""
+
 #: crates/ox-core/src/ops/report.rs
 msgid "Operation stopped"
 msgstr ""

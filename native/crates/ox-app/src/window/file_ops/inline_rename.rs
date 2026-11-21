@@ -397,7 +397,7 @@ impl BrowserWindow {
                 self.close_name_editor(cell);
                 match self.take_rename_next() {
                     Some(next) => self.finish_rename_and_continue(&renamed, next),
-                    None => self.finish_rename(renamed),
+                    None => self.finish_rename_in_place(&renamed),
                 }
             }
             Err(error) => {
