@@ -302,8 +302,8 @@ impl BrowserWindow {
     /// commits the name but selects what the click selected, as in Windows
     /// 11: nothing after a click on blank space, the clicked item after a
     /// click on another one, so the next command acts on it.
-    pub(super) fn finish_rename_in_place(&self, renamed: RenamedItem) {
-        self.remember_rename(&renamed);
+    pub(super) fn finish_rename_in_place(&self, renamed: &RenamedItem) {
+        self.remember_rename(renamed);
         let selected = self
             .folder_pane()
             .model()
