@@ -187,6 +187,23 @@ impl BrowserWindow {
             &self.imp().locations.borrow(),
             self.context().settings_data().preferences.home_quick_access,
         );
+        // The computers Network discovered come after its network
+        // locations, inside Network (SIDE-019).
+        let listed: Vec<String> = places
+            .network
+            .iter()
+            .map(|location| location.uri.clone())
+            .collect();
+        let computers =
+            sidebar::computer_entries(&self.network_computers(&listed), &self.imp().locations.borrow());
+        if let Some(last) = entries
+            .iter()
+            .rposition(|entry| entry.section == sidebar::Section::Network)
+        {
+            let after = entries.split_off(last + 1);
+            entries.extend(computers);
+            entries.extend(after);
+        }
         // Windows 11's navigation pane has neither capacity bars nor
         // Recent files, Recent locations and the Recycle Bin; Settings'
         // "Show more items in the navigation pane" adds them (SIDE-034).

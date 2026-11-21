@@ -56,6 +56,16 @@ impl PinHome {
     }
 }
 
+/// Moves the pointer off the window and waits past the double-click
+/// time before a real-input test ends. A window destroyed within the
+/// double-click time of a click on it leaves GTK state behind that
+/// corrupts memory later, which crashed a later test (seen on unchanged
+/// main too).
+fn let_go(pointer: &mut crate::test_support::pointer::Pointer) {
+    pointer.move_to(1430, 990);
+    wait_for(std::time::Duration::from_millis(700));
+}
+
 /// The labels of the Quick access rows, in order.
 fn pinned_labels(test: &TestWindow) -> Vec<String> {
     test.window
@@ -154,6 +164,7 @@ fn a_real_drag_of_a_file_onto_the_edge_of_a_pin_goes_into_the_pinned_folder() {
         "a plain drag within a drive moves"
     );
     assert_eq!(pinned_labels(&test), pins_before, "nothing is pinned");
+    let_go(&mut pointer);
 }
 
 /// The screen point of the middle of the navigation pane's resize handle.
@@ -199,6 +210,7 @@ fn a_real_drag_of_the_pane_edge_saves_its_width() {
     wait_until("the width to be saved", || {
         test.context.settings_data().preferences.sidebar_width == u32::try_from(moved).ok()
     });
+    let_go(&mut pointer);
 }
 
 /// A drive that cannot be ejected, because a program still uses it or
@@ -272,6 +284,7 @@ fn a_real_double_click_on_this_pc_collapses_and_expands_it() {
     wait_until("This PC to expand", local_disk_shown);
 
     assert!(expanded_at_first);
+    let_go(&mut pointer);
 }
 
 /// The labels of `entries`, with "-" for a divider, and whether each item
@@ -442,4 +455,269 @@ fn home_and_gallery_menus_open_them_in_a_new_tab_or_window() {
         let row_target = sidebar.location_at(sidebar.middle_of(place));
         assert_eq!(target, row_target, "{place} opens its own location");
     }
+}
+
+/// A window whose Network discovery finds one computer, "DESKTOP-FICTIONAL",
+/// at `uri`, without sending anything onto a network.
+fn with_a_computer_at(uri: &str, shown: &str) -> TestWindow {
+    use ox_core::network::{DiscoveredServer, Discovery};
+    let server = DiscoveredServer {
+        uri: uri.to_owned(),
+        label: "DESKTOP-FICTIONAL".to_owned(),
+        host: "desktop-fictional".to_owned(),
+    };
+    TestWindow::open_prepared(shown, move |context| {
+        context
+            .network()
+            .set_discoverer(crate::network::Discoverer::finding(Discovery {
+                servers: vec![server],
+                warnings: Vec::new(),
+            }));
+    })
+}
+
+/// The chevron of the sidebar row labelled `label`.
+fn row_chevron(test: &TestWindow, label: &str) -> Option<gtk::Button> {
+    use crate::test_support::harness::descendants;
+    let sidebar = test.window.sidebar();
+    let index = sidebar.labels().iter().rposition(|shown| shown == label)?;
+    let row = sidebar.list().row_at_index(i32::try_from(index).ok()?)?;
+    descendants::<gtk::Button>(&row)
+        .into_iter()
+        .find(|button| button.has_css_class("side-expander"))
+}
+
+/// As in Windows 11 (checked in 26200), Network in the navigation pane
+/// lists the computers discovery found, under it and after the network
+/// locations, each with a chevron of its own; going to Network discovers
+/// them.
+///
+/// parity: SIDE-019, HOME-007
+#[gtk::test]
+fn network_lists_the_discovered_computers_each_with_a_chevron() {
+    let fixture = Fixture::standard();
+    let test = with_a_computer_at("smb://desktop-fictional/", &fixture.uri());
+    let sidebar = test.window.sidebar();
+    let before = sidebar.labels();
+
+    test.activate("go-to", Some(ox_core::location::NETWORK_URI));
+    wait_until("the computer under Network", || {
+        sidebar.labels().contains(&"DESKTOP-FICTIONAL".to_owned())
+    });
+    let labels = sidebar.labels();
+    let network = labels
+        .iter()
+        .position(|label| label == "Network")
+        .expect("Network");
+    let computer = labels
+        .iter()
+        .position(|label| label == "DESKTOP-FICTIONAL")
+        .expect("the computer");
+    let chevron = row_chevron(&test, "DESKTOP-FICTIONAL");
+
+    assert!(
+        !before.contains(&"DESKTOP-FICTIONAL".to_owned()),
+        "nothing is discovered at start"
+    );
+    assert!(computer > network, "{labels:?}");
+    assert!(
+        labels[network + 1..computer]
+            .iter()
+            .all(|label| label != "This PC"),
+        "inside Network: {labels:?}"
+    );
+    let chevron = chevron.expect("the computer has a chevron");
+    assert_eq!(
+        chevron.tooltip_text().as_deref(),
+        Some("Expand DESKTOP-FICTIONAL")
+    );
+}
+
+/// Expanding Network in the navigation pane discovers the computers on
+/// the network, as Windows' does, without going to the Network page.
+///
+/// parity: SIDE-019, SIDE-033
+#[gtk::test]
+fn expanding_network_in_the_pane_discovers_the_computers() {
+    let fixture = Fixture::standard();
+    let test = with_a_computer_at("smb://desktop-fictional/", &fixture.uri());
+    let sidebar = test.window.sidebar();
+    sidebar.toggle_section("network");
+    wait_for(std::time::Duration::from_millis(200));
+    let collapsed = sidebar.labels().contains(&"DESKTOP-FICTIONAL".to_owned());
+
+    sidebar.toggle_section("network");
+    wait_until("the computer under Network", || {
+        sidebar.labels_shown().contains(&"DESKTOP-FICTIONAL".to_owned())
+    });
+
+    assert!(!collapsed);
+    assert_eq!(test.window.current_uri(), Some(fixture.uri()), "the window stays");
+}
+
+/// A real click on a computer's chevron lists its shared folders under
+/// it, and another hides them; Right and Left on its row do the same.
+/// The test's "computer" is a local folder, so no network is reached.
+///
+/// parity: SIDE-019, SIDE-033
+#[gtk::test]
+fn a_computer_s_chevron_lists_its_shares_under_it() {
+    use super::right_drag::PROBE;
+    use crate::test_support::pointer::{screen_point, Button, Pointer};
+
+    let fixture = Fixture::standard();
+    fs::create_dir(fixture.path("Projects")).expect("fixture subfolder");
+    let mut pointer = Pointer::connect();
+    let test = with_a_computer_at(&fixture.uri(), &fixture.uri_of("Documents"));
+    let sidebar = test.window.sidebar();
+    test.activate("go-to", Some(ox_core::location::NETWORK_URI));
+    wait_until("the computer", || {
+        row_chevron(&test, "DESKTOP-FICTIONAL").is_some()
+    });
+    test.activate("go-to", Some(&fixture.uri_of("Documents")));
+    test.wait_for_listing("Documents");
+    wait_for_frames(&test.window, 3);
+    let click_chevron = |pointer: &mut Pointer| {
+        let chevron = row_chevron(&test, "DESKTOP-FICTIONAL").expect("the chevron");
+        let bounds = chevron.compute_bounds(&chevron).expect("a shown chevron");
+        let middle = (f64::from(bounds.width() / 2.0), f64::from(bounds.height() / 2.0));
+        let on = screen_point(pointer, &chevron, middle, PROBE);
+        pointer.move_to(on.0, on.1);
+        pointer.press(Button::Primary);
+        pointer.release(Button::Primary);
+    };
+    let under_computer = || {
+        let labels = sidebar.labels_shown();
+        let at = labels
+            .iter()
+            .position(|label| label == "DESKTOP-FICTIONAL")
+            .expect("the computer");
+        labels[at + 1..].iter().take(2).cloned().collect::<Vec<_>>()
+    };
+
+    click_chevron(&mut pointer);
+    wait_until("the shares", || {
+        under_computer().first().map(String::as_str) == Some("Documents")
+    });
+    let opened = under_computer();
+    let collapse_tooltip = row_chevron(&test, "DESKTOP-FICTIONAL").and_then(|chevron| chevron.tooltip_text());
+    wait_for(std::time::Duration::from_millis(700));
+    click_chevron(&mut pointer);
+    wait_until("the shares to go", || {
+        !sidebar.labels().contains(&"Projects".to_owned())
+    });
+
+    assert_eq!(opened, ["Documents", "Projects"]);
+    assert_eq!(collapse_tooltip.as_deref(), Some("Collapse DESKTOP-FICTIONAL"));
+    assert_eq!(
+        test.window.current_uri(),
+        Some(fixture.uri_of("Documents")),
+        "the chevron opens nothing"
+    );
+    let_go(&mut pointer);
+}
+
+/// Right on a computer's row lists its shared folders, Right again moves
+/// to the first of them, Left moves back to the computer and Left again
+/// hides them, as in Windows' navigation pane.
+///
+/// parity: SIDE-019, SIDE-033
+#[gtk::test]
+fn right_and_left_open_and_close_a_computer() {
+    use crate::test_support::pointer::Pointer;
+
+    let fixture = Fixture::standard();
+    fs::create_dir(fixture.path("Agency share")).expect("fixture subfolder");
+    let mut pointer = Pointer::connect();
+    let test = with_a_computer_at(&fixture.uri(), &fixture.uri_of("Documents"));
+    let sidebar = test.window.sidebar();
+    test.activate("go-to", Some(ox_core::location::NETWORK_URI));
+    wait_until("the computer", || {
+        row_chevron(&test, "DESKTOP-FICTIONAL").is_some()
+    });
+    test.activate("go-to", Some(&fixture.uri_of("Documents")));
+    test.wait_for_listing("Documents");
+    sidebar.focus_location(&fixture.uri());
+    wait_for_frames(&test.window, 2);
+    let focused = || {
+        let row = sidebar.list().focus_child()?;
+        let index = usize::try_from(row.downcast::<gtk::ListBoxRow>().ok()?.index()).ok()?;
+        sidebar.labels().get(index).cloned()
+    };
+    let shares_shown = || sidebar.labels().contains(&"Agency share".to_owned());
+
+    pointer.tap_key(gtk::gdk::Key::Right);
+    wait_until("the shares", shares_shown);
+    let after_right = focused();
+    pointer.tap_key(gtk::gdk::Key::Right);
+    wait_until("the first share", || focused().as_deref() == Some("Agency share"));
+    pointer.tap_key(gtk::gdk::Key::Left);
+    wait_until("back on the computer", || {
+        focused().as_deref() == Some("DESKTOP-FICTIONAL")
+    });
+    pointer.tap_key(gtk::gdk::Key::Left);
+    wait_until("the shares to go", || !shares_shown());
+
+    assert_eq!(
+        after_right.as_deref(),
+        Some("DESKTOP-FICTIONAL"),
+        "the keyboard stays on it"
+    );
+    assert_eq!(focused().as_deref(), Some("DESKTOP-FICTIONAL"));
+    assert_eq!(test.window.current_uri(), Some(fixture.uri_of("Documents")));
+    let_go(&mut pointer);
+}
+
+/// A real double-click on a computer under Network opens it and lists
+/// its shared folders under it, as a double-click on a node of Windows'
+/// navigation pane does; its menu opens it in a new tab or window.
+///
+/// parity: SIDE-019, SIDE-033
+#[gtk::test]
+fn a_real_double_click_on_a_computer_lists_its_shares() {
+    use super::right_drag::PROBE;
+    use crate::test_support::pointer::{screen_point, Button, Pointer};
+
+    let fixture = Fixture::standard();
+    fs::create_dir(fixture.path("Agency share")).expect("fixture subfolder");
+    let mut pointer = Pointer::connect();
+    let test = with_a_computer_at(&fixture.uri(), &fixture.uri_of("Documents"));
+    let sidebar = test.window.sidebar();
+    test.activate("go-to", Some(ox_core::location::NETWORK_URI));
+    wait_until("the computer", || {
+        row_chevron(&test, "DESKTOP-FICTIONAL").is_some()
+    });
+    wait_for_frames(&test.window, 3);
+    let menu = menu_labels(
+        &sidebar
+            .menu_entries_at(sidebar.middle_of("DESKTOP-FICTIONAL"))
+            .expect("the computer has a menu"),
+    );
+    let on = screen_point(
+        &mut pointer,
+        sidebar.list(),
+        (90.0, sidebar.middle_of("DESKTOP-FICTIONAL")),
+        PROBE,
+    );
+    wait_for(std::time::Duration::from_millis(700));
+    pointer.move_to(on.0, on.1);
+    for _ in 0..2 {
+        pointer.press(Button::Primary);
+        pointer.release(Button::Primary);
+    }
+
+    wait_until("the shares", || {
+        sidebar.labels().contains(&"Agency share".to_owned())
+    });
+    wait_until("the computer opened", || {
+        test.window.current_uri() == Some(fixture.uri())
+    });
+    assert!(
+        menu.starts_with(&[
+            ("Open in new tab".to_owned(), false),
+            ("Open in new window".to_owned(), false)
+        ]),
+        "{menu:?}"
+    );
+    let_go(&mut pointer);
 }
