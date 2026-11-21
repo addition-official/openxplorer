@@ -367,3 +367,28 @@ fn settings_pages_at_150_percent_text_need_no_sideways_scrolling() {
         "pages wider than the {room} pixels beside the categories: {too_wide:#?}"
     );
 }
+
+/// The navigation pane gives way to the files as the window narrows, as
+/// Windows' does, and takes its width back as the window widens; nothing
+/// is saved. At 200 % text its default width is 420 pixels, which in a
+/// 672-pixel window would leave the files 250.
+///
+/// parity: LOOK-022
+#[gtk::test]
+fn the_navigation_pane_narrows_with_the_window_and_widens_back() {
+    let fixture = Fixture::standard();
+    let test = laid_out(&fixture.uri());
+    largest_text(&test);
+    let workspace = test.window.workspace().clone();
+    wait_until("the wider default", || workspace.position() == 420);
+    resize(&test, 672);
+    wait_until("the pane to give way", || {
+        let files = workspace.width() - workspace.position();
+        files >= 300
+    });
+    resize(&test, 1320);
+    wait_until("the pane to widen back", || workspace.position() == 420);
+    let saved = test.context.settings_data().preferences.sidebar_width;
+    test.activate("text-reset", None);
+    assert_eq!(saved, None, "the window's own changes are not saved");
+}
