@@ -285,6 +285,14 @@ impl BrowserWindow {
                 return item_menu(&facts, style);
             }
         };
+        // No terminal opens on a page such as Network or Gallery, as the
+        // navigation pane's menus say (OPEN-017).
+        let shown = self.current_uri().unwrap_or_default();
+        let entries = if items.is_empty() && !super::place_menus::terminal_opens_at(&shown) {
+            gray_terminal(entries)
+        } else {
+            entries
+        };
         ContextMenu {
             entries,
             strip: Vec::new(),
@@ -634,6 +642,21 @@ fn keyboard_menu_anchor(row_bounds: Option<graphene::Rect>) -> gdk::Rectangle {
 #[expect(clippy::cast_possible_truncation, reason = "widget bounds are small")]
 fn whole_pixels(coordinate: f32) -> i32 {
     coordinate as i32
+}
+
+/// `entries` with Open in Terminal grayed out, where no terminal opens.
+fn gray_terminal(entries: Vec<MenuEntry>) -> Vec<MenuEntry> {
+    entries
+        .into_iter()
+        .map(|entry| match entry {
+            MenuEntry::Item(item)
+                if item.action == super::menu_popover::MenuAction::Window(WindowAction::OpenInTerminal) =>
+            {
+                MenuEntry::Item(item.disabled_when(true))
+            }
+            other => other,
+        })
+        .collect()
 }
 
 /// The context menu popover attached to `view`.
