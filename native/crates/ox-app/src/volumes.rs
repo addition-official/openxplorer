@@ -25,6 +25,8 @@ use ox_core::integration::DiskTool;
 use ox_core::location;
 use ox_core::network::volume_id_from;
 
+use crate::icons::{Art, Icon, Medium};
+
 /// The file system attributes a drive's space is read from.
 pub(crate) const SPACE_ATTRIBUTES: &str = "filesystem::free,filesystem::size";
 
@@ -83,6 +85,9 @@ pub(crate) struct MountControls {
     /// A removable drive with a block device: Format…, the app's own
     /// dialog (DEV-012).
     pub can_format: bool,
+    /// Not a command: the medium is an optical disc (a `/dev/sr` device),
+    /// which a Windows icon file draws as an optical drive (LOOK-030).
+    pub is_optical: bool,
 }
 
 impl MountControls {
@@ -93,6 +98,7 @@ impl MountControls {
         can_stop: false,
         can_open_in_disks: false,
         can_format: false,
+        is_optical: false,
     };
 
     /// A mount that can only be unmounted, such as an internal partition
@@ -104,6 +110,7 @@ impl MountControls {
         can_stop: false,
         can_open_in_disks: false,
         can_format: false,
+        is_optical: false,
     };
 
     /// Reads what `mount` and its drive allow.
@@ -123,8 +130,20 @@ impl MountControls {
                 && has_block_device
                 && crate::window::is_disk_tool_installed(DiskTool::OpenInDisks),
             can_format: is_removable && has_block_device,
+            is_optical: is_optical_disc(mount),
         }
     }
+}
+
+/// Whether `mount` is an optical disc: its volume's or drive's device is
+/// a SCSI CD-ROM (`/dev/sr0`), as the Linux kernel names every optical
+/// drive.
+fn is_optical_disc(mount: &gio::Mount) -> bool {
+    let volume_device = mount.volume().and_then(|volume| volume.identifier("unix-device"));
+    let drive_device = mount.drive().and_then(|drive| drive.identifier("unix-device"));
+    volume_device
+        .or(drive_device)
+        .is_some_and(|device| device.starts_with("/dev/sr"))
 }
 
 /// Whether a location can be browsed now.
@@ -156,6 +175,25 @@ pub(crate) struct VolumeRow {
 }
 
 impl VolumeRow {
+    /// The icon of the row's drive or device, in the navigation pane and on
+    /// This PC: a phone for a device; for a drive, the drive glyph, which a
+    /// Windows icon file draws as a removable or optical drive when the
+    /// mount can be ejected or stopped (LOOK-030).
+    pub(crate) fn art(&self) -> Art {
+        if self.kind == VolumeKind::Device {
+            return Art::Glyph(Icon::Phone);
+        }
+        match &self.state {
+            VolumeState::Mounted { controls, .. } if controls.is_optical => {
+                Art::RemovableDrive(Medium::Optical)
+            }
+            VolumeState::Mounted { controls, .. } if controls.can_eject || controls.can_stop => {
+                Art::RemovableDrive(Medium::Disk)
+            }
+            VolumeState::Mounted { .. } | VolumeState::Mountable { .. } => Art::Glyph(Icon::HardDrive),
+        }
+    }
+
     /// The mounted root, or `None` while the volume still has to be mounted.
     pub(crate) fn uri(&self) -> Option<&str> {
         match &self.state {
@@ -306,6 +344,61 @@ pub(crate) fn from_monitor(monitor: &gio::VolumeMonitor) -> Vec<VolumeRow> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A row of `kind` mounted at a fictional root with `controls`.
+    fn row_with(kind: VolumeKind, controls: MountControls) -> VolumeRow {
+        VolumeRow {
+            label: "Fictional".into(),
+            kind,
+            state: VolumeState::Mounted {
+                uri: "file:///media/demo/Fictional".into(),
+                controls,
+            },
+        }
+    }
+
+    /// A fixed drive, Local Disk among them, is the drive glyph; one that
+    /// can be ejected or stopped is a removable disk, and one on a
+    /// `/dev/sr` device an optical disc; a device is a phone.
+    ///
+    /// parity: LOOK-030
+    #[test]
+    fn each_drive_shows_its_medium() {
+        let fixed = row_with(VolumeKind::Drive, MountControls::FIXED);
+        assert_eq!(fixed.art(), Art::Glyph(Icon::HardDrive));
+        let usb = MountControls {
+            can_stop: true,
+            ..MountControls::UNMOUNTABLE
+        };
+        assert_eq!(
+            row_with(VolumeKind::Drive, usb).art(),
+            Art::RemovableDrive(Medium::Disk)
+        );
+        let card = MountControls {
+            can_eject: true,
+            ..MountControls::UNMOUNTABLE
+        };
+        assert_eq!(
+            row_with(VolumeKind::Drive, card).art(),
+            Art::RemovableDrive(Medium::Disk)
+        );
+        let disc = MountControls {
+            can_eject: true,
+            is_optical: true,
+            ..MountControls::UNMOUNTABLE
+        };
+        assert_eq!(
+            row_with(VolumeKind::Drive, disc).art(),
+            Art::RemovableDrive(Medium::Optical)
+        );
+        assert_eq!(row_with(VolumeKind::Device, card).art(), Art::Glyph(Icon::Phone));
+        let waiting = VolumeRow {
+            label: "Backup".into(),
+            kind: VolumeKind::Drive,
+            state: VolumeState::Mountable { id: "uuid-1".into() },
+        };
+        assert_eq!(waiting.art(), Art::Glyph(Icon::HardDrive));
+    }
 
     fn mount(name: &str, uri: &str) -> MountFacts {
         MountFacts {
