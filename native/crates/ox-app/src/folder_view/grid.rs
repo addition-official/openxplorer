@@ -9,9 +9,10 @@
 //! the window binds Explorer's four named sizes to Ctrl+Shift+1..4. The
 //! compact layout is Dolphin's Compact view and Explorer's List layout
 //! (VIEW-008): the same grid turned on its side, so the items fill columns
-//! top to bottom and the view scrolls sideways. Small icons is laid out
-//! the same way, as Windows 11 lays it out, with narrower columns: its
-//! 16-pixel icons sit left of their names, not above them. Tiles and Content
+//! top to bottom and the view scrolls sideways. Small icons fill rows left
+//! to right and scroll down, as Windows 11 lays them out: one line per
+//! item, its 16-pixel icon left of its name, in columns 310 pixels apart
+//! at 100%, leaving the rest of the width free. Tiles and Content
 //! (VIEW-071) are the same grid with other cells: Tiles in as many columns
 //! of 256-pixel tiles as fit, Content in one column of rows that span the
 //! width, both scrolling down. A grouped folder's Tiles, Content and icon
@@ -44,6 +45,10 @@ use crate::text_size::TextSize;
 /// The icon edge of the compact layout (Explorer's List uses small icons).
 const COMPACT_ICON_SIZE: i32 = 16;
 
+/// Pixels of Small icons' grid beside its items: its 12-pixel padding at
+/// the left and 8 at the right (`skin/folder-views.css`).
+const SMALL_ICONS_SIDE_PADDING: i32 = 12 + 8;
+
 /// The CSS class of the compact layout.
 const COMPACT_CLASS: &str = "compact";
 
@@ -75,19 +80,10 @@ pub(crate) enum GridLayout {
 }
 
 impl GridLayout {
-    /// Whether the layout keeps a grouped folder's groups under headings:
-    /// Tiles, Content and the icon sizes that fill rows across do, as in
-    /// Windows 11 (VIEW-071, VIEW-022). Small icons and List, which fill
-    /// columns top to bottom, keep the groups' order without headings.
-    const fn shows_groups(self) -> bool {
-        !self.flows_sideways()
-    }
-
     /// Whether the items fill columns top to bottom and the view scrolls
-    /// sideways: List, and Small icons, which Windows 11 lays out as List
-    /// with narrower columns, each 16-pixel icon left of its name.
+    /// sideways: List alone. Small icons fill rows, as in Windows 11.
     pub(crate) const fn flows_sideways(self) -> bool {
-        matches!(self, GridLayout::Compact | GridLayout::Icons(IconSize::SMALL))
+        matches!(self, GridLayout::Compact)
     }
 }
 
@@ -396,14 +392,17 @@ impl IconView {
         let items = imp.items.borrow().clone();
         let title = imp.group_title.borrow().clone();
         let grouped = match (items.as_ref(), title) {
-            (Some(items), Some(title)) if self.layout().shows_groups() => {
+            // Every layout heads a grouped folder's groups, as Windows 11
+            // does (VIEW-022, VIEW-071), List with each heading at the top
+            // of its group's column.
+            (Some(items), Some(title)) => {
                 let collapsed = imp.collapsed.borrow().clone();
-                Some(GroupedSelection::new(
-                    items,
-                    title,
-                    &collapsed,
-                    imp.grid.max_columns(),
-                ))
+                let lines = imp.grid.max_columns();
+                Some(if self.layout().flows_sideways() {
+                    GroupedSelection::new_list(items, title, &collapsed, lines)
+                } else {
+                    GroupedSelection::new(items, title, &collapsed, lines)
+                })
             }
             _ => None,
         };
@@ -500,11 +499,29 @@ impl IconView {
                 let rows = imp.scroller.height() / compact_row(text_size).max(1);
                 u32::try_from(rows.max(1)).unwrap_or(1)
             }
+            GridLayout::Icons(IconSize::SMALL) => {
+                cell_size(IconSize::SMALL, text_size).columns_in(width - SMALL_ICONS_SIDE_PADDING)
+            }
             GridLayout::Icons(size) => cell_size(size, text_size).columns_in(width),
             GridLayout::Tiles => tiles_cell(text_size).columns_in(width),
             // List flows sideways above; Content is one column.
             GridLayout::Compact | GridLayout::Content => 1,
         };
+        // Small icons keep Windows 11's distance between columns: the
+        // grid takes only the width its columns need, as GTK would spread
+        // them over all of it.
+        let spare = match layout {
+            GridLayout::Icons(IconSize::SMALL) => {
+                let cell = cell_size(IconSize::SMALL, text_size).width.max(1);
+                let inner = width - SMALL_ICONS_SIDE_PADDING;
+                let columns = (inner / cell).max(1);
+                (inner - columns * cell).max(0)
+            }
+            _ => 0,
+        };
+        if imp.grid.margin_end() != spare {
+            imp.grid.set_margin_end(spare);
+        }
         if imp.grid.max_columns() != lines {
             imp.grid.set_max_columns(lines);
         }
@@ -523,7 +540,8 @@ impl IconView {
     /// Gives the grid `layout`'s CSS classes, orientation and cells.
     fn apply_layout(&self, layout: GridLayout) {
         let imp = self.imp();
-        let regroups = imp.layout.replace(layout).shows_groups() != layout.shows_groups();
+        // List lays its groups out in columns, the others in rows.
+        let regroups = imp.layout.replace(layout).flows_sideways() != layout.flows_sideways();
         for class in IconSize::css_classes().chain([COMPACT_CLASS, TILES_CLASS, CONTENT_CLASS]) {
             imp.grid.remove_css_class(class);
         }

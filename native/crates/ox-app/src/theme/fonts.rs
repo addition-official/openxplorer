@@ -481,24 +481,25 @@ fn tile_rule(icon_size: IconSize, text_size: TextSize) -> String {
     )
 }
 
-/// Pixels from one Small icons column to the next at 100%, as Windows 11
-/// spaces them (measured at 1920x1080, 100% scale).
-const SMALL_ICONS_COLUMN: f64 = 310.0;
-
 /// Pixels of a Small icons item outside its content box: 2 pixels of
 /// padding on each side (`folder-views.css`).
 const SMALL_ICONS_CHROME: i32 = 2 + 2;
 
-/// Small icons' items at `text_size`: as tall as List's
-/// ([`compact_rule`]), as Windows 11 lays Small icons out as List, and
-/// wide enough that the columns are [`SMALL_ICONS_COLUMN`] pixels apart,
-/// growing with the text.
+/// Small icons' items at `text_size`: one line as tall as List's
+/// ([`compact_rule`]) and wide enough that the columns are
+/// [`crate::folder_view::icon_size::SMALL_ICONS_COLUMN`] pixels apart, growing with the text. Grouped,
+/// the height goes on the item's own box, as for the other icon sizes.
 fn small_icons_rule(text_size: TextSize) -> String {
-    let height = compact_row(text_size) - 1;
-    let scale = text_size::metrics(text_size).scale;
-    let width = text_size::ceil_pixels(SMALL_ICONS_COLUMN * scale) - SMALL_ICONS_CHROME;
+    let cell = grid::cell_size(IconSize::SMALL, text_size);
+    let height = cell.height;
+    let width = cell.width - SMALL_ICONS_CHROME;
     let class = IconSize::SMALL.css_class();
-    format!("gridview.files.{class} > child {{ min-width: {width}px; min-height: {height}px; }}")
+    let groups = grid::ICON_GROUPS_CLASS;
+    format!(
+        "gridview.files.{class} > child {{ min-width: {width}px; min-height: {height}px; }}\n\
+         gridview.files.{class}.{groups} > child {{ min-height: 0; }}\n\
+         gridview.files.{class}.{groups} > child > box:not(.group-slot) {{ min-height: {height}px; }}"
+    )
 }
 
 /// The height of the List layout's items at `text_size`

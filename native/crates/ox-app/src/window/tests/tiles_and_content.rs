@@ -310,13 +310,13 @@ fn tiles_and_content_keep_the_folders_groups_under_headings() {
 }
 
 /// Group by keeps a folder's groups in the icon sizes too, as Windows 11
-/// does: Extra large, Large and Medium icons, and the sizes Ctrl+wheel
+/// does: Extra large, Large, Medium and Small icons, and the sizes Ctrl+wheel
 /// steps through between them, head each group as Details does, each
 /// group starts a row under its heading, and a heading row is as tall as
 /// a line of title while an item row keeps its tile's height. Before,
 /// they listed the items in group order with no heading, so a 7-Zip
-/// archive came before the folders. Small icons and List, which fill
-/// columns top to bottom, keep the group order without headings.
+/// archive came before the folders. Small icons, which fill rows as in
+/// Windows 11, head their groups too.
 ///
 /// parity: VIEW-022, VIEW-005, VIEW-010
 #[gtk::test]
@@ -340,7 +340,7 @@ fn icon_sizes_keep_the_folders_groups_under_headings() {
     test.activate("group-by", Some("type"));
     let expected = details_headings(&test);
     assert!(expected.len() >= 8, "a group for each type: {expected:?}");
-    let sizes = ["extra-large", "large", "medium", "icons-64", "icons-28"];
+    let sizes = ["extra-large", "large", "medium", "icons-64", "icons-28", "small"];
     for key in sizes {
         let view = FolderView::from_key(key).expect("an icon size");
         show(&test, view);
@@ -388,11 +388,6 @@ fn icon_sizes_keep_the_folders_groups_under_headings() {
         pane.model().select_only(1);
         assert_eq!(test.selected_names().len(), 1, "{key}: the listing's positions");
     }
-    for key in ["small", "compact"] {
-        let view = FolderView::from_key(key).expect("a view");
-        show(&test, view);
-        assert!(grid_headings(&test).is_empty(), "{key}: no headings");
-    }
     show(&test, FolderView::from_key("large").expect("Large icons"));
     test.activate("group-by", Some("none"));
     wait_until("the headings to go", || grid_headings(&test).is_empty());
@@ -401,6 +396,93 @@ fn icon_sizes_keep_the_folders_groups_under_headings() {
         (next.y() - first.y()).abs() < 1.0,
         "ungrouped, the tiles share a row again"
     );
+}
+
+/// Group by in List, as Windows 11 lays it out (checked in the VM): the
+/// groups stand side by side as columns, each with its title at the top
+/// and no chevron, its items running down under it and on into the next
+/// column when they overflow. The keys move between the items: Down
+/// from a group's last item goes on to the next group's first, Right to
+/// the next column. Before, List showed the group order with no headings.
+///
+/// parity: VIEW-022, VIEW-008
+#[gtk::test]
+fn list_heads_each_group_at_the_top_of_its_column() {
+    use gtk::gdk;
+    let fixture = Fixture::empty();
+    std::fs::create_dir(fixture.path("Harbor survey")).expect("fixture subfolder");
+    for number in 0..60 {
+        fixture.write(&format!("Notes {number:02}.txt"));
+    }
+    for name in ["Lighthouse.jpg", "Morning tide.mp3", "Archive of logs.zip"] {
+        fixture.write(name);
+    }
+    let test = TestWindow::open(&fixture.uri());
+    test.activate("group-by", Some("type"));
+    let expected = details_headings(&test);
+    show(&test, FolderView::Compact);
+    let shown = grid_headings(&test);
+    assert!(!shown.is_empty(), "List heads its groups");
+    assert_eq!(shown[..], expected[..shown.len()], "as Details heads them");
+    let pane = test.window.folder_pane();
+    let grid = pane.view_widget();
+    let headings: Vec<(FileCell, gtk::graphene::Rect)> = descendants::<FileCell>(&grid)
+        .into_iter()
+        .filter(|cell| cell.is_mapped() && cell.group_heading().is_some())
+        .filter_map(|cell| cell.compute_bounds(&grid).map(|bounds| (cell, bounds)))
+        .collect();
+    let top = headings
+        .iter()
+        .map(|(_, bounds)| bounds.y())
+        .fold(f32::MAX, f32::min);
+    for (cell, bounds) in &headings {
+        assert!((bounds.y() - top).abs() < 1.0, "each heading tops its column");
+        let chevron = descendants::<gtk::Image>(cell)
+            .into_iter()
+            .find(|image| image.has_css_class("group-chevron"))
+            .expect("a chevron widget");
+        assert!(chevron.width() < 1, "no chevron in List");
+    }
+    let mut xs: Vec<f32> = headings.iter().map(|(_, bounds)| bounds.x()).collect();
+    xs.sort_by(f32::total_cmp);
+    xs.dedup_by(|a, b| (*a - *b).abs() < 1.0);
+    assert_eq!(xs.len(), headings.len(), "the groups stand side by side");
+    // Text Document's 60 notes overflow their column into the next.
+    let model = pane.model();
+    let lines = pane.icon_view().grid().max_columns();
+    assert!(lines < 60, "the notes overflow a column");
+    let first_note = test.position_of("Notes 00.txt");
+    pane.scroll_into_view(first_note + lines);
+    wait_for_frames(&test.window, 4);
+    let note = |offset: u32| cell_bounds(&test, first_note + offset);
+    let (first, next) = (note(0), note(1));
+    assert!(
+        (first.x() - next.x()).abs() < 1.0 && next.y() > first.y(),
+        "the notes run down"
+    );
+    let overflow = note(lines - 1);
+    assert!(overflow.x() > first.x(), "the notes run on into the next column");
+    assert!((overflow.y() - top).abs() < 1.0, "from its top");
+    // Keys.
+    test.window.folder_pane().focus_view();
+    let before = first_note - 1;
+    test.window.folder_pane().reveal(before);
+    test.window.folder_model().select_only(before);
+    let press = |key: gdk::Key| super::selection::press_key(&test, key, gdk::ModifierType::empty());
+    press(gdk::Key::Down);
+    assert_eq!(
+        model.selected_positions(),
+        [first_note],
+        "Down goes on into the next group"
+    );
+    press(gdk::Key::Right);
+    assert_eq!(
+        model.selected_positions(),
+        [first_note + lines],
+        "Right goes to the same row of the next column"
+    );
+    press(gdk::Key::Left);
+    assert_eq!(model.selected_positions(), [first_note], "Left comes back");
 }
 
 /// A group heading's accessible name follows its title when the groups
