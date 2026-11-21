@@ -304,3 +304,40 @@ fn with_expand_to_open_folder_off_the_tree_stays_closed() {
     assert_eq!(tree.outline(), before, "no folder opened on the way");
     assert_eq!(tree.selected_uri(), None, "Reports is not in the tree yet");
 }
+
+/// Home and Gallery open in a new tab or window from their menu, as
+/// every other node of Windows 11's navigation pane does; their menus
+/// used to offer only Hide.
+///
+/// parity: SIDE-001, SIDE-015
+#[gtk::test]
+fn home_and_gallery_menus_open_them_in_a_new_tab_or_window() {
+    use crate::window::menu_popover::{MenuAction, MenuEntry};
+    use crate::window::WindowAction;
+
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    let sidebar = test.window.sidebar();
+    wait_for_frames(&test.window, 2);
+
+    for place in ["Home", "Gallery"] {
+        let menu = sidebar
+            .menu_entries_at(sidebar.middle_of(place))
+            .expect("the row has a menu");
+        let labels: Vec<String> = menu_labels(&menu).into_iter().map(|(label, _)| label).collect();
+        assert!(
+            labels.starts_with(&["Open in new tab".to_owned(), "Open in new window".to_owned()]),
+            "{place}: {labels:?}"
+        );
+        let new_tab = menu
+            .iter()
+            .find_map(|entry| match entry {
+                MenuEntry::Item(item) if item.action == MenuAction::from(WindowAction::OpenTab) => Some(item),
+                _ => None,
+            })
+            .expect("Open in new tab");
+        let target = new_tab.target.as_ref().and_then(gtk::glib::Variant::str).map(str::to_owned);
+        let row_target = sidebar.location_at(sidebar.middle_of(place));
+        assert_eq!(target, row_target, "{place} opens its own location");
+    }
+}

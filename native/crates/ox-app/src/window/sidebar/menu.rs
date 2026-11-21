@@ -158,6 +158,26 @@ pub(super) struct HeadMenuState {
     pub system_information: bool,
 }
 
+/// "Open in new tab" and "Open in new window" for `uri`.
+fn open_elsewhere_items(uri: &str) -> Vec<MenuEntry> {
+    vec![
+        MenuItem::with_text_target(
+            &ox_core::i18n::gettext("Open in new tab"),
+            Icon::Add,
+            WindowAction::OpenTab,
+            uri,
+        )
+        .into(),
+        MenuItem::with_text_target(
+            &ox_core::i18n::gettext("Open in new window"),
+            Icon::WindowNew,
+            WindowAction::OpenWindow,
+            uri,
+        )
+        .into(),
+    ]
+}
+
 /// The menu of This PC's or Network's row, which opens `uri`, laid out as
 /// Windows 11's navigation pane lays it out. Windows' Pin to Quick access
 /// and Pin to Start are left out: the app cannot pin a page and has no
@@ -176,22 +196,7 @@ pub(super) fn head_menu(section: Section, uri: &str, state: &HeadMenuState) -> V
         entries
             .push(MenuItem::with_text_target(&label, glyph, WindowAction::ToggleSidebarSection, key).into());
     }
-    entries.extend([
-        MenuItem::with_text_target(
-            &ox_core::i18n::gettext("Open in new tab"),
-            Icon::Add,
-            WindowAction::OpenTab,
-            uri,
-        )
-        .into(),
-        MenuItem::with_text_target(
-            &ox_core::i18n::gettext("Open in new window"),
-            Icon::WindowNew,
-            WindowAction::OpenWindow,
-            uri,
-        )
-        .into(),
-    ]);
+    entries.extend(open_elsewhere_items(uri));
     if section == Section::ThisPc {
         entries.push(
             MenuItem::new(
@@ -436,6 +441,13 @@ impl Sidebar {
                     uri,
                     &self.head_menu_state(entry.section),
                 ));
+            }
+        }
+        // Home and Gallery open in a new tab or window, as every node of
+        // Windows 11's navigation pane does.
+        if entry.section == Section::Home && entry.menu.is_none() {
+            if let RowTarget::Location(uri) = &entry.target {
+                return Some(open_elsewhere_items(uri));
             }
         }
         let place = entry.menu.as_ref()?;
