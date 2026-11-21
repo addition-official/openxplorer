@@ -408,6 +408,12 @@ impl BrowserWindow {
         self.sidebar().list().add_controller(source);
     }
 
+    /// What dragging the crumb at (`x`, `y`) of the address bar offers.
+    pub(super) fn crumb_drag_content_at(&self, x: f64, y: f64) -> Option<gdk::ContentProvider> {
+        let _ = (x, y);
+        None
+    }
+
     /// What dragging This PC's tile of the drive at `uri` offers: the
     /// drive, which a drop into a folder makes a shortcut to
     /// ([`super::drive_shortcuts`]); `None` while an operation runs.

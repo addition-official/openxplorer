@@ -1,0 +1,249 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+//! Addresses typed as Windows 11 File Explorer takes them: a path between
+//! double quotes, as "Copy as path" copies it, environment variables, Tab
+//! through the suggestions, and one typed history shared by every window
+//! and kept across restarts.
+
+use std::fs;
+
+use gtk::glib::translate::IntoGlib;
+use gtk::prelude::*;
+use gtk::{gdk, glib};
+use ox_core::typed_addresses::{TypedAddresses, TYPED_ADDRESSES_FILE};
+
+use crate::locations::Page;
+use crate::test_support::harness::{wait_until, Fixture, TestWindow};
+use crate::window::address_bar::AddressMode;
+use crate::window::file_drag::DraggedItems;
+
+/// A fixture with a folder whose name has a space, as Copy as path quotes
+/// it.
+fn fixture_with_team_files() -> Fixture {
+    let fixture = Fixture::standard();
+    fs::create_dir(fixture.path("Team files")).expect("fixture subfolder");
+    fs::write(fixture.path("Team files/Tone sample.mp3"), b"ID3").expect("fixture file");
+    fixture
+}
+
+/// Submits `typed` in the address bar and waits until the tab shows
+/// `uri`.
+fn go_to(test: &TestWindow, typed: &str, uri: &str) {
+    test.activate("location", None);
+    test.window.submit_address(typed);
+    wait_until(&format!("the address {typed}"), || {
+        test.window.current_uri().as_deref() == Some(uri)
+    });
+}
+
+/// The capture-phase key controller of the address entry, which the
+/// suggestions list listens with.
+fn list_keys(test: &TestWindow) -> gtk::EventControllerKey {
+    let entry = test.window.address_bar().entry();
+    entry
+        .observe_controllers()
+        .iter::<glib::Object>()
+        .filter_map(Result::ok)
+        .filter_map(|controller| controller.downcast::<gtk::EventControllerKey>().ok())
+        .find(|keys| keys.propagation_phase() == gtk::PropagationPhase::Capture)
+        .expect("the list's keys")
+}
+
+/// Presses `key` with `modifiers` on the list's keys; whether it was
+/// taken.
+fn press(keys: &gtk::EventControllerKey, key: gdk::Key, modifiers: gdk::ModifierType) -> bool {
+    let no_keycode = 0_u32;
+    keys.emit_by_name::<bool>("key-pressed", &[&key.into_glib(), &no_keycode, &modifiers])
+}
+
+/// A path between double quotes, as Copy as path puts it on the
+/// clipboard, opens like the path itself; so does a place's name in
+/// quotes. Windows 11 File Explorer's address bar takes both.
+///
+/// parity: NAV-033
+#[gtk::test]
+fn a_quoted_path_as_copy_as_path_gives_it_opens_the_folder() {
+    let fixture = fixture_with_team_files();
+    let test = TestWindow::open(&fixture.uri());
+    test.wait_for_listing("the fixture");
+    let team_files = fixture.path("Team files").display().to_string();
+
+    go_to(&test, &format!("\"{team_files}\""), &fixture.uri_of("Team files"));
+    assert_eq!(test.window.address_bar().mode(), AddressMode::Crumbs);
+    go_to(&test, "\"Recycle Bin\"", ox_core::location::TRASH_URI);
+    go_to(
+        &test,
+        &format!("  \"{team_files}/\"  "),
+        &fixture.uri_of("Team files"),
+    );
+
+    let history = test.window.address_bar().typed_history();
+    assert_eq!(
+        history.first().map(String::as_str),
+        Some(format!("\"{team_files}/\"").as_str()),
+        "the history keeps what was typed"
+    );
+}
+
+/// `%NAME%`, as in Windows, and `$NAME` or `${NAME}` stand for the
+/// environment variable's value; an unset one is looked up as typed.
+///
+/// parity: NAV-033
+#[gtk::test]
+fn environment_variables_in_a_typed_address_are_expanded() {
+    let fixture = fixture_with_team_files();
+    std::env::set_var("OX_TEST_TYPED_ROOT", fixture.root());
+    let test = TestWindow::open(&fixture.uri_of("Documents"));
+    test.wait_for_listing("Documents");
+    let team_files = fixture.uri_of("Team files");
+
+    go_to(&test, "%OX_TEST_TYPED_ROOT%/Team files", &team_files);
+    go_to(&test, "~", &ox_core::location::file_uri(&glib::home_dir()));
+    go_to(&test, "$OX_TEST_TYPED_ROOT/Team files", &team_files);
+    go_to(&test, "~", &ox_core::location::file_uri(&glib::home_dir()));
+    go_to(&test, "\"${OX_TEST_TYPED_ROOT}/Team files\"", &team_files);
+
+    test.activate("location", None);
+    test.window.submit_address("%OX_TEST_NOT_SET%/Team files");
+    wait_until("the not-found box", || test.window.has_open_dialog());
+    assert_eq!(test.window.current_uri(), Some(team_files));
+}
+
+/// Tab with the suggestions shown puts the next one into the address, as
+/// Tab completes a path in Windows' address bar, and Shift+Tab the one
+/// before; without suggestions Tab moves focus as usual.
+///
+/// parity: NAV-030
+#[gtk::test]
+fn tab_takes_the_next_suggestion_and_shift_tab_the_one_before() {
+    let fixture = Fixture::standard();
+    fixture.write("Notes 3.txt");
+    let test = TestWindow::open(&fixture.uri());
+    test.wait_for_listing("the fixture");
+    let address = test.window.address_bar();
+    let keys = list_keys(&test);
+    test.activate("location", None);
+    assert!(
+        !press(&keys, gdk::Key::Tab, gdk::ModifierType::empty()),
+        "Tab moves on without a list"
+    );
+    let base = format!("{}/", fixture.root().display());
+    let typed = format!("{base}No");
+    address.entry().set_text(&typed);
+    address.entry().set_position(-1);
+    wait_until("the suggestions", || address.suggestions_shown());
+    let first = format!("{base}Notes 2.txt");
+    let second = format!("{base}Notes 3.txt");
+    assert_eq!(address.suggestion_rows()[..2], [first.clone(), second.clone()]);
+
+    assert!(press(&keys, gdk::Key::Tab, gdk::ModifierType::empty()));
+    assert_eq!(address.entry().text(), first);
+    assert!(press(&keys, gdk::Key::Tab, gdk::ModifierType::empty()));
+    assert_eq!(address.entry().text(), second);
+    assert!(press(
+        &keys,
+        gdk::Key::ISO_Left_Tab,
+        gdk::ModifierType::SHIFT_MASK
+    ));
+    assert_eq!(address.entry().text(), first, "Shift+Tab goes back");
+    assert!(address.suggestions_shown(), "the list stays open");
+    assert!(address.entry().has_focus() || address.entry().focus_child().is_some());
+    address.entry().emit_by_name::<()>("activate", &[]);
+    wait_until("the chosen file opened", || {
+        test.context.recorded_launches() == [fixture.uri_of("Notes 2.txt")]
+    });
+}
+
+/// Every window lists the same typed addresses, most recent first, and a
+/// new window, as after a restart, still lists them: Windows keeps them
+/// for the user. Clear history forgets them everywhere and on disk.
+///
+/// parity: NAV-043
+#[gtk::test]
+fn typed_addresses_are_shared_by_every_window_and_kept_for_the_next_start() {
+    let fixture = fixture_with_team_files();
+    let first = TestWindow::open(&fixture.uri());
+    first.wait_for_listing("the fixture");
+    let second = first.open_beside(&fixture.uri());
+    let team_files = fixture.path("Team files").display().to_string();
+    let documents = fixture.path("Documents").display().to_string();
+
+    go_to(&first, &team_files, &fixture.uri_of("Team files"));
+    go_to(&second, &documents, &fixture.uri_of("Documents"));
+
+    for window in [&first, &second] {
+        assert_eq!(
+            window.window.address_bar().typed_history(),
+            [documents.clone(), team_files.clone()]
+        );
+    }
+    let kept = TypedAddresses::open(first.settings_directory());
+    assert_eq!(kept.addresses(), [documents.clone(), team_files.clone()]);
+
+    let stored = first.settings_directory().join(TYPED_ADDRESSES_FILE);
+    let restarted = TestWindow::open_prepared(&fixture.uri(), |context| {
+        fs::copy(&stored, context.settings_directory().join(TYPED_ADDRESSES_FILE))
+            .expect("the history is copied into the new settings");
+    });
+    restarted.activate("address-history", None);
+    assert_eq!(
+        restarted.window.address_bar().suggestion_rows(),
+        [documents, team_files],
+        "a new start lists them"
+    );
+
+    first.window.clear_explorer_history();
+    assert!(second.window.address_bar().typed_history().is_empty());
+    assert!(TypedAddresses::open(first.settings_directory())
+        .addresses()
+        .is_empty());
+}
+
+/// A crumb can be dragged out like the folder it names, as a sidebar
+/// folder can; the search results' crumb and a page cannot.
+///
+/// parity: DND-001, NAV-017
+#[gtk::test]
+fn a_crumb_drags_its_folder() {
+    let fixture = fixture_with_team_files();
+    let test = TestWindow::open(&fixture.uri_of("Team files"));
+    test.wait_for_listing("Team files");
+    let bar = test.window.address_bar();
+    let bar_widget: gtk::Widget = bar.clone().upcast();
+    let crumbs = bar.crumb_buttons();
+    let parent = &crumbs[crumbs.len() - 2];
+    let point = parent
+        .compute_point(&bar_widget, &gtk::graphene::Point::new(4.0, 4.0))
+        .expect("the crumb is in the bar");
+
+    let content = test
+        .window
+        .crumb_drag_content_at(f64::from(point.x()), f64::from(point.y()))
+        .expect("a crumb can be dragged");
+
+    let own = content
+        .value(DraggedItems::static_type())
+        .expect("the drag offers its own items to this process");
+    assert_eq!(own.get::<DraggedItems>().expect("the items").0, [fixture.uri()]);
+    assert!(
+        test.window.crumb_drag_content_at(-50.0, -50.0).is_none(),
+        "nothing outside a crumb"
+    );
+    let has_source = bar
+        .observe_controllers()
+        .iter::<glib::Object>()
+        .filter_map(Result::ok)
+        .any(|controller| controller.is::<gtk::DragSource>());
+    assert!(has_source, "the bar starts drags");
+
+    test.show(Page::ThisPc.uri());
+    let first = bar.crumb_buttons().into_iter().next().expect("This PC's crumb");
+    let point = first
+        .compute_point(&bar_widget, &gtk::graphene::Point::new(4.0, 4.0))
+        .expect("the crumb is in the bar");
+    assert!(
+        test.window
+            .crumb_drag_content_at(f64::from(point.x()), f64::from(point.y()))
+            .is_none(),
+        "a page is no folder to drag"
+    );
+}
