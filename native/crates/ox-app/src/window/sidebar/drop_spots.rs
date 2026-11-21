@@ -193,14 +193,15 @@ impl Sidebar {
             .find(|class| row.has_css_class(class))
     }
 
-    /// The vertical middle of the row labelled `label`, in the list's
-    /// coordinates, for tests.
+    /// The vertical middle of the last row labelled `label`, in the list's
+    /// coordinates, for tests: a folder just pinned is the last of the
+    /// pins, below a standard folder of the same name.
     #[cfg(test)]
     pub(in crate::window) fn middle_of(&self, label: &str) -> f64 {
         let index = self
             .labels()
             .iter()
-            .position(|shown| shown == label)
+            .rposition(|shown| shown == label)
             .unwrap_or_else(|| panic!("the sidebar shows {label}"));
         let row = i32::try_from(index)
             .ok()
@@ -210,14 +211,14 @@ impl Sidebar {
         f64::from(bounds.y() + bounds.height() / 2.0)
     }
 
-    /// A point just inside the top edge of the row labelled `label`, in
-    /// the list's coordinates, where a drop pins before it, for tests.
+    /// A point just inside the top edge of the last row labelled `label`,
+    /// in the list's coordinates, where a drop pins before it, for tests.
     #[cfg(test)]
     pub(in crate::window) fn top_edge_of(&self, label: &str) -> f64 {
         let index = self
             .labels()
             .iter()
-            .position(|shown| shown == label)
+            .rposition(|shown| shown == label)
             .unwrap_or_else(|| panic!("the sidebar shows {label}"));
         let row = i32::try_from(index)
             .ok()
