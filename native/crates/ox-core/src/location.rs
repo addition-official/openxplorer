@@ -44,6 +44,7 @@
 //! | `names` | File names, "Keep both" names and sidebar labels |
 //! | `display` | Titles, address bar text, breadcrumbs and Up |
 //! | `classify` | Writable, snapshot and network folders, SMB share roots |
+//! | `typed` | Quotes and environment variables in typed addresses |
 
 mod archive_location;
 mod classify;
@@ -53,6 +54,7 @@ mod names;
 mod normalise;
 mod parts;
 mod text;
+mod typed;
 mod virtual_place;
 
 pub(crate) use text::{
@@ -74,6 +76,7 @@ pub use normalise::{
 };
 pub use parts::{canonical_remote_scheme, split_location, LocationKind, LocationParts, REMOTE_SCHEMES};
 pub use text::{breaks_a_line, without_line_breaks};
+pub use typed::typed_address;
 pub use virtual_place::{
     is_virtual_location, normalise_navigation, VirtualPlace, GALLERY_URI, HOME_URI, NETWORK_URI, PC_URI,
     RECENT_LOCATIONS_URI, RECENT_URI, SETTINGS_URI, TRASH_URI,
