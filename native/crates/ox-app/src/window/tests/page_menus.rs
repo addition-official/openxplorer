@@ -290,3 +290,46 @@ fn the_blank_space_of_this_pc_home_and_network_has_windows_11s_menu() {
     assert!(!rows.contains(&"Show more options".to_owned()), "{rows:?}");
     close(&mut session, &menu);
 }
+
+/// The navigation pane's Home row offers Windows 11's "Pin current folder
+/// to Quick access" after Open in new tab and Open in new window, which
+/// pins the folder shown, chosen with a real click.
+///
+/// parity: SIDE-010, SIDE-007
+#[gtk::test]
+fn home_in_the_navigation_pane_pins_the_current_folder() {
+    let fixture = Fixture::real_world();
+    let documents = fixture.uri_of("Documents");
+    let mut session = Session::open_on(fixture, None);
+    show(&session, &documents);
+    for style in [ContextMenu::Win11, ContextMenu::Win10] {
+        choose_menu_style(&session.test, style);
+        let at = super::menu_sweep::on_sidebar_row(&session, "Home");
+        let menu = right_click_at(&mut session, at, "Home's row");
+        let rows = menu.row_labels();
+        let tab = rows.iter().position(|row| row == "Open in new tab");
+        let pin = rows
+            .iter()
+            .position(|row| row == "Pin current folder to Quick access");
+        assert!(
+            tab.is_some() && pin == tab.map(|tab| tab + 2),
+            "{style:?}: {rows:?}"
+        );
+        close(&mut session, &menu);
+    }
+    choose_menu_style(&session.test, ContextMenu::Win11);
+    let at = super::menu_sweep::on_sidebar_row(&session, "Home");
+    let menu = right_click_at(&mut session, at, "Home's row");
+    let row = session.middle_of(&menu.row("Pin current folder to Quick access"));
+    session.click_at(row);
+    let sidebar = session.test.window.sidebar().clone();
+    wait_until("Documents pinned", || session.test.window.is_pinned(&documents));
+    assert!(
+        sidebar
+            .labels()
+            .iter()
+            .filter(|label| *label == "Documents")
+            .count()
+            >= 1
+    );
+}

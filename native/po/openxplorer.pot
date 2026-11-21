@@ -7595,6 +7595,10 @@ msgid "Map network drive…"
 msgstr ""
 
 #: crates/ox-app/src/window/sidebar/menu.rs
+msgid "Pin current folder to Quick access"
+msgstr ""
+
+#: crates/ox-app/src/window/sidebar/menu.rs
 msgid "Show all entries"
 msgstr ""
 

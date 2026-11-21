@@ -445,10 +445,25 @@ impl Sidebar {
             }
         }
         // Home and Gallery open in a new tab or window, as every node of
-        // Windows 11's navigation pane does.
+        // Windows 11's navigation pane does. Home also pins the folder
+        // shown, as Windows 11's "Pin current folder to Quick access"
+        // (checked on build 26200); grayed on a page, which cannot be
+        // pinned. Gallery's own Pin to Quick access is left out: the app
+        // cannot pin a page.
         if entry.section == Section::Home && entry.menu.is_none() {
             if let RowTarget::Location(uri) = &entry.target {
-                return Some(open_elsewhere_items(uri));
+                let mut entries = open_elsewhere_items(uri);
+                if uri != ox_core::location::GALLERY_URI {
+                    entries.push(
+                        MenuItem::new(
+                            &ox_core::i18n::gettext("Pin current folder to Quick access"),
+                            Icon::Pin,
+                            WindowAction::PinFolder,
+                        )
+                        .into(),
+                    );
+                }
+                return Some(entries);
             }
         }
         let place = entry.menu.as_ref()?;
