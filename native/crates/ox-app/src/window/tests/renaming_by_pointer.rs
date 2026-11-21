@@ -284,7 +284,7 @@ fn f2_on_an_item_scrolled_out_of_sight_scrolls_it_back_to_rename() {
     assert_eq!(field.text(), "file 0000.txt");
     let bounds = field.compute_bounds(&view).expect("the field is in the view");
     assert!(
-        bounds.y() >= 0.0 && bounds.y() + bounds.height() <= view.height() as f32,
+        f64::from(bounds.y()) >= 0.0 && f64::from(bounds.y() + bounds.height()) <= f64::from(view.height()),
         "the field is in sight: {bounds:?} in a view {} high",
         view.height()
     );
