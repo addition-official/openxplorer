@@ -264,11 +264,11 @@ pub(crate) fn list_applications(
     })
 }
 
-/// The applications a menu offers for the item at `uri` beside Open
-/// with… (OPEN-013): up to `limit` of those registered for its type that
-/// can open it, as Open with orders them, leaving out a file's default,
-/// which Open starts. Reads the desktop's application database, not the
-/// item.
+/// The applications a menu offers for the item at `uri` in Open with
+/// (OPEN-013): up to `limit` of those registered for its type that can
+/// open it, as Open with orders them, its default first, as Windows 11's
+/// Open with submenu lists it. Reads the desktop's application database,
+/// not the item.
 pub(crate) fn menu_applications(
     uri: &str,
     content_type: Option<&str>,
@@ -279,21 +279,24 @@ pub(crate) fn menu_applications(
         (true, _) => FOLDER_CONTENT_TYPE,
         (false, known) => known.unwrap_or(UNKNOWN_CONTENT_TYPE),
     };
-    let default_id: Option<String> = gio::AppInfo::default_for_type(content_type, false)
-        .and_then(|app| app.id())
-        .map(Into::into);
-    let recommended = gio::AppInfo::recommended_for_type(content_type);
+    let default = gio::AppInfo::default_for_type(content_type, false);
+    let default_id: Option<String> = default.as_ref().and_then(|app| app.id()).map(Into::into);
+    let mut recommended = gio::AppInfo::recommended_for_type(content_type);
     let recommended_ids: Vec<String> = recommended
         .iter()
         .filter_map(|app| app.id().map(Into::into))
         .collect();
+    // A default the user chose for the type need not be registered for it.
+    if let Some(default) = default.filter(|_| default_id.as_ref().is_some_and(|id| !recommended_ids.contains(id))) {
+        recommended.push(default);
+    }
     let facts = ChoiceFacts {
         default_id: default_id.as_deref(),
         recommended_ids: &recommended_ids,
         has_local_path: local_path(uri).is_some(),
     };
     let mut choices = facts.choices(recommended);
-    choices.retain(|choice| choice.is_available && (is_folder || !choice.is_default));
+    choices.retain(|choice| choice.is_available);
     choices.truncate(limit);
     choices
 }
@@ -734,7 +737,8 @@ mod tests {
     }
 
     /// The menu offers the installed applications of a file's type up to
-    /// its limit, without the file's default, which Open starts.
+    /// its limit, the file's default first, as Windows 11's Open with
+    /// lists it.
     ///
     /// parity: OPEN-013
     #[gtk::test]
@@ -782,8 +786,9 @@ mod tests {
                 .collect()
         };
 
-        assert_eq!(offered(3), [names[1].0, names[2].0]);
-        assert_eq!(offered(1), [names[1].0]);
+        // The default comes first, as in Windows 11's Open with.
+        assert_eq!(offered(3), [names[0].0, names[1].0, names[2].0]);
+        assert_eq!(offered(2), [names[0].0, names[1].0]);
 
         gio::AppInfo::reset_type_associations(MENU_TYPE);
         for (id, _) in names {
