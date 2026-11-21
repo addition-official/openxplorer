@@ -545,6 +545,10 @@ msgstr ""
 msgid "The '{label}' device can now be safely removed from the computer."
 msgstr ""
 
+#: crates/ox-app/src/devices.rs
+msgid "This device is currently in use. Close any programs or windows that might be using the device, and then try again."
+msgstr ""
+
 #: crates/ox-app/src/dialog/fields.rs crates/ox-core/src/format.rs
 msgid "Not provided"
 msgstr ""
@@ -6618,6 +6622,10 @@ msgid "Select a folder or share to calculate its size."
 msgstr ""
 
 #: crates/ox-app/src/window/folder_tree/menu.rs
+msgid "Expand to open folder"
+msgstr ""
+
+#: crates/ox-app/src/window/folder_tree/menu.rs
 msgid "Limit to home folder"
 msgstr ""
 
@@ -7594,6 +7602,10 @@ msgstr ""
 
 #: crates/ox-app/src/window/sidebar/menu.rs
 msgid "Show all entries"
+msgstr ""
+
+#: crates/ox-app/src/window/sidebar/menu.rs
+msgid "Show all folders"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -9705,6 +9717,11 @@ msgstr ""
 msgid "Undo can only rename an item back within its own folder."
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-core/src/ops/rename.rs
+msgid "You don't have permission to rename “{name}” here."
+msgstr ""
+
 #: crates/ox-core/src/ops/report.rs
 msgid "Operation stopped"
 msgstr ""
@@ -9900,6 +9917,11 @@ msgstr ""
 
 #: crates/ox-core/src/ops/undo.rs
 msgid "Undo Restore"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-core/src/ops/undo_apply.rs
+msgid "An item named “{name}” is already in “{folder}”, so Undo left it in “{left_in}”."
 msgstr ""
 
 #: crates/ox-core/src/ops/unfinished.rs
@@ -10289,6 +10311,11 @@ msgstr ""
 
 #: crates/ox-core/src/transfer/engine.rs
 msgid "Only copies and moves can rename an item."
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-core/src/transfer/engine.rs
+msgid "The copy at {uri} could not be written to its drive, so the original was kept. {error}"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
