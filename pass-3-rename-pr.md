@@ -1,6 +1,6 @@
 # Title
 
-fix(rename): Keep a typed name on a click away and refuse the same characters everywhere
+fix(rename): Keep a typed name on a click away, merge folders as Windows asks and refuse the same characters everywhere
 
 # Body
 
@@ -15,6 +15,8 @@ Pass 3 of tonight's Windows 11 comparison: renaming. F2, a slow second click, ri
 - **A slow second click on a tile's name did nothing** in Large and Medium icons. The click was measured against text starting at the tile's left edge, but tile names are centered. It is now measured against where the text is drawn.
 - **F2 opened the name field out of sight.** With the selected item scrolled just out of view, GTK still keeps its row alive, and the field opened there, taking whatever the user typed unseen. The row is now scrolled back into sight and the field opens once it is laid out there, as a new folder far down the list already was. An item with no row at all still gets the Rename dialog (OPS-009).
 - **The Properties name box and the Rename dialog took `\ / : * ? " < > |`.** Renaming in place already refuses them as Windows does, with Windows' balloon. Properties renamed a file to `Pic:2. .jpg`. Both now refuse them the same way, and a name changed in Properties loses trailing periods and spaces as in place.
+- **Down and Up while renaming** committed the name and renamed the next item in Details (as Dolphin does) and left the field in the icon views. Checked in Windows 11 26200: they only move the caret. They now move it as Right and Left do, in every view.
+- **A folder renamed to another folder's name** was refused. Windows 11 asks "Confirm Folder Replace" ("This destination already contains a folder named 'Beta'.", "If any files have the same names, you will be asked if you want to replace those files.", "Do you still want to merge this folder", Beta with its icon and date created, "with this one?", Alpha the same way, Yes and No). The app now asks the same. Yes moves Alpha's items into Beta through the normal move path: a taken file asks Replace or Skip, and same-named subfolders merge. Alpha is removed once empty (a skipped item keeps it, so nothing is lost), and Beta is selected. One Undo ("Undo Rename") makes Alpha again and moves everything back, a replaced file returning from the Recycle Bin; Redo merges again. No returns to editing. Only renaming in place asks; Properties and the Rename dialog still refuse a taken folder name.
 - **A refused rename showed GIO's message with the whole path** ("Error moving file /…/locked.txt: Permission denied"). It now says "You don't have permission to rename “locked.txt” here.", also for Undo.
 
 A stale focus outline that stayed on the first row after Tab moved a rename on was seen before these changes and not after; no automated test reproduces it, so it is not claimed as fixed by a test.
@@ -38,6 +40,7 @@ Linux file systems refuse only `/` and NUL. The app refuses Windows' whole set (
 - New: `window/tests/renaming_by_pointer.rs` (click on blank space and on another item, each with a normal click and a quick tap, in Details, Large and Medium icons; slow second click on a tile's name; F2 on an item scrolled out of sight is scrolled back and edited where it shows; the Rename dialog's balloon), `item_dialogs::the_name_in_properties_refuses_forbidden_characters_and_trims_its_end`, ox-core `ops_rename::a_rename_the_folder_refuses_names_the_item_without_its_path` (run as an unprivileged user; it returns early as root) and `rename::tests::a_denied_rename_names_the_item_not_its_path`.
 - Each failed before its fix and passes after.
 - The test pointer gained `Pointer::tap`, a press and release sent together.
+- Round 2: `renaming_by_pointer::down_and_up_while_renaming_move_the_text_cursor`, `window/tests/renaming_folder_merge.rs` (4 tests: the question, Yes with Undo and Redo, Skip, Replace with Undo) and ox-core `a_merge_by_rename_is_undone_by_making_the_folder_then_moving_back`, each failing before its fix. pass-2-undo-redo is merged; after the merge 158 of the rename, conflict, new item, archive, undo and file operation tests pass and 5 fail, all of which fail on unchanged main in this container.
 
 - `native/tools/check.py` stops at Clippy here: this container's Clippy 1.97 reports `duration_suboptimal_units` in five ox-core files and two other lints in `group_day.rs` and `picture_guard.rs`, none touched by this branch. With that one lint allowed, Clippy reports nothing else. rustfmt, `parity/check.py` and the i18n check pass.
 - Every test executable was then run in check.py's isolation (private Xvfb, D-Bus and home): 4,885 passed, 27 failed. Each failing test was rerun on unchanged main 5336b108. 21 fail there too; they need a non-root user, the Python app's comparison sources, an administrator helper, or a display scale. Of the other six, five were renames of a new folder or new text document broken by a first version of the off-screen fix; that fix was reworked, and the five now pass. The sixth, `dialog_keys::the_file_keys_wait_for_a_dialog_window_in_front`, passes when rerun on the branch.
@@ -51,6 +54,6 @@ The Windows behaviors this relies on that no Microsoft page states are listed as
 
 - Renaming a folder in the navigation pane still uses the Rename dialog; Windows edits it in place. The sidebar and tree belong to pass 4, so this is left to it.
 - A renamed item is sorted into place at once; Windows may keep it where it was until a refresh (VM check).
-- Renaming a folder to the name of another folder is refused with a message; Windows offers to merge them (VM check). Merging was not added.
+- The folder merge is offered when renaming in place only.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
