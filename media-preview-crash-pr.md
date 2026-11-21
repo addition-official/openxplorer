@@ -26,7 +26,8 @@ Now:
 * **A player that aborts, hangs up or sends something malformed** puts the stream in error. The pane shows the file's icon and keeps working, and the next file plays.
 * **The player is limited.** It has a 2 GiB data limit, gets SIGKILL when the app dies, and quits when its input closes. It's told to quit and killed after one second if it doesn't.
 * **The player stops before anything changes the file, and stays off it until the change is done.** It is paused, its pipeline set to NULL, then released, when the selection changes. Before the app renames, moves, deletes or replaces a file, the operation holds the file until its write ends, and from before any question it asks. The hold stops every player of the file and waits for it to exit. A player that doesn't quit within one second is killed and waited for. No new player of a held file starts, so one still waiting out its 400 ms doesn't start during a Replace question either.
-  * This covers renaming in place, the Rename dialog, the Properties name box, batch rename, numbered renames of several items (F2), Undo and Redo of every kind, and every transfer job: its sources, unless copied, and the namesakes a Replace overwrites.
+  * This covers renaming in place, the Rename dialog, the Properties name box, batch rename, numbered renames of several items (F2), Undo and Redo of every kind, Recycle Bin restores (the files a Replace overwrites, in every round), and every transfer job: its sources, unless copied, and the namesakes a Replace overwrites.
+  * A copy or move of an item into its own folder changes nothing, so it holds nothing: a recording copied into its own folder plays on, and its "- Copy" starts with auto-play.
   * Renaming or moving a folder stops the players of the files inside it.
   * A share's player plays through the share's local path but is also known by the share's own URI (`smb://…`), which is what file operations use.
 * **The app raises its soft limit on open files to the hard limit at startup,** as defense in depth.
@@ -43,7 +44,9 @@ Now:
     * `a_player_that_will_not_quit_is_gone_before_its_release_returns`: the killed player still existed when the release returned.
     * `undoing_a_copy_stops_the_copys_player_first`: never stopped.
     * `a_numbered_rename_stops_a_player_of_one_of_its_files_first`: never stopped.
-    * Two more pass with the fix: `no_player_starts_for_a_held_file`, and `ox-core`'s `a_reversal_names_every_file_it_may_change`, which failed to compile first because `UndoRecord::locations` didn't exist.
+    * `restoring_over_a_playing_recording_stops_its_player_first` (second review): the player was never stopped.
+    * `copying_a_playing_recording_into_its_own_folder_leaves_it_playing` (second review): the player stopped before the copy existed.
+    * Three more pass with the fix: `a_transfer_changes_its_moved_sources_and_their_namesakes_only`, `no_player_starts_for_a_held_file`, and `ox-core`'s `a_reversal_names_every_file_it_may_change`, which failed to compile first because `UndoRecord::locations` didn't exist.
   * `window/tests/preview_player.rs`, original four:
   * `arrowing_through_200_recordings_leaves_nothing_behind` walks 200 generated recordings with each pane, quickly and then slowly. On `main`, the test process's open files grew from 26 to 1,132 and its threads from 21 to 834, and the test failed. With the fix they come back to where they started.
   * On `main`, rename and delete each failed: the stream stopped 25 to 30 ms *after* the file changed, and the renamed file started playing again. A watcher thread timestamps the file change and the stream's own notify timestamps the stop, so the order is checked exactly.
@@ -61,14 +64,12 @@ Now:
   * `kill -ABRT` of the player while playing leaves the app running with the file's icon in the pane, and the next file plays.
   * F2 rename while playing works (24.04).
   * On 26.04, right-click Rename and Delete while playing work in both pane modes. The renamed MP4 shows its first frame and Length, waiting for Play. 60 rapid clicks across eight files leave exactly one player process.
-* **Checks** at d0c873dd:
+* **Checks** at 5f43ebd8:
   * `python3 native/parity/check.py` passed, as did the parity and tools unit tests check.py runs and `cargo fmt --check`. Clippy passed with the workspace lints on Rust 1.92.0, the toolchain CI pins.
   * `python3 native/tools/check.py` can't pass as one command in this container, because of the environment:
     * As root, the app refuses to start, so `display_scale` fails.
     * The container's Python 3.13 can't import the distro's PyGObject, so `location_fixture_drift` and `network_python` fail.
-  * check.py stops at its first failing executable, so I ran every test executable and the doctests with check.py's own isolation (private Xvfb, D-Bus and home), without stopping, as an unprivileged user, with system Python 3.12 and node 22. 169 of 171 executables passed, with 4,910 tests passed and 10 failed:
-    * `ox_app`: 1 failed, `slow_locations::working_on_it_carries_over_from_the_lookup_to_the_listing`, a timing test. It passed in the previous full run and 3 of 3 times alone.
-    * `ox_core`: 9 `admin_copy` tests failed, because they need paths only root can change. Run as root, 12 of those 13 tests pass. `an_fstab_that_cannot_be_read_refuses` fails as root, because root can read the unreadable file.
+  * check.py stops at its first failing executable, so I ran every test executable and the doctests with check.py's own isolation (private Xvfb, D-Bus and home), without stopping, as an unprivileged user, with system Python 3.12 and node 22. All passed except `ox_core`: 4,914 tests passed and 9 failed. Those are the 9 `admin_copy` tests, which need paths only root can change. Run as root, 12 of those 13 tests pass. `an_fstab_that_cannot_be_read_refuses` fails as root, because root can read the unreadable file.
   * Real input again with this build on the Ubuntu 26.04 root:
     * Right-click Rename and Delete while playing, in both panes.
     * Fast arrowing through 231 recordings: open files stayed at 28-31.
