@@ -363,6 +363,12 @@ gridview.files.compact > child > box { margin: 0; border-spacing: 0; }
 gridview.files.icons-small { padding: 4px 8px 8px 12px; }
 gridview.files.icons-small > child { padding: 0 2px; margin: 0; border-radius: 4px; }
 gridview.files.icons-small > child > box { margin: 0; border-spacing: 0; }
+/* List's groups (VIEW-022) stand side by side as columns, each headed by
+   its title alone in the column's first slot, as tall as an item's, as
+   Windows 11 lays them out (checked in the Windows 11 VM). */
+gridview.files.compact > child > .item-cell.group-slot.heading-row { min-height: 0; margin: 0; padding: 0; }
+gridview.files.compact .group-slot .group-header.group-heading { margin: 0; }
+gridview.files.compact > child > .group-slot box { margin: 0; }
 /* Grouped, an item draws on its own box as the other icon sizes do, with
    Small icons' own padding, and a heading's row has a line under it, as
    Windows 11 draws Small icons' headings (checked in the Windows 11 VM). */

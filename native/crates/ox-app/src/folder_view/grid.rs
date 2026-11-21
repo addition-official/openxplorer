@@ -80,14 +80,6 @@ pub(crate) enum GridLayout {
 }
 
 impl GridLayout {
-    /// Whether the layout keeps a grouped folder's groups under headings
-    /// across its rows: Tiles, Content and every icon size do, as in
-    /// Windows 11 (VIEW-071, VIEW-022). List, which fills columns top to
-    /// bottom, keeps the groups' order without headings.
-    const fn shows_groups(self) -> bool {
-        !self.flows_sideways()
-    }
-
     /// Whether the items fill columns top to bottom and the view scrolls
     /// sideways: List alone. Small icons fill rows, as in Windows 11.
     pub(crate) const fn flows_sideways(self) -> bool {
@@ -400,14 +392,17 @@ impl IconView {
         let items = imp.items.borrow().clone();
         let title = imp.group_title.borrow().clone();
         let grouped = match (items.as_ref(), title) {
-            (Some(items), Some(title)) if self.layout().shows_groups() => {
+            // Every layout heads a grouped folder's groups, as Windows 11
+            // does (VIEW-022, VIEW-071), List with each heading at the top
+            // of its group's column.
+            (Some(items), Some(title)) => {
                 let collapsed = imp.collapsed.borrow().clone();
-                Some(GroupedSelection::new(
-                    items,
-                    title,
-                    &collapsed,
-                    imp.grid.max_columns(),
-                ))
+                let lines = imp.grid.max_columns();
+                Some(if self.layout().flows_sideways() {
+                    GroupedSelection::new_list(items, title, &collapsed, lines)
+                } else {
+                    GroupedSelection::new(items, title, &collapsed, lines)
+                })
             }
             _ => None,
         };
@@ -545,7 +540,8 @@ impl IconView {
     /// Gives the grid `layout`'s CSS classes, orientation and cells.
     fn apply_layout(&self, layout: GridLayout) {
         let imp = self.imp();
-        let regroups = imp.layout.replace(layout).shows_groups() != layout.shows_groups();
+        // List lays its groups out in columns, the others in rows.
+        let regroups = imp.layout.replace(layout).flows_sideways() != layout.flows_sideways();
         for class in IconSize::css_classes().chain([COMPACT_CLASS, TILES_CLASS, CONTENT_CLASS]) {
             imp.grid.remove_css_class(class);
         }

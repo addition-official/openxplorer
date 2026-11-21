@@ -251,6 +251,9 @@ mod imp {
         pub(super) folder_picture: super::FolderPicture,
         /// Whether the cell is an icon-view tile.
         pub(super) is_tile: Cell<bool>,
+        /// Whether a heading the cell shows has no chevron: List's
+        /// headings, whose groups never collapse (VIEW-022).
+        pub(super) heading_without_chevron: Cell<bool>,
         /// Whether the cell is a Details row's Name cell, whose group
         /// heading spans the whole row.
         pub(super) is_details_row: Cell<bool>,
@@ -351,7 +354,13 @@ impl FileCell {
         match layout {
             CellLayout::DetailsRow => cell.lay_out_as_row(),
             CellLayout::IconTile => cell.lay_out_as_tile(),
-            CellLayout::CompactItem => cell.lay_out_as_compact_item(COMPACT_NAME_CHARS),
+            CellLayout::CompactItem => {
+                cell.lay_out_as_compact_item(COMPACT_NAME_CHARS);
+                // Grouped, List heads each group's column with its title
+                // alone, as Windows 11 does.
+                cell.add_css_class("item-cell");
+                cell.imp().heading_without_chevron.set(true);
+            }
             CellLayout::SmallIconItem => {
                 cell.lay_out_as_compact_item(SMALL_ICONS_NAME_CHARS);
                 cell.imp().label.set_hexpand(true);
@@ -429,6 +438,7 @@ impl FileCell {
         let kind = slot.kind();
         let is_heading = kind == SlotKind::Heading;
         hit.set_visible(is_heading);
+        chevron.set_visible(!imp.heading_without_chevron.get());
         line.set_visible(kind != SlotKind::Blank);
         row.set_visible(true);
         if let Some(span) = row.parent() {

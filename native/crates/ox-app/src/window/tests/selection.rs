@@ -46,7 +46,7 @@ fn selected(test: &TestWindow) -> Vec<u32> {
 /// window's capture-phase shortcuts, then the view's capture-phase key
 /// controller while focus is in the view, then the first shortcut for it
 /// from the focused widget up.
-fn press_key(test: &TestWindow, keyval: gdk::Key, modifiers: gdk::ModifierType) {
+pub(super) fn press_key(test: &TestWindow, keyval: gdk::Key, modifiers: gdk::ModifierType) {
     let runs = |widget: &gtk::Widget, phase| {
         shortcuts_of(widget, phase).into_iter().any(|shortcut| {
             let is_the_key = shortcut
