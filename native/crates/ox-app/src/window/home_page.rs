@@ -1699,15 +1699,10 @@ impl BrowserWindow {
         ]);
     }
 
-    /// Adds the file at `uri` to Favorites, or removes it; every window
-    /// draws Home again once it is saved. Nothing changes while "Open
-    /// Quick access on Home" is off, here or, should another window turn
-    /// it off meanwhile, when the change runs
-    /// ([`ox_core::settings::Settings::set_favorite`]).
+    /// Adds the file at `uri` to Favorites, or removes it, whatever Home
+    /// shows, as Windows 11 does; every window draws Home again once it is
+    /// saved ([`ox_core::settings::Settings::set_favorite`]).
     fn set_favorite(&self, uri: &str, favorite: bool) {
-        if !self.context().settings_data().preferences.home_quick_access {
-            return;
-        }
         let uri = uri.to_owned();
         let change: Change = Box::new(move |settings| settings.set_favorite(&uri, favorite).map(|_| ()));
         self.context().change_settings(

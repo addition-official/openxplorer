@@ -1091,3 +1091,97 @@ fn every_kind_of_properties_is_captured() {
         wrapped.close();
     }
 }
+
+/// Restores the locale's clock when a test that chose one ends.
+struct ClockGuard;
+
+impl Drop for ClockGuard {
+    fn drop(&mut self) {
+        ox_core::format::set_clock_format(ox_core::format::ClockFormat::Locale);
+    }
+}
+
+/// Wednesday, November 18, 2026, 8:36:06 PM in local time, as Unix
+/// seconds: one of the longest dates General writes.
+fn long_date() -> std::time::SystemTime {
+    let local = glib::DateTime::from_local(2026, 11, 18, 20, 36, 6.0).expect("a date");
+    let seconds = u64::try_from(local.to_unix()).expect("after 1970");
+    std::time::UNIX_EPOCH + std::time::Duration::from_secs(seconds)
+}
+
+/// General writes Created, Modified and Accessed each on one line, the
+/// time's "PM" with it ("Wednesday, November 18, 2026, 8:36:06 PM"), as
+/// Windows 11 does, at the window's one size; "Opens with" shows the
+/// application's icon before its name.
+///
+/// parity: PROP-003, PROP-001
+#[gtk::test]
+fn general_keeps_each_date_on_one_line_and_shows_the_apps_icon() {
+    let _clock = ClockGuard;
+    ox_core::format::set_clock_format(ox_core::format::ClockFormat::TwelveHour);
+    let fixture = Fixture::standard();
+    let path = fixture.path("Packing list.txt");
+    fs::write(&path, "fictional").expect("a file");
+    let times = fs::FileTimes::new()
+        .set_modified(long_date())
+        .set_accessed(long_date());
+    fs::File::options()
+        .write(true)
+        .open(&path)
+        .and_then(|file| file.set_times(times))
+        .expect("the times are set");
+    let test = &TestWindow::open(&fixture.uri());
+    test.select_named("Packing list.txt");
+    let window = properties_of_selection(test, "Packing list Properties");
+    let page = general(&window);
+    wait_for_frames(&window, 6);
+    assert_eq!(
+        (window.width(), window.height()),
+        (PropertiesWindow::WIDTH, PropertiesWindow::HEIGHT)
+    );
+
+    let dates: Vec<gtk::Label> = descendants::<gtk::Label>(&page)
+        .into_iter()
+        .filter(|label| label.has_css_class("property-value") && label.text().contains("2026,"))
+        .collect();
+    assert!(dates.len() >= 2, "Modified and Accessed at least");
+    let modified = dates
+        .iter()
+        .find(|label| label.text().starts_with("Wednesday, November 18, 2026, 8:36:06"))
+        .expect("Modified in Windows' words");
+    assert!(modified.text().ends_with("PM"), "{}", modified.text());
+    for date in &dates {
+        let text = date.text();
+        let layout = date.layout();
+        assert_eq!(layout.line_count(), 1, "{text:?} is on one line");
+        assert!(!layout.is_ellipsized(), "{text:?} is whole");
+        assert!(
+            date.width() >= layout.pixel_size().0,
+            "{text:?} fits its box ({} of {})",
+            date.width(),
+            layout.pixel_size().0
+        );
+    }
+
+    let name = descendants::<gtk::Label>(&page)
+        .into_iter()
+        .find(|label| label.text() == "Opens with:")
+        .expect("Opens with");
+    let value = name.next_sibling().expect("the Opens with row");
+    let icon = descendants::<gtk::Image>(&value)
+        .into_iter()
+        .find(|image| image.has_css_class("app-icon"))
+        .expect("the application's icon");
+    let app = descendants::<gtk::Label>(&value)
+        .into_iter()
+        .find(|label| label.has_css_class("property-value"))
+        .expect("the application's name");
+    assert!(icon.is_mapped() && icon.pixel_size() == 16, "a 16-pixel icon");
+    let icon_box = icon.compute_bounds(&value).expect("drawn");
+    let app_box = app.compute_bounds(&value).expect("drawn");
+    assert!(
+        icon_box.x() + icon_box.width() <= app_box.x(),
+        "the icon is before the name"
+    );
+    window.close();
+}
