@@ -7,6 +7,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use gtk::prelude::*;
+use gtk::subclass::prelude::*;
 
 use ox_core::location::file_uri;
 use ox_core::places::FolderLocations;
@@ -193,4 +194,113 @@ fn a_drive_that_cannot_be_ejected_leaves_the_tab_where_it_was() {
 
     assert_ne!(moved_away.as_deref(), Some(documents.as_str()), "the tab left the drive first");
     assert_eq!(test.names(), ["Documents", "Notes 2.txt", "Notes 10.txt", "Résumé.txt"]);
+}
+
+/// A real double-click on This PC's row collapses its drives, and another
+/// expands them, as a double-click on a node of Windows Explorer's
+/// navigation pane does; it used to only open This PC twice.
+///
+/// parity: SIDE-033
+#[gtk::test]
+fn a_real_double_click_on_this_pc_collapses_and_expands_it() {
+    use super::right_drag::PROBE;
+    use crate::test_support::pointer::{screen_point, Button, Pointer};
+
+    let fixture = Fixture::standard();
+    let mut pointer = Pointer::connect();
+    let test = TestWindow::open(&fixture.uri());
+    wait_for_frames(&test.window, 3);
+    let sidebar = test.window.sidebar();
+    let local_disk_shown = || sidebar.labels_shown().contains(&"Local Disk".to_owned());
+    let on = screen_point(&mut pointer, sidebar.list(), (60.0, sidebar.middle_of("This PC")), PROBE);
+    let double_click = |pointer: &mut Pointer| {
+        // Apart from the last clicks by more than the double-click time.
+        crate::test_support::harness::wait_for(std::time::Duration::from_millis(700));
+        pointer.move_to(on.0, on.1);
+        for _ in 0..2 {
+            pointer.press(Button::Primary);
+            pointer.release(Button::Primary);
+        }
+    };
+    let expanded_at_first = local_disk_shown();
+
+    double_click(&mut pointer);
+    wait_until("This PC to collapse", || !local_disk_shown());
+    double_click(&mut pointer);
+    wait_until("This PC to expand", local_disk_shown);
+
+    assert!(expanded_at_first);
+}
+
+/// The labels of `entries`, with "-" for a divider, and whether each item
+/// is checked.
+fn menu_labels(entries: &[crate::window::menu_popover::MenuEntry]) -> Vec<(String, bool)> {
+    use crate::window::menu_popover::{ItemCheck, MenuEntry};
+    entries
+        .iter()
+        .map(|entry| match entry {
+            MenuEntry::Item(item) => (item.label.clone(), item.check == ItemCheck::Fixed(true)),
+            MenuEntry::Divider => ("-".to_owned(), false),
+        })
+        .collect()
+}
+
+/// The navigation pane's empty space offers Windows' "Show all folders",
+/// which shows the folder tree, and "Expand to open folder", on at first,
+/// which the folder tree's own menu offers too.
+///
+/// parity: SIDE-028
+#[gtk::test]
+fn the_pane_offers_show_all_folders_and_expand_to_open_folder() {
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    let sidebar = test.window.sidebar();
+    wait_for_frames(&test.window, 2);
+    let below_rows = f64::from(sidebar.list().height() - 2);
+
+    let menu = menu_labels(&sidebar.menu_entries_at(below_rows).expect("the empty space has a menu"));
+    let show_all = menu.iter().any(|(label, _)| label == "Show all folders");
+    let expand = menu.iter().find(|(label, _)| label == "Expand to open folder").cloned();
+    test.activate("folder-tree-option", Some("expand-to-open"));
+    let menu_after = menu_labels(&sidebar.menu_entries_at(below_rows).expect("a menu"));
+
+    assert!(show_all, "{menu:?}");
+    assert_eq!(expand, Some(("Expand to open folder".to_owned(), true)), "{menu:?}");
+    assert!(
+        menu_after.contains(&("Expand to open folder".to_owned(), false)),
+        "{menu_after:?}"
+    );
+    wait_until("the option to be saved", || {
+        !test.context.settings_data().preferences.folder_tree.expand_to_open
+    });
+}
+
+/// With "Expand to open folder" off, the folder tree no longer opens its
+/// folders down to the folder shown, as Windows' navigation pane does
+/// with it off; Ctrl+Shift+E still does.
+///
+/// parity: SIDE-028
+#[gtk::test]
+fn with_expand_to_open_folder_off_the_tree_stays_closed() {
+    let fixture = Fixture::standard();
+    let reports = fixture.path("Documents").join("Reports");
+    fs::create_dir(&reports).expect("fixture subfolder");
+    let test = TestWindow::open(&fixture.uri());
+    test.window.imp().locations.borrow_mut().home = fixture.root().parent().map(Into::into);
+    test.activate("folder-tree", None);
+    let tree = test.window.folder_tree();
+    let shown = fixture.uri();
+    wait_until("the tree selects the folder shown", || {
+        tree.selected_uri().is_some_and(|uri| uri == shown)
+    });
+    let before = tree.outline();
+
+    test.activate("folder-tree-option", Some("expand-to-open"));
+    test.activate("go-to", Some(&file_uri(&reports)));
+    test.wait_for_listing("Reports");
+    wait_for(std::time::Duration::from_millis(500));
+
+    assert_eq!(before, ["Home", "  Example projects"]);
+    assert_eq!(tree.outline(), before, "no folder opened on the way");
+    assert_eq!(tree.selected_uri(), None, "Reports is not in the tree yet");
 }
