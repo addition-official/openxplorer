@@ -1485,12 +1485,22 @@ fn the_folder_menu_grays_open_in_terminal_where_no_terminal_opens() {
             });
             test.window.right_click(None);
             let menu = test.window.context_menu();
-            assert_eq!(
-                menu.row("Open in Terminal").is_sensitive(),
-                opens,
-                "{style:?} {place}: {:?}",
-                menu.row_labels()
-            );
+            if style == ContextMenu::Win11 && place == "Network" {
+                // Windows 11's Network menu: View, Sort by and Group by,
+                // then Show more options; no Terminal row at all.
+                assert_eq!(
+                    menu.row_labels(),
+                    ["View", "Sort by", "Group by", "-", "Show more options"],
+                    "{style:?} {place}"
+                );
+            } else {
+                assert_eq!(
+                    menu.row("Open in Terminal").is_sensitive(),
+                    opens,
+                    "{style:?} {place}: {:?}",
+                    menu.row_labels()
+                );
+            }
             menu.popdown();
         }
     }

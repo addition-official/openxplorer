@@ -103,6 +103,12 @@ impl NetworkServices {
         self.visited.borrow_mut().remember_mapped(uri, label);
     }
 
+    /// Forgets the shares mapped this session at or inside `root`, when it
+    /// is disconnected; true when one was mapped.
+    pub(crate) fn forget_mapped_inside(&self, root: &str) -> bool {
+        self.visited.borrow_mut().forget_mapped_inside(root)
+    }
+
     /// Forgets every browsed root on `host`, when signing out of it.
     pub(crate) fn forget_visited_host(&self, host: &str) {
         self.visited.borrow_mut().forget_host(host);

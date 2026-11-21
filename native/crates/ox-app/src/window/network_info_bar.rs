@@ -107,16 +107,12 @@ impl BrowserWindow {
         if let Some(column) = self.search_strip().parent().and_downcast::<gtk::Box>() {
             column.prepend(&parts.bar);
         }
-        parts.text.connect_clicked(glib::clone!(
-            #[weak(rename_to = window)]
-            self,
-            move |text| window.popup_network_info_menu(text)
-        ));
+        parts.text.connect_clicked(Self::popup_network_info_menu);
         self.imp().network_info_bar.set(parts).expect("installed once");
     }
 
     /// Opens the bar's menu under its text.
-    fn popup_network_info_menu(&self, text: &gtk::Button) {
+    fn popup_network_info_menu(text: &gtk::Button) {
         let popover = MenuPopover::new(bar_menu());
         popover.set_parent(text);
         popover.set_position(gtk::PositionType::Bottom);

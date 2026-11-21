@@ -452,6 +452,11 @@ impl Sidebar {
         if let (Section::Home, RowTarget::Location(uri), None) = (entry.section, &entry.target, &entry.menu) {
             return Some(page_menu(uri));
         }
+        // A computer under Network opens in a new tab or window too; it has
+        // no Properties, as in Windows (B4).
+        if let (Some(_), RowTarget::Location(uri)) = (&entry.expander, &entry.target) {
+            return Some(page_menu(uri));
+        }
         let place = entry.menu.as_ref()?;
         let place_menu = place.entries(caching_in(place, self));
         // A drive the system keeps mounted may have nothing to offer.

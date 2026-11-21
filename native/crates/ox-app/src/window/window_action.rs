@@ -196,6 +196,9 @@ pub(crate) enum WindowAction {
     /// Collapses or expands the sidebar section whose key is the string
     /// target: the chevron of This PC or Network (SIDE-033).
     ToggleSidebarSection,
+    /// Expands or collapses the computer under Network whose location is
+    /// the string target, to its shares (SIDE-035).
+    ToggleComputer,
     /// Shows the hidden sidebar section whose key is the string target.
     ShowSection,
     /// Hides the sidebar place at the string target (SIDE-010).
@@ -634,6 +637,7 @@ impl WindowAction {
             WindowAction::SidebarShowAll => "sidebar-show-all",
             WindowAction::HideSection => "hide-section",
             WindowAction::ToggleSidebarSection => "toggle-sidebar-section",
+            WindowAction::ToggleComputer => "toggle-computer",
             WindowAction::ShowSection => "show-section",
             WindowAction::HidePlace => "hide-place",
             WindowAction::ShowPlace => "show-place",

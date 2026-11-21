@@ -205,8 +205,10 @@ impl BrowserWindow {
     pub(super) fn render_places(&self) {
         let places = self.places();
         let searches = self.context().saved_searches();
+        let computers = self.network_computers(&places);
         let mut entries = sidebar::sidebar_entries(
             &places,
+            &computers,
             &searches,
             &self.imp().locations.borrow(),
             self.context().settings_data().preferences.home_quick_access,

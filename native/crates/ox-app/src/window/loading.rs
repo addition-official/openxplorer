@@ -58,6 +58,7 @@ use crate::locations::Page;
 use super::listing_state::{ListingEnd, ListingState, ReloadTiming};
 use super::session::TabId;
 use super::BrowserWindow;
+pub(super) use mount_retry::at_remote_home;
 use mount_retry::MountRetry;
 
 /// Whether a change to the folder of a tab waits until the tab is shown:

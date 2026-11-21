@@ -11,14 +11,14 @@
 //! them by host:
 //!
 //! - the host is the service's host name without DNS-SD's `.local`, so
-//!   `smb://harbornas/` (the SMB browser's NetBIOS name) and
+//!   `smb://harbornas/` (the SMB browser's `NetBIOS` name) and
 //!   `sftp://harbornas.local:2222/` are one computer;
-//! - a host whose SMB service advertises another name (a NetBIOS name
+//! - a host whose SMB service advertises another name (a `NetBIOS` name
 //!   that differs from its DNS-SD host name) is also known by that name,
 //!   so the SMB browser's row for that name joins it.
 //!
 //! A computer is named as Windows names it: by the name its SMB server
-//! advertises (its NetBIOS name), else by its host name. It opens as
+//! advertises (its `NetBIOS` name), else by its host name. It opens as
 //! `\\host` (its SMB address, [`DiscoveredComputer::uri`]), which lists
 //! the shares when it has an SMB server and its other services as rows of
 //! their own ("Harbor Files (SFTP)"), so nothing that was advertised is
@@ -27,10 +27,10 @@
 use super::discovery::DiscoveredServer;
 use crate::location::{split_location, LocationKind};
 
-/// The DNS-SD domain GVfs and Avahi give multicast host names.
+/// The DNS-SD domain `GVfs` and Avahi give multicast host names.
 const MDNS_DOMAIN: &str = ".local";
 
-/// The longest NetBIOS name, which is what an SMB server's advertised name
+/// The longest `NetBIOS` name, which is what an SMB server's advertised name
 /// must fit to be taken as another name of its host.
 const NETBIOS_NAME_LENGTH: usize = 15;
 
@@ -78,7 +78,7 @@ impl ServiceProtocol {
 /// One device on the network and every file service it advertises.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DiscoveredComputer {
-    /// The computer's name: its SMB server's advertised (NetBIOS) name,
+    /// The computer's name: its SMB server's advertised (`NetBIOS`) name,
     /// else its host name without `.local`.
     pub name: String,
     /// What the computer is opened as: its SMB server, `smb://host/` (with
@@ -145,7 +145,7 @@ fn host_without_domain(host: &str) -> String {
 }
 
 /// Whether `name`, an SMB server's advertised name, may be another name
-/// of its host: a NetBIOS name, short and without spaces or dots.
+/// of its host: a `NetBIOS` name, short and without spaces or dots.
 fn is_netbios_name(name: &str) -> bool {
     !name.is_empty()
         && name.chars().count() <= NETBIOS_NAME_LENGTH
@@ -160,9 +160,17 @@ pub fn computers_among(servers: &[DiscoveredServer]) -> Vec<DiscoveredComputer> 
     let mut groups: Vec<(String, Vec<&DiscoveredServer>)> = Vec::new();
     for server in servers {
         let key = if server.host.is_empty() {
-            // A service whose host is not known yet (an unresolved
-            // DNS-SD service) is a device of its own.
-            format!(" {}", server.name.to_lowercase())
+            // A service whose host is not known (an unresolved DNS-SD
+            // service) joins the host whose other services advertise the
+            // same name, as one NAS names them all; else it is a device of
+            // its own.
+            servers
+                .iter()
+                .find(|other| !other.host.is_empty() && other.name.eq_ignore_ascii_case(&server.name))
+                .map_or_else(
+                    || format!(" {}", server.name.to_lowercase()),
+                    |other| host_key(&other.host),
+                )
         } else {
             host_key(&server.host)
         };
@@ -327,7 +335,7 @@ mod tests {
         assert!(!harbor.is_at("smb://harbornas.local/Projects"));
     }
 
-    /// The SMB browser's NetBIOS name and the DNS-SD host name of the same
+    /// The SMB browser's `NetBIOS` name and the DNS-SD host name of the same
     /// server join, whichever way the host is spelled.
     ///
     /// parity: NET-025
@@ -369,6 +377,21 @@ mod tests {
 
         assert_eq!(computers[0].uri, "smb://a.local/");
         assert_eq!(computers[1].uri, "smb://b.local:1445/");
+    }
+
+    /// A WebDAV service Avahi could not resolve joins the host whose other
+    /// services advertise its name.
+    #[test]
+    fn an_unresolved_service_joins_the_host_of_its_name() {
+        let computers = computers_among(&[
+            service("sftp://harbornas.local:2222/", "Harbor Files", "harbornas.local"),
+            service("dav+sd://Harbor%20Files._webdav._tcp.local", "Harbor Files", ""),
+            service("dav+sd://Vault._webdav._tcp.local", "Vault", ""),
+        ]);
+
+        let names: Vec<&str> = computers.iter().map(|computer| computer.name.as_str()).collect();
+        assert_eq!(names, ["harbornas", "Vault"]);
+        assert_eq!(computers[0].services.len(), 2);
     }
 
     #[test]

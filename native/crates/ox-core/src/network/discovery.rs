@@ -7,14 +7,14 @@
 //! WS-Discovery and the SMB browser; this module only reads it. There is
 //! no port scan, no password prompt and no listing of any server's shares.
 //!
-//! GVfs lists a WebDAV server as `dav+sd://Name._webdav._tcp.local`, a
+//! `GVfs` lists a WebDAV server as `dav+sd://Name._webdav._tcp.local`, a
 //! DNS-SD service rather than a host. Its host, port and folder are asked
-//! of Avahi, the DNS-SD service GVfs reads them from, so the server joins
+//! of Avahi, the DNS-SD service `GVfs` reads them from, so the server joins
 //! the other services of its host ([`computers_among`]); a service Avahi
-//! cannot resolve stays listed as GVfs gives it.
+//! cannot resolve stays listed as `GVfs` gives it.
 //!
 //! [`discovery_sources`] says whether discovery can find anything at all:
-//! whether GVfs has its network browser and a DNS-SD (Avahi) or
+//! whether `GVfs` has its network browser and a DNS-SD (Avahi) or
 //! WS-Discovery (wsdd) source is there, so Network can say discovery is
 //! off, as Windows does, instead of listing nothing.
 
@@ -111,7 +111,7 @@ impl DiscoverySources {
     };
 
     /// Whether discovery can find any computer: the browser and at least
-    /// one source it reads. (`GVfs`'s SMB browser also reads NetBIOS, but
+    /// one source it reads. (`GVfs`'s SMB browser also reads `NetBIOS`, but
     /// SMB1 browsing is off on current Windows and Samba.)
     pub fn can_discover(self) -> bool {
         self.browser && (self.dns_sd || self.ws_discovery)
@@ -223,7 +223,7 @@ async fn discover() -> Result<Discovery, NetworkError> {
         resolved += 1;
         let found = match resolve_service(&service).await {
             Some(answer) => service.server(&answer),
-            None => service.unresolved(),
+            None => Some(service.unresolved()),
         };
         if let Some(found) = found {
             if !servers.iter().any(|known| known.uri == found.uri) {
@@ -295,13 +295,13 @@ impl DnsSdService {
 
     /// The service as `GVfs` listed it, a device of its own, when Avahi
     /// could not resolve it.
-    fn unresolved(&self) -> Option<DiscoveredServer> {
-        Some(DiscoveredServer {
+    fn unresolved(&self) -> DiscoveredServer {
+        DiscoveredServer {
             uri: self.uri.clone(),
             label: self.label.clone(),
             name: self.instance.clone(),
             host: String::new(),
-        })
+        }
     }
 }
 
@@ -537,9 +537,9 @@ mod tests {
         assert_eq!(servers[0].label, "Harbor Files (Remote Login)");
     }
 
-    /// A WebDAV server advertised over DNS-SD (`dav+sd`, which GVfs lists
+    /// A WebDAV server advertised over DNS-SD (`dav+sd`, which `GVfs` lists
     /// by service name) becomes `dav://host:port/path` once Avahi resolves
-    /// it, or stays as GVfs listed it, a device of its own; an advertised
+    /// it, or stays as `GVfs` listed it, a device of its own; an advertised
     /// user name is never used.
     ///
     /// parity: NET-024, NET-025
@@ -588,7 +588,7 @@ mod tests {
             Some("davs://vault.local/")
         );
 
-        let unresolved = service.unresolved().expect("kept");
+        let unresolved = service.unresolved();
         assert_eq!(unresolved.uri, "dav+sd://Harbor%20Files._webdav._tcp.local");
         assert!(unresolved.host.is_empty());
         let computers = super::super::computers::computers_among(&[unresolved]);

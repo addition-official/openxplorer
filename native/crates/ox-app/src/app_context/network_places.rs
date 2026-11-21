@@ -54,6 +54,14 @@ impl AppContext {
         self.notify_places_changed();
     }
 
+    /// Forgets the shares mapped this session at or inside `root`, which
+    /// was disconnected, and tells every window.
+    pub(crate) fn forget_mapped_shares_inside(&self, root: &str) {
+        if self.network().forget_mapped_inside(root) {
+            self.notify_places_changed();
+        }
+    }
+
     /// The server `host` is being signed out: forgets the servers and
     /// shares browsed on it, and pauses its indexing until the next
     /// successful mount of it (`serverSigningOut` and `pause_server` in

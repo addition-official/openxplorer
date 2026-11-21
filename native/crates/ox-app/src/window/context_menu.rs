@@ -41,6 +41,8 @@ use super::window_action::WindowAction;
 use super::BrowserWindow;
 use crate::folder_view::grid::GroupSlot;
 
+#[cfg(test)]
+pub(super) use entries::computer_menu;
 use entries::{
     background_menu, compact_background_menu, item_menu, recycle_bin_background_menu, recycle_bin_item_menu,
     zip_background_menu, zip_item_menu, BackgroundSubmenus, Comparison, ContextMenu, ItemFacts, ItemLocation,

@@ -980,23 +980,21 @@ impl Preferences {
     /// type, with the shared columns and widths.
     pub fn network_style(&self) -> ViewProperties {
         let mut style = self.view_for(location::NETWORK_URI);
-        match super::view_properties::saved_style_for(&self.folder_views, location::NETWORK_URI) {
-            Some((saved, _)) => {
-                let mut own = saved.clone();
-                if own.details_columns.is_none() {
-                    own.details_columns = style.details_columns.take();
-                }
-                if own.column_widths.is_none() {
-                    own.column_widths = style.column_widths.take();
-                }
-                style = own;
-            }
-            None => {
-                style.mode = NETWORK_MODE.to_owned();
-                style.set_grouping(GroupBy::Type);
-            }
+        let Some((saved, _)) =
+            super::view_properties::saved_style_for(&self.folder_views, location::NETWORK_URI)
+        else {
+            NETWORK_MODE.clone_into(&mut style.mode);
+            style.set_grouping(GroupBy::Type);
+            return style;
+        };
+        let mut own = saved.clone();
+        if own.details_columns.is_none() {
+            own.details_columns = style.details_columns.take();
         }
-        style
+        if own.column_widths.is_none() {
+            own.column_widths = style.column_widths.take();
+        }
+        own
     }
 
     /// The display style `uri` is shown in: its own when each folder

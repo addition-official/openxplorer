@@ -114,7 +114,7 @@ pub use sign_out::{
     begin_sign_out, finish_sign_out, SignOutRegistry, SignOutReport, SignOutRequest, SigningOut,
 };
 pub use usershare::{validate_share_name, Usershare, UsershareError, Usershares};
-pub use visited::{session_network_root, VisitedNetwork};
+pub use visited::{is_at_or_inside, session_network_root, VisitedNetwork};
 pub use volumes::{
     eject_location, mount_volume, safely_remove_location, unmount_location, volume_id, volume_id_from,
 };
