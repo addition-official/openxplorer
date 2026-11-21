@@ -460,7 +460,11 @@ fn always_is_offered_only_where_the_extension_names_the_type() {
         );
         dialog.expand_more_apps(true);
         wait_until("every application", || {
-            dialog.is_listed() && dialog.shown_names().iter().any(|shown| shown == "Any File Viewer")
+            dialog.is_listed()
+                && dialog
+                    .shown_names()
+                    .iter()
+                    .any(|shown| shown == "Any File Viewer")
         });
         dialog.select_named("Any File Viewer");
         let (shows_always, just_once, always) = dialog.controls_state();

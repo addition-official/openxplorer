@@ -1258,8 +1258,13 @@ pub(crate) fn background_menu(
 /// An app of the "Open with" submenu, named as Windows names it, which
 /// opens the item in `application` (OPEN-013).
 fn application_choice(application: &ApplicationChoice) -> MenuItem {
-    MenuItem::with_text_target(&application.name, Icon::Apps, WindowAction::OpenWithApp, &application.id)
-        .with_application_icon(application.icon.as_deref())
+    MenuItem::with_text_target(
+        &application.name,
+        Icon::Apps,
+        WindowAction::OpenWithApp,
+        &application.id,
+    )
+    .with_application_icon(application.icon.as_deref())
 }
 
 /// "Open with <app>", opening the item, or the folder when nothing is
@@ -2001,10 +2006,7 @@ mod tests {
         };
         // Windows 11 lists each app by its name, the file's default among
         // them.
-        assert_eq!(
-            labels(&open_with.submenu),
-            ["Papers", "-", "Choose another app"]
-        );
+        assert_eq!(labels(&open_with.submenu), ["Papers", "-", "Choose another app"]);
         let without_applications = labels(&item_menu(&file(), MenuStyle::Compact).entries);
         assert_eq!(without_applications[1], "Open with…");
     }
@@ -2139,8 +2141,15 @@ mod tests {
         let entries = item_menu(&facts, MenuStyle::Classic).entries;
 
         let names = labels(&entries);
-        let open_with = names.iter().position(|name| name == "Open with").expect("Open with");
-        assert_eq!(names[open_with - 1], "Open containing folder in Terminal", "{names:?}");
+        let open_with = names
+            .iter()
+            .position(|name| name == "Open with")
+            .expect("Open with");
+        assert_eq!(
+            names[open_with - 1],
+            "Open containing folder in Terminal",
+            "{names:?}"
+        );
         let MenuEntry::Item(submenu) = &entries[open_with] else {
             panic!("Open with is an item");
         };
@@ -2151,7 +2160,10 @@ mod tests {
         assert_eq!(open.action, WindowAction::OpenWithApp.into());
         assert_eq!(open.target, Some("org.gnome.Papers.desktop".to_variant()));
         let without_applications = labels(&item_menu(&file(), MenuStyle::Classic).entries);
-        assert!(without_applications.contains(&"Open with…".to_owned()), "{without_applications:?}");
+        assert!(
+            without_applications.contains(&"Open with…".to_owned()),
+            "{without_applications:?}"
+        );
         assert!(!without_applications.contains(&"Open with".to_owned()));
     }
 

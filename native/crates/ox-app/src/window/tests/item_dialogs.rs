@@ -1938,7 +1938,8 @@ fn change_sets_the_default_app_without_opening_the_file() {
     );
     fs::create_dir_all(&applications).expect("the private data folder");
     for (id, name) in ENTRIES {
-        let entry = format!("[Desktop Entry]\nType=Application\nName={name}\nExec=true %F\nMimeType=text/plain;\n");
+        let entry =
+            format!("[Desktop Entry]\nType=Application\nName={name}\nExec=true %F\nMimeType=text/plain;\n");
         fs::write(applications.join(id), entry).expect("the fixture entry");
     }
     wait_until("GIO to read the entries", || {
@@ -1963,7 +1964,10 @@ fn change_sets_the_default_app_without_opening_the_file() {
     test.activate("properties", None);
     let window = test.wait_for_properties("Notes 2 Properties");
     let general = general(&window);
-    assert_eq!(value_after(&general, "Opens with:").as_deref(), Some("Properties Viewer"));
+    assert_eq!(
+        value_after(&general, "Opens with:").as_deref(),
+        Some("Properties Viewer")
+    );
 
     press(&general, "Change...");
     let open_with = || {
@@ -1972,7 +1976,9 @@ fn change_sets_the_default_app_without_opening_the_file() {
             .filter_map(|toplevel| toplevel.downcast::<OpenWithDialog>().ok())
             .find(WidgetExt::is_visible)
     };
-    wait_until("Open with", || open_with().is_some_and(|dialog| dialog.is_listed()));
+    wait_until("Open with", || {
+        open_with().is_some_and(|dialog| dialog.is_listed())
+    });
     let dialog = open_with().expect("Open with is open");
     assert_eq!(dialog.heading_text(), "Select an app to open .txt files");
     assert_eq!(dialog.footer_buttons(), ["Set default", "Cancel"]);

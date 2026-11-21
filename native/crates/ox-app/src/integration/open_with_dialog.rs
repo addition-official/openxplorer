@@ -32,9 +32,8 @@ use gtk::{gio, glib};
 
 use super::applications::{
     application_image, list_applications_in_background, make_default, prepare_launch, prepare_target,
-    program_file,
-    ApplicationChoice, ApplicationList, ApplicationScope, DefaultChoice, OpenWithError, PreparedLaunch,
-    ProgramFile,
+    program_file, ApplicationChoice, ApplicationList, ApplicationScope, DefaultChoice, OpenWithError,
+    PreparedLaunch, ProgramFile,
 };
 use super::custom_command::{run_custom_command, CustomCommand};
 use crate::icons::{self, Icon};
@@ -46,9 +45,8 @@ const NO_DEFAULT_FOR_TYPE: &str = crate::i18n::message_id(
 
 /// Why Set default is off for a file whose extension does not name its
 /// type.
-const NO_SET_DEFAULT_FOR_TYPE: &str = crate::i18n::message_id(
-    "A default app can be set for files whose extension tells their type.",
-);
+const NO_SET_DEFAULT_FOR_TYPE: &str =
+    crate::i18n::message_id("A default app can be set for files whose extension tells their type.");
 
 /// Why a program file picked while changing the default is not used.
 const ONLY_APPS_AS_DEFAULT: &str =
@@ -312,11 +310,15 @@ impl OpenWithDialog {
         let dialog = Self::new_for(parent, &subject);
         let imp = dialog.imp();
         let changed: DefaultChanged = Box::new(changed);
-        assert!(imp.default_changed.set(changed).is_ok(), "a new dialog changes nothing yet");
+        assert!(
+            imp.default_changed.set(changed).is_ok(),
+            "a new dialog changes nothing yet"
+        );
         imp.heading.set_text(&default_heading(&subject.name));
         imp.just_once_button.set_visible(false);
         imp.custom_command_button.set_visible(false);
-        imp.always_button.set_label(&ox_core::i18n::gettext("Set default"));
+        imp.always_button
+            .set_label(&ox_core::i18n::gettext("Set default"));
         imp.always_button.remove_css_class("bordered");
         imp.always_button.add_css_class("accent");
         dialog.present_listing(subject, Box::new(report))
@@ -326,7 +328,10 @@ impl OpenWithDialog {
     fn new_for(parent: &impl IsA<gtk::Window>, subject: &OpenWithSubject) -> Self {
         let dialog: Self = glib::Object::builder().property("transient-for", parent).build();
         crate::window::follow_text_size_keys(&dialog);
-        dialog.imp().heading.set_text(&heading(&subject.name, subject.is_folder));
+        dialog
+            .imp()
+            .heading
+            .set_text(&heading(&subject.name, subject.is_folder));
         dialog.update_property(&[gtk::accessible::Property::Description(&subject.name)]);
         dialog
     }

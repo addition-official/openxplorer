@@ -36,9 +36,7 @@ pub(crate) fn announce(
 /// (`GTK_A11Y=none`, read as GTK reads it, without regard to case).
 fn has_no_accessibility() -> bool {
     static NONE: OnceLock<bool> = OnceLock::new();
-    *NONE.get_or_init(|| {
-        std::env::var("GTK_A11Y").is_ok_and(|value| value.eq_ignore_ascii_case("none"))
-    })
+    *NONE.get_or_init(|| std::env::var("GTK_A11Y").is_ok_and(|value| value.eq_ignore_ascii_case("none")))
 }
 
 #[cfg(test)]

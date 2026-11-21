@@ -56,10 +56,7 @@ pub(crate) enum OpenWithError {
     )]
     NotStarted,
     /// The default application could not be changed.
-    #[error(
-        "{}",
-        ox_core::i18n::gettext("The default app could not be changed.")
-    )]
+    #[error("{}", ox_core::i18n::gettext("The default app could not be changed."))]
     DefaultNotChanged,
     /// The worker thread stopped without an answer.
     #[error(
@@ -287,7 +284,11 @@ pub(crate) fn menu_applications(
         .filter_map(|app| app.id().map(Into::into))
         .collect();
     // A default the user chose for the type need not be registered for it.
-    if let Some(default) = default.filter(|_| default_id.as_ref().is_some_and(|id| !recommended_ids.contains(id))) {
+    if let Some(default) = default.filter(|_| {
+        default_id
+            .as_ref()
+            .is_some_and(|id| !recommended_ids.contains(id))
+    }) {
         recommended.push(default);
     }
     let facts = ChoiceFacts {
@@ -322,9 +323,7 @@ fn content_type_of(entry: &Entry) -> String {
 /// default for those would change what opens far more than that file's
 /// kind, so "Always" is offered only where the name settles the type.
 fn extension_names_type(name: &str, content_type: &str) -> bool {
-    let has_extension = name
-        .rfind('.')
-        .is_some_and(|dot| dot > 0 && dot + 1 < name.len());
+    let has_extension = name.rfind('.').is_some_and(|dot| dot > 0 && dot + 1 < name.len());
     if !has_extension || content_type == UNKNOWN_CONTENT_TYPE {
         return false;
     }
@@ -682,12 +681,27 @@ mod tests {
         assert!(extension_names_type("Notes.txt", "text/plain"));
         assert!(extension_names_type("PHOTO.JPG", "image/jpeg"));
         assert!(extension_names_type("song.mp3", "audio/mpeg"));
-        assert!(extension_names_type("letter.odt", "application/vnd.oasis.opendocument.text"));
+        assert!(extension_names_type(
+            "letter.odt",
+            "application/vnd.oasis.opendocument.text"
+        ));
         assert!(!extension_names_type("README", "text/plain"), "no extension");
-        assert!(!extension_names_type(".bashrc", "text/plain"), "a hidden file's dot");
-        assert!(!extension_names_type("notes.weird", "text/plain"), "an unknown extension");
-        assert!(!extension_names_type("scene.xyz", UNKNOWN_CONTENT_TYPE), "an unknown type");
-        assert!(!extension_names_type("photo.jpg", "text/plain"), "contents of another type");
+        assert!(
+            !extension_names_type(".bashrc", "text/plain"),
+            "a hidden file's dot"
+        );
+        assert!(
+            !extension_names_type("notes.weird", "text/plain"),
+            "an unknown extension"
+        );
+        assert!(
+            !extension_names_type("scene.xyz", UNKNOWN_CONTENT_TYPE),
+            "an unknown type"
+        );
+        assert!(
+            !extension_names_type("photo.jpg", "text/plain"),
+            "contents of another type"
+        );
     }
 
     /// "Always" never changes the default of a type the file's extension

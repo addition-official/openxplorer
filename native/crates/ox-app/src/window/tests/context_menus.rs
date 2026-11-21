@@ -110,7 +110,13 @@ fn right_clicking_a_file_selects_it_and_opens_the_classic_menu() {
         .row_labels()
         .into_iter()
         .filter(|label| !label.starts_with("Edit in "))
-        .map(|label| if label == "Open with" { "Open with…".to_owned() } else { label })
+        .map(|label| {
+            if label == "Open with" {
+                "Open with…".to_owned()
+            } else {
+                label
+            }
+        })
         .collect();
     assert_eq!(
         rows,
