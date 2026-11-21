@@ -81,6 +81,7 @@ mod network_shares;
 mod new_folder;
 mod new_text_document;
 mod opening;
+mod page_menus;
 mod panes_layout;
 mod pointer_feedback;
 mod preview_pane;
