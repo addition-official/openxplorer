@@ -329,40 +329,41 @@ fn open_in_new_tab_opens_the_folder_in_a_tab_in_front() {
 }
 
 /// Enter on several items opens each: folders in background tabs and
-/// files in their applications; 15 or more are asked about first, as in
-/// Windows Explorer, and 14 are not.
+/// files in their applications; more than 15 are asked about first, as
+/// Windows Explorer asks above its `MultipleInvokePromptMinimum` of 15,
+/// and 15 are not.
 ///
 /// parity: OPEN-003
 #[gtk::test]
 fn enter_on_several_items_opens_each_and_asks_for_many() {
     let fixture = Fixture::standard();
-    let files: Vec<String> = (1..=14).map(|number| format!("File {number:02}.txt")).collect();
+    let files: Vec<String> = (1..=15).map(|number| format!("File {number:02}.txt")).collect();
     for name in &files {
         fixture.write(name);
     }
     let test = TestWindow::open(&fixture.uri());
 
-    let mut fourteen: Vec<&str> = files[..13].iter().map(String::as_str).collect();
-    fourteen.push("Documents");
-    select_names(&test, &fourteen);
+    let mut fifteen: Vec<&str> = files[..14].iter().map(String::as_str).collect();
+    fifteen.push("Documents");
+    select_names(&test, &fifteen);
     // Enter on the focused row is the column view's activate signal.
     let column_view = test.window.folder_pane().details().column_view();
     column_view.emit_by_name::<()>("activate", &[&test.position_of("File 01.txt")]);
-    wait_until("the 13 files to open", || {
-        test.context.recorded_launches().len() == 13
+    wait_until("the 14 files to open", || {
+        test.context.recorded_launches().len() == 14
     });
 
     assert_eq!(tab_uris(&test), [fixture.uri(), fixture.uri_of("Documents")]);
     assert_eq!(test.window.current_uri(), Some(fixture.uri()), "the tab stays");
-    let mut fifteen: Vec<&str> = files.iter().map(String::as_str).collect();
-    fifteen.push("Notes 2.txt");
-    select_names(&test, &fifteen);
+    let mut sixteen: Vec<&str> = files.iter().map(String::as_str).collect();
+    sixteen.push("Notes 2.txt");
+    select_names(&test, &sixteen);
     test.activate("open", None);
     let dialog = open_dialog(&test);
-    assert_eq!(dialog.message_text(), "Are you sure you want to open 15 items?");
+    assert_eq!(dialog.message_text(), "Are you sure you want to open 16 items?");
     dialog.press("Cancel");
     wait_for(std::time::Duration::from_millis(200));
-    assert_eq!(test.context.recorded_launches().len(), 13, "nothing more opened");
+    assert_eq!(test.context.recorded_launches().len(), 14, "nothing more opened");
 }
 
 /// An executable script opens in its application; with "Ask whether to

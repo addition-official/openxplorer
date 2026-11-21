@@ -12437,7 +12437,7 @@ native_note = "The file list's activate signal and win.open open the selected it
 id = "OPEN-003"
 area = "OPEN"
 title = "Open several selected items at once"
-behaviour = "With several items selected, Enter opens all of them: folders in new tabs (Shift: new windows) and files with their preferred applications, one launch per application where supported. Opening 15 or more items asks 'Are you sure you want to open <n> items?', as Windows File Explorer asks from its MultipleInvokePromptMinimum of 15 (Dolphin asks above 5)."
+behaviour = "With several items selected, Enter opens all of them: folders in new tabs (Shift: new windows) and files with their preferred applications, one launch per application where supported. Opening more than 15 items asks 'Are you sure you want to open <n> items?', as Windows File Explorer asks above its MultipleInvokePromptMinimum of 15 (Dolphin asks above 5)."
 origin = ["dolphin"]
 priority = "should"
 openxplorer = "missing"
@@ -12451,7 +12451,7 @@ python_tests = []
 bridge = ["activateItem", "open"]
 dolphin = "itemsActivated / runPreferredApplications"
 native = "done"
-native_note = "Enter (the list's activate signal, window/input.rs connect_view_activation), Open and the item menu's Open act on every selected item (native/crates/ox-app/src/window/open_several.rs): one item opens as a double-click does; with several, each folder and each .desktop link to a folder opens in a background tab in the order of the view, and each file or archive in its default application (an archive is not browsed, since the archive browser is a dialog and several would stack), one launch per file; an item outside a selection of several is never opened; 15 or more ask 'Are you sure you want to open <n> items?' first (Cancel / Open all), as Windows File Explorer does, and 14 open without asking. Shift+Enter does not open new windows. Test: native/crates/ox-app/src/window/tests/opening.rs (enter_on_several_items_opens_each_and_asks_for_many). Porting notes: OpenXplorer's Enter opened only when exactly one item was selected."
+native_note = "Enter (the list's activate signal, window/input.rs connect_view_activation), Open and the item menu's Open act on every selected item (native/crates/ox-app/src/window/open_several.rs): one item opens as a double-click does; with several, each folder and each .desktop link to a folder opens in a background tab in the order of the view, and each file or archive in its default application (an archive is not browsed, since the archive browser is a dialog and several would stack), one launch per file; an item outside a selection of several is never opened; more than 15 ask 'Are you sure you want to open <n> items?' first (Cancel / Open all), as Windows File Explorer does, and 15 open without asking. Shift+Enter does not open new windows. Test: native/crates/ox-app/src/window/tests/opening.rs (enter_on_several_items_opens_each_and_asks_for_many). Porting notes: OpenXplorer's Enter opened only when exactly one item was selected."
 
 [[feature]]
 id = "OPEN-004"
