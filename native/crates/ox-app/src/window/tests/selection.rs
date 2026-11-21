@@ -497,7 +497,7 @@ fn changing_the_view_of_a_grouped_folder_keeps_the_focused_item_in_view() {
     for view in views {
         gtk::prelude::GtkWindowExt::set_focus(&test.window, None::<&gtk::Widget>);
         test.activate("view", Some(view));
-        wait_until(&format!("{view}: the selected item in view"), || in_view());
+        wait_until(&format!("{view}: the selected item in view"), in_view);
         assert_eq!(selected(&test), [last], "{view}: the selection stays");
     }
 }
