@@ -318,3 +318,153 @@ fn a_real_ctrl_drag_of_a_crumb_copies_its_folder_and_opens_no_tab() {
         "in the background"
     );
 }
+
+/// A home with the standard folders, a folder elsewhere holding its own
+/// Documents, and its settings folder.
+struct KnownFolderHome {
+    _root: tempfile::TempDir,
+    home: std::path::PathBuf,
+    config: std::path::PathBuf,
+    work: std::path::PathBuf,
+}
+
+impl KnownFolderHome {
+    fn new() -> Self {
+        let root = tempfile::tempdir().expect("the test home has room");
+        let base = fs::canonicalize(root.path()).expect("the folder resolves");
+        let home = base.join("home");
+        let config = base.join("config");
+        let work = base.join("work");
+        for folder in [
+            "Desktop",
+            "Documents/Letters",
+            "Downloads",
+            "Music",
+            "Pictures",
+            "Videos",
+        ] {
+            fs::create_dir_all(home.join(folder)).expect("a folder");
+        }
+        fs::create_dir_all(work.join("Documents")).expect("a folder");
+        fs::create_dir_all(&config).expect("a folder");
+        fs::write(home.join("Music/Tone sample.mp3"), b"ID3").expect("a file");
+        Self {
+            _root: root,
+            home,
+            config,
+            work,
+        }
+    }
+
+    fn locations(&self) -> ox_core::places::FolderLocations {
+        ox_core::places::FolderLocations::new(self.home.clone(), &self.config)
+    }
+
+    fn uri_of(&self, name: &str) -> String {
+        ox_core::location::file_uri(&self.home.join(name))
+    }
+}
+
+/// The crumbs' labels.
+fn crumb_labels(test: &TestWindow) -> Vec<String> {
+    let crumbs = test.window.address_bar().crumb_buttons();
+    crumbs
+        .iter()
+        .filter_map(|crumb| crumb.label().map(String::from))
+        .collect()
+}
+
+/// As in Windows 11 File Explorer (checked on build 26200), typing
+/// "Documents" in another folder opens the user's Documents, and the
+/// address bar shows it as one "Documents" crumb; so for Desktop,
+/// Downloads, Music, Pictures and Videos, in any case. The standard
+/// folder wins over a folder of that name in the current folder. Its
+/// subfolders' crumbs start at it.
+///
+/// parity: NAV-033, NAV-024
+#[gtk::test]
+fn typing_a_standard_folder_name_opens_it_and_its_crumbs_start_there() {
+    let home = KnownFolderHome::new();
+    let work = ox_core::location::file_uri(&home.work);
+    let test = TestWindow::open_with_standard_folders(&work, home.locations(), |_| {});
+    test.wait_for_listing("work");
+
+    go_to(&test, "Documents", &home.uri_of("Documents"));
+    assert_eq!(crumb_labels(&test), ["Documents"]);
+    test.show(&home.uri_of("Documents/Letters"));
+    assert_eq!(crumb_labels(&test), ["Documents", "Letters"]);
+    for (typed, folder) in [
+        ("music", "Music"),
+        ("  Downloads  ", "Downloads"),
+        ("PICTURES", "Pictures"),
+        ("Videos", "Videos"),
+        ("Desktop", "Desktop"),
+    ] {
+        go_to(&test, typed, &home.uri_of(folder));
+        assert_eq!(crumb_labels(&test), [folder], "{typed}");
+    }
+    let history = test.window.address_bar().typed_history();
+    assert_eq!(history.first().map(String::as_str), Some("Desktop"));
+}
+
+/// A right-click on a crumb, or on blank space of the address bar, shows
+/// exactly Windows 11's menu (checked on build 26200): Copy Address, Copy
+/// Address as Text, Edit Address and Delete History. On a crumb the copies
+/// are of that crumb's folder; Copy Address puts the folder itself on the
+/// clipboard, as Copy does, and Copy Address as Text its path; Delete
+/// History forgets the typed addresses.
+///
+/// parity: NAV-031, NAV-043
+#[gtk::test]
+fn the_address_bar_menu_is_windows_four_commands() {
+    let fixture = fixture_with_team_files();
+    let test = TestWindow::open(&fixture.uri_of("Team files"));
+    test.wait_for_listing("Team files");
+    let bar = test.window.address_bar();
+    let bar_widget: gtk::Widget = bar.clone().upcast();
+    let crumbs = bar.crumb_buttons();
+    let parent = &crumbs[crumbs.len() - 2];
+    let point = parent
+        .compute_point(&bar_widget, &gtk::graphene::Point::new(4.0, 4.0))
+        .expect("the crumb is in the bar");
+
+    let over_crumb = bar.popup_location_menu(f64::from(point.x()), f64::from(point.y()));
+    let labels = over_crumb.row_labels();
+    over_crumb.popdown();
+    let blank = bar.popup_location_menu(f64::from(bar.width() - 60), 4.0);
+    let blank_labels = blank.row_labels();
+    blank.popdown();
+
+    let windows = [
+        "Copy Address",
+        "Copy Address as Text",
+        "Edit Address",
+        "Delete History",
+    ];
+    assert_eq!(labels, windows);
+    assert_eq!(blank_labels, windows);
+
+    let clipboard = test.window.clipboard();
+    test.activate("copy-address-as-text", Some(&fixture.uri()));
+    let copied = glib::MainContext::default().block_on(clipboard.read_text_future());
+    assert_eq!(
+        copied.ok().flatten().map(String::from),
+        Some(fixture.root().display().to_string())
+    );
+    test.activate("copy-address-of", Some(&fixture.uri_of("Team files")));
+    wait_until("the folder on the clipboard", || {
+        clipboard.formats().contain_mime_type("text/uri-list")
+    });
+
+    go_to(
+        &test,
+        &fixture.path("Documents").display().to_string(),
+        &fixture.uri_of("Documents"),
+    );
+    assert!(!bar.typed_history().is_empty());
+    test.activate("delete-address-history", None);
+    assert!(bar.typed_history().is_empty());
+    assert!(TypedAddresses::open(test.settings_directory())
+        .addresses()
+        .is_empty());
+}
