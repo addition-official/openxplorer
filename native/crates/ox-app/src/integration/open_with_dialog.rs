@@ -33,6 +33,11 @@ use super::applications::{
 use super::custom_command::{run_custom_command, CustomCommand};
 use crate::icons::{self, Icon};
 
+/// Why Always is off for a file whose extension does not name its type.
+const NO_DEFAULT_FOR_TYPE: &str = crate::i18n::message_id(
+    "Always is available for files whose extension tells their type. Use Just once for this file.",
+);
+
 /// The glyph of each application row (app.js drew its grid icon at 25).
 const ROW_GLYPH: i32 = 24;
 
@@ -511,8 +516,21 @@ impl OpenWithDialog {
         imp.just_once_button
             .set_sensitive(idle && (has_app || has_command));
         let is_folder = imp.subject.get().is_some_and(|subject| subject.is_folder);
+        let may_change_default = self.may_change_default();
         imp.always_button
-            .set_sensitive(idle && has_app && !has_command && !is_folder);
+            .set_sensitive(idle && has_app && !has_command && !is_folder && may_change_default);
+        let why_not = (!is_folder && !may_change_default && imp.applications.borrow().is_some())
+            .then(|| ox_core::i18n::gettext_static(NO_DEFAULT_FOR_TYPE));
+        imp.always_button.set_tooltip_text(why_not);
+    }
+
+    /// Whether "Always" may make the chosen application the default of
+    /// the file's type: its extension names the type
+    /// ([`ApplicationList::may_change_default`]). Not until the list is
+    /// read.
+    fn may_change_default(&self) -> bool {
+        let applications = self.imp().applications.borrow();
+        applications.as_ref().is_some_and(|list| list.may_change_default)
     }
 
     /// Chooses the application of `row` in `section`, and clears the
@@ -645,7 +663,7 @@ impl OpenWithDialog {
         let Some(app_id) = imp.chosen.borrow().clone() else {
             return;
         };
-        let default = if self.subject().is_folder {
+        let default = if self.subject().is_folder || !self.may_change_default() {
             DefaultChoice::Keep
         } else {
             default

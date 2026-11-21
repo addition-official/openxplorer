@@ -1316,6 +1316,10 @@ msgstr ""
 msgid "All files"
 msgstr ""
 
+#: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "Always is available for files whose extension tells their type. Use Just once for this file."
+msgstr ""
+
 #: crates/ox-app/resources/ui/open-with-dialog.ui crates/ox-app/src/integration/open_with_dialog.rs
 msgid "Choose an app on your PC"
 msgstr ""
