@@ -564,6 +564,10 @@ fn a_file_without_an_application_opens_the_app_chooser() {
     wait_until("the app chooser", || open_with().is_some_and(|dialog| dialog.is_listed()));
     let dialog = open_with().expect("the chooser is open");
     assert_eq!(dialog.heading_text(), "Select an app to open this .blend file");
+    assert!(
+        dialog.shows_more_apps(),
+        "with no suggested app, every installed app is listed at once"
+    );
     assert!(test.window.dialog_layer().shown().is_none(), "no message to close first");
     assert!(test.context.recorded_launches().is_empty(), "nothing opened");
     dialog.click_find_in_software();

@@ -522,9 +522,16 @@ impl OpenWithDialog {
         imp.chosen.replace(chosen);
         imp.find_software_button
             .set_visible(!list.is_folder && crate::window::software_search::is_available());
+        // With no app suggested for the type, every installed app is
+        // listed at once, so there is something to choose from.
+        let nothing_suggested = scope == ApplicationScope::Recommended && list.choices.is_empty();
         let first_listing = imp.applications.replace(Some(list)).is_none();
         self.set_status(status.as_deref());
         self.show_applications();
+        if nothing_suggested && !imp.more_expander.is_expanded() {
+            imp.more_expander.set_expanded(true);
+            return;
+        }
         if first_listing {
             // The keyboard starts on the chosen application, as in Windows.
             let selected = Section::ALL
@@ -572,8 +579,8 @@ impl OpenWithDialog {
         imp.default_list.set_visible(has_default);
         let has_suggested = !sections[Section::Suggested.index()].is_empty();
         imp.suggested_heading.set_visible(has_suggested);
-        if sections.iter().all(Vec::is_empty) && applications.is_some() {
-            imp.suggested_list.append(&empty_row());
+        if sections.iter().all(Vec::is_empty) && applications.is_some() && !imp.loading.get() {
+            imp.suggested_list.append(&empty_row(query.is_empty()));
         }
         self.update_buttons();
     }
@@ -964,6 +971,11 @@ impl OpenWithDialog {
         )
     }
 
+    /// Whether More apps is open.
+    pub(crate) fn shows_more_apps(&self) -> bool {
+        self.imp().more_expander.is_expanded()
+    }
+
     /// Opens or closes More apps.
     pub(crate) fn expand_more_apps(&self, expanded: bool) {
         self.imp().more_expander.set_expanded(expanded);
@@ -1055,11 +1067,15 @@ fn application_row(choice: &ApplicationChoice) -> gtk::ListBoxRow {
     row
 }
 
-/// The row shown when the filter matches nothing.
-fn empty_row() -> gtk::ListBoxRow {
-    let label = gtk::Label::new(Some(&ox_core::i18n::gettext(
-        "No matching installed applications.",
-    )));
+/// The row shown when no application is listed: none installed can open
+/// the item when nothing is typed, else none matches the filter.
+fn empty_row(unfiltered: bool) -> gtk::ListBoxRow {
+    let text = if unfiltered {
+        ox_core::i18n::gettext("No installed app can open this item.")
+    } else {
+        ox_core::i18n::gettext("No matching installed applications.")
+    };
+    let label = gtk::Label::new(Some(&text));
     label.add_css_class("apps-empty");
     gtk::ListBoxRow::builder()
         .child(&label)
