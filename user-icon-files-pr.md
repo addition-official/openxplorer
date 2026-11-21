@@ -12,8 +12,8 @@ This change reads icon files and a symbol font that the user supplies. It ships 
 
 ## What it does
 
-- **Settings › Appearance › File icons** (from #366) ends with **Icons from Windows icon files**, off by default, and **Windows icon files** with **Choose files…** (one or more `.dll`, `.mun` or `.exe`) and **Clear**.
-- The order of sources is: a choice made in File icons, then the Windows icon files, then the built-in icon. A picture of the user's always wins. A choice of one of the app's pictures is drawn as the files draw that kind, or as the app draws it when the files have no such picture (the document with a zipper). Only the paths are saved (`useIconFiles`, `iconFiles`); the row says how many icons the files gave.
+- **Settings › Appearance › File icons** (from #366) ends with **Icons from Windows icon files**, off by default, **Windows icon files** with **Choose files…** (one or more `.dll`, `.mun` or `.exe`) and **Clear**, and **Windows symbol font** with **Choose font…** and **Clear**.
+- The order of sources is: a choice made in File icons, then the Windows icon files, then the built-in icon. A picture of the user's always wins. A choice of one of the app's pictures is drawn as the files draw that kind, or as the app draws it when the files have no such picture (the document with a zipper). Only the paths are saved (`useIconFiles`, `iconFiles`, `symbolFont`); the row says how many icons the files gave.
 - While it's on, the chosen files are read off the main thread. `imageres.dll.mun` and `shell32.dll.mun` (or the same names without `.mun`) draw:
   - the standard folders as Windows 11's flat tiles (Desktop 183, Downloads 184, Documents 112, Pictures 113, Music 108, Videos 189), wherever they appear: the navigation pane, Home's Quick access tiles, folder lists and the address bar;
   - the folder, Home, Gallery, This PC, Network, the Recycle Bin (empty and full) and the Settings tab;
