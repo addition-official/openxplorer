@@ -287,80 +287,120 @@ fn menu_labels(entries: &[crate::window::menu_popover::MenuEntry]) -> Vec<(Strin
         .collect()
 }
 
-/// The navigation pane's empty space offers Windows' "Show all folders",
-/// which shows the folder tree, and "Expand to open folder", on at first,
-/// which the folder tree's own menu offers too.
+/// The item of `entries` labelled `label`.
+fn menu_item(
+    entries: &[crate::window::menu_popover::MenuEntry],
+    label: &str,
+) -> crate::window::menu_popover::MenuItem {
+    use crate::window::menu_popover::MenuEntry;
+    entries
+        .iter()
+        .find_map(|entry| match entry {
+            MenuEntry::Item(item) if item.label == label => Some(item.clone()),
+            _ => None,
+        })
+        .unwrap_or_else(|| panic!("the menu has {label}"))
+}
+
+/// The navigation pane's empty space starts its menu as Windows 11's
+/// does (checked in Windows 11 26200): Show This PC and Show Network,
+/// both checked, Show all folders, which shows the folder tree, and
+/// Expand to current folder, off at first. Windows' Show libraries is
+/// left out, as there are no libraries. Show Network hides Network and
+/// then shows it again.
 ///
-/// parity: SIDE-028
+/// parity: SIDE-010, SIDE-028
 #[gtk::test]
-fn the_pane_offers_show_all_folders_and_expand_to_open_folder() {
+fn the_pane_menu_starts_with_windows_items_in_windows_order() {
+    use crate::window::menu_popover::MenuAction;
+    use crate::window::WindowAction;
+
     let fixture = Fixture::standard();
     let test = TestWindow::open(&fixture.uri());
     let sidebar = test.window.sidebar();
     wait_for_frames(&test.window, 2);
-    let below_rows = f64::from(sidebar.list().height() - 2);
+    let below_rows = || f64::from(sidebar.list().height() - 2);
+    let menu = || {
+        sidebar
+            .menu_entries_at(below_rows())
+            .expect("the empty space has a menu")
+    };
 
-    let menu = menu_labels(
-        &sidebar
-            .menu_entries_at(below_rows)
-            .expect("the empty space has a menu"),
-    );
-    let show_all = menu.iter().any(|(label, _)| label == "Show all folders");
-    let expand = menu
-        .iter()
-        .find(|(label, _)| label == "Expand to open folder")
-        .cloned();
-    test.activate("folder-tree-option", Some("expand-to-open"));
-    let menu_after = menu_labels(&sidebar.menu_entries_at(below_rows).expect("a menu"));
+    let first = menu_labels(&menu());
+    let show_network = menu_item(&menu(), "Show Network");
+    test.activate("hide-section", Some("network"));
+    wait_until("Network to go", || {
+        !sidebar.labels().contains(&"Network".to_owned())
+    });
+    let hidden = menu_item(&menu(), "Show Network");
+    test.activate("show-section", Some("network"));
+    wait_until("Network back", || {
+        sidebar.labels().contains(&"Network".to_owned())
+    });
+    test.activate("folder-tree-option", Some("expand-to-current"));
+    let expand_after = menu_labels(&menu());
 
-    assert!(show_all, "{menu:?}");
     assert_eq!(
-        expand,
-        Some(("Expand to open folder".to_owned(), true)),
-        "{menu:?}"
+        first[..5],
+        [
+            ("Show This PC".to_owned(), true),
+            ("Show Network".to_owned(), true),
+            ("Show all folders".to_owned(), false),
+            ("Expand to current folder".to_owned(), false),
+            ("-".to_owned(), false),
+        ],
+        "{first:?}"
     );
+    assert_eq!(show_network.action, MenuAction::from(WindowAction::HideSection));
+    assert_eq!(
+        show_network.target.as_ref().and_then(gtk::glib::Variant::str),
+        Some("network")
+    );
+    assert_eq!(hidden.action, MenuAction::from(WindowAction::ShowSection));
     assert!(
-        menu_after.contains(&("Expand to open folder".to_owned(), false)),
-        "{menu_after:?}"
+        expand_after.contains(&("Expand to current folder".to_owned(), true)),
+        "{expand_after:?}"
     );
     wait_until("the option to be saved", || {
-        !test
-            .context
+        test.context
             .settings_data()
             .preferences
             .folder_tree
-            .expand_to_open
+            .expand_to_current
     });
 }
 
-/// With "Expand to open folder" off, the folder tree no longer opens its
-/// folders down to the folder shown, as Windows' navigation pane does
-/// with it off; Ctrl+Shift+E still does.
+/// As in Windows 11, where "Expand to current folder" is off at first,
+/// the folder tree does not open its folders down to the folder shown;
+/// once the option is on, it does.
 ///
 /// parity: SIDE-028
 #[gtk::test]
-fn with_expand_to_open_folder_off_the_tree_stays_closed() {
+fn the_tree_expands_to_the_current_folder_only_with_the_option_on() {
     let fixture = Fixture::standard();
     let reports = fixture.path("Documents").join("Reports");
     fs::create_dir(&reports).expect("fixture subfolder");
-    let test = TestWindow::open(&fixture.uri());
+    let test = TestWindow::open(&file_uri(&reports));
     test.window.imp().locations.borrow_mut().home = fixture.root().parent().map(Into::into);
     test.activate("folder-tree", None);
     let tree = test.window.folder_tree();
-    let shown = fixture.uri();
-    wait_until("the tree selects the folder shown", || {
+    wait_until("the tree", || !tree.outline().is_empty());
+    wait_for(std::time::Duration::from_millis(500));
+    let closed = tree.outline();
+    let selected_closed = tree.selected_uri();
+
+    test.activate("folder-tree-option", Some("expand-to-current"));
+    let shown = file_uri(&reports);
+    wait_until("the tree opens down to Reports", || {
         tree.selected_uri().is_some_and(|uri| uri == shown)
     });
-    let before = tree.outline();
 
-    test.activate("folder-tree-option", Some("expand-to-open"));
-    test.activate("go-to", Some(&file_uri(&reports)));
-    test.wait_for_listing("Reports");
-    wait_for(std::time::Duration::from_millis(500));
-
-    assert_eq!(before, ["Home", "  Example projects"]);
-    assert_eq!(tree.outline(), before, "no folder opened on the way");
-    assert_eq!(tree.selected_uri(), None, "Reports is not in the tree yet");
+    assert_eq!(closed, ["Home"], "no folder opened on the way");
+    assert_eq!(selected_closed, None, "Reports is not in the tree yet");
+    assert_eq!(
+        tree.outline(),
+        ["Home", "  Example projects", "    Documents", "      Reports"]
+    );
 }
 
 /// Home and Gallery open in a new tab or window from their menu, as

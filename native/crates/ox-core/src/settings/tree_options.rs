@@ -3,7 +3,7 @@
 //! them in `dolphin_folderspanelsettings.kcfg`: whether the tree is shown,
 //! whether it lists hidden folders, whether it stays inside the home
 //! folder, and whether it scrolls to the folder shown; and Windows'
-//! "Expand to open folder", whether it opens down to the folder shown.
+//! "Expand to current folder", whether it opens down to the folder shown.
 
 use serde::Serialize;
 use serde_json::Value;
@@ -27,8 +27,8 @@ pub struct FolderTreeOptions {
     /// The tree scrolls to the folder shown (Dolphin's `AutoScrolling`).
     pub auto_scroll: bool,
     /// The tree opens its folders down to the folder shown (Windows'
-    /// "Expand to open folder").
-    pub expand_to_open: bool,
+    /// "Expand to current folder").
+    pub expand_to_current: bool,
 }
 
 impl Default for FolderTreeOptions {
@@ -38,7 +38,7 @@ impl Default for FolderTreeOptions {
             show_hidden: false,
             limit_to_home: true,
             auto_scroll: true,
-            expand_to_open: true,
+            expand_to_current: false,
         }
     }
 }
@@ -60,7 +60,7 @@ impl FolderTreeOptions {
             show_hidden: flag("showHidden", defaults.show_hidden),
             limit_to_home: flag("limitToHome", defaults.limit_to_home),
             auto_scroll: flag("autoScroll", defaults.auto_scroll),
-            expand_to_open: flag("expandToOpen", defaults.expand_to_open),
+            expand_to_current: flag("expandToCurrent", defaults.expand_to_current),
         })
     }
 }
