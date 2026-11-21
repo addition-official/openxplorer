@@ -132,8 +132,9 @@ fn right_clicking_a_file_selects_it_and_opens_the_classic_menu() {
             "-",
             "Compress to…",
             "-",
-            "Properties",
             "Configure service actions…",
+            "-",
+            "Properties",
         ]
     );
     assert!(menu.row("Rename").is_sensitive());

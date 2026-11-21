@@ -702,10 +702,11 @@ pub(super) fn menu_style_for(preferred: MenuStyle, modifiers: gdk::ModifierType)
     }
 }
 
-/// Adds `extras`, the service actions and "Open as administrator…", to the
-/// end of a menu, or in Windows 11's compact menu above its last item,
-/// "Show more options", in a group of their own, as Explorer puts the
-/// commands other programs add there.
+/// Adds `extras`, the service actions and "Open as administrator…", in a
+/// group of their own: in Windows 11's compact menu above its last item,
+/// "Show more options", as Explorer puts the commands other programs add
+/// there; in the classic menu above Properties, which ends Windows'
+/// classic menu; at the end of a menu with neither.
 fn add_extras(entries: &mut Vec<MenuEntry>, extras: Vec<MenuEntry>) {
     if extras.is_empty() {
         return;
@@ -728,7 +729,25 @@ fn add_extras(entries: &mut Vec<MenuEntry>, extras: Vec<MenuEntry>) {
             };
             entries.splice(before..before, group);
         }
-        None => entries.extend(extras),
+        None => {
+            // The classic menu ends with Properties, as Windows' does.
+            let properties = entries.iter().rposition(|entry| {
+                matches!(
+                    entry,
+                    MenuEntry::Item(item)
+                        if item.action == super::menu_popover::MenuAction::Window(WindowAction::Properties)
+                )
+            });
+            match properties {
+                Some(at) => {
+                    let after_divider = at == 0 || matches!(entries[at - 1], MenuEntry::Divider);
+                    let lead = (!after_divider).then_some(MenuEntry::Divider);
+                    let group = lead.into_iter().chain(extras).chain([MenuEntry::Divider]);
+                    entries.splice(at..at, group);
+                }
+                None => entries.extend(extras),
+            }
+        }
     }
 }
 
@@ -768,8 +787,9 @@ mod tests {
     }
 
     /// The service actions and "Open as administrator…" go above "Show
-    /// more options" in a group of their own, and at the end of a menu
-    /// without it.
+    /// more options" in a group of their own, in the classic menu above
+    /// Properties, which ends it as Windows' does, and at the end of a
+    /// menu without either.
     ///
     /// parity: CMD-010
     #[test]
@@ -791,9 +811,36 @@ mod tests {
                 "Show more options"
             ]
         );
-        let mut classic = vec![entry("Properties", WindowAction::Properties)];
+        // The classic menu ends with Properties, as Windows' does: the
+        // extras go above it, in a group of their own.
+        let mut classic = vec![
+            entry("Copy", WindowAction::Copy),
+            MenuEntry::Divider,
+            entry("Properties", WindowAction::Properties),
+        ];
         add_extras(&mut classic, extras());
-        assert_eq!(labels(&classic), ["Properties", "Open as administrator…"]);
+        assert_eq!(
+            labels(&classic),
+            ["Copy", "-", "Open as administrator…", "-", "Properties"]
+        );
+        let mut background = vec![
+            entry("Previous versions", WindowAction::PreviousVersions),
+            entry("Properties", WindowAction::Properties),
+        ];
+        add_extras(&mut background, extras());
+        assert_eq!(
+            labels(&background),
+            [
+                "Previous versions",
+                "-",
+                "Open as administrator…",
+                "-",
+                "Properties"
+            ]
+        );
+        let mut without = vec![entry("Copy", WindowAction::Copy)];
+        add_extras(&mut without, extras());
+        assert_eq!(labels(&without), ["Copy", "Open as administrator…"]);
         let mut unchanged = classic.clone();
         add_extras(&mut unchanged, Vec::new());
         assert_eq!(unchanged, classic, "no extras, no divider");
