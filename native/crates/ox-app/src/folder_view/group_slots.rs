@@ -116,6 +116,12 @@ impl RowHeights {
         })
     }
 
+    /// How far down the list `row` of `layout` starts: the heights of the
+    /// rows above it.
+    pub(crate) fn top_of(self, layout: &SlotLayout, row: u32) -> f64 {
+        (0..row).map(|above| self.of(layout, above)).sum()
+    }
+
     /// How far apart rows `from` and `to` of `layout` are: the heights of
     /// the rows a move from one to the other passes, the one it lands on
     /// included.

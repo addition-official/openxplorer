@@ -545,8 +545,8 @@ fn arrows_move_through_tiles_and_content() {
     assert_eq!(test.selected_names(), ["file 0004.txt"], "type-ahead selects");
 }
 
-/// In grouped Tiles and Content every key moves between items across
-/// the headings, as in Details: Down from a group's last row rests on the
+/// In grouped Tiles, Content and the icon sizes above Small icons every
+/// key moves between items across the headings, as in Details: Down from a group's last row rests on the
 /// next group's heading, then goes to its first row, Right from a group's
 /// last item goes to the next group's first, Up comes back to the column,
 /// and Shift and Ctrl work as elsewhere.
@@ -561,7 +561,7 @@ fn arrows_cross_the_group_headings_in_tiles_and_content() {
     let none = gdk::ModifierType::empty();
     let shift = gdk::ModifierType::SHIFT_MASK;
     let last = test.window.folder_pane().model().n_items() - 1;
-    for view in ["tiles", "content"] {
+    for view in ["tiles", "content", "medium", "large", "extra-large"] {
         show_view(&test, view);
         start_at(&test, 0);
         press_key(&test, gdk::Key::Down, none);
@@ -607,8 +607,54 @@ fn arrows_cross_the_group_headings_in_tiles_and_content() {
     }
 }
 
+/// Home in a grouped grid goes back to the top of the list, with the
+/// first group's heading in view, as Windows 11 shows it; so does a key
+/// that lands on the first row of a group whose heading is above the
+/// view. Before, the first item was scrolled to the top edge and its
+/// heading stayed hidden above it.
+///
+/// parity: VIEW-022, VIEW-071, SEL-008
+#[gtk::test]
+fn home_shows_the_first_groups_heading_in_a_grouped_grid() {
+    use crate::folder_view::cells::FileCell;
+    use crate::folder_view::grid::SlotKind;
+    let fixture = Fixture::empty();
+    for number in 0..40 {
+        for extension in ["mp3", "jpg", "pdf"] {
+            fixture.write(&format!("Track {number:02}.{extension}"));
+        }
+    }
+    let test = TestWindow::open(&fixture.uri());
+    test.activate("group-by", Some("type"));
+    let none = gdk::ModifierType::empty();
+    for view in ["tiles", "content", "medium", "large"] {
+        show_view(&test, view);
+        start_at(&test, 0);
+        press_key(&test, gdk::Key::End, none);
+        press_key(&test, gdk::Key::Home, none);
+        assert_eq!(selected(&test), [0], "{view}: Home");
+        let pane = test.window.folder_pane();
+        let grid = pane.view_widget();
+        wait_until("the first heading in view", || {
+            descendants::<FileCell>(&grid).into_iter().any(|cell| {
+                cell.is_mapped()
+                    && cell
+                        .slot()
+                        .is_some_and(|slot| slot.kind() == SlotKind::Heading && slot.group_index() == Some(0))
+                    && cell.compute_bounds(&grid).is_some_and(|bounds| bounds.y() >= 0.0)
+            })
+        });
+        let adjustment = pane.icon_view().scroll_adjustment();
+        assert!(
+            adjustment.value() <= adjustment.lower() + 1.0,
+            "{view}: scrolled to the top, not {}",
+            adjustment.value()
+        );
+    }
+}
+
 /// A group collapses under its heading and expands again, in Details,
-/// Tiles and Content, as in Windows 11: with the keyboard on the heading,
+/// Tiles, Content and the icon sizes, as in Windows 11: with the keyboard on the heading,
 /// Left collapses it, Right expands it, and Space and Enter select its
 /// items. Its items
 /// stay selected while hidden; the arrows, a Shift range and
@@ -628,7 +674,7 @@ fn a_group_collapses_under_its_heading_and_its_items_are_passed_by() {
         let grouped = test.window.folder_pane().grouped().expect("a grouped view");
         grouped.layout().expect("laid out").shows(position)
     };
-    for view in ["details", "tiles", "content"] {
+    for view in ["details", "tiles", "content", "large", "medium"] {
         show_view(&test, view);
         start_at(&test, 0);
         press_key(&test, gdk::Key::Up, none);
@@ -777,7 +823,7 @@ fn a_click_on_a_heading_selects_its_group_and_the_chevron_folds_it() {
     test.activate("group-by", Some("type"));
     let last = test.window.folder_pane().model().n_items() - 1;
     let group: Vec<u32> = (2..=last).collect();
-    for view in ["details", "tiles", "content"] {
+    for view in ["details", "tiles", "content", "large", "medium"] {
         show_view(&test, view);
         start_at(&test, 0);
         let heading = test

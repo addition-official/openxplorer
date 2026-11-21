@@ -207,6 +207,7 @@ impl BrowserWindow {
         } else {
             pane.select_and_reveal(to);
         }
+        icons.show_heading_above(to);
         Some(glib::Propagation::Stop)
     }
 
