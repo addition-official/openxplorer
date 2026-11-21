@@ -42,7 +42,7 @@ use super::name_balloon::refuse_forbidden_characters;
 use super::names::check_typed_name;
 use super::numbered_rename::numbered_batch_for;
 use super::rename::{has_no_extension, selected_name_length};
-use super::rename_conflict::TakenNameAnswer;
+use super::rename_conflict::{MergeAnswer, TakenNameAnswer};
 use crate::folder_view::cells::FileCell;
 use crate::folder_view::shown_name::{hidden_extension, shown_name, shows_whole};
 use crate::window::BrowserWindow;
@@ -442,9 +442,26 @@ impl BrowserWindow {
     ) -> Option<Result<RenamedItem, OpsError>> {
         // A drive may have started formatting during the questions.
         let refusal = match self.admitted_rename(cell, &target.uri, name).await? {
-            Err(OpsError::Exists(refusal)) if !target.is_folder => refusal,
+            Err(OpsError::Exists(refusal)) => refusal,
             renamed => return Some(renamed),
         };
+        if target.is_folder {
+            return match self.ask_about_merging(&target.uri, name).await {
+                MergeAnswer::Merge(into) => {
+                    self.take_rename_next();
+                    self.close_name_editor(cell);
+                    self.merge_folder_into(&target.uri, &into).await;
+                    None
+                }
+                MergeAnswer::KeepEditing => {
+                    self.take_rename_next();
+                    editor.set_sensitive(true);
+                    editor.grab_focus();
+                    None
+                }
+                MergeAnswer::NotAsked => Some(Err(OpsError::Exists(refusal))),
+            };
+        }
         match self.ask_about_taken_name(&target.uri, name).await {
             TakenNameAnswer::Rename(numbered) => self.admitted_rename(cell, &target.uri, &numbered).await,
             TakenNameAnswer::KeepEditing => {
