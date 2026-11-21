@@ -186,20 +186,19 @@ pub(crate) struct ApplicationList {
     pub(crate) content_type: String,
     /// The item is a folder.
     pub(crate) is_folder: bool,
-    /// "Always" may make the chosen application the default of
-    /// `content_type`: a file whose extension names its type.
-    pub(crate) may_change_default: bool,
+    /// What "Always" makes the chosen application the default of: what
+    /// the file's extension names ([`default_target`]).
+    pub(crate) default_target: Option<DefaultTarget>,
 }
 
 impl ApplicationList {
     /// The application chosen when the list appears: the default when it
-    /// is available, else the first available one.
+    /// can open the item. As in Windows, no other app is chosen for the
+    /// user.
     pub(crate) fn preselected(&self) -> Option<&ApplicationChoice> {
-        let default = self
-            .choices
+        self.choices
             .iter()
-            .find(|choice| choice.is_default && choice.is_available);
-        default.or_else(|| self.choices.iter().find(|choice| choice.is_available))
+            .find(|choice| choice.is_default && choice.is_available)
     }
 }
 
@@ -255,7 +254,11 @@ pub(crate) fn list_applications(
     };
     Ok(ApplicationList {
         choices: facts.choices(candidates),
-        may_change_default: !entry.is_dir && extension_names_type(&entry.name, &content_type),
+        default_target: if entry.is_dir {
+            None
+        } else {
+            default_target(&entry.name, &content_type)
+        },
         content_type,
         is_folder: entry.is_dir,
     })
@@ -315,23 +318,119 @@ fn content_type_of(entry: &Entry) -> String {
     content_type.unwrap_or(UNKNOWN_CONTENT_TYPE).to_owned()
 }
 
-/// Whether the extension of the file named `name` names `content_type`:
-/// GIO is sure of the type from the name alone, and it is that type.
+/// What "Always" changes the default of for a file.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum DefaultTarget {
+    /// The content type GIO knows the file's extension by.
+    Type(String),
+    /// An extension GIO does not know, lowercase.
+    Extension(String),
+}
+
+/// The longest extension "Always" registers as a type of its own.
+const MAX_EXTENSION: usize = 32;
+
+/// What "Always" changes the default of for the file named `name`, of
+/// `content_type`: what its extension names, as Windows changes the
+/// default of one extension.
 ///
-/// "Always" makes an application the default of a content type, which
-/// Windows does for one extension. A file without an extension, or with
-/// one GIO does not know, gets the type its contents suggest, such as
-/// `text/plain`, and a file GIO cannot identify gets
-/// `application/octet-stream`, the type of every unknown file; making a
-/// default for those would change what opens far more than that file's
-/// kind, so "Always" is offered only where the name settles the type.
-fn extension_names_type(name: &str, content_type: &str) -> bool {
-    let has_extension = name.rfind('.').is_some_and(|dot| dot > 0 && dot + 1 < name.len());
-    if !has_extension || content_type == UNKNOWN_CONTENT_TYPE {
-        return false;
+/// GIO keeps defaults by content type, not by extension. For an extension
+/// GIO knows, from the name alone, that is its type, whatever the file
+/// holds, so a `.jpg` sets the default of JPEG images. An extension GIO
+/// does not know would leave the file `application/octet-stream`, the
+/// type of every unknown file, or the type its contents suggest, such as
+/// `text/plain`; it becomes a type of its own instead
+/// ([`DefaultTarget::Extension`]). An extension GIO knows for several
+/// types, such as `.ts`, keeps them, and the type GIO found for the file,
+/// `content_type`, gets the default. A file without an extension has none,
+/// as Windows offers it only Just once, and so has one that is not plain
+/// ASCII letters, digits, `-`, `_` or `+`, which is never written into the
+/// MIME database.
+pub(crate) fn default_target(name: &str, content_type: &str) -> Option<DefaultTarget> {
+    let dot = name.rfind('.').filter(|&dot| dot > 0 && dot + 1 < name.len())?;
+    let extension = &name[dot + 1..];
+    if !is_plain_extension(extension) {
+        return None;
     }
     let (named, uncertain) = gio::content_type_guess(Some(name), None);
-    !uncertain && named != UNKNOWN_CONTENT_TYPE && gio::content_type_equals(&named, content_type)
+    if named == UNKNOWN_CONTENT_TYPE {
+        return Some(DefaultTarget::Extension(extension.to_ascii_lowercase()));
+    }
+    if !uncertain {
+        return Some(DefaultTarget::Type(named.to_string()));
+    }
+    // The extension names several types: the one GIO found for this file.
+    (content_type != UNKNOWN_CONTENT_TYPE).then(|| DefaultTarget::Type(content_type.to_owned()))
+}
+
+/// Whether `extension` may name a type of its own: plain ASCII letters,
+/// digits, `-`, `_` or `+`, and not too long.
+fn is_plain_extension(extension: &str) -> bool {
+    !extension.is_empty()
+        && extension.len() <= MAX_EXTENSION
+        && extension
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '+'))
+}
+
+/// The content type an extension GIO does not know is registered as:
+/// `application/x-extension-xyz`, as GIO itself names one.
+fn extension_type(extension: &str) -> String {
+    format!("application/x-extension-{extension}")
+}
+
+/// Registers the extension `extension` as a type of its own, for this
+/// user only: a package in `$XDG_DATA_HOME/mime/packages` and
+/// `update-mime-database`, as shared-mime-info has users add types. Run
+/// only when the user pressed Always or Set default. Returns the type.
+fn register_extension(extension: &str) -> Result<String, OpenWithError> {
+    let extension = extension.to_ascii_lowercase();
+    if !is_plain_extension(&extension) {
+        return Err(OpenWithError::DefaultNotChanged);
+    }
+    let content_type = extension_type(&extension);
+    let mime = glib::user_data_dir().join("mime");
+    let packages = mime.join("packages");
+    let failed = |_| OpenWithError::DefaultNotChanged;
+    std::fs::create_dir_all(&packages).map_err(failed)?;
+    let upper = extension.to_ascii_uppercase();
+    let package = [
+        r#"<?xml version="1.0" encoding="UTF-8"?>"#.to_owned(),
+        format!("<!-- Added by OpenXplorer when Always was chosen for .{extension} files. -->"),
+        r#"<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">"#.to_owned(),
+        format!(r#"  <mime-type type="{content_type}">"#),
+        format!("    <comment>{upper} File</comment>"),
+        format!(r#"    <glob pattern="*.{extension}"/>"#),
+        "  </mime-type>".to_owned(),
+        "</mime-info>".to_owned(),
+        String::new(),
+    ]
+    .join("\n");
+    let path = packages.join(format!("openxplorer-extension-{extension}.xml"));
+    let written = path.with_extension("xml.new");
+    std::fs::write(&written, package).map_err(failed)?;
+    std::fs::rename(&written, &path).map_err(failed)?;
+    let updated = std::process::Command::new("update-mime-database")
+        .arg(&mime)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map_err(failed)?;
+    if !updated.success() {
+        return Err(OpenWithError::DefaultNotChanged);
+    }
+    Ok(content_type)
+}
+
+/// Makes `app` the default of what `target` names, registering an
+/// unknown extension first.
+fn set_default(app: &gio::AppInfo, target: &DefaultTarget) -> Result<(), OpenWithError> {
+    let content_type = match target {
+        DefaultTarget::Type(content_type) => content_type.clone(),
+        DefaultTarget::Extension(extension) => register_extension(extension)?,
+    };
+    app.set_as_default_for_type(&content_type)
+        .map_err(|_| OpenWithError::DefaultNotChanged)
 }
 
 /// What decides how an application is offered for one item.
@@ -383,8 +482,8 @@ pub(crate) struct PreparedLaunch {
     pub(crate) content_type: String,
     /// The item is a folder, whose default is never changed.
     pub(crate) is_folder: bool,
-    /// "Always" may make the application the default of the content type.
-    pub(crate) may_change_default: bool,
+    /// What "Always" makes the application the default of.
+    pub(crate) default_target: Option<DefaultTarget>,
 }
 
 /// The file the application receives.
@@ -430,7 +529,7 @@ pub(crate) async fn prepare_launch(uri: String, app_id: String) -> Result<Prepar
             target,
             content_type: list.content_type,
             is_folder: list.is_folder,
-            may_change_default: list.may_change_default,
+            default_target: list.default_target,
         })
     });
     prepared.await.map_err(|_| OpenWithError::Interrupted)?
@@ -455,7 +554,7 @@ pub(crate) async fn prepare_target(uri: String) -> Result<PreparedLaunch, OpenWi
             target,
             content_type: content_type_of(&entry),
             is_folder: entry.is_dir,
-            may_change_default: false,
+            default_target: None,
         })
     });
     prepared.await.map_err(|_| OpenWithError::Interrupted)?
@@ -491,9 +590,9 @@ pub(crate) fn launch(
 }
 
 /// Makes `app_id` the default of the type of the file `prepared`, without
-/// opening it (Properties' Change...), and returns its name. Only a type
-/// the file's extension names gets a new default
-/// ([`extension_names_type`]), never a folder's.
+/// opening it (Properties' Change...), and returns its name. What the
+/// file's extension names gets the new default ([`default_target`]),
+/// never a folder.
 ///
 /// # Errors
 ///
@@ -502,11 +601,12 @@ pub(crate) fn launch(
 /// default or the desktop refused it.
 pub(crate) fn make_default(app_id: &str, prepared: &PreparedLaunch) -> Result<String, OpenWithError> {
     let app = installed_application(app_id).ok_or(OpenWithError::NotInstalled)?;
-    if prepared.is_folder || !prepared.may_change_default {
-        return Err(OpenWithError::DefaultNotChanged);
-    }
-    app.set_as_default_for_type(&prepared.content_type)
-        .map_err(|_| OpenWithError::DefaultNotChanged)?;
+    let target = prepared
+        .default_target
+        .as_ref()
+        .filter(|_| !prepared.is_folder)
+        .ok_or(OpenWithError::DefaultNotChanged)?;
+    set_default(&app, target)?;
     Ok(app.display_name().to_string())
 }
 
@@ -525,12 +625,12 @@ fn default_after_launch(
     if prepared.is_folder {
         return "Opened the folder. Its default file-manager association was not changed.";
     }
-    // A type the file's extension does not name is never given a new
-    // default (extension_names_type); the dialog does not offer it.
-    if !prepared.may_change_default {
+    // A file without an extension has nothing to give a default
+    // (default_target); the dialog does not offer Always for it.
+    let Some(target) = &prepared.default_target else {
         return ox_core::i18n::gettext_static(OPENED);
-    }
-    match app.set_as_default_for_type(&prepared.content_type) {
+    };
+    match set_default(app, target) {
         Ok(()) => ox_core::i18n::gettext_static(OPENED),
         Err(_) => "Opened the file, but the default application could not be changed.",
     }
@@ -597,7 +697,7 @@ mod tests {
             choices,
             content_type: "text/plain".to_owned(),
             is_folder: false,
-            may_change_default: true,
+            default_target: Some(DefaultTarget::Type("text/plain".to_owned())),
         };
         let with_default = list(vec![
             choice("Viewer", true, true, true),
@@ -611,12 +711,10 @@ mod tests {
             choice("Viewer", true, true, false),
             choice("Editor", false, true, true),
         ]);
-        assert_eq!(
-            default_needs_mount
-                .preselected()
-                .map(|choice| choice.name.as_str()),
-            Some("Editor")
-        );
+        // As in Windows, nothing is chosen for the user but the default.
+        assert_eq!(default_needs_mount.preselected(), None);
+        let no_default = list(vec![choice("Editor", false, true, true)]);
+        assert_eq!(no_default.preselected(), None);
         let nothing_opens = list(vec![choice("Viewer", true, true, false)]);
         assert_eq!(nothing_opens.preselected(), None);
     }
@@ -655,7 +753,8 @@ mod tests {
             target: LaunchTarget::Uri("file:///tmp/example".to_owned()),
             content_type: "application/x-openxplorer-test".to_owned(),
             is_folder,
-            may_change_default: !is_folder,
+            default_target: (!is_folder)
+                .then(|| DefaultTarget::Type("application/x-openxplorer-test".to_owned())),
         };
         assert_eq!(
             default_after_launch(&app, &prepared(false), DefaultChoice::Keep),
@@ -674,60 +773,117 @@ mod tests {
         assert_eq!(default.and_then(|default| default.id()), app.id());
     }
 
-    /// "Always" may change the default of the file's content type only
-    /// when its extension names that type, as Windows changes the default
-    /// of one extension.
+    /// "Always" changes the default of what the file's extension names,
+    /// as Windows changes the default of one extension: the type GIO knows
+    /// the extension by, whatever the file holds, or for an extension GIO
+    /// does not know, a type of its own. A file without an extension, or
+    /// with one that is not plain letters and digits, has none.
     ///
     /// parity: OPEN-012
     #[test]
-    fn only_a_type_its_extension_names_may_get_a_new_default() {
-        assert!(extension_names_type("Notes.txt", "text/plain"));
-        assert!(extension_names_type("PHOTO.JPG", "image/jpeg"));
-        assert!(extension_names_type("song.mp3", "audio/mpeg"));
-        assert!(extension_names_type(
-            "letter.odt",
-            "application/vnd.oasis.opendocument.text"
-        ));
-        assert!(!extension_names_type("README", "text/plain"), "no extension");
-        assert!(
-            !extension_names_type(".bashrc", "text/plain"),
-            "a hidden file's dot"
+    fn always_changes_what_the_files_extension_names() {
+        let named = |content_type: &str| Some(DefaultTarget::Type(content_type.to_owned()));
+        assert_eq!(default_target("Notes.txt", "text/plain"), named("text/plain"));
+        assert_eq!(default_target("PHOTO.JPG", "image/jpeg"), named("image/jpeg"));
+        assert_eq!(
+            default_target("photo.jpg", "text/plain"),
+            named("image/jpeg"),
+            "what the extension names, not what the file holds"
         );
-        assert!(
-            !extension_names_type("notes.weird", "text/plain"),
-            "an unknown extension"
+        assert_eq!(default_target("song.mp3", "audio/mpeg"), named("audio/mpeg"));
+        assert_eq!(
+            default_target("letter.odt", "application/vnd.oasis.opendocument.text"),
+            named("application/vnd.oasis.opendocument.text")
         );
-        assert!(
-            !extension_names_type("scene.xyz", UNKNOWN_CONTENT_TYPE),
-            "an unknown type"
+        // An extension GIO knows for several types (.ts is a translation or
+        // an MPEG video) keeps those types: the one GIO found for this file
+        // gets the default, and no new type is registered.
+        assert_eq!(default_target("clip.ts", "video/mp2t"), named("video/mp2t"));
+        assert_eq!(
+            default_target("app.ts", "text/vnd.trolltech.linguist"),
+            named("text/vnd.trolltech.linguist")
         );
-        assert!(
-            !extension_names_type("photo.jpg", "text/plain"),
-            "contents of another type"
+        assert_eq!(default_target("blank.ts", UNKNOWN_CONTENT_TYPE), None);
+        let own = |extension: &str| Some(DefaultTarget::Extension(extension.to_owned()));
+        assert_eq!(default_target("scene.xyz", UNKNOWN_CONTENT_TYPE), own("xyz"));
+        assert_eq!(
+            default_target("Scene.XYZ", UNKNOWN_CONTENT_TYPE),
+            own("xyz"),
+            "one type for every case"
+        );
+        assert_eq!(default_target("notes.weird", "text/plain"), own("weird"));
+        assert_eq!(default_target("data.v2-raw", UNKNOWN_CONTENT_TYPE), own("v2-raw"));
+        for name in [
+            "README",
+            ".bashrc",
+            "trailing.",
+            "a.b c",
+            "x.<mime-type>",
+            "y.a\"b",
+            "z.ünï",
+        ] {
+            assert_eq!(default_target(name, "text/plain"), None, "{name}");
+        }
+        assert_eq!(
+            extension_type("xyz"),
+            "application/x-extension-xyz",
+            "the name GIO itself gives an unknown extension"
         );
     }
 
-    /// "Always" never changes the default of a type the file's extension
-    /// does not name, even when asked.
+    /// "Always" for an extension GIO does not know registers it as a type
+    /// of its own, for this user only, then makes the app its default: the
+    /// next file with that extension opens in it, and no other unknown
+    /// file does. Nothing is written without Always, nor for a file
+    /// without a target. Writes the user's MIME database, so it runs only
+    /// with private XDG folders (native/tools/check.py).
     ///
     /// parity: OPEN-012
-    #[test]
-    fn always_never_changes_a_type_the_extension_does_not_name() {
+    #[gtk::test]
+    fn always_registers_an_unknown_extension_as_a_type_of_its_own() {
+        const EXTENSION: &str = "oxtestext";
+        let data = glib::user_data_dir();
+        let temp = std::env::temp_dir();
+        assert!(
+            data.starts_with(&temp) && glib::user_config_dir().starts_with(&temp),
+            "private folders"
+        );
         let app =
             gio::AppInfo::create_from_commandline("true", Some("Test viewer"), gio::AppInfoCreateFlags::NONE)
                 .expect("an application made from a command line");
-        let prepared = PreparedLaunch {
-            target: LaunchTarget::Uri("file:///tmp/example".to_owned()),
-            content_type: "application/x-openxplorer-unnamed-test".to_owned(),
+        let prepared = |default_target| PreparedLaunch {
+            target: LaunchTarget::Uri("file:///tmp/scene.oxtestext".to_owned()),
+            content_type: UNKNOWN_CONTENT_TYPE.to_owned(),
             is_folder: false,
-            may_change_default: false,
+            default_target,
         };
-        assert_eq!(
-            default_after_launch(&app, &prepared, DefaultChoice::MakeDefault),
-            "Opened with the selected application."
-        );
-        let default = gio::AppInfo::default_for_type("application/x-openxplorer-unnamed-test", false);
-        assert_eq!(default.and_then(|default| default.id()), None);
+        let package = data.join(format!("mime/packages/openxplorer-extension-{EXTENSION}.xml"));
+        let target = Some(DefaultTarget::Extension(EXTENSION.to_owned()));
+
+        default_after_launch(&app, &prepared(target.clone()), DefaultChoice::Keep);
+        default_after_launch(&app, &prepared(None), DefaultChoice::MakeDefault);
+        assert!(!package.exists(), "nothing written without Always");
+
+        let message = default_after_launch(&app, &prepared(target), DefaultChoice::MakeDefault);
+
+        assert_eq!(message, "Opened with the selected application.");
+        let written = std::fs::read_to_string(&package).expect("the type is registered");
+        assert!(written.contains("<glob pattern=\"*.oxtestext\"/>"), "{written}");
+        let own_type = "application/x-extension-oxtestext";
+        crate::test_support::harness::wait_until("GIO to know the extension", || {
+            gio::content_type_guess(Some("Scene.OXTESTEXT"), None).0 == own_type
+        });
+        let default = gio::AppInfo::default_for_type(own_type, false).and_then(|default| default.id());
+        assert_eq!(default, app.id());
+        let unknown =
+            gio::AppInfo::default_for_type(UNKNOWN_CONTENT_TYPE, false).and_then(|default| default.id());
+        assert_ne!(unknown, app.id(), "other unknown files are left alone");
+
+        gio::AppInfo::reset_type_associations(own_type);
+        std::fs::remove_file(&package).expect("the test type is removed");
+        let _ = std::process::Command::new("update-mime-database")
+            .arg(data.join("mime"))
+            .status();
     }
 
     /// A launcher in a folder inside an `applications` folder is chosen by

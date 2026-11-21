@@ -581,14 +581,13 @@ fn a_file_without_an_application_opens_the_app_chooser() {
         dialog.shows_more_apps(),
         "with no suggested app, every installed app is listed at once"
     );
-    wait_until("the keyboard on the chosen app", || {
+    wait_until("the keyboard in the list", || {
         dialog.is_listed() && dialog.focused_name().is_some()
     });
-    assert_eq!(
-        dialog.focused_name(),
-        dialog.chosen_name(),
-        "the keyboard starts on the chosen app"
-    );
+    // As in Windows, no app is chosen for the user: Just once and Always
+    // wait for one.
+    assert_eq!(dialog.chosen(), None, "nothing preselected");
+    assert_eq!(dialog.controls_state(), (true, false, false));
     assert!(
         test.window.dialog_layer().shown().is_none(),
         "no message to close first"
