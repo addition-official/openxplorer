@@ -1,0 +1,40 @@
+STATUS: DONE
+HEAD: network-like-windows 4790c970f18d4854e0db62cad87032d94ccad70c
+QUESTION: none
+NOTE: Branched from upstream main 0be6bf33; merged pass-4-nav-pane and pass-6-context-menu first (they touch the sidebar menu, status bar and network tests). Network now lists one row per device: discovery merges every SMB/SFTP/FTP/WebDAV service of a host into one computer named by its SMB NetBIOS name, else its host; dav+sd (B3) is resolved through Avahi's D-Bus ResolveService, and an unresolved one joins the host whose services share its advertised name. Network starts in Tiles grouped by type and keeps its own style. Opening a computer lists its shares plus its other services as rows ("Harbor Files (SFTP)"); tab \\PC, address Network > PC, "Search PC"; computer menu Open / new tab / new window / Pin to Quick access / Create shortcut, no Properties (B4); Network's blank-space menu View, Sort by, Group by | Show more options. Discovery-off bar in Windows' words with x and a menu (How to turn on network discovery = new manual topic; Open Help); it never touches system services. Navigation pane: Network starts collapsed, expands to computers (discovering when nothing found them yet), each computer expands to shares and services off the main loop; saved and lettered locations move under This PC. $ shares are hidden items. Share spelling is kept inside shares; Recent locations dedupes by case. B1: Z: and Z:\path resolve against mapped locations; Disconnect ends the mapping and is the default button. B2: question scrolls, answers always shown (and cleared before refill). B6: SFTP root opens at the mount's default location (home), looked up on a worker thread. Also fixed 3 Clippy 1.92 findings in merged pass code. Website pictures were not recaptured: apps/web "pinned-sidebar" still shows a saved share under Network (text updated). The website guide and manual were updated (docs.json, regenerated Markdown, manual.md); .pot regenerated, no .po touched.
+
+PASS new tests: computers.rs (6), discovery.rs dav+sd/Avahi reply/sources (4), entry/info.rs $ shares, drive_letters.rs (2), visited.rs forget mapping, enumerate.rs spelling, recent_locations dedupe, network_tree.rs (3), app discovery.rs (2 new), sign_in_queue a_long_question_keeps_its_answers_visible, window tests a_computer_lists_its_services_and_is_named_like_windows, a_mapped_drive_letter_opens_in_the_address_bar, the_navigation_pane_expands_network_to_computers_and_shares, network_says_when_discovery_is_turned_off, network_says_discovery_is_off_without_avahi_or_wsdd
+PASS updated tests for deliberate changes: SMB crumbs start at Network, \\server titles (also in the 1.x JS parity test, as an explicit difference), Network collapsed by default, saved shares under This PC, Network's Win11 blank menu
+PASS native/tools/check.py as unprivileged user, Rust 1.92 (CI toolchain), CARGO_INCREMENTAL=0 and line-tables debug info for disk space: parity unit tests, parity/check.py, i18n check, tools unit tests, icon guard, rustfmt --check, Clippy -D warnings all pass
+PASS every test executable isolated with check.py's run_isolated as unprivileged user, Python app from v2.0.0 provided: 85 of 88 executables pass; ox_app 2694 passed / 1 failed (renaming_by_pointer::a_click_on_another_item_keeps_the_typed_name_and_selects_that_item, merged pass-3 XTEST test, then passed 5 of 5 runs alone: timing flake); location_fixture_drift::python_fixture_matches_desktop_core_py and network_python::fuse_export_paths_match_native_opening_py fail, both listed as failing on unchanged main in the pass-4 report; doctests not run
+PASS real input (xdotool) on private Xvfb, unprivileged user, throwaway HOME, local Samba HARBORNAS (password Private, guest Public, hidden Backup$), SFTP 2222, FTP 2121, WebDAV 8080 /dav, all on Avahi, second host WILLOWPC (own Samba): Network shows HARBORNAS and WILLOWPC as Computer tiles; HARBORNAS lists FTP/SFTP/WebDAV rows and Private/Projects/Public (no Backup$); nav pane expands to computers and shares; banner, its menu and help with Avahi stopped and wsdd hidden; SFTP sign-in opens /home/nasuser; captures 1x light and dark of Network, a computer, the nav pane and the banner (kept in chat, not here)
+PASS frozen server: smbd (HARBORNAS) and avahi-daemon SIGSTOPped while browsing; F5 in the share, typed subfolder, Network discovery, expanding the computer in the nav pane, opening \\harbornas.local, Alt+Home, Ctrl+T/W; main-loop watchdog 277 pings over 75 s, slowest 54 ms, none over 1 s; Ctrl+Q quit in 145 ms
+FAIL check.py end to end: stops at location_fixture_drift (fails on unchanged main per the pass-4 report); with the container's Rust 1.97 it stops earlier at Clippy duration_suboptimal_units in untouched files
+NOT TESTED: the SFTP host-key question live (this GVfs asked only for a password, so B2 is covered by the unit test only); a real Windows PC (WS-Discovery) or NetBIOS browsing; Disconnect of a mapped drive live (unit-tested); Orca; translations; the website build
+
+VM CHECK
+Check these in the Windows 11 VM's File Explorer and compare with the branch.
+
+1. Category headings
+   Steps: Network with a Windows PC and a NAS or Linux box (Samba plus SFTP) on the LAN.
+   Look for: whether a NAS appears under "Computer" or "Storage"/"Network Infrastructure", and whether its name is the NetBIOS name in capitals. The branch puts every device under "Computer".
+
+2. A computer's list of shares
+   Steps: Open the NAS from Network.
+   Look for: the view (Tiles or Details) Windows uses for the shares, and whether anything besides shares (printers) is listed. The branch shows the shared style (Details here) and adds the device's other services as rows.
+
+3. Navigation pane under Network
+   Steps: Expand Network, then a computer.
+   Look for: whether Network starts collapsed after a restart, and whether shares are sorted by name. The branch starts collapsed and sorts shares by name, then services.
+
+4. Mapped drive in the address bar
+   Steps: Map Z: to a share, type Z:\ and Z:\somefolder in the address bar.
+   Look for: what the address bar then shows (Z:\ or \\server\share). The branch shows \\server\share.
+
+5. Disconnect
+   Steps: Right-click Z: > Disconnect.
+   Look for: whether a question appears at all; the branch keeps "Disconnect this mount?" with Disconnect as the default button.
+
+6. Discovery off banner
+   Steps: Turn network discovery off, open Network, press F5 after clicking the x.
+   Look for: whether the bar returns after F5. The branch shows it again on each listing.
