@@ -207,6 +207,52 @@ impl BrowserWindow {
         } else {
             pane.select_and_reveal(to);
         }
+        icons.show_heading_above(to);
+        Some(glib::Propagation::Stop)
+    }
+
+    /// Handles Home and End in grouped Details: they go to the first and
+    /// last item shown, as in Windows 11, Shift extending the selection
+    /// from where it started and Ctrl moving the keyboard alone. GTK's own
+    /// keys went to the list's first row, the first group's heading, which
+    /// then selected the whole group. Home scrolls to the top, so the
+    /// first heading shows. `None` for every other key or view.
+    pub(super) fn grouped_details_end_key(
+        &self,
+        key: gdk::Key,
+        modifiers: gdk::ModifierType,
+    ) -> Option<glib::Propagation> {
+        let last = match key {
+            gdk::Key::Home | gdk::Key::KP_Home => false,
+            gdk::Key::End | gdk::Key::KP_End => true,
+            _ => return None,
+        };
+        let others =
+            gdk::ModifierType::ALT_MASK | gdk::ModifierType::SUPER_MASK | gdk::ModifierType::META_MASK;
+        let pane = self.folder_pane();
+        if modifiers.intersects(others) || pane.view() != FolderView::Details {
+            return None;
+        }
+        let grouped = pane.details().grouped()?;
+        let to = grouped.layout()?.end_item(last)?;
+        self.reset_typeahead();
+        self.imp().grid_column.set(None);
+        let from = pane.focused_position();
+        let extends = modifiers.contains(gdk::ModifierType::SHIFT_MASK);
+        let keeps = modifiers.contains(gdk::ModifierType::CONTROL_MASK);
+        if extends {
+            let anchor = grouped.anchor().or(from).unwrap_or(to);
+            grouped.select_shown_between(anchor, to, !keeps);
+            pane.reveal(to);
+        } else if keeps {
+            pane.reveal(to);
+        } else {
+            pane.select_and_reveal(to);
+        }
+        if !last {
+            let adjustment = pane.details().vadjustment();
+            adjustment.set_value(adjustment.lower());
+        }
         Some(glib::Propagation::Stop)
     }
 
@@ -223,7 +269,11 @@ impl BrowserWindow {
             _ => return None,
         };
         let pane = self.folder_pane();
-        if !modifiers.is_empty() || !matches!(pane.view(), FolderView::Icons(_) | FolderView::Tiles) {
+        // Small icons, like List, fill columns top to bottom, where GTK's
+        // own Up and Down already move along the column.
+        let in_rows = matches!(pane.view(), FolderView::Icons(_) | FolderView::Tiles)
+            && !pane.icon_view().layout().flows_sideways();
+        if !modifiers.is_empty() || !in_rows {
             return None;
         }
         let focus = GtkWindowExt::focus(self)?;

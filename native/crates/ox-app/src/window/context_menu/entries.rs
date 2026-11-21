@@ -79,6 +79,9 @@ pub(crate) struct ItemFacts {
     pub(crate) comparison: Comparison,
     /// The installed code editors, each offered as "Open in <editor>".
     pub(crate) editors: Vec<EditorShortcut>,
+    /// For one text file, the default text editor, offered as "Edit in
+    /// <editor>" as Windows offers "Edit in Notepad".
+    pub(crate) text_editor: Option<EditorShortcut>,
     /// The other applications for the item, each offered as "Open with
     /// <app>" (OPEN-013).
     pub(crate) applications: Vec<ApplicationChoice>,
@@ -95,9 +98,8 @@ pub(crate) struct ItemFacts {
     pub(crate) send_to: SendToTargets,
     /// The desktop can share files, so the menus offer Share (CMD-037).
     pub(crate) can_share: bool,
-    /// For one file while Home shows Favorites (HOME-014): the file it
-    /// adds or removes and whether it is a favorite already; `None`
-    /// offers neither.
+    /// For one file (HOME-014): the file it adds or removes and whether it
+    /// is a favorite already; `None` offers neither.
     pub(crate) favorite: Option<(String, bool)>,
     /// It is a row of Recent files, which may be copied and shared, not
     /// cut, renamed or deleted.
@@ -251,8 +253,7 @@ fn folder_open_items(facts: &ItemFacts) -> Vec<MenuEntry> {
     ]
 }
 
-/// Add to Favorites, or Remove from Favorites for a favorite, while Home
-/// shows Favorites (HOME-014).
+/// Add to Favorites, or Remove from Favorites for a favorite (HOME-014).
 fn favorite_item(facts: &ItemFacts) -> Option<MenuEntry> {
     let (uri, is_favorite) = facts.favorite.as_ref()?;
     let (label, glyph, action) = if *is_favorite {
@@ -343,22 +344,31 @@ fn extraction_items(facts: &ItemFacts) -> Vec<MenuEntry> {
     ]
 }
 
-/// One "Open in <editor>" per installed code editor (`uniqueEditors`,
-/// with the editor's own icon), as Windows lists "Edit in Notepad" for a
-/// file and an editor's own "Open with Code" for a folder: one item at a
-/// time, outside a previous version.
+/// "Edit in <editor>" for a text file's default text editor, as Windows
+/// lists "Edit in Notepad", then one "Open in <editor>" per installed code
+/// editor (`uniqueEditors`), as Windows lists an editor's own "Open with
+/// Code" for a folder, each with the editor's own icon: one item at a time,
+/// outside a previous version. An editor is offered once.
 fn editor_items(facts: &ItemFacts) -> Vec<MenuEntry> {
-    facts
+    let text_editor = facts.text_editor.iter().map(|editor| {
+        let label = ox_core::i18n::format_message("Edit in {name}", &[("name", &editor.name)]);
+        let edit = MenuItem::with_text_target(&label, Icon::Document, WindowAction::OpenInEditor, &editor.id)
+            .with_application_icon(editor.icon.as_deref());
+        MenuEntry::from(for_one_item(edit, facts, true))
+    });
+    let text_editor_id = facts.text_editor.as_ref().map(|editor| editor.id.as_str());
+    let code_editors = facts
         .editors
         .iter()
+        .filter(move |editor| Some(editor.id.as_str()) != text_editor_id)
         .map(|editor| {
             let label = ox_core::i18n::format_message("Open in {name}", &[("name", &editor.name)]);
             let open_in_editor =
                 MenuItem::with_text_target(&label, Icon::Document, WindowAction::OpenInEditor, &editor.id)
                     .with_application_icon(editor.icon.as_deref());
-            for_one_item(open_in_editor, facts, true).into()
-        })
-        .collect()
+            MenuEntry::from(for_one_item(open_in_editor, facts, true))
+        });
+    text_editor.chain(code_editors).collect()
 }
 
 /// The Terminal entry (`terminalMenuItem`): Open in Terminal for a
@@ -1371,6 +1381,7 @@ mod tests {
             is_symlink: false,
             comparison: Comparison::Unavailable,
             editors: Vec::new(),
+            text_editor: None,
             applications: Vec::new(),
             caching: None,
             delete_label: "Delete",
@@ -1979,6 +1990,69 @@ mod tests {
         );
         let without_applications = labels(&item_menu(&file(), MenuStyle::Compact).entries);
         assert_eq!(without_applications[1], "Open with…");
+    }
+
+    /// A text file's menu offers "Edit in <default text editor>" with the
+    /// editor's icon, in its own group after Properties and before Show
+    /// more options, as Windows 11 offers "Edit in Notepad", and before
+    /// Open in Terminal in the classic menu, as Windows' Edit. A code
+    /// editor that is also the text editor is offered once. Add to
+    /// Favorites comes after Open with, as in Windows 11.
+    ///
+    /// parity: OPEN-015, CMD-010, HOME-014
+    #[test]
+    fn a_text_file_offers_edit_in_its_default_text_editor() {
+        let editor = EditorShortcut {
+            id: "fictional-editor.desktop".to_owned(),
+            name: "Fictional Editor".to_owned(),
+            icon: Some("accessories-text-editor".to_owned()),
+        };
+        let facts = ItemFacts {
+            navigation_uri: "file:///home/user/Packing list.txt".to_owned(),
+            text_editor: Some(editor.clone()),
+            favorite: Some(("file:///home/user/Packing%20list.txt".to_owned(), false)),
+            ..file()
+        };
+        let entries = item_menu(&facts, MenuStyle::Compact).entries;
+        let names = labels(&entries);
+        assert_eq!(
+            names,
+            [
+                "Open",
+                "Open with…",
+                "Add to Favorites",
+                "Compress to",
+                "Copy as path",
+                "Properties",
+                "-",
+                "Edit in Fictional Editor",
+                "-",
+                "Show more options"
+            ]
+        );
+        let MenuEntry::Item(edit) = &entries[7] else {
+            panic!("Edit in is an item");
+        };
+        assert_eq!(edit.action, WindowAction::OpenInEditor.into());
+        assert_eq!(edit.target, Some("fictional-editor.desktop".to_variant()));
+        assert_eq!(edit.application_icon.as_deref(), Some("accessories-text-editor"));
+
+        let classic = labels(&item_menu(&facts, MenuStyle::Classic).entries);
+        assert_eq!(classic[..2], ["Open", "Edit in Fictional Editor"], "{classic:?}");
+
+        let both = ItemFacts {
+            editors: vec![editor],
+            ..facts
+        };
+        let names = labels(&item_menu(&both, MenuStyle::Compact).entries);
+        assert_eq!(
+            names
+                .iter()
+                .filter(|name| name.contains("Fictional Editor"))
+                .count(),
+            1,
+            "{names:?}"
+        );
     }
 
     /// An editor's item carries the editor's desktop ID for its icon, and

@@ -306,6 +306,100 @@ fn tiles_and_content_keep_the_folders_groups_under_headings() {
     );
 }
 
+/// Group by keeps a folder's groups in the icon sizes too, as Windows 11
+/// does: Extra large, Large and Medium icons, and the sizes Ctrl+wheel
+/// steps through between them, head each group as Details does, each
+/// group starts a row under its heading, and a heading row is as tall as
+/// a line of title while an item row keeps its tile's height. Before,
+/// they listed the items in group order with no heading, so a 7-Zip
+/// archive came before the folders. Small icons and List, which fill
+/// columns top to bottom, keep the group order without headings.
+///
+/// parity: VIEW-022, VIEW-005, VIEW-010
+#[gtk::test]
+fn icon_sizes_keep_the_folders_groups_under_headings() {
+    let fixture = Fixture::empty();
+    std::fs::create_dir(fixture.path("Harbor survey")).expect("fixture subfolder");
+    for name in [
+        "Morning tide.mp3",
+        "Dock walkthrough.mp4",
+        "Harbor report.pdf",
+        "Lighthouse.jpg",
+        "Meeting minutes.odt",
+        "Archive of logs.zip",
+        "Backup set.7z",
+        "Budget 2026.txt",
+        "ümlaut café 日本語.txt",
+    ] {
+        fixture.write(name);
+    }
+    let test = TestWindow::open(&fixture.uri());
+    test.activate("group-by", Some("type"));
+    let expected = details_headings(&test);
+    assert!(expected.len() >= 8, "a group for each type: {expected:?}");
+    let sizes = ["extra-large", "large", "medium", "icons-64", "icons-28"];
+    for key in sizes {
+        let view = FolderView::from_key(key).expect("an icon size");
+        show(&test, view);
+        let shown = grid_headings(&test);
+        assert!(!shown.is_empty(), "{key}: headed groups");
+        assert_eq!(shown[..], expected[..shown.len()], "{key}: as Details heads them");
+        let (first, second) = (cell_bounds(&test, 0), cell_bounds(&test, 1));
+        assert!(
+            (first.x() - second.x()).abs() < 1.0,
+            "{key}: the second group starts a row of its own"
+        );
+        assert!(
+            second.y() > first.y() + first.height() + 16.0,
+            "{key}: under its own heading"
+        );
+        let pane = test.window.folder_pane();
+        let heights = pane.icon_view().row_heights();
+        let grid = pane.view_widget();
+        let slot_height = |cell: &FileCell| {
+            cell.parent()
+                .and_then(|slot| slot.compute_bounds(&grid))
+                .map(|bounds| bounds.height())
+                .expect("the slot is laid out")
+        };
+        let heading = descendants::<FileCell>(&grid)
+            .into_iter()
+            .find(|cell| cell.is_mapped() && cell.group_heading().is_some())
+            .expect("a heading on screen");
+        #[expect(clippy::cast_precision_loss, reason = "row heights are small")]
+        let (heading_px, item_px) = (heights.heading as f32, heights.item as f32);
+        assert!(
+            (slot_height(&heading) - heading_px).abs() < 1.0,
+            "{key}: a heading row is a line of title tall, not a tile: {} vs {heading_px}",
+            slot_height(&heading)
+        );
+        let tile = descendants::<FileCell>(&grid)
+            .into_iter()
+            .find(|cell| cell.is_mapped() && cell.slot().is_none() && !cell.name().is_empty())
+            .expect("a tile on screen");
+        assert!(
+            (slot_height(&tile) - item_px).abs() < 1.0,
+            "{key}: an item row keeps its tile's height: {} vs {item_px}",
+            slot_height(&tile)
+        );
+        pane.model().select_only(1);
+        assert_eq!(test.selected_names().len(), 1, "{key}: the listing's positions");
+    }
+    for key in ["small", "compact"] {
+        let view = FolderView::from_key(key).expect("a view");
+        show(&test, view);
+        assert!(grid_headings(&test).is_empty(), "{key}: no headings");
+    }
+    show(&test, FolderView::from_key("large").expect("Large icons"));
+    test.activate("group-by", Some("none"));
+    wait_until("the headings to go", || grid_headings(&test).is_empty());
+    let (first, next) = (cell_bounds(&test, 0), cell_bounds(&test, 1));
+    assert!(
+        (next.y() - first.y()).abs() < 1.0,
+        "ungrouped, the tiles share a row again"
+    );
+}
+
 /// A group heading's accessible name follows its title when the groups
 /// change, as the heading itself does, though GTK keeps the heading bound
 /// (a heading shows no count, as in Windows 11 since 22H2).
