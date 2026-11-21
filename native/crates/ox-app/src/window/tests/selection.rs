@@ -653,6 +653,55 @@ fn home_shows_the_first_groups_heading_in_a_grouped_grid() {
     }
 }
 
+/// Home and End in grouped Details go to the first and last item, as
+/// in Windows 11, not to the first group's heading: GTK's own keys moved
+/// to the list's first row, the heading, which selected the whole first
+/// group and left the keyboard on the heading. Home shows the heading
+/// above the first item too.
+///
+/// parity: VIEW-022, SEL-008
+#[gtk::test]
+fn home_and_end_in_grouped_details_go_to_the_first_and_last_item() {
+    let fixture = Fixture::empty();
+    for name in [
+        "Album art.jpg",
+        "Beach.jpg",
+        "Cove.jpg",
+        "Harbor report.pdf",
+        "Morning tide.mp3",
+        "Tide tables.pdf",
+    ] {
+        fixture.write(name);
+    }
+    let test = TestWindow::open(&fixture.uri());
+    test.activate("group-by", Some("type"));
+    let none = gdk::ModifierType::empty();
+    let last = test.window.folder_pane().model().n_items() - 1;
+    show_view(&test, "details");
+    start_at(&test, 3);
+    press_key(&test, gdk::Key::Home, none);
+    assert!(
+        test.window.focused_heading().is_none(),
+        "Home leaves no heading focused"
+    );
+    assert_eq!(selected(&test), [0], "Home selects the first item alone");
+    assert_eq!(test.window.folder_pane().focused_position(), Some(0));
+    press_key(&test, gdk::Key::Down, none);
+    assert_eq!(selected(&test), [1], "Down goes on from the first item");
+    press_key(&test, gdk::Key::End, none);
+    assert!(
+        test.window.focused_heading().is_none(),
+        "End leaves no heading focused"
+    );
+    assert_eq!(selected(&test), [last], "End selects the last item alone");
+    press_key(&test, gdk::Key::Home, gdk::ModifierType::SHIFT_MASK);
+    assert_eq!(
+        selected(&test),
+        (0..=last).collect::<Vec<u32>>(),
+        "Shift+Home extends to the first item"
+    );
+}
+
 /// A group collapses under its heading and expands again, in Details,
 /// Tiles, Content and the icon sizes, as in Windows 11: with the keyboard on the heading,
 /// Left collapses it, Right expands it, and Space and Enter select its
