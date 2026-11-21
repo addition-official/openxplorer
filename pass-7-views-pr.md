@@ -1,6 +1,6 @@
 # Title
 
-fix(views): Head groups in the icon sizes and fix Home and reflow in grouped views
+fix(views): Head groups in every layout, fill Small icons' rows, and fix Home and reflow in grouped views
 
 # Body
 
@@ -9,9 +9,11 @@ CLA: I agree
 
 ## Summary
 
-Overnight pass 7 (views) checked every layout against Windows 11 with real xdotool input in a private Xvfb session, as an unprivileged user with a throwaway home and a fictional test tree (mp3, mp4, pdf, jpg, png, odt, zip, 7z, a 3 GB file, a 150 MB file, odd and long names, and a folder of 10,000 files). It fixes three bugs in grouped views. It also merges fork branch `review4-diffs` (Small icons as icon-left rows in columns about 310 px apart), because this pass changes the same files.
+Overnight pass 7 (views) checked every layout against Windows 11 with real xdotool input in a private Xvfb session, as an unprivileged user with a throwaway home and a fictional test tree (mp3, mp4, pdf, jpg, png, odt, zip, 7z, a 3 GB file, a 150 MB file, odd and long names, and a folder of 10,000 files). It fixes three bugs in grouped views and, after a Windows 11 VM check (build 26200), changes Small icons and grouped List to match Windows. It also merges fork branch `review4-diffs` and the lower-numbered passes 1 to 6, because they change the same files.
 
-- **Group headings in the icon sizes.** With Sort > Group by on, Extra large, Large and Medium icons (and the Ctrl+wheel sizes between them) listed the items in group order with no headings. A folder grouped by Type therefore showed a 7-Zip archive before the folders, with nothing to say why. Windows 11 heads each group in these views. They now use the grouped grid that Tiles and Content already use. Each group starts a new row under a heading with the same chevron, hover, click-to-select-the-group, double-click, keyboard (arrows rest on headings, Left collapses, Right expands) and right-click menu. Grouped tiles draw their padding, hover, selection and focus on their own box (`icon-groups`), so a heading row is one line of title tall and not a tile. Small icons and List fill columns top to bottom, so they still keep the group order without headings. That difference from Windows is documented and listed for the VM check.
+- **Group headings in the icon sizes.** With Sort > Group by on, Extra large, Large and Medium icons (and the Ctrl+wheel sizes between them) listed the items in group order with no headings. A folder grouped by Type therefore showed a 7-Zip archive before the folders, with nothing to say why. Windows 11 heads each group in these views. They now use the grouped grid that Tiles and Content already use. Each group starts a new row under a heading with the same chevron, hover, click-to-select-the-group, double-click, keyboard (arrows rest on headings, Left collapses, Right expands) and right-click menu. Grouped tiles draw their padding, hover, selection and focus on their own box (`icon-groups`), so a heading row is one line of title tall and not a tile. 
+- **Small icons (VM-checked).** Small icons now fill rows left to right and scroll down, as Windows 11 does, with the 16 px icon left of each name and the columns 310 px apart at 100%. The grid takes only the width its columns need, so the spacing stays at 310 px and does not spread across the window. This replaces the column-first, sideways-scrolling layout from `review4-diffs`. Grouped, Small icons head each group with a chevron, the title and a line under the heading's row.
+- **Grouped List (VM-checked).** Each group now stands in a column of its own with its title at the top (no chevron), its items running down under it and on into the next column when they overflow. Before, List showed the group order with no headings. Up and Down step through the items across groups, Left and Right keep the row on screen, and List's groups never collapse, as their headings have no chevron.
 - **Home in grouped views.**
   - **Details:** GTK's Home moved the keyboard to the list's first row, which is the first group's heading. The heading then selected the whole first group, and the keyboard outline stayed on the heading. Home and End now go to the first and last item. Shift extends the selection and Ctrl moves only the keyboard. Home also scrolls to the top.
   - **Tiles, Content and the icon sizes:** Home selected the first item but scrolled it to the top edge, so the first heading stayed hidden above it. A key that lands on a group's first row now brings that group's heading into view too.
@@ -24,6 +26,8 @@ No new dependency. `native/po/*.po` untouched; no new strings, so the `.pot` is 
 
 | Case | Before (2.0.21) | After | Windows 11 |
 |---|---|---|---|
+| Small icons | Columns filled top to bottom, sideways scroll (review4-diffs) | Rows filled left to right, 310 px columns, scrolls down | Rows, about 310 px apart (VM) |
+| List, Group by Type | Group order, no headings | Groups side by side as columns, titles on top | Same (VM) |
 | Large icons, Group by Type | Group order, no headings ("Backup set" 7z first, then a zip, then folders) | "7-zip Archive", "Compressed (zipped) Folder", "File folder"... headings, each group on its own rows | Headings in every icon size |
 | Grouped Details, End then Home | Outline on the "7-zip Archive" heading, its whole group selected | "Backup set" selected with the outline, heading in view | First item focused and selected |
 | Grouped Tiles, End then Home | "Backup set" at the top edge, its heading hidden | Scrolled to the top, heading shown | Scrolled to the top |
@@ -32,6 +36,8 @@ No new dependency. `native/po/*.po` untouched; no new strings, so the `.pot` is 
 ## Tests
 
 New, each failing before its fix and passing now:
+- `window::tests::view_styles::small_icons_put_the_icon_left_of_each_name_across_rows` and `window::tests::selection::arrows_move_across_rows_in_small_icons` (replacing review4-diffs' column-first tests)
+- `folder_view::group_slots::tests::list_heads_each_group_at_the_top_of_its_column` and `window::tests::tiles_and_content::list_heads_each_group_at_the_top_of_its_column`
 - `window::tests::tiles_and_content::icon_sizes_keep_the_folders_groups_under_headings` (Extra large, Large, Medium, 64 px and 28 px, with real-world file types: headings as Details shows them, each group on its own row, heading row as tall as Page Up/Down count it, tile row its tile's height; Small icons and List without headings)
 - `window::tests::selection::arrows_cross_the_group_headings_in_tiles_and_content`, `a_group_collapses_under_its_heading_and_its_items_are_passed_by` and `a_click_on_a_heading_selects_its_group_and_the_chevron_folds_it`, extended with the icon sizes
 - `theme::fonts::tests::the_default_text_size_draws_13_pixel_text_and_30_pixel_rows` (the grouped tile rule)
@@ -45,11 +51,13 @@ Checks run in this container (tests run as root here; Clippy and rustfmt with th
 - `python3 native/parity/check.py`, the parity and tools unit tests, `tools/i18n.py check` and the icon guard: passed.
 - `cargo +1.92 fmt --all --check` and `cargo +1.92 clippy --workspace --all-targets --locked -- -D warnings`: passed.
 - Every test executable under check.py's isolation, continuing past failures: ox-app lib 2581 passed and 12 failed. I reran the 12 failures by name on unchanged main 5336b108, and all 12 fail there too (read-only folders, no Trash, administrator prompts). ox-core lib 1292 passed and 1 failed (the admin_copy fstab test, root). The display_scale, integration_file_chooser, launch, location_fixture_drift, network_python and ops_delete_plan executables have root-dependent failures that review4-diffs also found on unchanged main; this change touches none of their code. Doctests pass.
+- After merging pass-6-context-menu, Clippy fails at three places in pass-6's code, unchanged from its tip (`context_menu.rs:744`, `tests/menu_sweep.rs:326` and `:689`); this branch's own code was Clippy-clean before that merge.
 - `python3 native/tools/check.py` as a whole stops at display_scale because the app refuses to run as root, as it does on unchanged main.
 
 ## CHANGED OWNER DECISIONS
 
-- VIEW-022 / VIEW-071: "Icons and List keep the grouped order without headings" becomes "Small icons and List keep the grouped order without headings". Extra large, Large and Medium icons now head their groups, as Windows 11 does.
+- VIEW-022 / VIEW-071: "Icons and List keep the grouped order without headings" is gone: every icon size heads its groups, and List stands its groups side by side as columns, as the Windows 11 VM shows.
+- VIEW-008 / VIEW-005: Small icons fill rows left to right and scroll down (VM-checked), replacing the column-first layout of 2026-11-18 (`review4-diffs`).
 
 ## Not tested
 
