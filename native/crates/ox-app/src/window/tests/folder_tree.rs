@@ -156,7 +156,12 @@ fn a_real_double_click_on_a_folder_of_the_tree_opens_and_closes_it() {
     wait_for_frames(&test.window, 3);
     let list = tree_list(&test);
     let closed = tree.outline();
-    let on = screen_point(&mut pointer, &list, tree_row_middle(&list, "Example projects"), PROBE);
+    let on = screen_point(
+        &mut pointer,
+        &list,
+        tree_row_middle(&list, "Example projects"),
+        PROBE,
+    );
     let double_click = |pointer: &mut Pointer| {
         // Apart from the last clicks by more than the double-click time.
         crate::test_support::harness::wait_for(std::time::Duration::from_millis(700));
@@ -175,5 +180,9 @@ fn a_real_double_click_on_a_folder_of_the_tree_opens_and_closes_it() {
 
     assert_eq!(closed, ["Home", "  Example projects"]);
     assert_eq!(opened, ["Home", "  Example projects", "    Documents"]);
-    assert_eq!(test.window.current_uri(), Some(fixture.uri()), "it stays on the folder");
+    assert_eq!(
+        test.window.current_uri(),
+        Some(fixture.uri()),
+        "it stays on the folder"
+    );
 }

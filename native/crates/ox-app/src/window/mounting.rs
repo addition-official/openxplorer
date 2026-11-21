@@ -174,7 +174,7 @@ impl BrowserWindow {
         if let Err(error) = removed {
             self.return_moved_tabs(moved);
             if !Removal::is_reported_by_desktop(&error) {
-                self.show_failure(removal.failure_title(), &removal.failure_detail(&error));
+                self.show_failure(removal.failure_title(), &Removal::failure_detail(&error));
             }
             return;
         }

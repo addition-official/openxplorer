@@ -100,7 +100,7 @@ impl Removal {
     /// drive still in use is refused in the words of Windows' "Problem
     /// Ejecting" message, which say what to do; anything else in the
     /// system's words.
-    pub(crate) fn failure_detail(self, error: &NetworkError) -> String {
+    pub(crate) fn failure_detail(error: &NetworkError) -> String {
         let is_busy = matches!(
             error,
             NetworkError::Gio(error) if error.matches(gio::IOErrorEnum::Busy)
@@ -250,9 +250,7 @@ mod tests {
         let other = NetworkError::Gio(gtk::glib::Error::new(gio::IOErrorEnum::Failed, "No medium found"));
         let in_use = "This device is currently in use. \
                       Close any programs or windows that might be using the device, and then try again.";
-        assert_eq!(Removal::Eject.failure_detail(&busy), in_use);
-        assert_eq!(Removal::SafelyRemove.failure_detail(&busy), in_use);
-        assert_eq!(Removal::Disconnect.failure_detail(&busy), in_use);
-        assert_eq!(Removal::Eject.failure_detail(&other), "No medium found");
+        assert_eq!(Removal::failure_detail(&busy), in_use);
+        assert_eq!(Removal::failure_detail(&other), "No medium found");
     }
 }

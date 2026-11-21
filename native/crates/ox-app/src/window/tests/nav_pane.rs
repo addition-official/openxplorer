@@ -28,7 +28,15 @@ impl PinHome {
         let base = fs::canonicalize(root.path()).expect("the folder resolves");
         let home = base.join("home");
         let config = base.join("config");
-        for folder in ["Desktop", "Documents", "Downloads", "Music", "Pictures", "Videos", "Projects"] {
+        for folder in [
+            "Desktop",
+            "Documents",
+            "Downloads",
+            "Music",
+            "Pictures",
+            "Videos",
+            "Projects",
+        ] {
             fs::create_dir_all(home.join(folder)).expect("a folder");
         }
         fs::create_dir_all(&config).expect("a folder");
@@ -72,18 +80,36 @@ fn a_folder_pinned_from_a_menu_goes_at_the_end_of_the_pins() {
     let before = pinned_labels(&test);
 
     test.activate("pin-location", Some(&home.uri_of("Projects")));
-    wait_until("the pin", || pinned_labels(&test).contains(&"Projects".to_owned()));
+    wait_until("the pin", || {
+        pinned_labels(&test).contains(&"Projects".to_owned())
+    });
     let after_pin = pinned_labels(&test);
     test.window.unpin(&home.uri_of("Documents"));
-    wait_until("the unpin", || !pinned_labels(&test).contains(&"Documents".to_owned()));
+    wait_until("the unpin", || {
+        !pinned_labels(&test).contains(&"Documents".to_owned())
+    });
     test.activate("pin-location", Some(&home.uri_of("Documents")));
-    wait_until("the pin again", || pinned_labels(&test).contains(&"Documents".to_owned()));
+    wait_until("the pin again", || {
+        pinned_labels(&test).contains(&"Documents".to_owned())
+    });
     let after_repin = pinned_labels(&test);
 
     assert!(before.len() >= 6, "the standard folders are pinned: {before:?}");
-    assert_eq!(after_pin.last().map(String::as_str), Some("Projects"), "{after_pin:?}");
-    assert_eq!(after_pin[..before.len()], before[..], "the others keep their order");
-    assert_eq!(after_repin.last().map(String::as_str), Some("Documents"), "{after_repin:?}");
+    assert_eq!(
+        after_pin.last().map(String::as_str),
+        Some("Projects"),
+        "{after_pin:?}"
+    );
+    assert_eq!(
+        after_pin[..before.len()],
+        before[..],
+        "the others keep their order"
+    );
+    assert_eq!(
+        after_repin.last().map(String::as_str),
+        Some("Documents"),
+        "{after_repin:?}"
+    );
 }
 
 /// A real drag of a file over the top edge of a pinned folder, where a
@@ -123,7 +149,10 @@ fn a_real_drag_of_a_file_onto_the_edge_of_a_pin_goes_into_the_pinned_folder() {
         fixture.path("Drop shelf/Notes 2.txt").is_file()
     });
     assert_eq!(line, Some("file-drop-active"), "the whole row is the folder");
-    assert!(!fixture.path("Notes 2.txt").exists(), "a plain drag within a drive moves");
+    assert!(
+        !fixture.path("Notes 2.txt").exists(),
+        "a plain drag within a drive moves"
+    );
     assert_eq!(pinned_labels(&test), pins_before, "nothing is pinned");
 }
 
@@ -133,16 +162,13 @@ fn handle_on_screen(pointer: &mut crate::test_support::pointer::Pointer, test: &
     let handle = crate::window::sidebar_resizer::paned_handle(test.window.workspace())
         .expect("the workspace has a handle");
     let bounds = handle.compute_bounds(&handle).expect("a shown handle has bounds");
-    let middle = (
-        f64::from(bounds.width() / 2.0),
-        f64::from(bounds.height() / 2.0),
-    );
+    let middle = (f64::from(bounds.width() / 2.0), f64::from(bounds.height() / 2.0));
     crate::test_support::pointer::screen_point(pointer, &handle, middle, PROBE)
 }
 
 /// Dragging the navigation pane's edge with a real pointer saves the new
 /// width, which a new window starts with, as Windows Explorer remembers
-/// it. GtkPaned takes the press, which used to end the gesture that saves
+/// it. `GtkPaned` takes the press, which used to end the gesture that saves
 /// it before the edge moved, so no drag was ever saved.
 ///
 /// parity: SIDE-023
@@ -166,7 +192,10 @@ fn a_real_drag_of_the_pane_edge_saves_its_width() {
     pointer.release(Button::Primary);
     let moved = workspace.position();
 
-    assert!(moved > start + 40, "the edge follows the pointer: {start} to {moved}");
+    assert!(
+        moved > start + 40,
+        "the edge follows the pointer: {start} to {moved}"
+    );
     wait_until("the width to be saved", || {
         test.context.settings_data().preferences.sidebar_width == u32::try_from(moved).ok()
     });
@@ -185,15 +214,23 @@ fn a_drive_that_cannot_be_ejected_leaves_the_tab_where_it_was() {
     let documents = fixture.uri();
     let test = TestWindow::open(&documents);
 
-    test.window.remove_drive(&documents, crate::devices::Removal::Eject);
+    test.window
+        .remove_drive(&documents, crate::devices::Removal::Eject);
     let moved_away = test.window.current_uri();
     wait_until("the tab to be back on its folder", || {
         test.window.current_uri().as_deref() == Some(documents.as_str())
     });
     test.wait_for_listing("the folder again");
 
-    assert_ne!(moved_away.as_deref(), Some(documents.as_str()), "the tab left the drive first");
-    assert_eq!(test.names(), ["Documents", "Notes 2.txt", "Notes 10.txt", "Résumé.txt"]);
+    assert_ne!(
+        moved_away.as_deref(),
+        Some(documents.as_str()),
+        "the tab left the drive first"
+    );
+    assert_eq!(
+        test.names(),
+        ["Documents", "Notes 2.txt", "Notes 10.txt", "Résumé.txt"]
+    );
 }
 
 /// A real double-click on This PC's row collapses its drives, and another
@@ -212,7 +249,12 @@ fn a_real_double_click_on_this_pc_collapses_and_expands_it() {
     wait_for_frames(&test.window, 3);
     let sidebar = test.window.sidebar();
     let local_disk_shown = || sidebar.labels_shown().contains(&"Local Disk".to_owned());
-    let on = screen_point(&mut pointer, sidebar.list(), (60.0, sidebar.middle_of("This PC")), PROBE);
+    let on = screen_point(
+        &mut pointer,
+        sidebar.list(),
+        (60.0, sidebar.middle_of("This PC")),
+        PROBE,
+    );
     let double_click = |pointer: &mut Pointer| {
         // Apart from the last clicks by more than the double-click time.
         crate::test_support::harness::wait_for(std::time::Duration::from_millis(700));
@@ -258,20 +300,36 @@ fn the_pane_offers_show_all_folders_and_expand_to_open_folder() {
     wait_for_frames(&test.window, 2);
     let below_rows = f64::from(sidebar.list().height() - 2);
 
-    let menu = menu_labels(&sidebar.menu_entries_at(below_rows).expect("the empty space has a menu"));
+    let menu = menu_labels(
+        &sidebar
+            .menu_entries_at(below_rows)
+            .expect("the empty space has a menu"),
+    );
     let show_all = menu.iter().any(|(label, _)| label == "Show all folders");
-    let expand = menu.iter().find(|(label, _)| label == "Expand to open folder").cloned();
+    let expand = menu
+        .iter()
+        .find(|(label, _)| label == "Expand to open folder")
+        .cloned();
     test.activate("folder-tree-option", Some("expand-to-open"));
     let menu_after = menu_labels(&sidebar.menu_entries_at(below_rows).expect("a menu"));
 
     assert!(show_all, "{menu:?}");
-    assert_eq!(expand, Some(("Expand to open folder".to_owned(), true)), "{menu:?}");
+    assert_eq!(
+        expand,
+        Some(("Expand to open folder".to_owned(), true)),
+        "{menu:?}"
+    );
     assert!(
         menu_after.contains(&("Expand to open folder".to_owned(), false)),
         "{menu_after:?}"
     );
     wait_until("the option to be saved", || {
-        !test.context.settings_data().preferences.folder_tree.expand_to_open
+        !test
+            .context
+            .settings_data()
+            .preferences
+            .folder_tree
+            .expand_to_open
     });
 }
 
@@ -336,7 +394,11 @@ fn home_and_gallery_menus_open_them_in_a_new_tab_or_window() {
                 _ => None,
             })
             .expect("Open in new tab");
-        let target = new_tab.target.as_ref().and_then(gtk::glib::Variant::str).map(str::to_owned);
+        let target = new_tab
+            .target
+            .as_ref()
+            .and_then(gtk::glib::Variant::str)
+            .map(str::to_owned);
         let row_target = sidebar.location_at(sidebar.middle_of(place));
         assert_eq!(target, row_target, "{place} opens its own location");
     }

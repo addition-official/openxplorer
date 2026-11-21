@@ -81,6 +81,7 @@ impl SidebarDropSpot {
 impl Sidebar {
     /// Where a drop at `y` of the list goes; `None` between sections and
     /// on a drive that is not mounted.
+    #[cfg(test)]
     pub(in crate::window) fn drop_spot_at(&self, y: f64) -> Option<SidebarDropSpot> {
         self.drop_spot_where(y, true)
     }
@@ -98,7 +99,6 @@ impl Sidebar {
         let uri = match &entry.target {
             RowTarget::Location(uri) => uri,
             RowTarget::PinDropTail if pin => return Some(SidebarDropSpot::Pin { index, before: None }),
-            RowTarget::PinDropTail => return None,
             // A drive still to be mounted takes the drop and is mounted
             // first, as Dolphin's places panel does (DEV-010).
             RowTarget::MountVolume(id) if entry.section != Section::QuickAccess => {
@@ -107,7 +107,7 @@ impl Sidebar {
                     id: id.clone(),
                 });
             }
-            RowTarget::MountVolume(_) | RowTarget::SavedSearch(_) => return None,
+            RowTarget::PinDropTail | RowTarget::MountVolume(_) | RowTarget::SavedSearch(_) => return None,
         };
         // Recent files lists what the desktop recorded; nothing goes in.
         if uri == RECENT_URI {
