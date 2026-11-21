@@ -552,6 +552,17 @@ fn a_file_without_an_application_opens_the_app_chooser() {
     let test = TestWindow::open(&fixture.uri());
     let _software = install_test_application("org.gnome.Software.desktop");
     let software = FakeSoftware::start();
+    // An app that is not registered for the type, listed under More apps.
+    let applications = gtk::glib::user_data_dir().join("applications");
+    let viewer = applications.join("io.winspace.AnyBlendViewer.desktop");
+    fs::write(
+        &viewer,
+        "[Desktop Entry]\nType=Application\nName=Any Viewer\nExec=true %F\n",
+    )
+    .expect("the private data folder");
+    wait_until("GIO to read the entry", || {
+        crate::integration::installed_application("io.winspace.AnyBlendViewer.desktop").is_some()
+    });
     let open_with = || {
         gtk::Window::list_toplevels()
             .into_iter()
@@ -570,6 +581,14 @@ fn a_file_without_an_application_opens_the_app_chooser() {
         dialog.shows_more_apps(),
         "with no suggested app, every installed app is listed at once"
     );
+    wait_until("the keyboard on the chosen app", || {
+        dialog.is_listed() && dialog.focused_name().is_some()
+    });
+    assert_eq!(
+        dialog.focused_name(),
+        dialog.chosen_name(),
+        "the keyboard starts on the chosen app"
+    );
     assert!(
         test.window.dialog_layer().shown().is_none(),
         "no message to close first"
@@ -580,6 +599,7 @@ fn a_file_without_an_application_opens_the_app_chooser() {
     let search = ("search".to_owned(), vec!["application/x-blender".to_owned()]);
     assert_eq!(*software.calls.borrow(), [search]);
     dialog.close();
+    fs::remove_file(viewer).expect("the fixture entry");
 }
 
 /// An action and its string parameters.
