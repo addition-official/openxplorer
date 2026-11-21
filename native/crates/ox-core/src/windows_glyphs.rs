@@ -23,5 +23,5 @@ mod truetype;
 #[cfg(test)]
 mod tests;
 
-pub use cache::{glyph_cache_folder, is_glyph_icon_name, load_glyphs, LoadedGlyphs};
+pub use cache::{glyph_cache_folder, is_glyph_icon_name, load_glyphs, GlyphRequest, LoadedGlyphs};
 pub use truetype::{Font, FontError};

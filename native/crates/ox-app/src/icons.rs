@@ -112,7 +112,7 @@ fn decorative_image() -> gtk::Image {
 /// Windows symbol font the user chose in its place, when there is one
 /// ([`user_glyphs`], LOOK-031), else the bundled icon.
 pub(crate) fn set_icon(image: &gtk::Image, icon: Icon, size: i32) {
-    let name = user_glyphs::drawn_name(icon);
+    let name = user_glyphs::drawn_name(icon, size);
     image.set_icon_name(Some(name));
     image.set_pixel_size(size);
     keep_loaded(image, name, size);

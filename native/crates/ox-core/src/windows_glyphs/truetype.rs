@@ -289,15 +289,20 @@ impl Font {
         Ok(contours)
     }
 
-    /// Glyph `codepoint` as an SVG file of a square `size` pixels wide,
-    /// its em box centred, every outline filled with the nonzero rule;
-    /// `None` when the font has no outlines for it.
+    /// Glyph `codepoint` as an SVG file `size` pixels square whose em is
+    /// `em` pixels: the font's units per em are mapped to `em`, as a
+    /// renderer draws the glyph at that font size, so the glyph keeps the
+    /// font's own side bearings and baseline and is never stretched to its
+    /// box. The em is centred in the square, horizontally by the glyph's
+    /// advance and vertically by the font's ascender and descender, and the
+    /// outlines are filled with the nonzero rule. `None` when the font has
+    /// no outlines for it.
     ///
     /// # Errors
     ///
     /// [`FontError::Damaged`] or [`FontError::OverLimit`] for a glyph
     /// that is.
-    pub fn glyph_svg(&self, codepoint: u32, size: u32) -> Result<Option<String>, FontError> {
+    pub fn glyph_svg(&self, codepoint: u32, em: u32, size: u32) -> Result<Option<String>, FontError> {
         let Some(glyph) = self.glyph_index(codepoint) else {
             return Ok(None);
         };
@@ -308,18 +313,22 @@ impl Font {
         let hmtx = self.table(self.hmtx);
         let metric = usize::from(glyph.min(self.metric_count - 1));
         let advance = f32::from(u16_at(hmtx, metric * 4)?);
-        let height = f32::from(self.ascender) - f32::from(self.descender);
-        let side = advance.max(height).max(f32::from(self.units_per_em));
+        let units_per_em = f32::from(self.units_per_em);
+        #[expect(clippy::cast_precision_loss, reason = "pixel sizes are small")]
+        let side = units_per_em * size.max(1) as f32 / em.clamp(1, size.max(1)) as f32;
+        // The em's left edge, so the advance sits in the middle, and its
+        // baseline, so the em's top and bottom are the middle of the line's
+        // ascender and descender (the ascender itself when the line is one
+        // em high).
         let left = (side - advance) / 2.0;
-        let top = (side - height) / 2.0;
-        let ascender = f32::from(self.ascender);
+        let baseline = side / 2.0 + f32::midpoint(f32::from(self.ascender), f32::from(self.descender));
         let mut path = String::new();
         for contour in &contours {
             let placed: Vec<Point> = contour
                 .iter()
                 .map(|point| Point {
                     x: point.x + left,
-                    y: ascender - point.y + top,
+                    y: baseline - point.y,
                     on_curve: point.on_curve,
                 })
                 .collect();

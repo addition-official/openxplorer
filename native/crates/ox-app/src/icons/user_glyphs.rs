@@ -23,7 +23,7 @@ use std::path::PathBuf;
 use gtk::prelude::*;
 use gtk::{gdk, glib};
 use ox_core::settings::Preferences;
-use ox_core::windows_glyphs::LoadedGlyphs;
+use ox_core::windows_glyphs::{GlyphRequest, LoadedGlyphs};
 
 use super::icon::ALL_ICONS;
 use super::Icon;
@@ -204,19 +204,76 @@ pub(crate) const fn glyph_of(icon: Icon) -> Option<WindowsGlyph> {
     }
 }
 
-/// The name of the icon the cache draws `icon`'s glyph as:
-/// `ox-win-add-20-symbolic` for `ox-add-20-symbolic`.
-fn glyph_icon_name(icon: Icon) -> String {
+/// The em Windows 11 draws a glyph at in a square of `size` pixels: the
+/// square itself up to 16 pixels (the tab's 12-pixel close button, the
+/// 16-pixel command bar, navigation buttons, address bar and menus), 16
+/// pixels in the app's 17 to 24 pixel squares, where Windows draws the
+/// same glyphs at its 16-pixel font size, and the square itself again
+/// above that, where the user chose larger icons.
+pub(crate) const fn windows_em(size: i32) -> i32 {
+    if size >= 17 && size <= LARGEST_PADDED {
+        16
+    } else {
+        size
+    }
+}
+
+/// The largest square a glyph is drawn into at a 16-pixel em.
+const LARGEST_PADDED: i32 = 24;
+
+/// The name of the icon the cache draws `icon`'s glyph as in a square of
+/// `size` pixels: `ox-win-add-20-symbolic` for `ox-add-20-symbolic` where
+/// the em fills the square, and `ox-win-add-20-box20-symbolic` where the
+/// em is smaller ([`windows_em`]).
+fn glyph_icon_name(icon: Icon, size: i32) -> String {
     let name = icon.name();
-    format!("ox-win-{}", name.strip_prefix("ox-").unwrap_or(name))
+    let stem = name.strip_prefix("ox-").unwrap_or(name);
+    if windows_em(size) == size {
+        return format!("ox-win-{stem}");
+    }
+    let stem = stem.strip_suffix("-symbolic").unwrap_or(stem);
+    format!("ox-win-{stem}-box{size}-symbolic")
 }
 
 /// The bundled icon a drawn icon name stands for: itself, or the icon a
-/// glyph's name was made from.
+/// glyph's name was made from, in any square.
 fn icon_named(name: &str) -> Option<Icon> {
-    let bundled = name.strip_prefix("ox-win-").map(|rest| format!("ox-{rest}"));
+    let bundled = name.strip_prefix("ox-win-").map(|rest| {
+        let rest = match rest.rsplit_once("-box") {
+            Some((stem, square))
+                if square
+                    .trim_end_matches("-symbolic")
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit()) =>
+            {
+                format!("{stem}-symbolic")
+            }
+            _ => rest.to_owned(),
+        };
+        format!("ox-{rest}")
+    });
     let name = bundled.as_deref().unwrap_or(name);
     ALL_ICONS.into_iter().find(|icon| icon.name() == name)
+}
+
+/// What the font is asked for: each glyph at an em filling its square,
+/// and at a 16-pixel em in each square from 17 to 24 pixels.
+fn glyph_requests() -> Vec<GlyphRequest> {
+    let mut requests = Vec::new();
+    for icon in ALL_ICONS {
+        let Some(glyph) = glyph_of(icon) else {
+            continue;
+        };
+        for size in std::iter::once(16).chain(17..=LARGEST_PADDED) {
+            requests.push(GlyphRequest {
+                name: glyph_icon_name(icon, size),
+                codepoint: glyph.codepoint,
+                em: windows_em(size).unsigned_abs(),
+                size: size.unsigned_abs(),
+            });
+        }
+    }
+    requests
 }
 
 /// Where the glyphs of the chosen font stand.
@@ -247,8 +304,8 @@ struct State {
     searched: Option<PathBuf>,
     /// The stylesheet that draws the skin's chevrons from the font.
     stylesheet: Option<gtk::CssProvider>,
-    /// The glyph icon names handed out, made once per icon.
-    names: HashMap<&'static str, &'static str>,
+    /// The glyph icon names handed out, made once per icon and square.
+    names: HashMap<(&'static str, i32), &'static str>,
     status: Status,
     /// Called with the status whenever it changes, until they return false.
     followers: Vec<Box<dyn Fn(Status) -> bool>>,
@@ -271,27 +328,33 @@ thread_local! {
 /// the skin.
 const STYLESHEET_PRIORITY: u32 = gtk::STYLE_PROVIDER_PRIORITY_APPLICATION + 5;
 
-/// The icon name `icon` is drawn by: its glyph from the chosen font when
-/// the font has one, else its own.
-pub(crate) fn drawn_name(icon: Icon) -> &'static str {
+/// The icon name `icon` is drawn by in a square of `size` pixels: its
+/// glyph from the chosen font, at the em Windows draws it at there
+/// ([`windows_em`]), when the font has one, else its own.
+pub(crate) fn drawn_name(icon: Icon, size: i32) -> &'static str {
     let own = icon.name();
     if glyph_of(icon).is_none() {
         return own;
     }
+    // Squares above 16 pixels the font has no padded icon for draw the
+    // glyph at an em filling them, as one the user enlarged.
+    let square = if (17..=LARGEST_PADDED).contains(&size) {
+        size
+    } else {
+        16
+    };
     STATE.with_borrow_mut(|state| {
-        let has_glyph = state
-            .loaded
-            .as_ref()
-            .is_some_and(|loaded| loaded.contains(&glyph_icon_name(icon)));
+        let name = glyph_icon_name(icon, square);
+        let has_glyph = state.loaded.as_ref().is_some_and(|loaded| loaded.contains(&name));
         if !has_glyph {
             return own;
         }
-        // At most one name per bundled icon is ever made, so keeping them
-        // for the life of the process is bounded.
+        // At most one name per bundled icon and square is ever made, so
+        // keeping them for the life of the process is bounded.
         state
             .names
-            .entry(own)
-            .or_insert_with(|| Box::leak(glyph_icon_name(icon).into_boxed_str()))
+            .entry((own, square))
+            .or_insert_with(|| Box::leak(name.into_boxed_str()))
     })
 }
 
@@ -325,10 +388,7 @@ pub(crate) fn follow_preferences(preferences: &Preferences) {
     let Some(font) = wanted else {
         return;
     };
-    let glyphs: Vec<(String, u32)> = ALL_ICONS
-        .into_iter()
-        .filter_map(|icon| Some((glyph_icon_name(icon), glyph_of(icon)?.codepoint)))
-        .collect();
+    let glyphs = glyph_requests();
     let cache = ox_core::windows_glyphs::glyph_cache_folder();
     glib::spawn_future_local(async move {
         let read =
@@ -338,8 +398,12 @@ pub(crate) fn follow_preferences(preferences: &Preferences) {
             if state.generation != generation {
                 return false;
             }
+            let found = ALL_ICONS
+                .into_iter()
+                .filter(|icon| glyph_of(*icon).is_some() && loaded.contains(&glyph_icon_name(*icon, 16)))
+                .count();
             state.status = Status::Ready {
-                found: loaded.found(),
+                found,
                 wanted: glyph_count(),
             };
             state.loaded = Some(loaded);
@@ -415,7 +479,7 @@ fn apply() {
     if let Some(stylesheet) = stylesheet {
         gtk::style_context_remove_provider_for_display(&display, &stylesheet);
     }
-    let css = chevron_stylesheet(crate::theme::skin_rules(), drawn_name);
+    let css = chevron_stylesheet(crate::theme::skin_rules(), |icon| drawn_name(icon, 16));
     let stylesheet = (!css.is_empty()).then(|| {
         let provider = gtk::CssProvider::new();
         provider.load_from_string(&css);

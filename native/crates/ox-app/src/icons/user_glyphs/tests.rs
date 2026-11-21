@@ -100,7 +100,7 @@ fn glyphs_are_off_by_default() {
     follow_preferences(&Preferences::default());
     assert_eq!(status(), Status::Off);
     for icon in ALL_ICONS {
-        assert_eq!(drawn_name(icon), icon.name(), "{icon:?}");
+        assert_eq!(drawn_name(icon, 16), icon.name(), "{icon:?}");
     }
 }
 
@@ -134,8 +134,8 @@ fn the_fonts_glyphs_replace_the_bundled_ones_and_go_away_again() {
             wanted: glyph_count()
         }
     );
-    assert_eq!(drawn_name(Icon::Add), "ox-win-add-20-symbolic");
-    assert_eq!(drawn_name(Icon::Cut), Icon::Cut.name(), "the font lacks it");
+    assert_eq!(drawn_name(Icon::Add, 16), "ox-win-add-20-symbolic");
+    assert_eq!(drawn_name(Icon::Cut, 16), Icon::Cut.name(), "the font lacks it");
     assert_eq!(
         add.icon_name().as_deref(),
         Some("ox-win-add-20-symbolic"),
@@ -161,7 +161,11 @@ fn the_fonts_glyphs_replace_the_bundled_ones_and_go_away_again() {
         .expect("from the cache");
     assert!(file.starts_with(glib::user_cache_dir()), "{file:?}");
     let back = crate::icons::image(Icon::ArrowLeft, 20);
-    assert_eq!(back.icon_name().as_deref(), Some("ox-win-arrow-left-20-symbolic"));
+    assert_eq!(
+        back.icon_name().as_deref(),
+        Some("ox-win-arrow-left-20-box20-symbolic"),
+        "a 20-pixel square draws the 16-pixel em"
+    );
 
     follow_preferences(&Preferences::default());
     assert_eq!(
@@ -194,7 +198,7 @@ fn a_damaged_font_keeps_the_bundled_glyphs() {
             wanted: glyph_count()
         }
     );
-    assert_eq!(drawn_name(Icon::Add), Icon::Add.name());
+    assert_eq!(drawn_name(Icon::Add, 16), Icon::Add.name());
 }
 
 /// The chevrons the skin draws in CSS are drawn from the font through
@@ -226,4 +230,157 @@ fn the_skins_chevrons_follow_through_an_override_stylesheet() {
     let provider = gtk::CssProvider::new();
     provider.load_from_string(&stylesheet);
     assert!(chevron_stylesheet(rules, Icon::name).is_empty());
+}
+
+/// The rows and columns of `texture` any ink covers: its inked bounding
+/// box, `None` when nothing is drawn.
+fn inked_box(texture: &gtk::gdk::Texture) -> Option<(i32, i32, i32, i32)> {
+    let downloader = gtk::gdk::TextureDownloader::new(texture);
+    let (bytes, stride) = downloader.download_bytes();
+    let (width, height) = (texture.width(), texture.height());
+    let mut found: Option<(i32, i32, i32, i32)> = None;
+    for y in 0..height {
+        for x in 0..width {
+            let alpha = bytes
+                [usize::try_from(y).expect("a row") * stride + usize::try_from(x).expect("a column") * 4 + 3];
+            if alpha > 127 {
+                found = Some(match found {
+                    None => (x, y, x, y),
+                    Some((left, top, right, bottom)) => {
+                        (left.min(x), top.min(y), right.max(x), bottom.max(y))
+                    }
+                });
+            }
+        }
+    }
+    found
+}
+
+/// The inked box of the icon `name` as the icon theme of `image`'s
+/// display paints it `size` pixels square.
+fn painted_box(image: &gtk::Image, name: &str, size: i32) -> Option<(i32, i32, i32, i32)> {
+    let theme = gtk::IconTheme::for_display(&image.display());
+    let icon = theme.lookup_icon(
+        name,
+        &[],
+        size,
+        1,
+        gtk::TextDirection::Ltr,
+        gtk::IconLookupFlags::empty(),
+    );
+    let renderer = gtk::gsk::CairoRenderer::new();
+    renderer
+        .realize_for_display(&image.display())
+        .expect("the Cairo renderer needs no GPU");
+    let snapshot = gtk::Snapshot::new();
+    let edge = f64::from(size);
+    icon.snapshot(&snapshot, edge, edge);
+    let node = snapshot.to_node()?;
+    #[expect(clippy::cast_precision_loss, reason = "a small icon")]
+    let bounds = gtk::graphene::Rect::new(0.0, 0.0, size as f32, size as f32);
+    let texture = renderer.render_texture(node, Some(&bounds));
+    renderer.unrealize();
+    inked_box(&texture)
+}
+
+/// Drawn through GTK at a 16-pixel em, a glyph keeps the font's own
+/// side bearings and baseline: its ink is the outline's box in font units
+/// scaled by 16 / units per em, smaller than the em, not stretched to it.
+///
+/// parity: LOOK-031
+#[gtk::test]
+fn a_glyph_is_drawn_at_its_em_with_the_fonts_own_padding() {
+    use ox_core::windows_glyphs::synthetic::{SyntheticGlyph, UNITS_PER_EM};
+
+    let _reset = Reset;
+    let folder = tempfile::tempdir().expect("a temporary folder");
+    let font_path = folder.path().join("SegoeIcons.ttf");
+    // A square from 256 to 768 units of a 1024-unit em: 4 to 12 pixels at
+    // a 16-pixel em, its baseline at the em's bottom.
+    let font = SyntheticFont {
+        glyphs: vec![SyntheticGlyph::Simple(vec![vec![
+            (256, 256, true),
+            (768, 256, true),
+            (768, 768, true),
+            (256, 768, true),
+        ]])],
+        mapping: vec![(0xE8C6, 1)],
+        format_12: false,
+    };
+    assert_eq!(UNITS_PER_EM, 1024);
+    std::fs::write(&font_path, font.build()).expect("written");
+    follow_preferences(&with_font(&font_path));
+    wait_until_read();
+    let image = crate::icons::image(Icon::Cut, 16);
+    let name = image.icon_name().expect("a name").to_string();
+    assert!(name.starts_with("ox-win-"), "{name}");
+    let ink = painted_box(&image, &name, 16).expect("ink");
+    assert_eq!(ink, (4, 4, 11, 11), "the outline at 16 / 1024 of its units");
+}
+
+/// Windows' em in each square: the square itself up to 16 pixels, 16
+/// pixels in the app's 17 to 24 pixel squares, and the square again for
+/// icons the user enlarged; a padded square has an icon name of its own,
+/// which maps back to the bundled icon.
+///
+/// parity: LOOK-031
+#[test]
+fn each_square_draws_the_glyph_at_windows_em() {
+    for (size, em) in [
+        (12, 12),
+        (16, 16),
+        (17, 16),
+        (20, 16),
+        (24, 16),
+        (32, 32),
+        (48, 48),
+    ] {
+        assert_eq!(windows_em(size), em, "{size}");
+    }
+    assert_eq!(glyph_icon_name(Icon::Add, 16), "ox-win-add-20-symbolic");
+    assert_eq!(glyph_icon_name(Icon::Add, 17), "ox-win-add-20-box17-symbolic");
+    for name in [
+        "ox-win-add-20-symbolic",
+        "ox-win-add-20-box17-symbolic",
+        "ox-add-20-symbolic",
+    ] {
+        assert_eq!(icon_named(name), Some(Icon::Add), "{name}");
+    }
+    assert_eq!(
+        icon_named("ox-win-chevron-down-16-box20-symbolic"),
+        Some(Icon::ChevronDown16)
+    );
+}
+
+/// A glyph in the command bar's 17-pixel square is drawn at Windows'
+/// 16-pixel em, centred, not grown to fill the square.
+///
+/// parity: LOOK-031
+#[gtk::test]
+fn a_larger_square_draws_the_glyph_at_a_16_pixel_em() {
+    use ox_core::windows_glyphs::synthetic::SyntheticGlyph;
+
+    let _reset = Reset;
+    let folder = tempfile::tempdir().expect("a temporary folder");
+    let font_path = folder.path().join("SegoeIcons.ttf");
+    // The whole em, so its ink shows the em's size.
+    let font = SyntheticFont {
+        glyphs: vec![SyntheticGlyph::Simple(vec![vec![
+            (0, 0, true),
+            (1024, 0, true),
+            (1024, 1024, true),
+            (0, 1024, true),
+        ]])],
+        mapping: vec![(0xE8C6, 1)],
+        format_12: false,
+    };
+    std::fs::write(&font_path, font.build()).expect("written");
+    follow_preferences(&with_font(&font_path));
+    wait_until_read();
+    let image = crate::icons::image(Icon::Cut, 20);
+    let name = image.icon_name().expect("a name").to_string();
+    assert_eq!(name, "ox-win-cut-20-box20-symbolic");
+    assert_eq!(image.pixel_size(), 20, "the square keeps its size");
+    let ink = painted_box(&image, &name, 20).expect("ink");
+    assert_eq!(ink, (2, 2, 17, 17), "16 pixels of em in the middle of 20");
 }

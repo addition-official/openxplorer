@@ -22,13 +22,10 @@ use std::path::{Path, PathBuf};
 use super::truetype::{Font, MAX_FONT_SIZE};
 
 /// Changes whenever the reader would write a glyph differently.
-const READER_VERSION: u32 = 1;
+const READER_VERSION: u32 = 2;
 
 /// The name of a cache folder's list of glyphs.
 const INDEX: &str = "index";
-
-/// The size the SVG files give, in pixels; GTK scales them to each use.
-const SVG_SIZE: u32 = 16;
 
 /// Where in a cache folder the icons go: the scalable actions of the
 /// hicolor theme, every icon theme's fallback. GTK draws only a themed
@@ -50,6 +47,20 @@ pub fn is_glyph_icon_name(name: &str) -> bool {
         && name
             .bytes()
             .all(|byte| matches!(byte, b'a'..=b'z' | b'0'..=b'9' | b'-'))
+}
+
+/// One icon to make from a glyph: its name, the glyph's codepoint, and
+/// the em the glyph is drawn at in a square of `size` pixels.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct GlyphRequest {
+    /// The icon's name, as [`is_glyph_icon_name`] allows.
+    pub name: String,
+    /// The glyph's codepoint.
+    pub codepoint: u32,
+    /// The em, in pixels: the font size the glyph is drawn at.
+    pub em: u32,
+    /// The square's edge, in pixels, at least the em.
+    pub size: u32,
 }
 
 /// The glyphs of a chosen font, as written into the cache.
@@ -85,19 +96,20 @@ pub fn glyph_cache_folder() -> PathBuf {
     glib::user_cache_dir().join("winspace").join("windows-glyphs")
 }
 
-/// The icons of `wanted`, each an icon name and the codepoint of its
-/// glyph in `font`, written into `cache` or found there. A font that is
+/// The icons of `wanted`, each a glyph of `font` at its em in its
+/// square, written into `cache` or found there. A font that is
 /// missing, unreadable, too large or damaged gives none, as does a
 /// codepoint the font lacks; a name [`is_glyph_icon_name`] refuses is
 /// left out.
-pub fn load_glyphs(font: &Path, wanted: &[(String, u32)], cache: &Path) -> LoadedGlyphs {
-    let mut wanted: Vec<(String, u32)> = wanted
+pub fn load_glyphs(font: &Path, wanted: &[GlyphRequest], cache: &Path) -> LoadedGlyphs {
+    let mut wanted: Vec<GlyphRequest> = wanted
         .iter()
-        .filter(|(name, _)| is_glyph_icon_name(name))
+        .filter(|request| is_glyph_icon_name(&request.name) && (1..=512).contains(&request.em))
+        .filter(|request| (request.em..=512).contains(&request.size))
         .cloned()
         .collect();
     wanted.sort_unstable();
-    wanted.dedup_by(|a, b| a.0 == b.0);
+    wanted.dedup_by(|a, b| a.name == b.name);
     let Ok(metadata) = fs::metadata(font) else {
         return LoadedGlyphs::default();
     };
@@ -125,7 +137,7 @@ pub fn load_glyphs(font: &Path, wanted: &[(String, u32)], cache: &Path) -> Loade
 }
 
 /// The SVG of each of `wanted` whose glyph the font at `path` has.
-fn draw_glyphs(path: &Path, size: u64, wanted: &[(String, u32)]) -> Vec<(String, String)> {
+fn draw_glyphs(path: &Path, size: u64, wanted: &[GlyphRequest]) -> Vec<(String, String)> {
     if size > MAX_FONT_SIZE as u64 {
         return Vec::new();
     }
@@ -137,14 +149,19 @@ fn draw_glyphs(path: &Path, size: u64, wanted: &[(String, u32)]) -> Vec<(String,
     };
     wanted
         .iter()
-        .filter_map(|(name, codepoint)| Some((name.clone(), font.glyph_svg(*codepoint, SVG_SIZE).ok()??)))
+        .filter_map(|request| {
+            let svg = font
+                .glyph_svg(request.codepoint, request.em, request.size)
+                .ok()??;
+            Some((request.name.clone(), svg))
+        })
         .collect()
 }
 
 /// The name of the cache folder: a 64-bit FNV-1a hash of the reader's
 /// version, the icons and codepoints and the font's path, size,
 /// modification time and inode, in hexadecimal.
-fn cache_key(path: &Path, metadata: &fs::Metadata, wanted: &[(String, u32)]) -> String {
+fn cache_key(path: &Path, metadata: &fs::Metadata, wanted: &[GlyphRequest]) -> String {
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
     let mut add = |bytes: &[u8]| {
         for byte in bytes {
@@ -153,9 +170,11 @@ fn cache_key(path: &Path, metadata: &fs::Metadata, wanted: &[(String, u32)]) -> 
         }
     };
     add(&READER_VERSION.to_le_bytes());
-    for (name, codepoint) in wanted {
-        add(name.as_bytes());
-        add(&codepoint.to_le_bytes());
+    for request in wanted {
+        add(request.name.as_bytes());
+        add(&request.codepoint.to_le_bytes());
+        add(&request.em.to_le_bytes());
+        add(&request.size.to_le_bytes());
     }
     add(path.as_os_str().as_bytes());
     add(&[0]);

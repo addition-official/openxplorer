@@ -46,7 +46,7 @@ impl Shuffle {
 fn read_everything(bytes: Vec<u8>, codepoints: &[u32]) {
     if let Ok(font) = Font::parse(bytes) {
         for &codepoint in codepoints {
-            let _ = font.glyph_svg(codepoint, 16);
+            let _ = font.glyph_svg(codepoint, 16, 16);
         }
     }
 }
@@ -86,7 +86,7 @@ fn a_glyph_becomes_a_square_svg_of_its_outline() {
     };
     let font = Font::parse(font.build()).expect("a valid font");
     let svg = font
-        .glyph_svg(0xE710, 16)
+        .glyph_svg(0xE710, 16, 16)
         .expect("a valid glyph")
         .expect("an outline");
     assert!(
@@ -97,7 +97,7 @@ fn a_glyph_becomes_a_square_svg_of_its_outline() {
         commands(&svg),
         ["M0 1024", "L1024 1024", "Q1024 0 0 0", "L0 1024", "Z"]
     );
-    assert_eq!(font.glyph_svg(0xE711, 16), Ok(None));
+    assert_eq!(font.glyph_svg(0xE711, 16, 16), Ok(None));
 }
 
 /// Off-curve points in a row imply an on-curve point between them, and a
@@ -117,7 +117,10 @@ fn implied_points_close_quadratic_contours() {
         format_12: true,
     };
     let font = Font::parse(font.build()).expect("a valid font");
-    let svg = font.glyph_svg(0xE700, 16).expect("valid").expect("an outline");
+    let svg = font
+        .glyph_svg(0xE700, 16, 16)
+        .expect("valid")
+        .expect("an outline");
     assert_eq!(
         commands(&svg),
         [
@@ -128,6 +131,45 @@ fn implied_points_close_quadratic_contours() {
             "Q512 1024 256 768",
             "Z"
         ]
+    );
+}
+
+/// In a square larger than its em, a glyph is drawn at the em, centred,
+/// not grown to the square: at a 16-pixel em in 20 pixels the 1024-unit
+/// em spans 1280 units, the em starting 128 units in.
+///
+/// parity: LOOK-031
+#[test]
+fn a_glyph_in_a_larger_square_keeps_its_em() {
+    let font = SyntheticFont {
+        glyphs: vec![SyntheticGlyph::Simple(vec![vec![
+            (0, 0, true),
+            (1024, 0, true),
+            (1024, 1024, true),
+        ]])],
+        mapping: vec![(0xE710, 1)],
+        format_12: false,
+    };
+    let font = Font::parse(font.build()).expect("a valid font");
+    let svg = font
+        .glyph_svg(0xE710, 16, 20)
+        .expect("valid")
+        .expect("an outline");
+    assert!(
+        svg.contains("width=\"20\" height=\"20\" viewBox=\"0 0 1280 1280\""),
+        "{svg}"
+    );
+    assert_eq!(
+        commands(&svg),
+        ["M128 1152", "L1152 1152", "L1152 128", "L128 1152", "Z"]
+    );
+    let small = font
+        .glyph_svg(0xE710, 16, 16)
+        .expect("valid")
+        .expect("an outline");
+    assert_eq!(
+        commands(&small),
+        ["M0 1024", "L1024 1024", "L1024 0", "L0 1024", "Z"]
     );
 }
 
@@ -148,7 +190,10 @@ fn composite_glyphs_place_their_components() {
         format_12: false,
     };
     let font = Font::parse(font.build()).expect("a valid font");
-    let svg = font.glyph_svg(0xE710, 16).expect("valid").expect("an outline");
+    let svg = font
+        .glyph_svg(0xE710, 16, 16)
+        .expect("valid")
+        .expect("an outline");
     assert_eq!(
         commands(&svg),
         ["M200 724", "L300 724", "L300 624", "L200 724", "Z"]
@@ -170,7 +215,7 @@ fn a_composite_that_places_itself_is_refused() {
         format_12: false,
     };
     let font = Font::parse(font.build()).expect("a valid font");
-    assert_eq!(font.glyph_svg(0xE710, 16), Err(FontError::OverLimit));
+    assert_eq!(font.glyph_svg(0xE710, 16, 16), Err(FontError::OverLimit));
 }
 
 /// Files that are not TrueType fonts, or whose tables point outside the
@@ -254,12 +299,18 @@ fn glyphs_are_written_into_the_cache_as_symbolic_icons() {
     let font = folder.path().join("SegoeIcons.ttf");
     std::fs::write(&font, SyntheticFont::with_codepoints(&[0xE710, 0xE8C6]).build()).expect("written");
 
+    let request = |name: &str, codepoint: u32| GlyphRequest {
+        name: name.to_owned(),
+        codepoint,
+        em: 16,
+        size: 16,
+    };
     let wanted = [
-        ("ox-win-add-20-symbolic".to_owned(), 0xE710),
-        ("ox-win-cut-20-symbolic".to_owned(), 0xE8C6),
-        ("ox-win-dismiss-16-symbolic".to_owned(), 0xE711),
-        ("../escape-symbolic".to_owned(), 0xE710),
-        ("ox-win-add-20".to_owned(), 0xE710),
+        request("ox-win-add-20-symbolic", 0xE710),
+        request("ox-win-cut-20-symbolic", 0xE8C6),
+        request("ox-win-dismiss-16-symbolic", 0xE711),
+        request("../escape-symbolic", 0xE710),
+        request("ox-win-add-20", 0xE710),
     ];
     let loaded = load_glyphs(&font, &wanted, &cache);
     assert_eq!(loaded.found(), 2);
@@ -285,7 +336,7 @@ fn glyphs_are_written_into_the_cache_as_symbolic_icons() {
 
     let damaged = folder.path().join("segmdl2.ttf");
     std::fs::write(&damaged, b"\0\x01\0\0 and nothing a font needs").expect("written");
-    let one = [("ox-win-add-20-symbolic".to_owned(), 0xE710)];
+    let one = [request("ox-win-add-20-symbolic", 0xE710)];
     let nothing = load_glyphs(&damaged, &one, &cache);
     assert_eq!(nothing.found(), 0);
     assert!(nothing.folder().is_none());
