@@ -37,6 +37,14 @@ impl AppContext {
         }
     }
 
+    /// Keeps the computers a discovery pass found, and tells every window
+    /// when they changed, so the navigation pane lists them under Network.
+    pub(crate) fn remember_computers(&self, found: &[ox_core::network::DiscoveredComputer]) {
+        if self.network().remember_computers(found) {
+            self.notify_places_changed();
+        }
+    }
+
     /// Lists the share `uri`, mapped for this session only, under Network
     /// as `label`, such as `Projects (Y:)`, until the app quits or its
     /// server is signed out; nothing is saved.

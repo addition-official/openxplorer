@@ -85,6 +85,7 @@ fn studio_nas() -> DiscoveredServer {
     DiscoveredServer {
         uri: "smb://studio-nas/".into(),
         label: "studio-nas".into(),
+        name: "studio-nas".into(),
         host: "studio-nas".into(),
     }
 }
@@ -254,8 +255,8 @@ fn network_lists_the_discovered_computers_as_items() {
     );
     let computer = test.window.folder_model().item(0).expect("the computer");
     assert_eq!(computer.entry().type_label, "Computer");
-    assert_eq!(Art::for_entry(computer.entry()), Art::SERVER);
-    assert!(!test.window.network_info_bar().is_visible());
+    assert_eq!(Art::for_entry(computer.entry()), Art::COMPUTER);
+    assert!(!test.window.network_info_bar().bar.is_visible());
     assert_eq!(
         activation_for(computer.entry()),
         Activation::Folder("smb://studio-nas/".into()),
@@ -264,10 +265,12 @@ fn network_lists_the_discovered_computers_as_items() {
 }
 
 /// Where the network browser cannot be read, Network says, as Windows
-/// does, that discovery is off, with GIO's reason as the tooltip; the bar
-/// opens Help, and leaves with Network.
+/// does, that discovery is off, with GIO's reason as the tooltip, and
+/// lists nothing ("This folder is empty."); the bar's text opens a menu
+/// whose "How to turn on network discovery" opens the manual's steps,
+/// its × hides it until discovery runs again, and it leaves with Network.
 ///
-/// parity: NET-024
+/// parity: NET-024, NET-038
 #[gtk::test]
 fn network_says_when_discovery_is_turned_off() {
     let fixture = Fixture::standard();
@@ -280,19 +283,74 @@ fn network_says_when_discovery_is_turned_off() {
     test.window.navigate(Page::Network.uri()).expect("Network");
     test.wait_for_listing("Network");
 
-    let bar = test.window.network_info_bar();
-    assert!(bar.is_visible());
+    let parts = test.window.network_info_bar();
+    assert!(parts.bar.is_visible());
     assert_eq!(
-        texts_in(bar),
-        ["Network discovery is turned off. Network computers and devices are not visible. Click to learn more..."]
+        texts_in(&parts.text),
+        ["Network discovery is turned off. Network computers and devices are not visible. Click to change..."]
     );
-    assert_eq!(bar.tooltip_text().as_deref(), Some("Location is not supported"));
-    assert_eq!(bar.action_name().as_deref(), Some("win.help"));
+    assert_eq!(
+        parts.text.tooltip_text().as_deref(),
+        Some("Location is not supported")
+    );
     assert!(test.names().is_empty());
     capture(&test.window, "native-network-discovery-off.png");
+
+    parts.text.emit_clicked();
+    let menu =
+        crate::window::widget_tree::descendants::<crate::window::menu_popover::MenuPopover>(&parts.bar)
+            .into_iter()
+            .next()
+            .expect("the bar's menu");
+    let labels: Vec<String> = menu.items().iter().map(|item| item.label.clone()).collect();
+    assert_eq!(labels, ["How to turn on network discovery", "Open Help"]);
+    menu.popdown();
+
+    test.window.dismiss_network_info_bar();
+    assert!(!parts.bar.is_visible(), "× hides the bar");
+    test.window.refresh();
+    test.wait_for_listing("Network again");
+    assert!(parts.bar.is_visible(), "discovery ran again and is still off");
+
     test.window.navigate(&fixture.uri()).expect("the folder");
     test.wait_for_listing("the folder");
-    assert!(!bar.is_visible(), "the bar belongs to Network");
+    assert!(!parts.bar.is_visible(), "the bar belongs to Network");
+}
+
+/// With the network browser there but neither Avahi nor wsdd, and
+/// nothing found, discovery is off too, and the tooltip says what is
+/// missing; with them there, an empty network shows no bar.
+///
+/// parity: NET-038
+#[gtk::test]
+fn network_says_discovery_is_off_without_avahi_or_wsdd() {
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    let off = ox_core::network::DiscoverySources {
+        browser: true,
+        dns_sd: false,
+        ws_discovery: false,
+    };
+    test.context
+        .network()
+        .set_discoverer(Discoverer::finding(Discovery::default()).with_sources(off));
+
+    test.window.navigate(Page::Network.uri()).expect("Network");
+    test.wait_for_listing("Network");
+
+    let parts = test.window.network_info_bar();
+    assert!(parts.bar.is_visible());
+    assert_eq!(
+        parts.text.tooltip_text().as_deref(),
+        Some("Avahi (DNS-SD) is not running and wsdd (WS-Discovery) is not installed.")
+    );
+
+    test.context
+        .network()
+        .set_discoverer(Discoverer::finding(Discovery::default()));
+    test.window.refresh();
+    test.wait_for_listing("Network again");
+    assert!(!parts.bar.is_visible());
 }
 
 /// Map network drive opens from every place that offers it; an

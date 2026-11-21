@@ -227,6 +227,13 @@ impl BrowserWindow {
         popover.popup();
     }
 
+    /// Whether Network is in front.
+    fn shows_network(&self) -> bool {
+        self.current_uri().is_some_and(|uri| {
+            crate::locations::Page::from_uri(&uri) == Some(crate::locations::Page::Network)
+        })
+    }
+
     /// What the menu lists for the selection now.
     fn menu_for_selection(&self, style: MenuStyle) -> ContextMenu {
         let items = self.folder_pane().model().selected_items();
@@ -245,6 +252,14 @@ impl BrowserWindow {
         let in_recycle_bin = facts.folder.is_recycle_bin;
         let entries = match (items.first(), in_recycle_bin) {
             (None, true) => recycle_bin_background_menu(),
+            (None, false) if style == MenuStyle::Compact && self.shows_network() => {
+                entries::network_background_menu(BackgroundSubmenus {
+                    view: self.background_view_menu(),
+                    sort: sort_menu(),
+                    group: group_by_menu(),
+                    new: Vec::new(),
+                })
+            }
             (None, false) if style == MenuStyle::Compact => {
                 self.refresh_template_menu();
                 compact_background_menu(
@@ -272,6 +287,12 @@ impl BrowserWindow {
                 )
             }
             (Some(_), true) => recycle_bin_item_menu(items.len() == 1),
+            (Some(first), false) if items.iter().all(|item| item.entry().is_network_computer()) => {
+                return ContextMenu {
+                    entries: entries::computer_menu(first.entry().navigation_uri(), items.len() == 1),
+                    strip: Vec::new(),
+                };
+            }
             (Some(first), false) if style == MenuStyle::Compact && self.shows_gallery() => {
                 let facts = self.item_facts(first.entry(), items.len() == 1);
                 return entries::gallery_photo_menu(&facts);

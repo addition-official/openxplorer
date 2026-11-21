@@ -367,7 +367,7 @@ pub(crate) struct BrowserWindow {
     /// browse snapshots.
     pub(super) item_dialogs: super::item_dialogs::ItemDialogs,
     /// Network's info bar, shown while discovery cannot run.
-    pub(super) network_info_bar: OnceCell<gtk::Button>,
+    pub(super) network_info_bar: OnceCell<super::network_info_bar::NetworkInfoBar>,
     /// The rename a slow second click on a name scheduled (OPS-011).
     pub(super) slow_click_rename: super::slow_click_rename::SlowClickRename,
     /// Measured folder sizes and the running folder-size scan.

@@ -958,13 +958,43 @@ impl Preferences {
     /// chooses another Group by there (VIEW-022). That choice is kept in
     /// Downloads' own style when each folder keeps one, else apart from
     /// the shared style.
+    ///
+    /// Network keeps a style of its own whether or not each folder does:
+    /// Tiles grouped by type ("Computer"), as Windows 11 shows devices,
+    /// until the user chooses another view there ([`Self::network_style`]).
     pub fn view_in(&self, uri: &str, downloads: Option<&str>) -> ViewProperties {
+        if location::same_location(uri, location::NETWORK_URI) {
+            return self.network_style();
+        }
         let mut style = self.view_for(uri);
         let in_downloads = downloads.is_some_and(|downloads| location::same_location(downloads, uri));
         let own_style = self.per_folder_views
             && super::view_properties::saved_style_for(&self.folder_views, uri).is_some();
         if in_downloads && !own_style {
             style.set_grouping(self.downloads_group_by.unwrap_or(GroupBy::Modified));
+        }
+        style
+    }
+
+    /// The style of Network: the one saved for it, else Tiles grouped by
+    /// type, with the shared columns and widths.
+    pub fn network_style(&self) -> ViewProperties {
+        let mut style = self.view_for(location::NETWORK_URI);
+        match super::view_properties::saved_style_for(&self.folder_views, location::NETWORK_URI) {
+            Some((saved, _)) => {
+                let mut own = saved.clone();
+                if own.details_columns.is_none() {
+                    own.details_columns = style.details_columns.take();
+                }
+                if own.column_widths.is_none() {
+                    own.column_widths = style.column_widths.take();
+                }
+                style = own;
+            }
+            None => {
+                style.mode = NETWORK_MODE.to_owned();
+                style.set_grouping(GroupBy::Type);
+            }
         }
         style
     }
@@ -995,6 +1025,9 @@ impl Preferences {
         style
     }
 }
+
+/// The view Network starts in: Windows 11's Tiles.
+const NETWORK_MODE: &str = "tiles";
 
 /// A partial preferences change; `None` leaves a preference unchanged and
 /// out-of-range numbers are ignored when applied.

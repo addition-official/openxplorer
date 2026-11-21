@@ -134,6 +134,11 @@ pub(crate) enum WindowAction {
     /// Opens the offline user manual at the topic of what the window
     /// shows (F1, CMD-033).
     Help,
+    /// Opens the manual at "Turning on network discovery", from Network's
+    /// info bar.
+    NetworkDiscoveryHelp,
+    /// Hides Network's info bar until discovery runs again.
+    DismissNetworkInfoBar,
     /// Opens the keyboard shortcuts window (Ctrl+?, CMD-032).
     KeyboardShortcuts,
     About,
@@ -605,6 +610,8 @@ impl WindowAction {
             WindowAction::Share => "share",
             WindowAction::About => "about",
             WindowAction::Help => "help",
+            WindowAction::NetworkDiscoveryHelp => "network-discovery-help",
+            WindowAction::DismissNetworkInfoBar => "dismiss-network-info-bar",
             WindowAction::KeyboardShortcuts => "keyboard-shortcuts",
             WindowAction::ContextMenu => "context-menu",
             WindowAction::View => "view",

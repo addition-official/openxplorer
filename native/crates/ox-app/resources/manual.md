@@ -61,6 +61,17 @@ The full list of keys is in Settings > About > Keyboard shortcuts (Ctrl+?).
 - OpenXplorer asks for your user name and password in Enter network credentials when a server needs them, and can keep the password in your desktop's keyring. Connect using different credentials in Map network drive asks even when it knows an account.
 - Right-click a share or server and choose Sign out of server to disconnect and forget a session.
 
+## Turning on network discovery
+
+OpenXplorer finds computers through your desktop's own network discovery services, and never turns them on or changes them by itself. When Network says that network discovery is turned off, one of them is missing or stopped:
+
+- GVfs's network backends, which list the network: install gvfs-backends on Ubuntu, Debian and Zorin OS, gvfs-smb on Fedora and Arch Linux, or gvfs-backends and gvfs-backend-samba on openSUSE.
+- Avahi, which finds Linux computers, NAS devices and Macs (DNS-SD): install avahi-daemon and start it with sudo systemctl enable --now avahi-daemon.
+- wsdd, which finds Windows PCs (WS-Discovery): install the wsdd package.
+- Your firewall must let discovery through: mDNS on UDP port 5353 and WS-Discovery on UDP port 3702.
+
+Then open Network again or press F5. You can always open a computer by typing its address, such as \\server or \\server\share, in the address bar.
+
 ## Drives and phones
 
 - This PC lists drives, USB sticks and connected phones. Click one to open it; it is mounted when needed.
