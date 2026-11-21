@@ -1,0 +1,41 @@
+STATUS: DONE
+HEAD: pass-1-copy-move ac63a204de5fba6542b0d3efb4f589c2bd8a1e78
+QUESTION: none
+NOTE: Five fixes, each with a test that failed first: a cross-drive move removed its originals while the copy was still only in memory (now syncfs first; read back from the device image: 0 of 8 files on the device before, 8 of 8 after); copies to FAT/exFAT/NTFS-through-FUSE sticks failed on chmod of the staging folder and left it behind; NTFS sticks (ntfs-3g, which GIO calls "fuse") took no Windows name rules; the percentage jumped to 50% after a small first file; a file drag aborted the app with GTK_A11Y=none. Branched from upstream main 5336b108; pass 1 merges nothing. No .po, icon-files or translation edits; .pot regenerated.
+
+PASS real input (xdotool/XTEST, private Xvfb, user oxtest, throwaway HOME), every source and target checked with sha256:
+PASS copy of the whole test set (mp3, mp4, pdf, jpg, odt, zip, 7z, 19 odd names, 300 MB iso) to a FUSE FAT stick: failed with "Function not implemented" before the fix (Cancel left .winspace-transfer-*.part), copies after it
+PASS copy to an NTFS stick (ntfs-3g on a loop device): "Name Windows cannot use" now asked; "Do this for all" + Rename gives _CON, colon_ name.txt, question_.txt, trailing dot_ ...; all other files identical
+PASS Ctrl+X/Ctrl+V move to another drive (ext4 image): files read with debugfs from the image right after the move: 0/8 present before the fix (21 MB dirty), 8/8 after
+PASS pull the stick mid-copy (kill -9 ntfs-3g at 200 MB of 700 MB): Try Again/Skip/Cancel; source identical; Cancel removes nothing of the source
+PASS pull the source stick mid-copy (read error mid-file): Cancel leaves no partial file in the destination
+PASS pause (writing stops: same size after 3 s), resume (finishes, identical), cancel mid-file (no partial file, finished files stay)
+PASS percentage: 14% shown at 15% written (was 50%); More details shows speed, time left, name, items remaining
+PASS two operations at once: one window, "2 Running Actions", each with Pause and Cancel; the second does not wait for the first
+PASS Replace or Skip Files (Replace: old file in the stick's Trash, new identical), Compare info -> both kept as "beach (2).jpg"
+PASS disk full: "There is not enough space on SMALLDISK" with sizes, before anything is written; 10 GB sparse file refused the same way
+PASS permission denied on the destination: "Destination Folder Access Denied" with Continue/Skip/Cancel; unreadable source files: "File Access Denied" with Try Again/Skip/Cancel
+PASS copy or move into its own subfolder: "The destination folder is a subfolder of the source folder", Skip/Cancel, nothing changed
+PASS 100,000 small files (8 types): 100,000 copied in about 35 s, the percentage climbs steadily after about 10 s of counting at 0%
+PASS 2 GB sparse file: copy identical (holes written out, see NOTE below)
+PASS drag and drop: plain on the same drive moves; Ctrl copies; plain to another drive copies; Shift to another drive moves (after "Move by copying?"); Alt makes "b track.mp3 - Shortcut"; before the a11y fix the first drag aborted the app
+PASS file being written while copied: copy identical to the final file
+PASS Weston (nested): the progress window grows for the report that follows Cancel; on bare Xvfb without a window manager it stays clipped, which is the missing window manager (GTK sets the right size hints), not the app
+PASS stderr of every run: no "Bail out", CRITICAL, panicked or SIG* after the fixes (the one "panicked ... at_context" before the a11y fix)
+PASS unit/window tests: the five new tests, transfer cross_moves (6), limits and modes tests, file_ops::progress (4), progress_window (13), announcement (2, also under GTK_A11Y=none)
+PASS python3 native/parity/check.py
+PASS every test binary run as check.py runs it (each on its own Xvfb, private bus, throwaway HOME), branch vs unchanged main 5336b108: 4,857 passed / 52 failed vs 4,850 / 54; the failing test names are identical on both (31 names: Python interop, as this container's python3-gi cannot load, root ignoring unwritable files, display_scale, location_fixture_drift), none new
+FAIL python3 native/tools/check.py stops at clippy -D warnings on files this branch does not touch (clippy 1.97's duration_suboptimal_units in background_portal.rs, email_portal.rs, network/prompts.rs, search/service.rs, sizes/scan.rs), as on main; rustfmt passes; clippy over the whole workspace with warnings not denied: 21 findings, all in files this branch does not touch, none in a changed file
+NOT TESTED: network drop during a copy (no SMB server in this container); a real kernel vfat or exfat mount (this kernel has neither; FUSE FAT and NTFS were used); fractional scaling
+
+VM CHECK (Windows 11, none confirmed from a Microsoft source; use a throwaway USB stick and copies of files):
+1. Move across drives: cut a folder with a few photos on C:, paste it on a USB stick. Look for: any question before it moves (OpenXplorer asks "Move by copying?", an open owner decision); the originals gone at the end.
+2. Pull the stick mid-copy: copy a 1 GB file to a USB stick and pull it at about 30%. Look for: the dialog's title, its text and error code (expected something like "Error 0x8007048F: The device is not connected." or "0x80070037"), and its buttons. OpenXplorer says "Interrupted Action ... Error splicing file: Transport endpoint is not connected".
+3. Safe right after the dialog: copy a 500 MB file to a USB stick, and the moment the progress window closes, use Safely Remove (or pull it), then check the file on another PC. Look for: whether Windows' progress only finishes once the data is on the stick (Quick removal policy). OpenXplorer now waits for that on moves only, not on copies.
+4. Percentage with a small file first: copy one 30 KB photo plus one 1 GB video together. Look for: the percentage right after the photo (expected low, following bytes, not 50%).
+5. Counting phase: copy a folder with tens of thousands of small files. Look for: what the window shows in the first seconds (0%, "Discovered N items", "Calculating…").
+6. Sparse file: on C:, run "fsutil file createnew big.img 1073741824" then "fsutil sparse setflag big.img", copy it to another folder, and run "fsutil sparse queryflag" on the copy and look at Size on disk in Properties. Look for: whether the copy stays sparse.
+7. Disk full while copying (not caught up front): copy 2 GB to a stick with 3 GB free, and while it runs fill the stick from another window. Look for: the dialog shown when the space runs out, and what is left of the partial file.
+8. Copy into its own subfolder: drag a folder onto one of its subfolders, and also paste it inside itself. Look for: the exact text ("The destination folder is a subfolder of the source folder.") and buttons (Skip, Cancel).
+9. Alt+drag of "song.mp3" onto a folder. Look for: the shortcut's name ("song.mp3 - Shortcut" or "song - Shortcut").
+10. Replace or Skip with Compare info: both checked. Look for: the kept copy's name ("beach (2).jpg").
