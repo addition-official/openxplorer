@@ -232,28 +232,6 @@ pub(super) fn head_menu(section: Section, uri: &str, state: &HeadMenuState) -> V
     entries
 }
 
-/// The menu of Home's or Gallery's row, which opens `uri`: Open in new
-/// tab and Open in new window, as This PC's and Network's offer them and
-/// Windows 11's navigation pane offers them on Home and Gallery.
-fn page_menu(uri: &str) -> Vec<MenuEntry> {
-    vec![
-        MenuItem::with_text_target(
-            &ox_core::i18n::gettext("Open in new tab"),
-            Icon::Add,
-            WindowAction::OpenTab,
-            uri,
-        )
-        .into(),
-        MenuItem::with_text_target(
-            &ox_core::i18n::gettext("Open in new window"),
-            Icon::WindowNew,
-            WindowAction::OpenWindow,
-            uri,
-        )
-        .into(),
-    ]
-}
-
 impl Sidebar {
     /// The menu of the row at `y` in the list, in the classic style: a
     /// pin's, a drive's or a network location's, This PC's or Network's;

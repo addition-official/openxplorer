@@ -356,13 +356,26 @@ gridview.files > child:focus-visible {
 gridview.files.compact { padding: 4px 8px 8px 12px; }
 gridview.files.compact > child { padding: 0 8px 0 6px; margin: 0 2px 0 0; border-radius: 4px; }
 gridview.files.compact > child > box { margin: 0; border-spacing: 0; }
-/* Small icons (Ctrl+Shift+4) as Windows 11 lays them out: List's rows,
-   each 16px icon left of its name, in columns 310px apart at 100% with
-   4px between items. Their width and height follow the text size
-   (src/theme/fonts.rs). */
+/* Small icons (Ctrl+Shift+4) as Windows 11 lays them out: one line per
+   item, each 16px icon left of its name, filling rows left to right in
+   columns 310px apart at 100%. Their width and height follow the text
+   size (src/theme/fonts.rs). */
 gridview.files.icons-small { padding: 4px 8px 8px 12px; }
 gridview.files.icons-small > child { padding: 0 2px; margin: 0; border-radius: 4px; }
 gridview.files.icons-small > child > box { margin: 0; border-spacing: 0; }
+/* List's groups (VIEW-022) stand side by side as columns, each headed by
+   its title alone in the column's first slot, as tall as an item's, as
+   Windows 11 lays them out (checked in the Windows 11 VM). */
+gridview.files.compact > child > .item-cell.group-slot.heading-row { min-height: 0; margin: 0; padding: 0; }
+gridview.files.compact .group-slot .group-header.group-heading { margin: 0; }
+gridview.files.compact > child > .group-slot box { margin: 0; }
+/* Grouped, an item draws on its own box as the other icon sizes do, with
+   Small icons' own padding, and a heading's row has a line under it, as
+   Windows 11 draws Small icons' headings (checked in the Windows 11 VM). */
+gridview.files.icons-small.icon-groups > child > box:not(.group-slot) { padding: 0 2px; margin: 0; }
+gridview.files.icons-small.icon-groups > child > .item-cell.group-slot.heading-row {
+  box-shadow: inset 0 -1px @ox_border;
+}
 
 /* ---- Tiles and Content (Explorer's, VIEW-071) ---- */
 /* Both draw an item's padding, hover, selection and focus ring on its

@@ -160,6 +160,9 @@ impl ItemsChange {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct SlotLayout {
     columns: u32,
+    /// How many slots a heading takes: a whole row (`columns`), or one
+    /// slot at the top of a column in List.
+    heading_slots: u32,
     groups: Vec<GroupRun>,
     /// The first slot of each group: its heading.
     starts: Vec<u32>,
@@ -167,22 +170,39 @@ pub(crate) struct SlotLayout {
 }
 
 impl SlotLayout {
-    /// The slots of `groups` in `columns` columns (at least one).
+    /// The slots of `groups` in `columns` columns (at least one), each
+    /// heading taking a row of its own.
     pub(crate) fn new(groups: Vec<GroupRun>, columns: u32) -> Self {
         let columns = columns.max(1);
+        Self::laid_out(groups, columns, columns)
+    }
+
+    /// The slots of `groups` in lines of `columns` slots, each heading
+    /// taking the first slot of its group's first line, its items
+    /// following it: List's columns, filled top to bottom (VIEW-008).
+    pub(crate) fn inline(groups: Vec<GroupRun>, columns: u32) -> Self {
+        Self::laid_out(groups, columns.max(1), 1)
+    }
+
+    fn laid_out(groups: Vec<GroupRun>, columns: u32, heading_slots: u32) -> Self {
         let mut starts = Vec::with_capacity(groups.len());
         let mut len = 0;
         for group in &groups {
             starts.push(len);
-            let rows = group.shown().div_ceil(columns);
-            len += columns * (1 + rows);
+            len += (heading_slots + group.shown()).div_ceil(columns) * columns;
         }
         Self {
             columns,
+            heading_slots,
             groups,
             starts,
             len,
         }
+    }
+
+    /// How many slots a heading takes, its line's included.
+    pub(crate) fn heading_slots(&self) -> u32 {
+        self.heading_slots
     }
 
     /// How many slots the grid lists.
@@ -221,10 +241,10 @@ impl SlotLayout {
         let offset = slot - self.starts[index];
         Some(if offset == 0 {
             Slot::Heading(index)
-        } else if offset < self.columns {
+        } else if offset < self.heading_slots {
             Slot::Rule
-        } else if offset - self.columns < group.shown() {
-            Slot::Item(group.start + offset - self.columns)
+        } else if offset - self.heading_slots < group.shown() {
+            Slot::Item(group.start + offset - self.heading_slots)
         } else {
             Slot::Blank
         })
@@ -246,7 +266,7 @@ impl SlotLayout {
         if group.collapsed {
             return None;
         }
-        Some(self.starts[index] + self.columns + position - group.start)
+        Some(self.starts[index] + self.heading_slots + position - group.start)
     }
 
     /// The index of the group holding the item at `position`.
@@ -353,7 +373,14 @@ impl SlotLayout {
     fn item_in_row(&self, row: u32, column: u32) -> Option<u32> {
         let first = row.checked_mul(self.columns)?;
         let last = first + column.min(self.columns - 1);
-        (first..=last).rev().find_map(|slot| self.item_at(slot))
+        let before = (first..=last).rev().find_map(|slot| self.item_at(slot));
+        // A List column starting with its heading has its first item next.
+        let after = || {
+            (self.heading_slots == 1 && self.columns > 1)
+                .then(|| (last + 1..first + self.columns).find_map(|slot| self.item_at(slot)))
+                .flatten()
+        };
+        before.or_else(after)
     }
 
     /// The column the item at `position` is in.
@@ -394,7 +421,7 @@ impl SlotLayout {
         let run = &self.groups[group];
         let place = match self.slot(slot)? {
             Slot::Rule => offset.checked_sub(1)?,
-            Slot::Blank => offset.checked_sub(self.columns + run.shown())?,
+            Slot::Blank => offset.checked_sub(self.heading_slots + run.shown())?,
             Slot::Heading(_) | Slot::Item(_) => return None,
         };
         Some((run.title.as_str(), place))
@@ -569,6 +596,52 @@ mod tests {
         assert_eq!(old.changes_to(&wider, None), Some((3, 18, 21)));
     }
 
+    /// List's groups (Windows 11, checked in the VM): each group starts a
+    /// column of its own with its heading in the column's first slot, its
+    /// items run down under it and on into the next column, and blanks
+    /// fill its last column. No slot carries a heading's line.
+    ///
+    /// parity: VIEW-022, VIEW-008
+    #[test]
+    fn list_heads_each_group_at_the_top_of_its_column() {
+        use Slot::{Blank, Heading, Item};
+        let mut titles: Vec<&str> = vec!["File folder"; 3];
+        titles.extend(["Text Document"; 5]);
+        let layout = SlotLayout::inline(group_runs(titles), 4);
+        let slots: Vec<Slot> = (0..layout.len()).filter_map(|slot| layout.slot(slot)).collect();
+        assert_eq!(
+            slots,
+            [
+                Heading(0),
+                Item(0),
+                Item(1),
+                Item(2),
+                Heading(1),
+                Item(3),
+                Item(4),
+                Item(5),
+                Item(6),
+                Item(7),
+                Blank,
+                Blank,
+            ]
+        );
+        assert_eq!(layout.slot_of(3), Some(5));
+        assert_eq!(
+            layout.row_of(GroupTarget::Item(6)),
+            Some(2),
+            "Text Document runs on into a column"
+        );
+        assert_eq!(layout.heading_slot(1), Some(4));
+        assert_eq!(layout.heading_slots(), 1);
+        let wider = SlotLayout::inline(layout.groups().to_vec(), 6);
+        let (start, removed, added) = layout.changes_to(&wider, None).expect("a change");
+        for slot in 0..start {
+            assert_eq!(identity(&layout, slot), identity(&wider, slot));
+        }
+        assert_eq!(layout.len() - removed, wider.len() - added);
+    }
+
     /// What object the grid shows in `slot` of `layout`, as
     /// `GroupedSelection` keeps them: a heading, rule or blank is its
     /// group's own, by title and place, and an item is its position.
@@ -581,7 +654,7 @@ mod tests {
             Slot::Blank => (
                 title,
                 2,
-                Some(offset - layout.columns() - layout.groups()[group].shown()),
+                Some(offset - layout.heading_slots() - layout.groups()[group].shown()),
             ),
             Slot::Item(position) => (String::new(), 3, Some(position)),
         }
