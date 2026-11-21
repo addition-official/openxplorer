@@ -173,7 +173,7 @@ impl BrowserWindow {
     /// outcome of a run that finished; `None` when another operation runs,
     /// the check failed or the user cancelled.
     pub(crate) async fn transfer_with_conflicts(&self, incoming: IncomingItems) -> Option<TransferOutcome> {
-        self.transfer_checked(incoming, true, None, None, None).await
+        self.transfer_checked(incoming, None, None, None).await
     }
 
     /// [`Self::transfer_with_conflicts`] for Send to (CMD-038): the copies
@@ -184,8 +184,7 @@ impl BrowserWindow {
         incoming: IncomingItems,
         selected: Vec<String>,
     ) -> Option<TransferOutcome> {
-        self.transfer_checked(incoming, true, Some(selected), None, None)
-            .await
+        self.transfer_checked(incoming, Some(selected), None, None).await
     }
 
     /// [`Self::transfer_with_conflicts`] for a move that is one step of a
@@ -200,8 +199,7 @@ impl BrowserWindow {
         incoming: IncomingItems,
         archive: &str,
     ) -> Option<TransferOutcome> {
-        self.transfer_checked(incoming, false, None, Some(archive), None)
-            .await
+        self.transfer_checked(incoming, None, Some(archive), None).await
     }
 
     /// Merges the folder at `source` into the folder at `target`, as Yes
@@ -245,15 +243,17 @@ impl BrowserWindow {
             uris: items,
             destination_folder: target.to_owned(),
         };
-        self.transfer_checked(incoming, true, Some(vec![target.to_owned()]), None, Some(source))
+        self.transfer_checked(incoming, Some(vec![target.to_owned()]), None, Some(source))
             .await;
     }
 
-    /// Checks, asks, runs and reports `incoming`; the journal records it
-    /// when `undoable`. Afterwards the copies are selected, or the rows
-    /// `kept` lists. With `merged_from`, the folder whose items `incoming`
-    /// moves in, that folder is removed once the move emptied it, and Undo
-    /// makes it again first ([`Self::merge_folder_into`]).
+    /// Checks, asks, runs and reports `incoming`, and the journal records
+    /// it: as the copy it is to the user when its items come `extracted_from`
+    /// an archive, out of the extraction's private folder. Afterwards the
+    /// copies are selected, or the rows `kept` lists. With `merged_from`,
+    /// the folder whose items `incoming` moves in, that folder is removed
+    /// once the move emptied it, and Undo makes it again first
+    /// ([`Self::merge_folder_into`]).
     ///
     /// The job claims its action in the progress window first, as Windows
     /// shows "Copying 1 item from Downloads to Desktop" before it asks, so
@@ -262,7 +262,6 @@ impl BrowserWindow {
     async fn transfer_checked(
         &self,
         incoming: IncomingItems,
-        undoable: bool,
         kept: Option<Vec<String>>,
         extracted_from: Option<&str>,
         merged_from: Option<&str>,
@@ -311,14 +310,10 @@ impl BrowserWindow {
             if let Some(folder) = emptied {
                 finished.undo = finished.undo.map(|undo| undo.with_emptied_folder(folder));
             }
-            if undoable {
-                finished
-            } else {
-                FinishedOperation {
-                    undo: None,
-                    ..finished
-                }
+            if extracted_from.is_some() {
+                finished.undo = finished.undo.and_then(UndoRecord::as_extraction);
             }
+            finished
         });
         self.conclude_operation_in(finished, origin.as_deref()).await;
         outcome.ok()
