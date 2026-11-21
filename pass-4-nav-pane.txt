@@ -1,0 +1,75 @@
+STATUS: DONE
+HEAD: pass-4-nav-pane b60a3e28ecef87509a8bfcfa29d5c67f9ad01f24
+QUESTION: none
+NOTE: Fixed in the navigation pane: a pin from a menu, the command bar or Home goes last (it went above Desktop); a file dragged onto a pin's edge goes into that folder (it showed the pin line and failed with "Could not pin"); dragging the pane's edge saves its width (GtkPaned's claim canceled the saving gesture, so no drag was ever saved); a failed Eject, Safely remove or Disconnect puts the tabs back on the drive (they stayed at Home), and a busy drive is refused in Windows' words; a double-click on This PC, Network or a folder-tree folder expands or collapses it; the pane's empty space offers Show all folders and Expand to open folder (new folderTree.expandToOpen option, on by default, which keeps today's behavior); Home and Gallery offer Open in new tab and Open in new window. A first version of the double-click collapsed the section from inside the list's press handling, which corrupted GTK's memory and crashed a later window close; the fix (toggle at idle) is a later commit on this branch. Merged pass-1-copy-move, pass-2-undo-redo and pass-3-rename (shared .pot, tests.rs and features.toml; clean merges). Left as owner decisions: the "Unpinned. The folder was not deleted." toast (SIDE-009 note says it is kept for now), and focus moving to the file list after a place is clicked (SEL-020). Found but not changed, outside this pass: after a click on a pin to a deleted folder, or when the drive shown is unplugged, the folder pane's "This location is unavailable" message text shows fully selected (empty_page.rs keep_unselected_on_focus does not hold); and three existing sidebar tests time out on headless Weston, the same on unchanged main.
+
+PASS a_folder_pinned_from_a_menu_goes_at_the_end_of_the_pins: fails on main (Projects went first), passes on the branch
+PASS a_real_drag_of_a_file_onto_the_edge_of_a_pin_goes_into_the_pinned_folder (XTEST pointer): fails without the fix (file stays, "Could not pin"), passes with it
+PASS a_real_drag_of_the_pane_edge_saves_its_width (XTEST pointer): fails without the fix, passes with it
+PASS a_drive_that_cannot_be_ejected_leaves_the_tab_where_it_was: fails without the fix, passes with it; network::the_tabs_on_a_drive_move_home_before_it_is_ejected now also checks that the tabs behind come back
+PASS devices::tests::a_busy_drive_is_refused_in_windows_words (simulated G_IO_ERROR_BUSY)
+PASS a_real_double_click_on_this_pc_collapses_and_expands_it and folder_tree::a_real_double_click_on_a_folder_of_the_tree_opens_and_closes_it (XTEST pointer): fail on main, pass on the branch
+PASS crash check: the navigation-pane real-input tests in one process crashed in 4 of 6 runs with the first double-click version (free(): invalid pointer / g_object_unref on a finalized object / SIGSEGV at window close); 0 of 14 runs after the fix; live app closed cleanly after repeated double-clicks and a drag
+PASS the_pane_offers_show_all_folders_and_expand_to_open_folder; with_expand_to_open_folder_off_the_tree_stays_closed (fails when the option is ignored)
+PASS home_and_gallery_menus_open_them_in_a_new_tab_or_window: fails on main (menu was Rename, Delete, Hide), passes on the branch
+PASS real input on the built app, private Xvfb, unprivileged user, throwaway HOME (xdotool), fixtures with mp3, mp4, pdf, jpg, odt, zip, 7z, a 2 GB sparse .iso, odd and Unicode names: pin and unpin from the pane and the file list, drag a folder in to pin (insertion line), reorder pins by drag, 200 pins with long Unicode names, a pin to a deleted folder, resize, double-click reset, keyboard Tab and arrows, menus of Home, Gallery, This PC, Local Disk, Network, Recent files and Recycle Bin
+PASS live drive: a loop-mounted ext4 USB_STICK appeared under This PC with its eject button; Disconnect as a user failed ("must be superuser") and the tab came back to the drive with its files; unmounting it while shown removed the row live; no CRITICAL, panic or signal in the app's stderr
+PASS headless Weston (native Wayland): the 6 non-pointer navigation-pane tests and the device tests pass; tests::sidebar has 3 timeouts there, identical on unchanged main
+PASS full run, every test executable isolated with check.py's run_isolated as an unprivileged user, the Python app from v2.0.0 provided: branch 4,902 passed / 30 failed, main 4,874 passed / 30 failed, the same 30 by name (27 ox-core admin_copy/admin_delete tests that need root or system mounts, location_fixture_drift::python_fixture_matches_desktop_core_py, network_python::fuse_export_paths_match_native_opening_py, search_history::a_tab_on_results_keeps_its_selection_and_scroll_position); no CRITICAL or Bail out in either log; doctests not run
+PASS native/parity/check.py; i18n check (pot regenerated, no .po touched); rustfmt --check; Clippy clean for every changed file
+FAIL check.py end to end: it stops at Clippy -D warnings on unchanged main too, with this toolchain (Rust 1.97, duration_suboptimal_units in untouched files), so the tests were run per executable instead
+NOT TESTED: a real busy USB drive and udisks Eject (no udisks in the container; busy wording tested with a simulated GIO error); dragging files in from another app over a pin (still shows the pin line and refuses, as before); Narrator or Orca names
+VM CHECK
+Windows 11 behaviors this pass couldn't confirm from a Microsoft source. Try each in the Windows 11 VM's File Explorer and compare.
+
+1. Pin from a menu goes last
+   Steps: Right-click any folder in the file list > Pin to Quick access.
+   Look for: it appears at the bottom of the pinned folders, below Videos (or below the last pin). This pass made OpenXplorer do that.
+
+2. A file dragged near a pin's edge
+   Steps: Drag a .pdf from Documents onto the very top edge of the pinned "Downloads" row, where a folder would show the insertion line.
+   Look for: whether Windows shows an insertion line or "Move to Downloads" with the whole row highlighted, and where the file ends up. This pass made OpenXplorer move it into Downloads.
+
+3. Dragging the pane's edge
+   Steps: Drag the border between the navigation pane and the files to make the pane about 1.5 times as wide. Close Explorer and open it again.
+   Look for: the width is kept. Then drag the border fully left: does the pane collapse to nothing, or stop at a minimum width (OpenXplorer stops at about 120 px)?
+
+4. Ejecting a drive that's in use
+   Steps: Plug in a USB stick. Open a file from it in Notepad and keep it open. In Explorer, show the stick's root, then right-click the stick in the navigation pane > Eject.
+   Look for: the exact title and text of the message (OpenXplorer now says "This device is currently in use. Close any programs or windows that might be using the device, and then try again."), and whether the Explorer window stays on the stick or moves away.
+
+5. Ejecting a drive that's free
+   Steps: Close Notepad, show the stick's root in Explorer, then Eject from the navigation pane.
+   Look for: where the Explorer window goes (This PC, closes, or stays with an error). OpenXplorer goes to This PC.
+
+6. Double-click in the navigation pane
+   Steps: Double-click "This PC". Then double-click a pinned folder that has subfolders.
+   Look for: whether each double-click collapses or expands the node, or only opens it. This pass made OpenXplorer toggle This PC, Network and folder-tree folders.
+
+7. Expand to open folder and Show all folders
+   Steps: Right-click empty space at the bottom of the navigation pane.
+   Look for: whether "Show all folders" and "Expand to open folder" are listed, whether "Expand to open folder" is on or off by default (also in Folder Options > View > Navigation pane), and what turning it on does when you open Documents\some subfolder from the address bar.
+
+8. Arrow keys in the navigation pane
+   Steps: Click "Home" in the navigation pane, then press Down a few times.
+   Look for: whether keyboard focus stays in the navigation pane after the click, and whether each arrow press opens that folder in the file list (after a short pause) or only moves the focus. OpenXplorer moves focus to the files after a click, and arrows only move focus.
+
+9. Keypad and main keyboard plus/minus
+   Steps: Select "This PC" in the navigation pane. Press the main keyboard's "-" and "+" (not the keypad), then the keypad's "-", "+" and "*".
+   Look for: which keys collapse and expand. OpenXplorer uses only the keypad keys.
+
+10. Home and Gallery menus
+   Steps: Right-click Home, then Gallery, in the navigation pane.
+   Look for: the exact items and their order. This pass added "Open in new tab" and "Open in new window" to OpenXplorer's.
+
+11. Unpin message
+   Steps: Right-click a pinned folder > Unpin from Quick access.
+   Look for: whether any message appears. OpenXplorer shows "Unpinned. The folder was not deleted.", which the owner chose to keep for now.
+
+12. A pinned folder that was deleted
+   Steps: Pin a new folder, delete it in the file list, then click its pin.
+   Look for: whether Windows removes the pin, shows a dialog (and its wording), or shows an in-window message. OpenXplorer keeps the pin and shows "This location is unavailable" in the window.
+
+13. Screen reader names
+   Steps: Turn on Narrator (Ctrl+Win+Enter), Tab into the navigation pane and arrow over a pinned folder, This PC and a drive.
+   Look for: what Narrator says for each, for example whether it says "pinned", "collapsed or expanded" and the tree level.
