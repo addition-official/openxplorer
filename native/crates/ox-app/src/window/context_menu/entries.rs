@@ -1017,6 +1017,18 @@ pub(crate) fn item_menu(facts: &ItemFacts, style: MenuStyle) -> ContextMenu {
 /// Gallery does (SRCH-015). The app's other commands are in the classic
 /// menu behind "Show more options".
 fn compact_item_menu(facts: &ItemFacts) -> ContextMenu {
+    // A network computer, as Windows 11 lists it (build 26200): Open, Open
+    // in new tab, Open in new window, Pin to Quick access, then "Show more
+    // options"; its share list has nothing to cut, compress or describe.
+    if facts.location == ItemLocation::SmbServer {
+        let mut entries = vec![open_item(facts)];
+        entries.extend(folder_open_items(facts));
+        entries.extend([MenuEntry::Divider, show_more_options_item()]);
+        return ContextMenu {
+            entries,
+            strip: Vec::new(),
+        };
+    }
     let mut entries = vec![open_item(facts)];
     entries.extend(extraction_items(facts));
     entries.extend(mount_item(facts));
@@ -2354,6 +2366,36 @@ mod tests {
         assert!(labels(&item_menu(&two, MenuStyle::Classic).entries).contains(&"Compare files".to_owned()));
         assert!(
             !labels(&item_menu(&file(), MenuStyle::Classic).entries).contains(&"Compare files".to_owned())
+        );
+    }
+
+    /// A network computer listed on the Network page has Windows 11's
+    /// menu (checked on build 26200): Open, Open in new tab, Open in new
+    /// window and Pin to Quick access, then "Show more options"; no strip,
+    /// Compress to, Copy as path, Properties or Open in Terminal, which a
+    /// computer's share list has no use for.
+    ///
+    /// parity: CMD-010, SIDE-020
+    #[test]
+    fn a_network_computer_has_windows_11s_menu() {
+        let facts = ItemFacts {
+            navigation_uri: "smb://nas/".to_owned(),
+            location: ItemLocation::SmbServer,
+            caching: None,
+            ..folder()
+        };
+        let menu = item_menu(&facts, MenuStyle::Compact);
+        assert!(menu.strip.is_empty());
+        assert_eq!(
+            labels(&menu.entries),
+            [
+                "Open",
+                "Open in new tab",
+                "Open in new window",
+                "Pin to Quick access",
+                "-",
+                "Show more options"
+            ]
         );
     }
 

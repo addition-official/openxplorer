@@ -28,7 +28,7 @@ use crate::icons::{Art, Icon};
 use crate::window::cache_folder::cache_item;
 use crate::window::command_bar::{disconnect_network_drive, NetworkDrive};
 use crate::window::menu_popover::{MenuEntry, MenuItem, MenuStyle};
-use crate::window::place_menus::{caching_in, facts_in, finish_menu, PlaceMenu};
+use crate::window::place_menus::{facts_in, finish_menu, PlaceMenu};
 use crate::window::saved_search::saved_search_menu;
 use crate::window::window_action::WindowAction;
 use crate::window::BrowserWindow;
@@ -467,7 +467,7 @@ impl Sidebar {
             }
         }
         let place = entry.menu.as_ref()?;
-        let place_menu = place.entries(caching_in(place, self));
+        let place_menu = place.styled(facts_in(place, self), MenuStyle::Classic).0;
         // A drive the system keeps mounted may have nothing to offer.
         (!place_menu.is_empty()).then_some(place_menu)
     }

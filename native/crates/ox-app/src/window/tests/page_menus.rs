@@ -333,3 +333,46 @@ fn home_in_the_navigation_pane_pins_the_current_folder() {
             >= 1
     );
 }
+
+/// A network computer's row in the navigation pane offers Windows 11's
+/// Pin to Quick access after Open in new window (checked on build 26200),
+/// which pins the computer, chosen with a real click; it has no
+/// Properties, as Windows' has none.
+///
+/// parity: SIDE-020, SIDE-007
+#[gtk::test]
+fn a_network_computer_in_the_navigation_pane_pins_to_quick_access() {
+    let mut session = Session::open_on(Fixture::real_world(), None);
+    session.test.window.context().remember_network("smb://nas/");
+    let sidebar = session.test.window.sidebar().clone();
+    wait_until("the computer's row", || {
+        sidebar.labels().contains(&"nas".to_owned())
+    });
+    wait_for_frames(&session.test.window, 3);
+    for style in [ContextMenu::Win11, ContextMenu::Win10] {
+        choose_menu_style(&session.test, style);
+        let at = super::menu_sweep::on_sidebar_row(&session, "nas");
+        let menu = right_click_at(&mut session, at, "a network computer's row");
+        let rows = menu.row_labels();
+        assert_eq!(
+            rows[..4],
+            [
+                "Open",
+                "Open in new tab",
+                "Open in new window",
+                "Pin to Quick access"
+            ],
+            "{style:?}"
+        );
+        assert!(!rows.contains(&"Properties".to_owned()), "{rows:?}");
+        close(&mut session, &menu);
+    }
+    choose_menu_style(&session.test, ContextMenu::Win11);
+    let at = super::menu_sweep::on_sidebar_row(&session, "nas");
+    let menu = right_click_at(&mut session, at, "a network computer's row");
+    let row = session.middle_of(&menu.row("Pin to Quick access"));
+    session.click_at(row);
+    wait_until("the computer pinned", || {
+        session.test.window.is_pinned("smb://nas/")
+    });
+}
