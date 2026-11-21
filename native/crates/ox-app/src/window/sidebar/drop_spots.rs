@@ -82,6 +82,14 @@ impl Sidebar {
     /// Where a drop at `y` of the list goes; `None` between sections and
     /// on a drive that is not mounted.
     pub(in crate::window) fn drop_spot_at(&self, y: f64) -> Option<SidebarDropSpot> {
+        self.drop_spot_where(y, true)
+    }
+
+    /// Where a drop at `y` of the list goes, as [`Self::drop_spot_at`];
+    /// a drag that cannot `pin`, because it carries a file, goes into a
+    /// pinned folder from anywhere on its row, and the "Pin to Quick
+    /// access" row of an empty Quick access takes none (DND-014).
+    pub(in crate::window) fn drop_spot_where(&self, y: f64, pin: bool) -> Option<SidebarDropSpot> {
         #[expect(clippy::cast_possible_truncation, reason = "pointer positions are small")]
         let row = self.list().row_at_y(y as i32)?;
         let index = row.index();
@@ -89,7 +97,8 @@ impl Sidebar {
         let entry = entries.get(usize::try_from(index).ok()?)?;
         let uri = match &entry.target {
             RowTarget::Location(uri) => uri,
-            RowTarget::PinDropTail => return Some(SidebarDropSpot::Pin { index, before: None }),
+            RowTarget::PinDropTail if pin => return Some(SidebarDropSpot::Pin { index, before: None }),
+            RowTarget::PinDropTail => return None,
             // A drive still to be mounted takes the drop and is mounted
             // first, as Dolphin's places panel does (DEV-010).
             RowTarget::MountVolume(id) if entry.section != Section::QuickAccess => {
@@ -104,7 +113,7 @@ impl Sidebar {
         if uri == RECENT_URI {
             return None;
         }
-        if entry.section != Section::QuickAccess {
+        if entry.section != Section::QuickAccess || !pin {
             return Some(SidebarDropSpot::Folder {
                 index,
                 uri: uri.clone(),
