@@ -512,7 +512,9 @@ impl CommandBar {
                 #[weak(rename_to = bar)]
                 self,
                 move |more| {
-                    if more.is_active() {
+                    // Only the commands that moved in can have changed
+                    // their labels (Restore's) since the menu was built.
+                    if more.is_active() && !bar.commands_in_more().is_empty() {
                         bar.refresh_more_menu();
                     }
                 }
