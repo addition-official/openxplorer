@@ -308,8 +308,16 @@ impl FolderTree {
                 let is_double = presses == 2
                     && gesture.current_button() == gdk::BUTTON_PRIMARY
                     && gestures::held_modifiers(gesture).is_empty();
+                // Once GTK has handled the press: changing the rows while
+                // the list still handles it is not safe (see the
+                // navigation pane's double-click).
                 if is_double {
-                    tree.toggle_row(item.position());
+                    let position = item.position();
+                    glib::idle_add_local_once(glib::clone!(
+                        #[weak]
+                        tree,
+                        move || tree.toggle_row(position)
+                    ));
                 }
             }
         ));

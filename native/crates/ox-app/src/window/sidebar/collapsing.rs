@@ -102,8 +102,15 @@ impl Sidebar {
                         .filter(|entry| entry.level == RowLevel::Group)
                         .map(|entry| entry.section)
                 };
+                // Once GTK has handled the press: hiding rows while the
+                // list still handles it corrupts GTK's memory, which
+                // crashed the app later.
                 if let Some(section) = head {
-                    sidebar.collapse_section(section, !sidebar.is_collapsed(section));
+                    glib::idle_add_local_once(glib::clone!(
+                        #[weak]
+                        sidebar,
+                        move || sidebar.collapse_section(section, !sidebar.is_collapsed(section))
+                    ));
                 }
             }
         ));
