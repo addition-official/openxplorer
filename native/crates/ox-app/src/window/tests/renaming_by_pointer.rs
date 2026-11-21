@@ -292,3 +292,56 @@ fn f2_on_an_item_scrolled_out_of_sight_scrolls_it_back_to_rename() {
     pointer.tap_key(gdk::Key::Escape);
     wait_until("the rename to end", || !is_renaming_in_place(&test));
 }
+
+/// Down and Up while a name is edited move the text cursor, as Right and
+/// Left do, and leave the rename going, as in Windows 11 (checked in
+/// Windows 11 26200): the stem's selection is cleared, the name is not
+/// committed and the next item is not renamed. The keys are real ones.
+///
+/// parity: OPS-012
+#[gtk::test]
+fn down_and_up_while_renaming_move_the_text_cursor() {
+    let mut pointer = Pointer::connect();
+    for view in ["details", "large"] {
+        let fixture = Fixture::standard();
+        let test = TestWindow::open(&fixture.uri());
+        super::support::show_file_name_extensions(&test);
+        test.activate("view", Some(view));
+        select_names(&test, &["Notes 2.txt"]);
+        test.window.folder_pane().focus_view();
+        wait_for_frames(&test.window, 3);
+        let inside = point_in(&mut pointer, &test.window, 40.0, 40.0);
+        pointer.move_to(inside.0, inside.1);
+        pointer.tap_key(gdk::Key::F2);
+        let field = name_editor(&test);
+        wait_until(&format!("{view}: the stem selected"), || {
+            has_keyboard(&test, &field) && field.selection_bounds() == Some((0, 7))
+        });
+
+        pointer.tap_key(gdk::Key::Down);
+        wait_for(Duration::from_millis(400));
+        let after_down = (
+            field.selection_bounds(),
+            field.position(),
+            has_keyboard(&test, &field),
+        );
+        pointer.tap_key(gdk::Key::Up);
+        wait_for(Duration::from_millis(400));
+        let after_up = (
+            field.selection_bounds(),
+            field.position(),
+            has_keyboard(&test, &field),
+        );
+
+        assert_eq!(after_down, (None, 7, true), "{view}: Down is Right");
+        assert_eq!(after_up, (None, 6, true), "{view}: Up is Left");
+        assert!(is_renaming_in_place(&test), "{view}: still renaming");
+        assert_eq!(name_editor(&test), field, "{view}: the same item");
+        assert_eq!(test.selected_names(), ["Notes 2.txt"], "{view}");
+        pointer.tap_key(gdk::Key::Escape);
+        wait_until(&format!("{view}: Escape ends it"), || {
+            !is_renaming_in_place(&test)
+        });
+        assert!(fixture.path("Notes 2.txt").is_file(), "{view}: nothing renamed");
+    }
+}
