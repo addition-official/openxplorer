@@ -392,3 +392,112 @@ fn the_navigation_pane_narrows_with_the_window_and_widens_back() {
     test.activate("text-reset", None);
     assert_eq!(saved, None, "the window's own changes are not saved");
 }
+
+/// The "…" button and the labels of the items its menu lists.
+fn see_more(test: &TestWindow) -> (gtk::MenuButton, Vec<String>) {
+    let more = descendants::<gtk::MenuButton>(test.window.upcast_ref::<gtk::Widget>())
+        .into_iter()
+        .find(|button| button.has_css_class("more-command"))
+        .expect("the See more button");
+    let labels = more
+        .popover()
+        .and_downcast::<crate::window::menu_popover::MenuPopover>()
+        .expect("its menu")
+        .items()
+        .into_iter()
+        .map(|item| item.label)
+        .collect();
+    (more, labels)
+}
+
+/// Whether `command` shows whole in the command bar, left of Settings.
+fn shows_whole_in_the_bar(test: &TestWindow, command: &impl IsA<gtk::Widget>) -> bool {
+    let bar = descendants::<gtk::Widget>(test.window.upcast_ref::<gtk::Widget>())
+        .into_iter()
+        .find(|widget| widget.has_css_class("commandbar"))
+        .expect("the command bar");
+    let settings = descendants::<gtk::Widget>(&bar)
+        .into_iter()
+        .find(|widget| widget.has_css_class("settings-button"))
+        .expect("Settings");
+    let (Some(shown), Some(settings)) = (command.compute_bounds(&bar), settings.compute_bounds(&bar)) else {
+        return false;
+    };
+    command.is_mapped() && shown.x() >= 0.0 && shown.x() + shown.width() <= settings.x() + 0.5
+}
+
+/// As in Windows 11, the commands that do not fit move into "…", from
+/// the right, instead of being cut off with "…" itself: at 200 % text in
+/// a 700-pixel window View and Sort are listed at the top of "…", which
+/// stays in the bar; in a wide window they are back in the bar.
+///
+/// parity: LOOK-022
+#[gtk::test]
+fn commands_that_do_not_fit_move_into_see_more() {
+    let fixture = Fixture::standard();
+    let test = laid_out(&fixture.uri());
+    largest_text(&test);
+    resize(&test, 700);
+    wait_for_frames(&test.window, 4);
+    let (more, labels) = see_more(&test);
+    let more_shows = shows_whole_in_the_bar(&test, &more);
+    // Tab from the last command shown goes to "…", never to one that
+    // moved into it.
+    let left_out = test.window.command_bar().commands_left_out();
+    let sort = descendants::<gtk::MenuButton>(test.window.upcast_ref::<gtk::Widget>())
+        .into_iter()
+        .find(|button| button.has_css_class("sort-command"))
+        .expect("Sort");
+    sort.grab_focus();
+    test.window.emit_move_focus(gtk::DirectionType::TabForward);
+    let focus = gtk::prelude::GtkWindowExt::focus(&test.window).expect("a focus");
+    let tab_reaches_left_out = left_out
+        .iter()
+        .any(|command| focus.is_ancestor(command) || &focus == command);
+    let tab_reaches_more = focus.is_ancestor(&more) || focus == more.clone().upcast::<gtk::Widget>();
+    let wide = || {
+        resize(&test, 1320);
+        wait_for_frames(&test.window, 4);
+        see_more(&test).1
+    };
+    let view_in_menu = labels.iter().any(|label| label == "View");
+    let labels_wide = wide();
+    test.activate("text-reset", None);
+    assert!(more_shows, "See more shows whole beside the commands");
+    assert!(
+        !tab_reaches_left_out,
+        "Tab skips the commands in See more, reaching {focus:?}"
+    );
+    assert!(tab_reaches_more, "Tab goes from Sort to See more, not {focus:?}");
+    assert!(view_in_menu, "View moved into See more: {labels:?}");
+    assert!(
+        !labels_wide.iter().any(|label| label == "View"),
+        "View is back in the bar: {labels_wide:?}"
+    );
+}
+
+/// A compact window's hidden Cut and Rename are listed at the top of
+/// "…", so the bar still offers every command, as Windows' does.
+///
+/// parity: LOOK-022
+#[gtk::test]
+fn a_compact_windows_hidden_commands_are_in_see_more() {
+    let fixture = Fixture::standard();
+    let test = laid_out(&fixture.uri());
+    resize(&test, 672);
+    wait_for_frames(&test.window, 4);
+    let (_, labels) = see_more(&test);
+    for command in ["Cut", "Rename"] {
+        assert!(
+            labels.iter().any(|label| label == command),
+            "{command} in See more: {labels:?}"
+        );
+    }
+    resize(&test, 1320);
+    wait_for_frames(&test.window, 4);
+    let (_, labels) = see_more(&test);
+    assert!(
+        !labels.iter().any(|label| label == "Cut"),
+        "Cut back in the bar: {labels:?}"
+    );
+}
