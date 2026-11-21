@@ -185,6 +185,8 @@ mod imp {
         #[template_child]
         pub(super) custom_command_button: TemplateChild<gtk::Button>,
         #[template_child]
+        pub(super) find_software_button: TemplateChild<gtk::Button>,
+        #[template_child]
         pub(super) command_box: TemplateChild<gtk::Box>,
         #[template_child]
         pub(super) command_entry: TemplateChild<gtk::Entry>,
@@ -407,6 +409,11 @@ impl OpenWithDialog {
             self,
             move |_| dialog.choose_program()
         ));
+        imp.find_software_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = dialog)]
+            self,
+            move |_| dialog.find_in_software()
+        ));
         imp.custom_command_button.connect_clicked(glib::clone!(
             #[weak(rename_to = dialog)]
             self,
@@ -513,6 +520,8 @@ impl OpenWithDialog {
             None => list.preselected().map(|choice| choice.id.clone()),
         };
         imp.chosen.replace(chosen);
+        imp.find_software_button
+            .set_visible(!list.is_folder && crate::window::software_search::is_available());
         let first_listing = imp.applications.replace(Some(list)).is_none();
         self.set_status(status.as_deref());
         self.show_applications();
@@ -650,6 +659,30 @@ impl OpenWithDialog {
         imp.command_entry.grab_focus();
         imp.command_entry.set_position(-1);
         self.update_buttons();
+    }
+
+    /// Find an app in Software: asks GNOME Software to search for apps that
+    /// open the file's type (OPEN-010); says why in the dialog when it
+    /// cannot be reached.
+    fn find_in_software(&self) {
+        let content_type = self
+            .imp()
+            .applications
+            .borrow()
+            .as_ref()
+            .map(|list| list.content_type.clone());
+        let Some(content_type) = content_type else {
+            return;
+        };
+        glib::spawn_future_local(glib::clone!(
+            #[weak(rename_to = dialog)]
+            self,
+            async move {
+                if let Err(error) = crate::window::software_search::search_software(&content_type).await {
+                    dialog.set_status(Some(&error.to_string()));
+                }
+            }
+        ));
     }
 
     /// Choose an app on your PC: asks for a program file, then chooses
@@ -971,6 +1004,13 @@ impl OpenWithDialog {
             .filter(|button| button.is_visible())
             .filter_map(|button| button.label().map(String::from))
             .collect()
+    }
+
+    /// Clicks "Find an app in Software", which must be shown.
+    pub(crate) fn click_find_in_software(&self) {
+        let button = &self.imp().find_software_button;
+        assert!(button.is_visible(), "Find an app in Software is shown");
+        button.emit_clicked();
     }
 
     /// Clicks Just once.

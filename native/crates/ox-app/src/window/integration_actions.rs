@@ -233,7 +233,7 @@ impl BrowserWindow {
 
     /// Shows the Open with dialog for `subject`, once its share is
     /// mounted (NET-004).
-    fn present_open_with(&self, subject: OpenWithSubject) {
+    pub(super) fn present_open_with(&self, subject: OpenWithSubject) {
         self.present_open_with_over(self.upcast_ref(), subject);
     }
 

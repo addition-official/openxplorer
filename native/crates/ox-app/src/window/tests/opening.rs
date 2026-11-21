@@ -537,28 +537,40 @@ fn ctrl_shift_f_opens_the_search_tool_at_the_folder() {
     assert_eq!(test.context.recorded_launches(), [fixture.uri()]);
 }
 
-/// When no application opens a file's type, "Could not open the item"
-/// offers to find one in Software, while Software is installed.
+/// When no application opens a file's type, opening it shows the app
+/// chooser, as Windows does ("Select an app to open this .blend file"),
+/// rather than a message to read and close; nothing opens until an app is
+/// chosen. While Software is installed, the chooser's "Find an app in
+/// Software" searches Software for the type, as Windows' link to the
+/// Microsoft Store does.
 ///
 /// parity: OPEN-010
 #[gtk::test]
-fn a_file_without_an_application_offers_a_search_in_software() {
+fn a_file_without_an_application_opens_the_app_chooser() {
     let fixture = Fixture::standard();
+    fs::write(fixture.path("scene.blend"), b"BLENDER-v300 synthetic test data\n").expect("a fixture file");
     let test = TestWindow::open(&fixture.uri());
-    let mut entry = crate::test_support::file_entry("scene.blend");
-    entry.content_type = Some("application/x-blender".to_owned());
-    let reason = ox_core::integration::OpenError::NoApplication.to_string();
     let _software = install_test_application("org.gnome.Software.desktop");
     let software = FakeSoftware::start();
+    let open_with = || {
+        gtk::Window::list_toplevels()
+            .into_iter()
+            .filter_map(|toplevel| toplevel.downcast::<crate::integration::OpenWithDialog>().ok())
+            .find(WidgetExt::is_visible)
+    };
 
-    test.window.report_open_failure(&reason, &entry);
+    test.window.activate_item(test.position_of("scene.blend"));
 
-    let dialog = open_dialog(&test);
-    assert_eq!(dialog.message_text(), reason);
-    dialog.press("Find an app in Software");
+    wait_until("the app chooser", || open_with().is_some_and(|dialog| dialog.is_listed()));
+    let dialog = open_with().expect("the chooser is open");
+    assert_eq!(dialog.heading_text(), "Select an app to open this .blend file");
+    assert!(test.window.dialog_layer().shown().is_none(), "no message to close first");
+    assert!(test.context.recorded_launches().is_empty(), "nothing opened");
+    dialog.click_find_in_software();
     wait_until("Software to be asked", || !software.calls.borrow().is_empty());
     let search = ("search".to_owned(), vec!["application/x-blender".to_owned()]);
     assert_eq!(*software.calls.borrow(), [search]);
+    dialog.close();
 }
 
 /// An action and its string parameters.
