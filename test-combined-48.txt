@@ -1,0 +1,70 @@
+STATUS: DONE (deb built and checked; findings below)
+HEAD: test-combined-48 f94f593d (the deb was built from exactly this tree; cargo clean before the release build; guard on HEAD and a clean tree before and after)
+DEB: claude/test-combined-48-deb cf43092f
+  openxplorer_2.0.22+test48_all.deb (io.winspace.Development)
+  SHA256: b7466353273eb13bf71ac7503b0a34beec367af90d4f871648c47c3857a53278
+BASE: upstream main 0be6bf33 (2.0.22 plus #373 and #374), as asked.
+SINCE THE REQUEST: upstream main is now c27e71b0 (#372, #380, #381, #382), and pass-3, pass-5, pass-6, pass-7 and pass-8 have newer tips (ac5a340a, a3c6c481, 460af244, 47f23ab9, 7d90128a). This deb uses the heads named in the request, not those.
+
+MERGED HEADS, in this order (each was the branch tip when fetched):
+   1 pass-1-copy-move    ac63a204 -> c3b9d545 (conflict, below)
+   2 pass-2-undo-redo    813aab9d -> 457b7106 (clean)
+   3 pass-3-rename       11b31bae -> ab1719ba (clean)
+   4 pass-4-nav-pane     b60a3e28 -> 902982cd (clean)
+   5 pass-5-address-bar  b75199ec -> f2dc770e (clean)
+   6 pass-6-context-menu a2c64773 -> 4c3115c7 (conflicts, below; brings review4-diffs b873cae1)
+   7 pass-7-views        cc6bcded -> 69ad0f9d (markdown.json only)
+   8 pass-8-open-with    eacd5808 -> 79e2cb4c (markdown.json only)
+   9 pass-9-scaling      1a1d923a -> 3bd809cd (markdown.json only)
+  10 review4-diffs       b873cae1: no-op, already in through pass-6
+  11 user-icon-files     1c37a0bc -> 3cd6c729 (clean; carries the owner's #366 commits)
+  then f94f593d: rustfmt line wrap of the transfer.rs import merged in step 1 (no code change).
+
+CONFLICTS AND RESOLUTIONS:
+- pass-1, native/crates/ox-core/src/transfer.rs: main (#370) added open_local_staging and pass-1 added keep_without_modes to the same `use modes::{...}` line. Kept both; f94f593d wraps the line as rustfmt does.
+- pass-6, native/crates/ox-app/src/window/sidebar/menu.rs: pass-4 (922ffbe0) and pass-6 (90591e79) each added Open in new tab / Open in new window to the Home and Gallery rows' menu, with identical items, through different helpers (pass-4: open_elsewhere_items, also used by This PC's and Network's menu; pass-6: page_menu). Home and Gallery rows are always built with no place menu, so both conditions pick the same rows. Kept pass-4's helper and condition, removed pass-6's duplicate page_menu, kept pass-6's module doc line. Same menus either way; pass-8's newer tip 7d90128a resolves it the same way.
+- pass-6, native/crates/ox-app/src/window/status_bar.rs: module comment as in debs 44-47 (main's "19.0\u{a0}KB" plus "with a divider after it, as Windows ends it").
+- pass-6, pass-7, pass-8, pass-9: apps/web/public/assets/markdown.json regenerated with tools/sync-docs.py.
+
+ZH_CN: native/po/zh_CN.po in the merge is byte-identical to main 0be6bf33's, and the deb's zh_CN openxplorer.mo is byte-identical to main's zh_CN.po compiled with main's i18n.py (cmp).
+
+CHECKS on f94f593d:
+- parity/check.py, i18n check, sync-docs --check, rustfmt pass.
+- clippy: besides the three lints allowed in earlier debs (duration_suboptimal_units, map_unwrap_or, decimal_bitwise_operands, same on main), three warnings come from pass-6's own commit 90591e79 and are on the pass-6, pass-7 and pass-9 tips too: single_match_else at window/context_menu.rs:745 and window/tests/menu_sweep.rs:689, nonminimal_bool at window/tests/menu_sweep.rs:326. Not changed in this build; the run allowed those two lints.
+- FINDING, pass-6's window::tests::menu_sweep::every_page_menu_runs_actions_the_window_has: in a full run of the ox_app test binary the test process dies with SIGSEGV in this test (3 of 3 full runs on this tree; also at the pass-9 merge 3bd809cd and the pass-6 merge 4c3115c7). The whole menu_sweep module passes alone (8 of 8) and the test passes alone. Under gdb: the crash is in GTK, gdk_surface_request_motion, during a signal emitted from the main loop while the test closes a Home page menu (menu_sweep.rs:170 close -> harness::settle). It does not happen on pass-9's own tip (contains pass-6 but not pass-4 or pass-5; its full ox_app run completes), so it shows with pass-6's sweep after pass-4 and/or pass-5 are merged and ~1900 earlier tests have run in the same process. The installed app showed no crash in the smoke run or the input sweep below.
+- Tests (ox_app run with only that test skipped, every other binary in full, all isolated with OX_PYTHON_APP set): 5082 passed, 26 failed. Compared with main 0be6bf33 by name (each failing name run on main):
+  * 23 fail on main too (the same environment-only set as debs 43-47: root permissions, thumbnailer setup, Python fixtures, display scale).
+  * 3 pass on main:
+    - window::tests::gallery_view::small_print_is_drawn_as_sharp_as_the_original_shrunk_to_the_tile: FINDING, from pass-9-scaling. Fails every time ("medium: the tile differs from a straight shrink by 8.7 per channel"); fails on pass-9's own tip 1a1d923a, passes on pass-8's tip eacd5808 and on user-icon-files.
+    - window::tests::empty_folder_look::a_long_note_wraps_inside_the_pane: flaky, not tied to one branch. It failed in the full run and once alone, then passed 3 of 3 alone on this tree; it also flips between merge points (fails at 4c3115c7 and 3bd809cd, passes at 79e2cb4c, on pass-9's tip and on user-icon-files).
+    - settings_page::tests::every_preference_switch_saves_persists_and_turns_back_exactly: order-dependent; failed in the full run, passed alone on this tree and on main.
+  * Deb 47's flaky pinned-folder 7z test passed this time.
+- RENAME TESTS (pass-6's report of 7 rename-in-place failures after merging pass-3 at 2d91d89c): not reproduced. On this tree all 63 tests in window::tests::new_text_document, window::tests::new_folder and window::tests::renaming pass, including new_folder::a_new_folder_far_down_the_list_is_scrolled_to_and_renamed_in_place and renaming::ctrl_a_selects_the_whole_name_being_edited. All 63 also pass on pass-9's tip 1a1d923a, which contains pass-3 and pass-6. I did not build 2d91d89c itself, so no branch is identified as the cause; on these trees none causes them.
+
+SMOKE RUN (installed deb, Xvfb, non-root user with a throwaway HOME under /var/tmp, own D-Bus session and display, driven by the snapshot hook):
+- 300 files (the same generated set as debs 45-47), Details view: Details pane on and Down through all 300, then Preview pane on, Home and Down through all 300 again. Exit 0 after 382 s, ended on the last file. 0 "Bail out", 0 CRITICAL, 0 panic, 0 SIGSEGV/abort/core lines; no child process left after exit. Main process sampled every second (369 samples): fds 20 at start, max 30, 26 at the end; threads 20 / max 33 / 24; at most 6 child processes at once; RSS about 334 MB, steady.
+
+INPUT SWEEP (installed deb, same isolation; key presses go through the window's real key handlers via the scene hook's key= step, text through type=; each run on fresh fictional files, results read from disk and from the window picture; every run exit 0 with no error lines):
+- Rename: F2 on Notes.txt, typed "Meeting notes", Enter -> Meeting notes.txt (F2 selects the name without the extension, as in Windows). F2, typed text, Escape -> name unchanged.
+- Undo/redo: rename then Ctrl+Z -> Notes.txt again; then Ctrl+Y -> Meeting notes.txt.
+- Copy: Ctrl+C, Ctrl+V -> "Notes - Copy.txt"; then Ctrl+Z -> the copy is gone.
+- Cut/paste: Ctrl+X on a file, open Archive with Enter, Ctrl+V -> the file moved into Archive.
+- Address bar: Ctrl+L, typed a path, Enter -> the window shows that folder (breadcrumb Home > Documents > Projects, its file listed).
+- Context menus: Shift+F10 on a file and the Menu key on a folder each opened the compact menu (Cut/Copy/Rename/Delete strip, Open, Open with or Open in new tab/window, Compress to, Copy as path, Properties, ... Show more options). The scene hook has no pointer right-click step, and the navigation pane's menus were not opened in this sweep; the test suite's menu_sweep covers those.
+
+NO WINDOWS ICON OR FONT DATA: 683 files in the deb (deb 47 had 383; the extra 300 are licence files of crates main 0be6bf33 added for #373, Cargo.lock unchanged by the branches). None named .ttf/.otf/.ttc/.fon/.woff/.woff2/.ico/.cur/.exe/.dll/.mun/.res; none starting with a TrueType/OpenType/collection/WOFF header, a PE header (MZ) or an ICO/CUR header; file(1) reports no font and no Windows type.
+
+UNIQUE STRINGS IN THE BUILT BINARY (/opt/openxplorer/bin/openxplorer: text with grep -caF, functions with nm; none in main 0be6bf33's sources; each from a commit only that branch brings):
+   1 pass-1-copy-move:    function mounted_kind
+   2 pass-2-undo-redo:    function remember_extraction
+   3 pass-3-rename:       function rename_refusal
+   4 pass-4-nav-pane:     "Expand to open folder"
+   5 pass-5-address-bar:  function remember_typed_address
+   6 pass-6-context-menu: functions close_submenu_when_away and terminal_opens_at
+   7 pass-7-views:        function show_heading_above
+   8 pass-8-open-with:    "Set default"
+   9 pass-9-scaling:      "OxSettingsWrapLayout"
+  10 review4-diffs:       "(this PC)"
+  11 user-icon-files:     "Windows symbol font"
+POLKIT: record /var/lib/openxplorer/install-updates-without-password = "off" before install -> /etc/polkit-1/rules.d empty after install, record still "off". Purged afterwards; rules.d empty.
+IDENTITY: 107 new commits: 105 (branches, merges and the rustfmt commit) by addition-official <239187859+addition-official@users.noreply.github.com>, and the owner's 2 #366 commits (5cfe748c, b80e9b0a) by AKolenda <akole779@mtroyal.ca>, carried by user-icon-files. No trailers; no other author or committer. The added lines contain no email address. In the deb, AKolenda appears only in the upstream repository and update-check URLs (as in main); the other addresses are third-party crate licence files and the translator credit already in main's zh_CN.po.
