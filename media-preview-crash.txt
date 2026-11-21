@@ -1,32 +1,19 @@
 STATUS: DONE
-HEAD: media-preview-crash 445f1098670c430e3e9347bd7bf3274285221fe6
+HEAD: media-preview-crash d0c873dd061481bb9c9113842ec15c8e20e57ee9
 QUESTION: none
-NOTE: Preview playback (Details and Preview panes) now runs in a player process (`openxplorer-native --ox-play-media`) using classic playbin. A player starts only after the selection has rested 400 ms, at most one runs at a time, and it is stopped (pause, NULL, release) on every selection change and before rename, move, delete or replace of its file. If a player aborts, the pane shows the file's icon and the app keeps running. The app raises its soft open-file limit to the hard limit. The leak crash (fds 37→1024, SIGTRAP) is reproduced and fixed. The decodebin3 assertion itself was not reproduced (GStreamer 1.24.2 and 1.28.2), but it can no longer close the app. Based on main a77936a7; merges cleanly with PR 366.
+NOTE: Merged upstream main 5336b108 (2.0.21) with no conflicts, then fixed all five review findings. Each operation that changes files now holds them from before its questions until its write ends: it stops every player of them, waits until each has exited (killing one that won't quit, then waiting again), and refuses new players meanwhile. Undo/Redo and numbered F2 renames now hold their files too, and a share's player is also known by its smb: URI. Each fix has a test that failed first.
 
-GStreamer: Ubuntu 24.04 host 1.24.2 (GTK 4.14.5); Ubuntu 26.04 root filesystem 1.28.2 (GTK 4.22.4, which links GstPlay; 1.28 GstPlay always builds playbin3). The report's gstdecodebin3.c:3381 matches 1.28.1-1.28.4.
+FINDING 1 (player.rs:35, paste during the 400 ms delay) FIXED: a hold now covers the paste from before its conflict check and questions until it ends, and PlayerStream::new refuses to start a player of a held file, so a pending start that fires during the Replace prompt shows the icon. Test a_paste_over_a_recording_whose_player_waits_to_start_keeps_it_from_starting failed first (a player started with the question open); no_player_starts_for_a_held_file also added.
+FINDING 2 (stream.rs:158, smb source URI) FIXED: PlayerStream keeps the operation URI (the smb:// URI load_player started from) beside the local file: URI, and holds match either. Test a_player_of_a_share_is_stopped_by_the_shares_own_uri. It couldn't be written against the old code (no way to pass the source), so it failed to compile first.
+FINDING 3 (stream.rs:355, wait after forced kill) FIXED: after force_exit the hold waits on wait_future again before returning. Test a_player_that_will_not_quit_is_gone_before_its_release_returns (a test player ignoring Quit and its closed input) failed first: the killed process still existed when the release returned.
+FINDING 4 (running.rs:304, Undo/Redo) FIXED: walk_journal holds UndoRecord::locations() (new in ox-core; every URI a reversal may rename, move, delete or create, recursing into Replace steps, replaced and overwritten files) around reverse_deleting. Tests: undoing_a_copy_stops_the_copys_player_first failed first (never stopped); ox-core a_reversal_names_every_file_it_may_change failed to compile first.
+FINDING 5 (batch_rename.rs:110, numbered F2 rename) FIXED: run_numbered_rename holds batch.items' URIs around rename_numbered_items. Test a_numbered_rename_stops_a_player_of_one_of_its_files_first (a second window previews one of the files) failed first (never stopped).
 
-PASS tests first: 4 window tests in window/tests/preview_player.rs failed on main and pass at HEAD
-  - renaming_a_playing_recording_stops_its_player_first (main: stream stopped 28 ms after the rename; renamed file auto-played again)
-  - deleting_moving_or_replacing_a_playing_recording_stops_its_player_first (main: stopped 26 ms after the delete)
-  - a_player_that_aborts_leaves_the_icon_and_the_app_running (main: timed out; the abort cannot be isolated)
-  - arrowing_through_200_recordings_leaves_nothing_behind (main: fds 26 -> 1,132, threads 21 -> 834)
-PASS leak crash reproduced with the unfixed app, 24.04, real input (xdotool, private Xvfb, unprivileged user): fast Down/Up through 231 generated recordings -> fds 37 -> 1,024, threads 33 -> 893, SIGTRAP, "Too many open files"
-PASS same run, fixed app, 24.04 and 26.04, Preview and Details panes: fds 28-31, threads 25-31, 0 players while arrowing, 1 at rest, app alive after 3 passes
-PASS human speed, 1.5 s per file, auto-play on, 40 files (24.04 Preview, 26.04 Details): at most 1 player, fds 31, threads 25-29 flat
-PASS soft open-file limit raised: the app runs with 20000 (hard) where the shell's soft limit is 1024
-PASS kill -ABRT of the player while playing (24.04 and 26.04): app alive, pane shows the file's icon, next file plays
-PASS main process maps no GStreamer playback or decoder plugins while previewing; the player maps them
-PASS F2 rename while playing (24.04): renamed MP4 shows its first frame and Play, not auto-playing
-PASS right-click Rename and Delete while playing, both panes (26.04); 60 rapid clicks leave exactly 1 player
-PASS parity/check.py; rustfmt and clippy -D warnings with the workspace lints on Rust 1.92.0 (CI's toolchain)
-PASS every test executable and the doctests, run with check.py's isolation and without stopping (unprivileged, Python 3.12, node 22): 169 of 171 executables, 4,902 tests passed, 10 failed:
-  - ox_app a_pinned_folder_menu_copies_compresses_and_creates_in_that_folder: fails in the long run, passes alone (an earlier status note records the same)
-  - ox_core admin_copy (9): need root-owned paths; as root 12 of 13 pass, and an_fstab_that_cannot_be_read_refuses fails because root can read it. ox-core is unchanged from main
-FAIL check.py as one command in this container: as root, display_scale fails (the app refuses root); with the container's Python 3.13, location_fixture_drift and network_python fail (PyGObject is built for 3.12). All are environment, none touch this change
-NOT REPRODUCED: the decodebin3 "collection" assertion. Tried on the unfixed app with 1.28.2:
-  - about 2,000 random actions: renames, deletes, moves, external changes, seeking, replay after the end, rapid selection
-  - rapid selection of realistic MP3s: ID3v2.4, APIC JPEG/PNG covers, VBR Xing headers, 4 s-6 min 40 s, emoji and Tamil names
-  - direct playbin3 playback of those files
-  - 64 in-place overwrites mid-play
-  The report's leak backtrace fits a many-players cause; either way it is now out of process
-NOT TESTED: Wayland; real hardware decoders (VA-API); a real PipeWire session (a PulseAudio null sink was used); Flatpak and .deb packaging of the player mode (it re-executes /proc/self/exe as the Details reader already does)
+PASS all player tests at d0c873dd: 17 (media_player, preview_player, details_preview)
+PASS parity/check.py; parity and tools unit tests; cargo fmt --check; clippy -D warnings with the workspace lints on Rust 1.92.0
+PASS every test executable and the doctests with check.py's isolation, unprivileged, Python 3.12, node 22: 169 of 171 executables, 4,910 tests passed, 10 failed:
+  - ox_app slow_locations::working_on_it_carries_over_from_the_lookup_to_the_listing: timing; passed in the previous full run and 3 of 3 alone
+  - ox_core admin_copy (9): need root-owned paths; as root 12 of 13 pass, and an_fstab_that_cannot_be_read_refuses fails because root can read it
+FAIL check.py as one command in this container: as root, display_scale fails (the app refuses root); with the container's Python 3.13, location_fixture_drift and network_python fail. Environment only
+PASS real input, Ubuntu 26.04 root (GStreamer 1.28.2), this build: context Rename and Delete while playing in both panes; fast arrows through 231 recordings with fds 28-31 and threads 26; kill -ABRT of the player leaves the app alive
+NOT TESTED: a real SMB share (tests must not mount remote locations; finding 2 is covered by the unit test with a fictional smb:// URI); Wayland; hardware decoders; a real PipeWire session
