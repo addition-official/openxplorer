@@ -1464,8 +1464,9 @@ fn new_in_a_pinned_folder_ends_a_search_first() {
 }
 
 /// The folder menu grays Open in Terminal where no terminal can open, as
-/// the navigation pane's menus do: on Network's and Gallery's blank space,
-/// which are no folder on a drive or share; a folder keeps it.
+/// the navigation pane's menus do: on Gallery's blank space, which is no
+/// folder on a drive or share; Network's menu leaves it out, as Windows
+/// 11's; a folder keeps it.
 ///
 /// parity: CMD-011, OPEN-017
 #[gtk::test]
@@ -1485,12 +1486,18 @@ fn the_folder_menu_grays_open_in_terminal_where_no_terminal_opens() {
             });
             test.window.right_click(None);
             let menu = test.window.context_menu();
-            assert_eq!(
-                menu.row("Open in Terminal").is_sensitive(),
-                opens,
-                "{style:?} {place}: {:?}",
-                menu.row_labels()
-            );
+            let rows = menu.row_labels();
+            // Network's menus have no Open in Terminal at all, as
+            // Windows 11's (page_menus.rs).
+            if rows.contains(&"Open in Terminal".to_owned()) {
+                assert_eq!(
+                    menu.row("Open in Terminal").is_sensitive(),
+                    opens,
+                    "{style:?} {place}: {rows:?}"
+                );
+            } else {
+                assert_eq!(place, "Network", "{style:?}: {rows:?}");
+            }
             menu.popdown();
         }
     }

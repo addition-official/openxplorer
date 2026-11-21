@@ -11,8 +11,7 @@
 //! selection, an MP3, an MP4, a JPEG, an ODT, a ZIP, a 7z archive, a
 //! file with an odd name and a 5 GB disk image; the background of a
 //! folder; Home, its Quick access tiles and its Recent and Favorites
-//! rows; Gallery; This PC and a drive (not yet Home's and This PC's blank
-//! space, which have no menu); Network; the Recycle Bin and an
+//! rows; Gallery; This PC and a drive; Network; the Recycle Bin and an
 //! item in it; an item inside a ZIP and its background; search results;
 //! every navigation pane row; the address bar; the column titles; and a
 //! tab. The log lists each menu's rows, for comparing with Windows 11.
@@ -85,7 +84,7 @@ fn check_item(window: &BrowserWindow, menu: &str, item: &MenuItem, problems: &mu
 }
 
 /// The menu of the window that is open now, once it has drawn.
-fn open_menu(window: &BrowserWindow) -> Option<MenuPopover> {
+pub(super) fn open_menu(window: &BrowserWindow) -> Option<MenuPopover> {
     let shown = || {
         descendants::<MenuPopover>(window)
             .into_iter()
@@ -103,7 +102,7 @@ fn open_menu(window: &BrowserWindow) -> Option<MenuPopover> {
 
 /// The rows of `menu` as one line for the log: dividers as `|`, the
 /// strip's buttons in brackets, grayed rows in parentheses.
-fn summary(menu: &MenuPopover) -> String {
+pub(super) fn summary(menu: &MenuPopover) -> String {
     let mut parts = Vec::new();
     let strip = menu.strip_labels();
     if !strip.is_empty() {
@@ -159,7 +158,7 @@ fn sweep_menu(window: &BrowserWindow, name: &str, menu: &MenuPopover, problems: 
 }
 
 /// Closes `menu` with a real Escape and waits until it has.
-fn close(session: &mut Session, menu: &MenuPopover) {
+pub(super) fn close(session: &mut Session, menu: &MenuPopover) {
     session.pointer.tap_key(gtk::gdk::Key::Escape);
     if menu.is_mapped() {
         wait_for_frames(menu, 2);
@@ -171,14 +170,14 @@ fn close(session: &mut Session, menu: &MenuPopover) {
 }
 
 /// The screen point on the item called `name` of the file list.
-fn on_item(session: &Session, name: &str) -> (i32, i32) {
+pub(super) fn on_item(session: &Session, name: &str) -> (i32, i32) {
     let position = position_of(&session.test, name);
     let (_, x, y) = session.test.window.right_button_on_item(position);
     session.on_screen(&session.test.window.folder_pane().input_widget(), (x, y))
 }
 
 /// The screen point on blank space at the bottom of the file list.
-fn on_blank(session: &Session) -> (i32, i32) {
+pub(super) fn on_blank(session: &Session) -> (i32, i32) {
     let view = session.test.window.folder_pane().input_widget();
     session.on_screen(&view, (6.0, f64::from(view.height()) - 6.0))
 }
@@ -290,11 +289,6 @@ fn every_page_menu_runs_actions_the_window_has() {
                     at,
                     &mut problems,
                 );
-            }
-            // Home's and This PC's blank space have no menu yet: what
-            // Windows 11 lists there is to be checked on Windows first.
-            if matches!(page, "Home" | "This PC") {
-                continue;
             }
             let pane = session.test.window.folder_pane().clone();
             let at = session.on_screen(
@@ -558,7 +552,7 @@ fn the_first_right_click_on_a_ctrl_clicked_selection_opens_its_menu() {
 }
 
 /// The screen point of the middle of the navigation pane's row `label`.
-fn on_sidebar_row(session: &Session, label: &str) -> (i32, i32) {
+pub(super) fn on_sidebar_row(session: &Session, label: &str) -> (i32, i32) {
     let sidebar = session.test.window.sidebar();
     let index = sidebar
         .labels()
@@ -573,7 +567,7 @@ fn on_sidebar_row(session: &Session, label: &str) -> (i32, i32) {
 }
 
 /// The locations of the window's tabs, in order.
-fn tab_locations(session: &Session) -> Vec<String> {
+pub(super) fn tab_locations(session: &Session) -> Vec<String> {
     session
         .test
         .window
