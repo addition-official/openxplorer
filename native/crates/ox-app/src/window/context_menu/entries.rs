@@ -1004,22 +1004,27 @@ pub(crate) fn item_menu(facts: &ItemFacts, style: MenuStyle) -> ContextMenu {
 /// The Windows 11 style, in the order of Explorer's compact menu on a
 /// file: Cut, Copy, Rename, Share and Delete in the strip (and Paste on a
 /// folder while there is something to paste), then Open, Open with,
-/// Share with, Compress to, Copy as path and Properties; the applications'
-/// own commands (Windows' "Edit in Notepad", here "Open in <editor>", and
-/// a folder's Open in Terminal); then "Show more options" (CMD-010). A
+/// Share with, Add to Favorites, Compress to, Copy as path and
+/// Properties; the applications' own commands (Windows' "Edit in
+/// Notepad", here "Edit in <editor>" and "Open in <editor>", and a
+/// folder's Open in Terminal); then "Show more options" (CMD-010). A
 /// folder lists Open in new tab, Open in new window and Pin to Quick
-/// access after Open, as Windows does. The app's other commands are in
-/// the classic menu behind "Show more options".
+/// access after Open, as Windows does. A search result or a Recent row
+/// lists one Open file location before Add to Favorites, as Windows 11's
+/// Gallery does (SRCH-015). The app's other commands are in the classic
+/// menu behind "Show more options".
 fn compact_item_menu(facts: &ItemFacts) -> ContextMenu {
     let mut entries = vec![open_item(facts)];
-    entries.extend(file_location_items(facts));
     entries.extend(extraction_items(facts));
     entries.extend(mount_item(facts));
     entries.extend(compact_open_with(facts));
     entries.extend(folder_open_items(facts));
+    entries.extend(share_with_item(facts));
+    // One Open file location, as Windows 11's Gallery and Home list it:
+    // its "in new tab" and "in new window" are in the classic menu.
+    entries.extend(file_location_items(facts).into_iter().take(1));
     entries.extend(favorite_item(facts));
     entries.extend(other_open_items(facts));
-    entries.extend(share_with_item(facts));
     entries.push(compress_submenu());
     entries.push(copy_path_item());
     // Properties describe several items together (PROP-002).
@@ -2141,29 +2146,85 @@ mod tests {
         );
     }
 
-    /// A search result or a Recent row lists Open file location right
-    /// after Open, where Windows lists it, in both styles.
+    /// A search result or a Recent row lists Open file location once in
+    /// the compact menu, after Share with and before Add to Favorites, as
+    /// Windows 11's Gallery and Home list it; the classic menu lists it
+    /// right after Open, as Windows' classic menu does, with the app's
+    /// own "in new tab" and "in new window" beside it.
     ///
-    /// parity: SRCH-015
+    /// parity: SRCH-015, SRCH-016, HOME-014
     #[test]
-    fn a_search_result_offers_open_file_location_right_after_open() {
+    fn a_search_result_offers_open_file_location_once_in_the_compact_menu() {
         let facts = ItemFacts {
             has_file_location: true,
+            can_share: true,
+            send_to: SendToTargets {
+                mail: true,
+                ..SendToTargets::default()
+            },
+            favorite: Some(("file:///home/user/report.pdf".to_owned(), false)),
             ..file()
         };
 
-        let locations = [
-            "Open file location",
-            "Open file location in new tab",
-            "Open file location in new window",
-        ];
-        for style in [MenuStyle::Classic, MenuStyle::Compact] {
-            let entries = labels(&item_menu(&facts, style).entries);
-            assert_eq!(entries[0], "Open", "{style:?}");
-            assert_eq!(entries[1..4], locations, "{style:?}");
-        }
+        assert_eq!(
+            labels(&item_menu(&facts, MenuStyle::Compact).entries),
+            [
+                "Open",
+                "Open with…",
+                "Share with",
+                "Open file location",
+                "Add to Favorites",
+                "Compress to",
+                "Copy as path",
+                "Properties",
+                "-",
+                "Show more options",
+            ]
+        );
+        let classic = labels(&item_menu(&facts, MenuStyle::Classic).entries);
+        assert_eq!(
+            classic[..4],
+            [
+                "Open",
+                "Open file location",
+                "Open file location in new tab",
+                "Open file location in new window",
+            ]
+        );
         assert!(!labels(&item_menu(&file(), MenuStyle::Classic).entries)
             .contains(&"Open file location".to_owned()));
+    }
+
+    /// A file's compact menu lists Share with before Add to Favorites, as
+    /// Windows 11's does: Open, Open with, Share with, Add to Favorites,
+    /// Compress to, Copy as path, Properties.
+    ///
+    /// parity: CMD-010, HOME-014
+    #[test]
+    fn share_with_comes_before_add_to_favorites() {
+        let facts = ItemFacts {
+            can_share: true,
+            send_to: SendToTargets {
+                bluetooth: true,
+                ..SendToTargets::default()
+            },
+            favorite: Some(("file:///home/user/report.pdf".to_owned(), true)),
+            ..file()
+        };
+        assert_eq!(
+            labels(&item_menu(&facts, MenuStyle::Compact).entries),
+            [
+                "Open",
+                "Open with…",
+                "Share with",
+                "Remove from Favorites",
+                "Compress to",
+                "Copy as path",
+                "Properties",
+                "-",
+                "Show more options",
+            ]
+        );
     }
 
     /// A folder's compact menu, as Windows 11's: Cut, Copy, Paste (shown
