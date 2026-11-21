@@ -41,6 +41,10 @@ const MERGE_TITLE: &str = crate::i18n::message_id("Confirm Folder Replace");
 /// The size of each folder's icon in the folder question.
 const MERGE_ICON_SIZE: i32 = 48;
 
+/// How far the folder question's lines below its message start in, to
+/// line up with the message beside the warning icon.
+const MERGE_INDENT: i32 = 44;
+
 /// What the "Confirm Folder Replace" question answered.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum MergeAnswer {
@@ -68,7 +72,7 @@ fn merge_question(name: &str) -> String {
 /// "Date created:" and when, as Windows shows them.
 fn folder_row(entry: &Entry, created: Option<u64>) -> gtk::Box {
     let row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    row.set_margin_start(24);
+    row.set_margin_start(MERGE_INDENT);
     let art = FileItem::new(entry.clone()).art();
     row.append(&ArtImage::new(art, MERGE_ICON_SIZE));
     let lines = gtk::Box::new(gtk::Orientation::Vertical, 2);
@@ -254,6 +258,7 @@ impl BrowserWindow {
         let with = gtk::Label::builder()
             .label(ox_core::i18n::gettext("with this one?"))
             .xalign(0.0)
+            .margin_start(MERGE_INDENT)
             .build();
         dialog.add_field(&with);
         dialog.add_field(&folder_row(&renamed, renamed_created));
