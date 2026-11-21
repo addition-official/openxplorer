@@ -8,7 +8,8 @@
 //! access, Previous versions and Properties; every item acts on the pin's
 //! location, not on the folder shown. Drives and network locations have
 //! their [`PlaceMenu`](crate::window::place_menus::PlaceMenu), saved
-//! searches theirs. This PC's and Network's ([`head_menu`]) list Windows
+//! searches theirs. Home's and Gallery's offer Open in new tab and Open in
+//! new window. This PC's and Network's ([`head_menu`]) list Windows
 //! 11's items in its order, where the app has them: Expand or Collapse,
 //! Open in new tab, Open in new window, Add a network location (This PC
 //! only), Map network drive…, Disconnect network drive and, for This PC,
@@ -225,6 +226,28 @@ pub(super) fn head_menu(section: Section, uri: &str, state: &HeadMenuState) -> V
     entries
 }
 
+/// The menu of Home's or Gallery's row, which opens `uri`: Open in new
+/// tab and Open in new window, as This PC's and Network's offer them and
+/// Windows 11's navigation pane offers them on Home and Gallery.
+fn page_menu(uri: &str) -> Vec<MenuEntry> {
+    vec![
+        MenuItem::with_text_target(
+            &ox_core::i18n::gettext("Open in new tab"),
+            Icon::Add,
+            WindowAction::OpenTab,
+            uri,
+        )
+        .into(),
+        MenuItem::with_text_target(
+            &ox_core::i18n::gettext("Open in new window"),
+            Icon::WindowNew,
+            WindowAction::OpenWindow,
+            uri,
+        )
+        .into(),
+    ]
+}
+
 impl Sidebar {
     /// The menu of the row at `y` in the list, in the classic style: a
     /// pin's, a drive's or a network location's, This PC's or Network's;
@@ -435,6 +458,10 @@ impl Sidebar {
                     &self.head_menu_state(entry.section),
                 ));
             }
+        }
+        // Home (its page, or the home folder) and Gallery.
+        if let (Section::Home, RowTarget::Location(uri)) = (entry.section, &entry.target) {
+            return Some(page_menu(uri));
         }
         let place = entry.menu.as_ref()?;
         let place_menu = place.entries(caching_in(place, self));
