@@ -69,6 +69,7 @@ mod landing_pages;
 mod late_replies;
 mod listing;
 mod look;
+mod menu_sweep;
 mod middle_click;
 mod more_explorer_keys;
 pub(super) mod name_conflicts;
