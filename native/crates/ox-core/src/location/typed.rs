@@ -19,7 +19,7 @@ use std::borrow::Cow;
 /// `%NAME%` is expanded anywhere; `$NAME` only where the name ends the
 /// text or is followed by `/`, so a name such as `$HOME notes` stays as
 /// typed; `${NAME}` anywhere. An empty value expands to nothing.
-pub fn typed_address<'a>(typed: &'a str, variable: impl Fn(&str) -> Option<String>) -> Cow<'a, str> {
+pub fn typed_address(typed: &str, variable: impl Fn(&str) -> Option<String>) -> Cow<'_, str> {
     let unquoted = without_quotes(typed);
     if !unquoted.contains(['%', '$']) {
         return unquoted;
@@ -34,15 +34,12 @@ pub fn typed_address<'a>(typed: &'a str, variable: impl Fn(&str) -> Option<Strin
     while let Some(at) = rest.find(['%', '$']) {
         expanded.push_str(&rest[..at]);
         let marked = &rest[at..];
-        match expand_one(marked, &lookup) {
-            Some((value, used)) => {
-                expanded.push_str(&value);
-                rest = &marked[used..];
-            }
-            None => {
-                expanded.push_str(&marked[..1]);
-                rest = &marked[1..];
-            }
+        if let Some((value, used)) = expand_one(marked, &lookup) {
+            expanded.push_str(&value);
+            rest = &marked[used..];
+        } else {
+            expanded.push_str(&marked[..1]);
+            rest = &marked[1..];
         }
     }
     expanded.push_str(rest);

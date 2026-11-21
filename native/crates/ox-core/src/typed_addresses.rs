@@ -195,7 +195,7 @@ mod tests {
         history.remember("smb://nas/Team@2026").expect("saved");
 
         assert_eq!(history.addresses(), ["smb://nas/Team@2026"]);
-        let stored = format!("{{\"addresses\": [\"/ok\", \"smb://sam@nas/x\", \"/a\\u0007b\", \"/ok\", 7]}}");
+        let stored = r#"{"addresses": ["/ok", "smb://sam@nas/x", "/a\u0007b", "/ok", 7]}"#;
         fs::write(folder.path().join(TYPED_ADDRESSES_FILE), stored).expect("written");
         assert!(
             TypedAddresses::open(folder.path()).addresses().is_empty(),
