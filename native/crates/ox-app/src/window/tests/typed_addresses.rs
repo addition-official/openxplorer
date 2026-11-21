@@ -5,6 +5,7 @@
 //! and kept across restarts.
 
 use std::fs;
+use std::time::Duration;
 
 use gtk::glib::translate::IntoGlib;
 use gtk::prelude::*;
@@ -12,7 +13,8 @@ use gtk::{gdk, glib};
 use ox_core::typed_addresses::{TypedAddresses, TYPED_ADDRESSES_FILE};
 
 use crate::locations::Page;
-use crate::test_support::harness::{wait_until, Fixture, TestWindow};
+use crate::test_support::harness::{wait_for, wait_until, Fixture, TestWindow};
+use crate::test_support::pointer::{screen_point, Button, Pointer};
 use crate::window::address_bar::AddressMode;
 use crate::window::file_drag::DraggedItems;
 
@@ -245,5 +247,74 @@ fn a_crumb_drags_its_folder() {
             .crumb_drag_content_at(f64::from(point.x()), f64::from(point.y()))
             .is_none(),
         "a page is no folder to drag"
+    );
+}
+
+/// The screen point of the middle of `widget`.
+fn on_screen(pointer: &mut Pointer, widget: &impl IsA<gtk::Widget>) -> (i32, i32) {
+    let middle = (f64::from(widget.width()) / 2.0, f64::from(widget.height()) / 2.0);
+    screen_point(pointer, widget, middle, (8, 8))
+}
+
+/// With a real pointer, Ctrl held as a crumb is dragged onto another
+/// tab copies its folder there and opens no tab, as a Ctrl+drag of a
+/// folder does; a Ctrl+click without a drag still opens the crumb in a
+/// background tab (NAV-019).
+///
+/// parity: DND-001, NAV-019
+#[gtk::test]
+fn a_real_ctrl_drag_of_a_crumb_copies_its_folder_and_opens_no_tab() {
+    let fixture = fixture_with_team_files();
+    let mut pointer = Pointer::connect();
+    let test = TestWindow::open(&fixture.uri_of("Documents"));
+    test.window
+        .add_tab(&fixture.uri_of("Team files"))
+        .expect("a second tab");
+    wait_until("Team files", || {
+        test.window.current_uri() == Some(fixture.uri_of("Team files"))
+    });
+    test.wait_for_listing("Team files");
+    crate::test_support::harness::wait_for_frames(&test.window, 3);
+    let crumb = test
+        .window
+        .address_bar()
+        .crumb_buttons()
+        .pop()
+        .expect("the Team files crumb");
+    let from = on_screen(&mut pointer, &crumb);
+    let documents_tab = crate::window::widget_tree::children(&test.window.tab_strip().tab_list())
+        .next()
+        .expect("the Documents tab");
+    let to = on_screen(&mut pointer, &documents_tab);
+
+    pointer.move_to(from.0, from.1);
+    pointer.hold_key(gdk::Key::Control_L);
+    pointer.press(Button::Primary);
+    pointer.glide(from, (from.0 + 12, from.1 + 12), 4);
+    pointer.glide((from.0 + 12, from.1 + 12), to, 12);
+    wait_for(Duration::from_millis(600));
+    pointer.release(Button::Primary);
+    pointer.let_go_key(gdk::Key::Control_L);
+
+    wait_until("the copy", || {
+        fixture.path("Documents/Team files/Tone sample.mp3").is_file()
+    });
+    assert!(
+        fixture.path("Team files/Tone sample.mp3").is_file(),
+        "copied, not moved"
+    );
+    wait_for(Duration::from_millis(300));
+    assert_eq!(test.window.tab_count(), 2, "the drag opened no tab");
+
+    pointer.move_to(from.0, from.1);
+    pointer.hold_key(gdk::Key::Control_L);
+    pointer.press(Button::Primary);
+    pointer.release(Button::Primary);
+    pointer.let_go_key(gdk::Key::Control_L);
+    wait_until("the Ctrl+click's tab", || test.window.tab_count() == 3);
+    assert_eq!(
+        test.window.current_uri(),
+        Some(fixture.uri_of("Team files")),
+        "in the background"
     );
 }
