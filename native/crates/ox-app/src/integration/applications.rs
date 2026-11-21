@@ -277,7 +277,10 @@ pub(crate) fn menu_applications(
         (false, known) => known.unwrap_or(UNKNOWN_CONTENT_TYPE),
     };
     let default = gio::AppInfo::default_for_type(content_type, false);
-    let default_id: Option<String> = default.as_ref().and_then(|app| app.id()).map(Into::into);
+    let default_id: Option<String> = default
+        .as_ref()
+        .and_then(gio::prelude::AppInfoExt::id)
+        .map(Into::into);
     let mut recommended = gio::AppInfo::recommended_for_type(content_type);
     let recommended_ids: Vec<String> = recommended
         .iter()
