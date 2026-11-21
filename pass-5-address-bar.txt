@@ -1,6 +1,6 @@
 STATUS: DONE
 HEAD: pass-5-address-bar a3c6c481f27bbf4467338fcec88ede450524fccf
-QUESTION: You listed Home with the standard folders; I kept the earlier rule for Home (a subfolder called Home in the current folder wins), as for This PC and Network. Should Home also go to the home folder first?
+QUESTION: none
 NOTE: Address bar tested against Windows 11 with real input (xdotool, release build, unprivileged user, private 1366x768 Xvfb with Openbox and xcompmgr, throwaway home with fictional mp3/mp4/pdf/jpg/odt/zip/7z, odd names and a 300 MB file). Five differences fixed test-first on pass-5-address-bar from 5336b108: quoted paths ("Copy as path" output), %NAME% / $NAME / ${NAME} variables, Tab and Shift+Tab through the suggestions, typed history shared by every window and kept in typed-addresses.json across restarts (Clear history removes it), and dragging a crumb like its folder. A real-input check found that a Ctrl+drag of a crumb also opened a tab (the Ctrl+click acted on press); fixed test-first (now acts on release). Merged pass-2-undo-redo, pass-3-rename (twice, as it moved) and pass-4-nav-pane, which touch the same features.toml, window/tests.rs and file_drag.rs; no conflicts. pass-1 came in through pass-3. Round 2 (the VM check of 2026-11-22): Windows' four-item address bar menu (Copy Address, Copy Address as Text, Edit Address, Delete History) and standard folder names (Documents and the rest) opening from any folder with crumbs that start at them, both test-first. No PR opened, no translations touched, no icon-files code touched.
 
 PASS quoted path, real input 1x light and dark: Ctrl+L, "/srv/oxt/home/Documents/Odd names" with the quotes, Enter -> Odd names; "%USERPROFILE%/Downloads" in quotes -> Downloads
@@ -39,7 +39,7 @@ NOT CHANGED: the not-found box keeps the app's name as title and in the text ("O
 
 CHANGED OWNER DECISIONS:
 - NAV-031: the address bar menu drops Dolphin's Paste and go, Open "<crumb>" in new tab / new window, Keep address editable and Show full path for Windows' four commands. The toggles stay in the entry's menu while editing and in Settings; middle-click on blank space still goes to the selected text.
-- NAV-033: a standard folder's name (Desktop, Documents, Downloads, Music, Pictures, Videos) opens that folder before a subfolder of that name in the current folder. Home, This PC and Network keep the earlier rule (a subfolder of that name wins).
+- NAV-033 (answered 2026-11-22: keep the rule for Home, a subfolder named Home wins, as for This PC and Network): a standard folder's name (Desktop, Documents, Downloads, Music, Pictures, Videos) opens that folder before a subfolder of that name in the current folder. Home, This PC and Network keep the earlier rule (a subfolder of that name wins).
 - NAV-024: a standard folder and what is inside it get crumbs that start at it (Documents > Letters) instead of Home > Documents > Letters, wherever it is opened from.
 
 VM CHECK (Windows 11 File Explorer; not confirmed from a Microsoft source. Already confirmed on build 26200 on 2026-11-22 and left out here: quoted paths, %USERPROFILE%\Music, the unset-variable box, the Back list order, the four-item address menu, typing Documents in C:\Windows):
