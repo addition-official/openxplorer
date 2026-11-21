@@ -408,10 +408,44 @@ impl BrowserWindow {
         self.sidebar().list().add_controller(source);
     }
 
-    /// What dragging the crumb at (`x`, `y`) of the address bar offers.
+    /// Lets the address bar's crumbs be dragged out like the folders
+    /// they name, as a sidebar folder is: into another folder, the
+    /// sidebar or another app. A plain drag offers Copy, as any drag out
+    /// of the app does (DND-008); the crumb of search results, a page and
+    /// the address being edited drag nothing.
+    pub(super) fn attach_crumb_file_drag(&self) {
+        let source = file_drag_source();
+        // Before the crumb buttons' own click, which would take the press.
+        source.set_propagation_phase(gtk::PropagationPhase::Capture);
+        source.connect_prepare(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            #[upgrade_or]
+            None,
+            move |source, x, y| {
+                let button = pressed_button(source)?;
+                let uri = window.address_bar().crumb_location_at(x, y)?;
+                let is_drive = window.are_all_drives(std::slice::from_ref(&uri));
+                let content = window.crumb_drag_content_at(x, y)?;
+                let actions = if is_drive {
+                    DRIVE_DRAG_ACTIONS
+                } else {
+                    offered_actions(button, source.current_event_state())
+                };
+                source.set_actions(actions);
+                Some(content)
+            }
+        ));
+        self.follow_file_drag(&source);
+        self.address_bar().add_controller(source);
+    }
+
+    /// What dragging the crumb at (`x`, `y`) of the address bar offers:
+    /// its folder, as the sidebar offers one; `None` off a crumb, for a
+    /// page or the search results, and while an operation runs.
     pub(super) fn crumb_drag_content_at(&self, x: f64, y: f64) -> Option<gdk::ContentProvider> {
-        let _ = (x, y);
-        None
+        let uri = self.address_bar().crumb_location_at(x, y)?;
+        self.sidebar_drag_content(uri)
     }
 
     /// What dragging This PC's tile of the drive at `uri` offers: the

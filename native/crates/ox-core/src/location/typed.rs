@@ -20,8 +20,90 @@ use std::borrow::Cow;
 /// text or is followed by `/`, so a name such as `$HOME notes` stays as
 /// typed; `${NAME}` anywhere. An empty value expands to nothing.
 pub fn typed_address<'a>(typed: &'a str, variable: impl Fn(&str) -> Option<String>) -> Cow<'a, str> {
-    let _ = &variable;
-    Cow::Borrowed(typed)
+    let unquoted = without_quotes(typed);
+    if !unquoted.contains(['%', '$']) {
+        return unquoted;
+    }
+    let lookup = |name: &str, any_case: bool| {
+        let value = variable(name).or_else(|| any_case.then(|| variable(&name.to_uppercase())).flatten());
+        let is_home_alias = any_case && name.eq_ignore_ascii_case("USERPROFILE");
+        value.or_else(|| is_home_alias.then(|| variable("HOME")).flatten())
+    };
+    let mut expanded = String::with_capacity(unquoted.len());
+    let mut rest: &str = &unquoted;
+    while let Some(at) = rest.find(['%', '$']) {
+        expanded.push_str(&rest[..at]);
+        let marked = &rest[at..];
+        match expand_one(marked, &lookup) {
+            Some((value, used)) => {
+                expanded.push_str(&value);
+                rest = &marked[used..];
+            }
+            None => {
+                expanded.push_str(&marked[..1]);
+                rest = &marked[1..];
+            }
+        }
+    }
+    expanded.push_str(rest);
+    if expanded == *unquoted {
+        unquoted
+    } else {
+        Cow::Owned(expanded)
+    }
+}
+
+/// `typed` without one pair of double quotes around all of it, spaces
+/// outside them ignored; `typed` itself otherwise.
+fn without_quotes(typed: &str) -> Cow<'_, str> {
+    let trimmed = typed.trim();
+    let inner = trimmed.strip_prefix('"').and_then(|rest| rest.strip_suffix('"'));
+    match inner {
+        Some(inner) => Cow::Owned(inner.to_owned()),
+        None => Cow::Borrowed(typed),
+    }
+}
+
+/// The value of the variable `marked` starts with (`%NAME%`, `${NAME}` or
+/// `$NAME` before a `/` or the end) and how many bytes it takes; `None`
+/// when it starts with none, or names one that is not set.
+fn expand_one(marked: &str, lookup: &impl Fn(&str, bool) -> Option<String>) -> Option<(String, usize)> {
+    if let Some(after) = marked.strip_prefix('%') {
+        let end = after.find('%')?;
+        let name = &after[..end];
+        if !is_variable_name(name) {
+            return None;
+        }
+        return Some((lookup(name, true)?, end + 2));
+    }
+    let after = marked.strip_prefix('$')?;
+    if let Some(braced) = after.strip_prefix('{') {
+        let end = braced.find('}')?;
+        let name = &braced[..end];
+        if !is_variable_name(name) {
+            return None;
+        }
+        return Some((lookup(name, false)?, end + 3));
+    }
+    let end = after
+        .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+        .unwrap_or(after.len());
+    let name = &after[..end];
+    let ends_well = after[end..].is_empty() || after[end..].starts_with('/');
+    if !is_variable_name(name) || !ends_well {
+        return None;
+    }
+    Some((lookup(name, false)?, end + 1))
+}
+
+/// A name a variable may have: letters, digits and `_`, not starting
+/// with a digit, and the `(`, `)` of Windows' `ProgramFiles(x86)`.
+fn is_variable_name(name: &str) -> bool {
+    let mut characters = name.chars();
+    let starts_well = characters
+        .next()
+        .is_some_and(|first| first.is_ascii_alphabetic() || first == '_');
+    starts_well && characters.all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '(' | ')'))
 }
 
 #[cfg(test)]
@@ -41,6 +123,7 @@ mod tests {
         typed_address(text, variables).into_owned()
     }
 
+    /// parity: NAV-033
     #[test]
     fn surrounding_double_quotes_are_removed_once() {
         assert_eq!(typed("\"/home/demo/Team files\""), "/home/demo/Team files");
@@ -54,6 +137,7 @@ mod tests {
         assert_eq!(typed("\"\""), "");
     }
 
+    /// parity: NAV-033
     #[test]
     fn percent_variables_are_expanded_as_windows_expands_them() {
         assert_eq!(typed("%HOME%/Music"), "/home/demo/Music");

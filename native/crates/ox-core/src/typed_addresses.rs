@@ -55,10 +55,8 @@ impl TypedAddresses {
     /// missing, damaged or refused file is read as empty.
     pub fn open(directory: &Path) -> Self {
         let path = directory.join(TYPED_ADDRESSES_FILE);
-        Self {
-            path,
-            addresses: Vec::new(),
-        }
+        let addresses = read(&path).unwrap_or_default();
+        Self { path, addresses }
     }
 
     /// The addresses, most recent first.
@@ -73,8 +71,18 @@ impl TypedAddresses {
     /// The [`StorageError`] of writing the file; the history in memory
     /// changes either way.
     pub fn remember(&mut self, address: &str) -> Result<(), StorageError> {
-        let _ = address;
-        Ok(())
+        let address = address.trim();
+        if !may_keep(address) {
+            return Ok(());
+        }
+        // Re-read, so an address typed in another process is not lost.
+        if let Some(stored) = read(&self.path) {
+            self.addresses = stored;
+        }
+        self.addresses.retain(|kept| kept != address);
+        self.addresses.insert(0, address.to_owned());
+        self.addresses.truncate(MAX_TYPED_ADDRESSES);
+        self.save()
     }
 
     /// Forgets every address and removes the file.
@@ -84,21 +92,58 @@ impl TypedAddresses {
     /// The [`StorageError`] of removing the file.
     pub fn clear(&mut self) -> Result<(), StorageError> {
         self.addresses.clear();
-        Ok(())
+        match fs::remove_file(&self.path) {
+            Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
+                Err(StorageError::io(&self.path, error))
+            }
+            _ => Ok(()),
+        }
     }
+
+    /// Writes the history privately and atomically.
+    fn save(&self) -> Result<(), StorageError> {
+        let text = serde_json::to_string_pretty(&Stored {
+            addresses: self.addresses.clone(),
+        })
+        .unwrap_or_default();
+        private_directory(crate::private_storage::parent_directory(&self.path))?;
+        replace_file_atomically(&self.path, TEMPORARY_PREFIX, text.as_bytes())
+    }
+}
+
+/// The addresses kept at `path`, those that may not be kept left out;
+/// `None` when there is no file or it is unusable.
+fn read(path: &Path) -> Option<Vec<String>> {
+    let file = private_file_if_present(path, PrivateFileOptions::default()).ok()??;
+    let text = read_limited_text(file, path, MAX_FILE_BYTES).ok()?;
+    let stored: Stored = serde_json::from_str(&text).ok()?;
+    let mut addresses: Vec<String> = Vec::new();
+    for address in stored.addresses {
+        if may_keep(&address) && address.trim() == address && !addresses.contains(&address) {
+            addresses.push(address);
+        }
+    }
+    addresses.truncate(MAX_TYPED_ADDRESSES);
+    Some(addresses)
 }
 
 /// Whether `address` may be kept: not empty, short enough, without a
 /// control character or a user name.
 fn may_keep(address: &str) -> bool {
-    let _ = (address, MAX_ADDRESS_BYTES);
-    true
+    let authority = address
+        .split_once("://")
+        .map(|(_, rest)| rest.split('/').next().unwrap_or(rest));
+    !address.trim().is_empty()
+        && address.len() <= MAX_ADDRESS_BYTES
+        && !address.chars().any(char::is_control)
+        && !authority.is_some_and(|authority| authority.contains('@'))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    /// parity: NAV-043
     #[test]
     fn typed_addresses_go_to_the_top_once_and_the_oldest_drop_off() {
         let folder = tempfile::tempdir().expect("a temporary folder");
@@ -113,9 +158,10 @@ mod tests {
         assert_eq!(addresses[0], "/demo/20");
         assert_eq!(addresses[1], "/demo/24");
         assert_eq!(addresses.iter().filter(|kept| *kept == "/demo/20").count(), 1);
-        assert_eq!(addresses[19], "/demo/6");
+        assert_eq!(addresses[19], "/demo/5", "moving one up drops none");
     }
 
+    /// parity: NAV-043
     #[test]
     fn the_history_is_kept_privately_and_read_back() {
         let folder = tempfile::tempdir().expect("a temporary folder");
