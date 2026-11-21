@@ -323,7 +323,7 @@ fn page_items(session: &Session) -> Vec<gtk::Widget> {
     let rows = descendants::<gtk::ListBoxRow>(pane)
         .into_iter()
         .filter(WidgetExt::is_drawable)
-        .filter(|row| !row.ancestor(MenuPopover::static_type()).is_some())
+        .filter(|row| row.ancestor(MenuPopover::static_type()).is_none())
         .map(Cast::upcast);
     let mut items: Vec<gtk::Widget> = tiles.chain(rows).collect();
     if items.is_empty() {
@@ -686,17 +686,16 @@ fn the_right_click_after_choosing_from_a_menu_opens_the_next_menu() {
         session.pointer.glide(clicked, at, 8);
         session.pointer.press(Button::Secondary);
         session.pointer.release(Button::Secondary);
-        match open_menu(&window) {
-            Some(menu) => close(&mut session, &menu),
-            None => {
-                eprintln!("MISS round {round}: {from} › {row}, then {next}");
-                misses.push(format!("{from} › {row}, then {next}"));
-                // The second right-click, to go on.
-                session.pointer.press(Button::Secondary);
-                session.pointer.release(Button::Secondary);
-                if let Some(menu) = open_menu(&window) {
-                    close(&mut session, &menu);
-                }
+        if let Some(menu) = open_menu(&window) {
+            close(&mut session, &menu);
+        } else {
+            eprintln!("MISS round {round}: {from} › {row}, then {next}");
+            misses.push(format!("{from} › {row}, then {next}"));
+            // The second right-click, to go on.
+            session.pointer.press(Button::Secondary);
+            session.pointer.release(Button::Secondary);
+            if let Some(menu) = open_menu(&window) {
+                close(&mut session, &menu);
             }
         }
     }
