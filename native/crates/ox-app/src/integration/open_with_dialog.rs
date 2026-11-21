@@ -38,15 +38,9 @@ use super::applications::{
 use super::custom_command::{run_custom_command, CustomCommand};
 use crate::icons::{self, Icon};
 
-/// Why Always is off for a file whose extension does not name its type.
-const NO_DEFAULT_FOR_TYPE: &str = crate::i18n::message_id(
-    "Always is available for files whose extension tells their type. Use Just once for this file.",
-);
-
-/// Why Set default is off for a file whose extension does not name its
-/// type.
+/// Why Set default is off for a file without an extension.
 const NO_SET_DEFAULT_FOR_TYPE: &str =
-    crate::i18n::message_id("A default app can be set for files whose extension tells their type.");
+    crate::i18n::message_id("A default app can be set only for files with an extension.");
 
 /// Why a program file picked while changing the default is not used.
 const ONLY_APPS_AS_DEFAULT: &str =
@@ -107,8 +101,9 @@ impl Section {
 }
 
 /// The dialog's heading for an item named `name`: "Select an app to open
-/// this .txt file", "… this file" without an extension (a hidden file's
-/// leading dot is not one), "… this folder" for a folder.
+/// this .txt file", "Select an app to open 'README'" without an
+/// extension (a hidden file's leading dot is not one), "… this folder" for
+/// a folder, as Windows 11 words them.
 pub(crate) fn heading(name: &str, is_folder: bool) -> String {
     if is_folder {
         return ox_core::i18n::gettext("Select an app to open this folder");
@@ -118,20 +113,21 @@ pub(crate) fn heading(name: &str, is_folder: bool) -> String {
             "Select an app to open this {extension} file",
             &[("extension", extension)],
         ),
-        None => ox_core::i18n::gettext("Select an app to open this file"),
+        // Windows names a file without an extension.
+        None => ox_core::i18n::format_message("Select an app to open '{name}'", &[("name", name)]),
     }
 }
 
 /// The heading when the dialog changes the default of the type of a file
-/// named `name`: "Select an app to open .txt files", or "… this file"
-/// without an extension.
+/// named `name`, as Windows' Properties > Change... asks: "Select a
+/// default app for .txt files", or the file's name without an extension.
 pub(crate) fn default_heading(name: &str) -> String {
     match extension(name) {
         Some(extension) => ox_core::i18n::format_message(
-            "Select an app to open {extension} files",
+            "Select a default app for {extension} files",
             &[("extension", extension)],
         ),
-        None => ox_core::i18n::gettext("Select an app to open this file"),
+        None => ox_core::i18n::format_message("Select a default app for '{name}'", &[("name", name)]),
     }
 }
 
@@ -321,6 +317,23 @@ impl OpenWithDialog {
         imp.custom_command_button.set_visible(false);
         imp.always_button
             .set_label(&ox_core::i18n::gettext("Set default"));
+        // Windows' Properties > Change... lists the current app under
+        // "Default app" and the others under "More options".
+        for (heading, list, text) in [
+            (
+                &imp.default_heading,
+                &imp.default_list,
+                ox_core::i18n::gettext("Default app"),
+            ),
+            (
+                &imp.suggested_heading,
+                &imp.suggested_list,
+                ox_core::i18n::gettext("More options"),
+            ),
+        ] {
+            heading.set_label(&text);
+            list.update_property(&[gtk::accessible::Property::Label(&text)]);
+        }
         imp.always_button.remove_css_class("bordered");
         imp.always_button.add_css_class("accent");
         dialog.present_listing(subject, Box::new(report))
@@ -545,7 +558,16 @@ impl OpenWithDialog {
             let selected = Section::ALL
                 .into_iter()
                 .find_map(|section| self.list(section).selected_row());
-            if let Some(row) = selected {
+            // With none chosen, the keyboard goes to the first app, which
+            // stays unchosen until the user picks it.
+            let first = || {
+                Section::ALL
+                    .into_iter()
+                    .filter(|&section| self.list(section).is_visible())
+                    .find_map(|section| self.list(section).row_at_index(0))
+                    .filter(gtk::ListBoxRow::is_selectable)
+            };
+            if let Some(row) = selected.or_else(first) {
                 row.grab_focus();
                 imp.keyboard_placed.set(true);
             }
@@ -622,24 +644,29 @@ impl OpenWithDialog {
         let may_change_default = self.may_change_default();
         imp.always_button
             .set_sensitive(idle && has_app && !has_command && !is_folder && may_change_default);
+        let is_listed = imp.applications.borrow().is_some();
         if self.changes_default() {
-            let why_not = (!may_change_default && imp.applications.borrow().is_some())
+            let why_not = (!may_change_default && is_listed)
                 .then(|| ox_core::i18n::gettext_static(NO_SET_DEFAULT_FOR_TYPE));
             imp.always_button.set_tooltip_text(why_not);
             return;
         }
-        let why_not = (!is_folder && !may_change_default && imp.applications.borrow().is_some())
-            .then(|| ox_core::i18n::gettext_static(NO_DEFAULT_FOR_TYPE));
-        imp.always_button.set_tooltip_text(why_not);
+        // As in Windows, a file without an extension is offered Just once
+        // only: Always would have nothing to change.
+        if is_listed {
+            imp.always_button.set_visible(!is_folder && may_change_default);
+        }
     }
 
     /// Whether "Always" may make the chosen application the default of
     /// the file's type: its extension names the type
-    /// ([`ApplicationList::may_change_default`]). Not until the list is
+    /// ([`ApplicationList::default_target`]). Not until the list is
     /// read.
     fn may_change_default(&self) -> bool {
         let applications = self.imp().applications.borrow();
-        applications.as_ref().is_some_and(|list| list.may_change_default)
+        applications
+            .as_ref()
+            .is_some_and(|list| list.default_target.is_some())
     }
 
     /// Chooses the application of `row` in `section`, and clears the
@@ -954,17 +981,6 @@ impl OpenWithDialog {
         self.imp().chosen.borrow().clone()
     }
 
-    /// The name of the chosen application.
-    pub(crate) fn chosen_name(&self) -> Option<String> {
-        let chosen = self.chosen()?;
-        let applications = self.imp().applications.borrow();
-        let list = applications.as_ref()?;
-        list.choices
-            .iter()
-            .find(|choice| choice.id == chosen)
-            .map(|choice| choice.name.clone())
-    }
-
     /// The name of the application whose row has the keyboard.
     pub(crate) fn focused_name(&self) -> Option<String> {
         let focus = gtk::prelude::RootExt::focus(self)?;
@@ -1025,6 +1041,16 @@ impl OpenWithDialog {
                 Some((section, row))
             })
             .unwrap_or_else(|| panic!("{name} is listed"))
+    }
+
+    /// The headings of the sections shown, in order.
+    pub(crate) fn section_headings(&self) -> Vec<String> {
+        let imp = self.imp();
+        [&imp.default_heading, &imp.suggested_heading]
+            .into_iter()
+            .filter(|heading| heading.is_visible())
+            .map(|heading| heading.text().to_string())
+            .collect()
     }
 
     /// The labels of the buttons shown at the foot of the dialog, in
@@ -1106,7 +1132,7 @@ fn empty_row(unfiltered: bool) -> gtk::ListBoxRow {
 
 #[cfg(test)]
 mod tests {
-    use super::heading;
+    use super::{default_heading, heading};
 
     /// The heading names the extension as Windows 11's chooser does.
     ///
@@ -1121,9 +1147,16 @@ mod tests {
             heading("archive.tar.gz", false),
             "Select an app to open this .gz file"
         );
-        assert_eq!(heading("Makefile", false), "Select an app to open this file");
-        assert_eq!(heading(".bashrc", false), "Select an app to open this file");
-        assert_eq!(heading("trailing.", false), "Select an app to open this file");
+        // Windows names a file without an extension.
+        assert_eq!(heading("Makefile", false), "Select an app to open 'Makefile'");
+        assert_eq!(heading(".bashrc", false), "Select an app to open '.bashrc'");
+        assert_eq!(heading("trailing.", false), "Select an app to open 'trailing.'");
         assert_eq!(heading("Documents", true), "Select an app to open this folder");
+        // Properties' Change...
+        assert_eq!(
+            default_heading("Notes.txt"),
+            "Select a default app for .txt files"
+        );
+        assert_eq!(default_heading("README"), "Select a default app for 'README'");
     }
 }

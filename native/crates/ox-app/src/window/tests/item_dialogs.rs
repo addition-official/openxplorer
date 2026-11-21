@@ -1918,9 +1918,10 @@ fn change_opens_open_with_over_the_properties_window() {
 }
 
 /// Change... in Properties changes which app opens the file's type, as
-/// in Windows, and opens nothing: the chooser asks for "Select an app to
-/// open .txt files" and offers "Set default" instead of "Just once" and
-/// "Always"; Set default makes the chosen app the default, closes the
+/// in Windows, and opens nothing: the chooser asks "Select a default app
+/// for .txt files", lists the current app under "Default app" and the
+/// others under "More options", and offers "Set default" instead of
+/// "Just once" and "Always"; Set default makes the chosen app the default, closes the
 /// chooser and shows the new app in Opens with.
 ///
 /// parity: PROP-003, OPEN-012
@@ -1980,7 +1981,8 @@ fn change_sets_the_default_app_without_opening_the_file() {
         open_with().is_some_and(|dialog| dialog.is_listed())
     });
     let dialog = open_with().expect("Open with is open");
-    assert_eq!(dialog.heading_text(), "Select an app to open .txt files");
+    assert_eq!(dialog.heading_text(), "Select a default app for .txt files");
+    assert_eq!(dialog.section_headings(), ["Default app", "More options"]);
     assert_eq!(dialog.footer_buttons(), ["Set default", "Cancel"]);
     dialog.select_named("Properties Editor");
     settle();

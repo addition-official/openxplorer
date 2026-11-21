@@ -1325,15 +1325,11 @@ msgid "Super+E will stop opening OpenXplorer once you log out and back in."
 msgstr ""
 
 #: crates/ox-app/src/integration/open_with_dialog.rs
-msgid "A default app can be set for files whose extension tells their type."
+msgid "A default app can be set only for files with an extension."
 msgstr ""
 
 #: crates/ox-app/src/integration/open_with_dialog.rs
 msgid "All files"
-msgstr ""
-
-#: crates/ox-app/src/integration/open_with_dialog.rs
-msgid "Always is available for files whose extension tells their type. Use Just once for this file."
 msgstr ""
 
 #: crates/ox-app/resources/ui/open-with-dialog.ui crates/ox-app/src/integration/open_with_dialog.rs
@@ -1341,7 +1337,15 @@ msgid "Choose an app on your PC"
 msgstr ""
 
 #: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "Default app"
+msgstr ""
+
+#: crates/ox-app/src/integration/open_with_dialog.rs
 msgid "Finding installed applications…"
+msgstr ""
+
+#: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "More options"
 msgstr ""
 
 #: crates/ox-app/src/integration/open_with_dialog.rs
@@ -1364,8 +1368,19 @@ msgstr ""
 msgid "Ran the command."
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/integration/open_with_dialog.rs
-msgid "Select an app to open this file"
+msgid "Select a default app for '{name}'"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "Select a default app for {extension} files"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "Select an app to open '{name}'"
 msgstr ""
 
 #: crates/ox-app/src/integration/open_with_dialog.rs
@@ -1375,11 +1390,6 @@ msgstr ""
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/integration/open_with_dialog.rs
 msgid "Select an app to open this {extension} file"
-msgstr ""
-
-#. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-app/src/integration/open_with_dialog.rs
-msgid "Select an app to open {extension} files"
 msgstr ""
 
 #: crates/ox-app/src/integration/open_with_dialog.rs
