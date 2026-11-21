@@ -1,0 +1,43 @@
+STATUS: DONE
+HEAD: pass-2-undo-redo 813aab9d2b240aa11eb18e17afc48fdfe1f44782
+QUESTION: none
+NOTE: Two fixes. (1) Undo Move whose item's old name was taken again by another program left the item moved in silence and used up the step, so the next Ctrl+Z reversed an older operation; it now asks in the progress window (Interrupted Action, Try Again / Skip / Cancel) and never overwrites. (2) Extract here and Extract all were not recorded for Undo, so Ctrl+Z after an extraction reversed the step before it (in testing it sent a file just restored from the Recycle Bin back there); extraction is now Undo Copy (to the Recycle Bin, asking when changed since, Redo brings it back; files a Replace answered come back). Merged pass-1-copy-move (both change native/po/openxplorer.pot; merged cleanly, template checked current). No .po edits; icon-files code untouched. Everything else in the matrix already matched or is listed under VM CHECK.
+
+PASS rename F2 single: Ctrl+Z, Ctrl+Y, Ctrl+Shift+Z, Ctrl+Z (real input, Xvfb + xdotool, unprivileged user, throwaway HOME)
+PASS several selected, F2 "Doc" -> Doc (1).mp4, Doc (2).odt, Doc (3).jpg, Doc (4).pdf; one Ctrl+Z undoes all, Ctrl+Y redoes all; md5 identical
+PASS Delete to Recycle Bin, Ctrl+Z restores, Ctrl+Y deletes again
+PASS permanent delete (Shift+Delete): "Delete File / Are you sure you want to permanently delete this file?" Yes/No with item facts; nothing recorded, Undo grayed when nothing earlier (see VM CHECK about Redo surviving it)
+PASS copy (Ctrl+C/Ctrl+V) with Replace: old file to Recycle Bin; Ctrl+Z restores old version (md5 checked), copy to Recycle Bin; Ctrl+Y replaces again; Ctrl+Z again
+PASS cut/paste of mp4 + pdf + 150 MB file: Ctrl+Z, Ctrl+Y, Ctrl+Z; md5 identical after each
+PASS drag and drop move of mp4 into a folder, Ctrl+Z moves it back; md5 identical
+PASS New folder (Ctrl+Shift+N) + typed name: Ctrl+Z "Undo Rename", Ctrl+Z "Undo New", Ctrl+Y twice
+PASS restore from Recycle Bin (context menu Restore): Ctrl+Z sends it back, Ctrl+Y restores again
+PASS Properties > General name change: Ctrl+Z renames back
+PASS Properties > Hidden: stored as a dot rename, so Ctrl+Z offers "Undo Rename" and unhides (see VM CHECK)
+PASS Compress (existing behavior): Undo New takes the archive away
+FAIL->PASS Extract here: Ctrl+Z did nothing to the extraction and reversed the earlier Restore; after the fix: Ctrl+Z removes the folder, Ctrl+Y brings it back (md5 identical), Ctrl+Z again; folder menu reads "Undo Copy"
+FAIL->PASS Extract all into an existing folder: Undo was disabled for it (Ctrl+Z reversed the step before); now Undo Copy (window test; real input covered Extract here)
+FAIL->PASS Undo Move onto a taken name: silent, step lost; now asks "An item named "Report.pdf" is already in "Work", so Undo left it in "Sub folder"." Try Again after freeing the name moves it back (md5 identical, other program's file kept); Skip leaves both; "Do this for all current items" only with several items
+PASS rename undone after an external rename: "Item Not Found / Could not find this item" with Try Again / Skip / Cancel (Cancel uses up the step; see VM CHECK)
+PASS Undo Delete onto a taken name: Interrupted Action "already exists in its original folder. It was left in the Recycle Bin." nothing overwritten
+PASS undo across tabs (Ctrl+T, Ctrl+Z in the new tab) and windows (Ctrl+N, Ctrl+Y and Ctrl+Z in the new window)
+PASS redo list clears after a new action (rename after an undo: "See more" menu shows Undo, no Redo)
+PASS undo after app restart: nothing to undo, Ctrl+Z does nothing, menu Undo grayed (matches Microsoft docs: undo state lives in Explorer.exe)
+PASS undo storm: 6 steps (copy 7 files incl. conflict Skip, delete jpg, rename, new folder, rename, cut 150 MB + 7z), 12x Ctrl+Z at 0.15 s, 12x Ctrl+Y at 0.1 s, 12x Ctrl+Z at 0.1 s: md5 of every file under Work identical to the start; undone copies are in the Recycle Bin, nothing deleted
+PASS no Bail out / CRITICAL / panicked / SIG* in app stderr in any session
+PASS tests first: ops_undo undoing_a_move_puts_items_back_but_never_over_a_new_item and try_again_moves_an_item_back_once_its_old_name_is_free; clipboard undoing_a_move_onto_a_taken_name_asks_and_try_again_moves_it_back (fails with the old undo_apply.rs, passes with the fix); archives undo_takes_back_an_extraction_into_an_existing_folder, undo_and_redo_walk_extract_here; undo.rs an_extraction_is_undone_as_a_copy
+PASS checks with Rust 1.92 (CI's): rustfmt, clippy -D warnings, parity/check.py, i18n check (only the .pot regenerated); check.py itself stops at display_scale, which fails on main too
+PASS full run, every test binary --no-fail-fast, isolated: branch 4,861 passed / 48 failed vs unchanged main 4,856 / 48; the 48 failing names are identical (Python-app fixtures, root ignoring chmod 000, desktop-app handlers); +5 passing are the new tests. After merging pass-1: ops_undo, ops_name_conflicts, ops_transfer, transfer and the ox-app undo/archives/clipboard tests show only main's failures
+PASS captures 1x light and dark of both changed screens (Undo Move question, folder menu "Undo Copy" after extraction), shown in the session chat; no PNGs here
+NOT TESTED: Weston (the change is in core and dialogs that X11 already shows; no Wayland-specific code); SMB shares (no server); undo of a move onto a taken name inside a folder merge (engine skips only top-level items there, unchanged)
+
+VM CHECK (Windows 11, each in a fresh test folder with a few files):
+1. Undo Move onto a taken name: cut Report.pdf from folder A, paste into B. In A, create a new file named Report.pdf. Press Ctrl+Z. Look for: does Explorer show the "Replace or Skip Files" conflict dialog, an error, or nothing? (This branch asks Try Again / Skip / Cancel and never replaces.)
+2. Undo Delete onto a taken name: delete notes.txt, create a new notes.txt in the same folder, Ctrl+Z. Look for: conflict dialog vs error, and its words.
+3. Extract All then Ctrl+Z: right-click a .zip > Extract All > Extract; close the new window; in the zip's folder press Ctrl+Z. Look for: is the extracted folder removed, and does right-click > Undo say "Undo Copy" (or something else)? Repeat with Extract All into an existing folder.
+4. Permanent delete and Redo: rename a.txt to b.txt, Ctrl+Z (Redo now possible), then Shift+Delete another file. Look for: is Ctrl+Y (Redo Rename) still offered? (This branch keeps it.)
+5. Undo Rename after the file was renamed by another program: rename a.txt to b.txt, rename b.txt to c.txt in cmd (ren), Ctrl+Z in Explorer. Look for: the dialog's title and buttons, and whether after Cancel the next Ctrl+Z undoes the step before (this branch: "Item Not Found", Try Again / Skip / Cancel; Cancel uses up the step).
+6. Hidden attribute via Properties: tick Hidden on a file, OK, then Ctrl+Z. Look for: is there an Undo for it at all? (Here Hidden is a dot-rename, so Ctrl+Z unhides.)
+7. Undo New of a folder that has files in it: New folder, put a file in it, Ctrl+Z (twice if it was renamed). Look for: does Windows ask before removing a non-empty new folder? (This branch moves it to the Recycle Bin without asking.)
+8. Undo of a copy whose copy was edited: copy notes.txt into another folder, edit and save the copy, Ctrl+Z. Look for: a question about the changed file, and its words. (This branch asks "Undo copy?".)
+9. Undo of a copy that replaced a file: copy a.txt over an existing a.txt (Replace), Ctrl+Z. Look for: is the old a.txt gone for good, and does Undo delete the new one leaving nothing?
