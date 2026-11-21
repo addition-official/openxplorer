@@ -132,8 +132,9 @@ fn right_clicking_a_file_selects_it_and_opens_the_classic_menu() {
             "-",
             "Compress to…",
             "-",
-            "Properties",
             "Configure service actions…",
+            "-",
+            "Properties",
         ]
     );
     assert!(menu.row("Rename").is_sensitive());
@@ -1460,4 +1461,37 @@ fn new_in_a_pinned_folder_ends_a_search_first() {
     });
     assert_eq!(test.window.current_uri().as_deref(), Some(pinned.as_str()));
     test.window.search_strip().set_keeps_search(false);
+}
+
+/// The folder menu grays Open in Terminal where no terminal can open, as
+/// the navigation pane's menus do: on Network's and Gallery's blank space,
+/// which are no folder on a drive or share; a folder keeps it.
+///
+/// parity: CMD-011, OPEN-017
+#[gtk::test]
+fn the_folder_menu_grays_open_in_terminal_where_no_terminal_opens() {
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    for style in [ContextMenu::Win11, ContextMenu::Win10] {
+        choose_menu_style(&test, style);
+        for (place, uri, opens) in [
+            ("a folder", fixture.uri(), true),
+            ("Network", ox_core::location::NETWORK_URI.to_owned(), false),
+            ("Gallery", ox_core::location::GALLERY_URI.to_owned(), false),
+        ] {
+            test.activate("go-to", Some(&uri));
+            wait_until(&format!("{place} to show"), || {
+                test.window.current_uri().as_deref() == Some(uri.as_str())
+            });
+            test.window.right_click(None);
+            let menu = test.window.context_menu();
+            assert_eq!(
+                menu.row("Open in Terminal").is_sensitive(),
+                opens,
+                "{style:?} {place}: {:?}",
+                menu.row_labels()
+            );
+            menu.popdown();
+        }
+    }
 }

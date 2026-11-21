@@ -8,7 +8,8 @@
 //! access, Previous versions and Properties; every item acts on the pin's
 //! location, not on the folder shown. Drives and network locations have
 //! their [`PlaceMenu`](crate::window::place_menus::PlaceMenu), saved
-//! searches theirs. This PC's and Network's ([`head_menu`]) list Windows
+//! searches theirs. Home's and Gallery's offer Open in new tab and Open in
+//! new window. This PC's and Network's ([`head_menu`]) list Windows
 //! 11's items in its order, where the app has them: Expand or Collapse,
 //! Open in new tab, Open in new window, Add a network location (This PC
 //! only), Map network drive…, Disconnect network drive and, for This PC,

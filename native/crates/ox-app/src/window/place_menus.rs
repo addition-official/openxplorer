@@ -142,8 +142,7 @@ fn disks_items(uri: &str, controls: MountControls) -> Vec<MenuEntry> {
 /// can open there (`terminalMenuItem`): anywhere but a local folder, an
 /// SMB share or an SFTP, FTP, WebDAV or NFS place.
 fn terminal_item(uri: &str) -> MenuEntry {
-    let is_share = (is_smb_location(uri) || is_remote_location(uri)) && !is_smb_server(uri);
-    let can_open = uri.starts_with("file:") || is_share;
+    let can_open = terminal_opens_at(uri);
     let terminal = MenuItem::with_text_target(
         &ox_core::i18n::gettext("Open in Terminal"),
         Icon::WindowConsole,
@@ -151,6 +150,14 @@ fn terminal_item(uri: &str) -> MenuEntry {
         uri,
     );
     terminal.disabled_when(!can_open).into()
+}
+
+/// Whether a terminal can open at `uri` (`terminalMenuItem`): a local
+/// folder, an SMB share or an SFTP, FTP, WebDAV or NFS place, not a
+/// server's share list or a page such as Network or Gallery.
+pub(super) fn terminal_opens_at(uri: &str) -> bool {
+    let is_share = (is_smb_location(uri) || is_remote_location(uri)) && !is_smb_server(uri);
+    uri.starts_with("file:") || is_share
 }
 
 /// "Cache this folder for search" for the place at `uri`, where it can be
