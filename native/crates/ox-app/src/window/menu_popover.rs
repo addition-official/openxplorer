@@ -171,6 +171,26 @@ mod imp {
         /// The timer that lets the contents count as opaque again once
         /// the menu has faded in.
         pub(super) opaque_again: RefCell<Option<SourceId>>,
+        /// What a kept menu does once it has closed, for its current
+        /// opening only ([`super::MenuPopover::after_close`]).
+        pub(super) after_close: RefCell<AfterClose>,
+    }
+
+    /// What a kept menu runs as it closes.
+    type CloseWork = Box<dyn FnOnce(&super::MenuPopover)>;
+
+    /// The work a kept menu does once it has closed.
+    #[derive(Default)]
+    pub(crate) struct AfterClose(pub(super) Option<CloseWork>);
+
+    impl std::fmt::Debug for AfterClose {
+        fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.write_str(if self.0.is_some() {
+                "AfterClose(set)"
+            } else {
+                "AfterClose(none)"
+            })
+        }
     }
 
     #[glib::object_subclass]
@@ -266,6 +286,8 @@ mod imp {
 
     impl WidgetImpl for MenuPopover {
         fn show(&self) {
+            // A kept menu opens afresh: nothing chosen yet.
+            self.chose.set(false);
             // Before GTK places the menu, so it is placed at its full size.
             self.obj().open_below_button_again();
             self.obj().fit_to_monitor();
@@ -937,6 +959,42 @@ impl MenuPopover {
     /// submenus, was chosen.
     pub(super) fn chose_an_item(&self) -> bool {
         self.imp().chose.get()
+    }
+
+    /// The menu `owner` keeps under `name`, made and parented to it the
+    /// first time, then shown again each time, as the file list keeps its
+    /// menu. A menu made for one opening and unparented once it closed
+    /// left GTK (4.14) holding the pointer's focus on a row of its
+    /// unrealized popup when a pointer event reached the hidden popup in
+    /// between: the window's next layout then asked that gone surface for
+    /// the pointer (`gdk_surface_request_motion` on NULL, a crash). A kept
+    /// menu's popup lives as long as its owner.
+    pub(in crate::window) fn kept_by(owner: &impl IsA<gtk::Widget>, name: &str) -> MenuPopover {
+        let owner = owner.upcast_ref::<gtk::Widget>();
+        let kept = super::widget_tree::children(owner)
+            .filter_map(|child| child.downcast::<MenuPopover>().ok())
+            .find(|menu| menu.widget_name() == name);
+        if let Some(menu) = kept {
+            return menu;
+        }
+        let menu = MenuPopover::new(Vec::new());
+        menu.set_widget_name(name);
+        menu.set_parent(owner);
+        menu.connect_closed(|menu| {
+            if let Some(after) = menu.imp().after_close.take().0 {
+                after(menu);
+            }
+        });
+        menu
+    }
+
+    /// Runs `after` as this opening of a kept menu ([`Self::kept_by`])
+    /// closes, before its chosen item runs, in place of what an earlier
+    /// opening asked for.
+    pub(in crate::window) fn after_close(&self, after: impl FnOnce(&MenuPopover) + 'static) {
+        self.imp()
+            .after_close
+            .replace(imp::AfterClose(Some(Box::new(after))));
     }
 
     /// The menu this one is a submenu of, if it is one.

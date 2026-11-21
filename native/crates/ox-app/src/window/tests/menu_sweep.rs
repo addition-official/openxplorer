@@ -132,7 +132,7 @@ fn sweep_at(session: &mut Session, name: &str, at: (i32, i32), problems: &mut Pr
     let window = session.test.window.clone();
     let mut menu = None;
     for attempt in 0..2 {
-        session.pointer.move_to(at.0, at.1);
+        glide_to(session, at);
         session.pointer.press(Button::Secondary);
         session.pointer.release(Button::Secondary);
         menu = open_menu(&window);
@@ -147,6 +147,24 @@ fn sweep_at(session: &mut Session, name: &str, at: (i32, i32), problems: &mut Pr
     };
     sweep_menu(&window, name, &menu, problems);
     close(session, &menu);
+}
+
+thread_local! {
+    /// Where the sweep left the real pointer, so it glides on from there.
+    static POINTER_AT: std::cell::Cell<Option<(i32, i32)>> = const { std::cell::Cell::new(None) };
+}
+
+/// Glides the real pointer to `at` from where the sweep left it, as a
+/// hand moves it: jumped there in one step right after a menu's popup
+/// left the screen under it, X11 gives GTK the next press nowhere it can
+/// deliver it (a test artifact, see
+/// `the_right_click_after_choosing_from_a_menu_opens_the_next_menu`).
+fn glide_to(session: &mut Session, at: (i32, i32)) {
+    match POINTER_AT.get() {
+        Some(from) if from != at => session.pointer.glide(from, at, 8),
+        _ => session.pointer.move_to(at.0, at.1),
+    }
+    POINTER_AT.set(Some(at));
 }
 
 /// Checks the rows and strip of the open `menu`, called `name`.
@@ -317,7 +335,7 @@ fn page_items(session: &Session) -> Vec<gtk::Widget> {
     let rows = descendants::<gtk::ListBoxRow>(pane)
         .into_iter()
         .filter(WidgetExt::is_drawable)
-        .filter(|row| !row.ancestor(MenuPopover::static_type()).is_some())
+        .filter(|row| row.ancestor(MenuPopover::static_type()).is_none())
         .map(Cast::upcast);
     let mut items: Vec<gtk::Widget> = tiles.chain(rows).collect();
     if items.is_empty() {
@@ -680,17 +698,16 @@ fn the_right_click_after_choosing_from_a_menu_opens_the_next_menu() {
         session.pointer.glide(clicked, at, 8);
         session.pointer.press(Button::Secondary);
         session.pointer.release(Button::Secondary);
-        match open_menu(&window) {
-            Some(menu) => close(&mut session, &menu),
-            None => {
-                eprintln!("MISS round {round}: {from} › {row}, then {next}");
-                misses.push(format!("{from} › {row}, then {next}"));
-                // The second right-click, to go on.
-                session.pointer.press(Button::Secondary);
-                session.pointer.release(Button::Secondary);
-                if let Some(menu) = open_menu(&window) {
-                    close(&mut session, &menu);
-                }
+        if let Some(menu) = open_menu(&window) {
+            close(&mut session, &menu);
+        } else {
+            eprintln!("MISS round {round}: {from} › {row}, then {next}");
+            misses.push(format!("{from} › {row}, then {next}"));
+            // The second right-click, to go on.
+            session.pointer.press(Button::Secondary);
+            session.pointer.release(Button::Secondary);
+            if let Some(menu) = open_menu(&window) {
+                close(&mut session, &menu);
             }
         }
     }

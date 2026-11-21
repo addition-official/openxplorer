@@ -814,35 +814,32 @@ fn add_extras(entries: &mut Vec<MenuEntry>, extras: Vec<MenuEntry>) {
                 if item.action == super::menu_popover::MenuAction::Window(WindowAction::ShowMoreOptions)
         )
     });
-    match more {
-        Some(at) => {
-            let group = std::iter::once(MenuEntry::Divider).chain(extras);
-            // Before the divider that sets "Show more options" apart.
-            let before = if at > 0 && matches!(entries[at - 1], MenuEntry::Divider) {
-                at - 1
-            } else {
-                at
-            };
-            entries.splice(before..before, group);
-        }
-        None => {
-            // The classic menu ends with Properties, as Windows' does.
-            let properties = entries.iter().rposition(|entry| {
-                matches!(
-                    entry,
-                    MenuEntry::Item(item)
-                        if item.action == super::menu_popover::MenuAction::Window(WindowAction::Properties)
-                )
-            });
-            match properties {
-                Some(at) => {
-                    let after_divider = at == 0 || matches!(entries[at - 1], MenuEntry::Divider);
-                    let lead = (!after_divider).then_some(MenuEntry::Divider);
-                    let group = lead.into_iter().chain(extras).chain([MenuEntry::Divider]);
-                    entries.splice(at..at, group);
-                }
-                None => entries.extend(extras),
+    if let Some(at) = more {
+        let group = std::iter::once(MenuEntry::Divider).chain(extras);
+        // Before the divider that sets "Show more options" apart.
+        let before = if at > 0 && matches!(entries[at - 1], MenuEntry::Divider) {
+            at - 1
+        } else {
+            at
+        };
+        entries.splice(before..before, group);
+    } else {
+        // The classic menu ends with Properties, as Windows' does.
+        let properties = entries.iter().rposition(|entry| {
+            matches!(
+                entry,
+                MenuEntry::Item(item)
+                    if item.action == super::menu_popover::MenuAction::Window(WindowAction::Properties)
+            )
+        });
+        match properties {
+            Some(at) => {
+                let after_divider = at == 0 || matches!(entries[at - 1], MenuEntry::Divider);
+                let lead = (!after_divider).then_some(MenuEntry::Divider);
+                let group = lead.into_iter().chain(extras).chain([MenuEntry::Divider]);
+                entries.splice(at..at, group);
             }
+            None => entries.extend(extras),
         }
     }
 }
