@@ -244,3 +244,126 @@ fn a_split_tab_beside_the_details_pane_at_1366_pixels_reaches_every_column() {
         }
     }
 }
+
+/// The widest the window's least width may be at any text size: its
+/// least size (`window_size.rs`), so a window at that size, or a laptop
+/// screen, is never pushed wider.
+const LEAST_WINDOW_WIDTH: i32 = 670;
+
+/// Text at 200 %, as Ctrl+plus five times from 100 % makes it.
+fn largest_text(test: &TestWindow) {
+    larger_text(test, 5);
+}
+
+/// Text `steps` levels larger, as Ctrl+plus that many times from 100 %
+/// makes it: 3 for 150 %.
+fn larger_text(test: &TestWindow, steps: usize) {
+    for _ in 0..steps {
+        test.activate("text-larger", None);
+    }
+    wait_for_frames(&test.window, 3);
+}
+
+/// The leaves under `widget` that ask for more than `limit` pixels of
+/// width on their own, for a failure message.
+fn widest_leaves(widget: &gtk::Widget, limit: i32) -> Vec<String> {
+    descendants(widget)
+        .into_iter()
+        .filter(|leaf: &gtk::Widget| {
+            leaf.is_visible() && leaf.measure(gtk::Orientation::Horizontal, -1).0 > limit
+        })
+        .filter(|leaf: &gtk::Widget| {
+            descendants(leaf).into_iter().skip(1).all(|child: gtk::Widget| {
+                !child.is_visible() || child.measure(gtk::Orientation::Horizontal, -1).0 <= limit
+            })
+        })
+        .map(|leaf: gtk::Widget| {
+            let text = leaf
+                .downcast_ref::<gtk::Label>()
+                .map(|label| label.text().to_string());
+            format!("{} {:?} {:?}", leaf.type_(), leaf.css_classes(), text)
+        })
+        .collect()
+}
+
+/// Opening Settings at the largest text size in a window at its least
+/// width leaves the window as it is: every row wraps or narrows within
+/// it rather than pushing the window wider, off a small screen.
+///
+/// parity: LOOK-022
+#[gtk::test]
+fn settings_at_the_largest_text_size_fit_the_least_window_width() {
+    let fixture = Fixture::standard();
+    let test = laid_out(&fixture.uri());
+    resize(&test, 672);
+    largest_text(&test);
+    test.activate("settings", None);
+    wait_for_frames(&test.window, 6);
+    let least = test.window.measure(gtk::Orientation::Horizontal, -1).0;
+    let leaves = widest_leaves(test.window.upcast_ref(), LEAST_WINDOW_WIDTH / 2);
+    test.activate("text-reset", None);
+    assert!(
+        least <= LEAST_WINDOW_WIDTH,
+        "the window needs {least} pixels with Settings open: {leaves:#?}"
+    );
+}
+
+/// At 150 % text in a window at its least width, each Settings page fits
+/// beside the categories without scrolling sideways: fields narrow and
+/// long choices end in "…". Only the table of suggested folders to
+/// index, five columns wide, may scroll. (At 175 % and 200 % a row whose
+/// buttons' labels are longer than the room scrolls sideways instead of
+/// widening the window.)
+///
+/// parity: LOOK-022
+#[gtk::test]
+fn settings_pages_at_150_percent_text_need_no_sideways_scrolling() {
+    let fixture = Fixture::standard();
+    let test = laid_out(&fixture.uri());
+    resize(&test, 672);
+    larger_text(&test, 3);
+    test.activate("settings", None);
+    wait_for_frames(&test.window, 6);
+    let page = descendants::<gtk::Widget>(test.window.upcast_ref::<gtk::Widget>())
+        .into_iter()
+        .find(|widget| widget.has_css_class("settings"))
+        .expect("the Settings page");
+    let navigation = descendants::<gtk::Widget>(&page)
+        .into_iter()
+        .find(|widget| widget.has_css_class("settings-navigation"))
+        .expect("the categories");
+    let room = page.width() - navigation.width();
+    // The File icons rows are another change's, which lays them out on
+    // its own; they are measured there.
+    let file_icon_rows: Vec<gtk::Widget> = descendants::<gtk::Widget>(&page)
+        .into_iter()
+        .filter(|widget| widget.has_css_class("setting-row"))
+        .filter(|row| {
+            descendants::<gtk::Widget>(row)
+                .iter()
+                .any(|widget| widget.has_css_class("file-icon-chooser"))
+        })
+        .collect();
+    for row in &file_icon_rows {
+        row.set_visible(false);
+    }
+    let mut too_wide = Vec::new();
+    for scroller in descendants::<gtk::ScrolledWindow>(&page) {
+        let Some(content) = scroller.child() else { continue };
+        let is_table = descendants::<gtk::Widget>(&content)
+            .iter()
+            .any(|widget| widget.has_css_class("suggestion-grid"));
+        let least = content.measure(gtk::Orientation::Horizontal, -1).0;
+        if !is_table && least > room {
+            too_wide.push((least, widest_leaves(&content, room * 3 / 4)));
+        }
+    }
+    for row in &file_icon_rows {
+        row.set_visible(true);
+    }
+    test.activate("text-reset", None);
+    assert!(
+        too_wide.is_empty(),
+        "pages wider than the {room} pixels beside the categories: {too_wide:#?}"
+    );
+}
