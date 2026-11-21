@@ -564,6 +564,14 @@ impl BrowserWindow {
             self.navigate_or_report(address);
             return;
         }
+        // A standard folder's name opens it from any folder, before a
+        // folder of that name in the current one, as typing "Documents"
+        // in Windows 11 File Explorer opens the user's Documents.
+        if let Some(standard) = self.standard_folder_titled(address) {
+            self.accept_address(typed, source);
+            self.navigate_or_report(&standard);
+            return;
+        }
         let folder = match self.resolve_relative(address) {
             Ok(folder) => folder,
             Err(error) => {
