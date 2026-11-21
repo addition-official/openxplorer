@@ -1,0 +1,42 @@
+STATUS: DONE
+HEAD: test-combined-47 e63fe2b5 (the deb was built from exactly this tree; cargo clean before the release build; guard on HEAD and a clean tree before and after)
+DEB: claude/test-combined-47-deb 22748332
+  openxplorer_2.0.21+test47_all.deb (io.winspace.Development)
+  SHA256: f716ae467f9ac4cdd516e19be04f74c9514ee84de24d1fdd0a3109593f209b49
+BASE: upstream main 5336b108 (2.0.21, includes #366), as asked; still the tip of upstream main.
+
+MERGED HEADS, in this order (each the branch tip):
+  1 media-preview-crash 5f43ebd8cfd914a12b65aab683bad83603bbf5c7 -> 72a72f60 (clean; PR #368)
+  2 crash-proofing      8236d1eb06a23e26773541fa9e50ad47830a97dd -> 9e4e5c77 (PR #369; now contains 1de19a08 and the decoder pool's vector-picture handling from deb 46)
+  3 review4-bugs        04fa7ff92b91fdcb1a1f8db7eca49c0db19c5b44 -> 4896074f (clean)
+  4 review4-diffs       7241d18a8f5173c986a80c95a676f93c7b3860ae -> 564e5c05
+  5 user-icon-files     b80112418a3fe0fb82ff39782ddb0e551396126c -> e63fe2b5 (clean; merges 2.0.21, adds the Windows symbol font)
+
+CONFLICTS AND RESOLUTIONS:
+- crash-proofing, native/crates/ox-app/Cargo.toml: both sides changed the features of ox-app's rustix dependency (#368 adds "stdio" for the player, #369 adds "time" for the vector picture drawer). Kept both: features ["process", "stdio", "time"], with one comment naming the reader, the player and the picture decoders. Cargo.lock unchanged.
+- crash-proofing, native/crates/ox-app/src/application.rs: as in debs 45 and 46, every child-process mode kept in run() (--ox-read-media-details, --ox-play-media, --ox-decode-picture, --ox-draw-vector-picture), then crash_guard::install_panic_hook(); raise_open_file_limit() first. The doc comment above run() names all four modes.
+- review4-diffs, native/crates/ox-app/src/window/status_bar.rs (4x5): as in debs 44-46, the module comment keeps main's "19.0\u{a0}KB" and review4-diffs' "with a divider after it, as Windows ends it".
+- review4-diffs, apps/web/public/assets/markdown.json: regenerated with tools/sync-docs.py.
+- picture_guard: no conflict this time. The merged tree has the deb 46 design unchanged (decoder::end_after_this_picture, vector::limit_drawing_after_use, ENDING_MARK and the pool's check of it): SVG drawing limits kept.
+
+ZH_CN: native/po/zh_CN.po in the merge is byte-identical to main 5336b108's, and the deb's zh_CN openxplorer.mo is byte-identical to main's zh_CN.po compiled with main's i18n.py (cmp).
+
+CHECKS on e63fe2b5:
+- parity/check.py, i18n check, sync-docs --check pass.
+- native/tools/check.py stops at clippy on duration_suboptimal_units in ox-core files no branch touches (same on main). I ran its remaining steps with that lint (and map_unwrap_or, decimal_bitwise_operands) allowed: rustfmt clean, clippy clean, every test binary plus doctests with OX_PYTHON_APP set.
+- Tests: 4998 passed, 24 failed: the same 23 as debs 43-46 (environment: root, thumbnailer setup, Python fixtures, display scale) plus 1 flaky: window::tests::context_menus::a_pinned_folder_menu_copies_compresses_and_creates_in_that_folder (failed once in the full run, as in deb 46; passed 3 of 3 alone). Deb 46's other flaky test (Home band) passed. No merge-only failure.
+- Requested suites, all pass in that run: window::tests::preview_player (9), media_player (8), the broken-picture corpus tests picture_guard::decoder::tests::a_corpus_of_broken_pictures_leaves_the_app_running and picture_guard::tests::the_guarded_decoding_refuses_the_broken_corpus_within_its_limits, all 28 picture_guard tests, crash_guard (3), bounded_io (1), windows_glyphs (10) and user_glyphs (5).
+
+SMOKE RUN (installed deb, Xvfb, non-root user with a throwaway HOME under /var/tmp, own D-Bus session and display, driven by the snapshot hook):
+- 300 files (the same generated set as debs 45-46: 100 mp3, 100 mp4, 100 broken pictures, PDFs and archives), Details view: Details pane on and Down through all 300, then Preview pane on, Home and Down through all 300 again. Exit 0 after 379 s, ended on the last file with the Preview pane's player shown. 0 "Bail out", 0 CRITICAL, 0 panic, 0 SIGSEGV/abort/core lines; no child process left after exit. Main process sampled every second (368 samples): fds 21 at start, max 31, 26 at the end; threads 22 / max 33 / 24; at most 4 child processes at once; RSS about 325 MB, steady.
+
+NO WINDOWS ICON OR FONT DATA: 383 files in the deb. None named .ttf/.otf/.ttc/.fon/.woff/.woff2/.ico/.cur/.exe/.dll; none starting with a TrueType/OpenType/collection/WOFF header (00010000, OTTO, ttcf, wOFF, wOF2), a PE header (MZ) or an ICO/CUR header; file(1) reports no font and no Windows type. user-icon-files adds only Rust sources for the font: the app reads glyphs at run time from a font the user already has and chooses ("ships no Microsoft font").
+
+UNIQUE STRINGS IN THE BUILT BINARY (/opt/openxplorer/bin/openxplorer, grep -caF; none in main 5336b108's sources):
+  1 media-preview-crash (#368): "GStreamer has no playbin" (also the run_as_player symbol; the --ox-play-media flag is compared inline, so not a literal)
+  2 crash-proofing (#369):      "--ox-decode-picture"
+  3 review4-bugs:               "Items View"
+  4 review4-diffs:              "(this PC)"
+  5 user-icon-files:            "Windows symbol font"
+POLKIT: record /var/lib/openxplorer/install-updates-without-password = "off" before install -> /etc/polkit-1/rules.d empty after install, record still "off". Postinst unchanged from main.
+IDENTITY: 47 new commits: 45 (branches and merges) by addition-official <239187859+addition-official@users.noreply.github.com>, and the owner's 2 #366 commits (5cfe748c, b80e9b0a) by AKolenda <akole779@mtroyal.ca>, carried by user-icon-files. No trailers; no other author or committer. The added lines contain no email address. In the deb, AKolenda appears only in the upstream repository and update-check URLs (as in main); the other addresses are third-party crate licence files and the translator credit already in main's zh_CN.po.
