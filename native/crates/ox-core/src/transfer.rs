@@ -100,7 +100,9 @@ pub(crate) use guard::{check_write_tree, check_write_tree_reading, nesting_error
 pub use item_failure::{FailedItem, FailureAnswer, FailureCause, FailureQuestion};
 pub(crate) use limits::{mounted_kind, payload_refusal};
 pub use limits::{storable_name, stores_symbolic_links, FilesystemInfo, FAT_MAX_FILE_SIZE};
-pub(crate) use modes::{keep_without_modes, secure_local_staging, PRIVATE_DIRECTORY_MODE};
+pub(crate) use modes::{
+    keep_without_modes, open_local_staging, secure_local_staging, PRIVATE_DIRECTORY_MODE,
+};
 pub use move_by_copying::{MoveByCopyingItem, MoveByCopyingQuestion};
 pub use names::{is_own_backup_name, is_own_staging_name};
 pub use node::{ItemIdentity, Node, NodeFactory, NodeInfo, NodeKind, WriteGuard};

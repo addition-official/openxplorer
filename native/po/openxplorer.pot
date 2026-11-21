@@ -749,12 +749,12 @@ msgstr ""
 msgid "Date modified:"
 msgstr ""
 
-#: crates/ox-app/src/folder_view/cells.rs crates/ox-app/src/window/shortcuts_window.rs
-msgid "Files"
+#: crates/ox-app/src/folder_view/cells.rs
+msgid "Folder contents — type a filename prefix to select"
 msgstr ""
 
-#: crates/ox-app/src/folder_view/cells.rs crates/ox-app/src/window/input.rs
-msgid "Folder contents — type a filename prefix to select"
+#: crates/ox-app/src/folder_view/cells.rs
+msgid "Items View"
 msgstr ""
 
 #: crates/ox-app/src/folder_view/cells.rs
@@ -2645,6 +2645,10 @@ msgstr ""
 
 #: crates/ox-app/src/properties/shortcut_tab.rs
 msgid "The shortcut could not be changed."
+msgstr ""
+
+#: crates/ox-app/src/properties/shortcut_tab.rs
+msgid "The shortcut could not be saved because its location isn't responding."
 msgstr ""
 
 #: crates/ox-app/src/properties/shortcut_tab.rs
@@ -7288,6 +7292,18 @@ msgid "Backspace"
 msgstr ""
 
 #: crates/ox-app/src/window/shortcuts_window.rs
+msgid "Browser Back key"
+msgstr ""
+
+#: crates/ox-app/src/window/shortcuts_window.rs
+msgid "Browser Forward key"
+msgstr ""
+
+#: crates/ox-app/src/window/shortcuts_window.rs
+msgid "Browser Home key"
+msgstr ""
+
+#: crates/ox-app/src/window/shortcuts_window.rs
 msgid "Change the view"
 msgstr ""
 
@@ -7357,6 +7373,10 @@ msgstr ""
 
 #: crates/ox-app/src/window/shortcuts_window.rs
 msgid "Expand the selected folder in the navigation pane"
+msgstr ""
+
+#: crates/ox-app/src/window/shortcuts_window.rs
+msgid "Files"
 msgstr ""
 
 #: crates/ox-app/src/window/shortcuts_window.rs
@@ -8083,7 +8103,7 @@ msgstr ""
 msgid "Items in an archive are read-only. Use Copy, then Paste where you want them."
 msgstr ""
 
-#: crates/ox-app/src/window/zip_copies.rs crates/ox-core/src/archive/error.rs crates/ox-core/src/entry/error.rs crates/ox-core/src/integration/terminal/error.rs crates/ox-core/src/network/error.rs crates/ox-core/src/ops/error.rs crates/ox-core/src/search/error.rs crates/ox-core/src/transfer/error.rs crates/ox-core/src/versions/error.rs
+#: crates/ox-app/src/window/zip_copies.rs crates/ox-core/src/archive/error.rs crates/ox-core/src/entry/error.rs crates/ox-core/src/integration/terminal/error.rs crates/ox-core/src/network/error.rs crates/ox-core/src/ops/error.rs crates/ox-core/src/search/error.rs crates/ox-core/src/transfer/error.rs crates/ox-core/src/versions/error.rs crates/ox-core/src/versions/shadow_copies.rs
 msgid "Operation cancelled."
 msgstr ""
 
@@ -10674,6 +10694,22 @@ msgstr ""
 msgid "This item is outside the live folder."
 msgstr ""
 
+#: crates/ox-core/src/versions/shadow_copies.rs
+msgid "No saved password was found for this server, so its previous versions could not be listed. Sign in with \"Remember my credentials\" checked to list them."
+msgstr ""
+
+#: crates/ox-core/src/versions/shadow_copies.rs
+msgid "The server did not list its previous versions."
+msgstr ""
+
+#: crates/ox-core/src/versions/shadow_copies.rs
+msgid "The server does not offer previous versions of this share."
+msgstr ""
+
+#: crates/ox-core/src/versions/shadow_copies.rs
+msgid "The server refused the saved password, so its previous versions could not be listed."
+msgstr ""
+
 #: crates/ox-core/src/versions/snapshot_date.rs
 msgid "Date encoded in the @GMT snapshot name, shown in UTC."
 msgstr ""
@@ -10796,6 +10832,10 @@ msgstr ""
 
 #: packaging/data/io.winspace.Development.Native.metainfo.xml
 msgid "Preview build of OpenXplorer 2.0.2 under its own application ID."
+msgstr ""
+
+#: packaging/data/io.winspace.Development.Native.metainfo.xml packaging/data/io.winspace.Development.metainfo.xml
+msgid "Recordings in the Preview and Details panes play in a separate process, and pictures, thumbnails and icons are decoded in separate processes, so a damaged or unusual file can no longer close or freeze the window; such a file shows its icon instead. A damaged 7z archive or a share that stops answering no longer closes or freezes the app either. Alt+D, Ctrl+L and F4 always select the whole address, Extract all gives files your usual permissions and the times stored in the archive, the Details pane widens with the text size, This PC opens with nothing selected, sizes keep their number and unit on one line, a Settings search of several words shows the settings that name them all, menus are as wide as their longest row and stay on screen on Wayland, and screen readers name the file list Items View."
 msgstr ""
 
 #: packaging/data/io.winspace.Development.Native.metainfo.xml packaging/data/io.winspace.Development.metainfo.xml
