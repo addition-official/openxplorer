@@ -226,6 +226,8 @@ mod imp {
         pub(super) picked: RefCell<Option<String>>,
         /// An application is starting: the buttons wait.
         pub(super) busy: Cell<bool>,
+        /// The keyboard was put on the chosen application's row.
+        pub(super) keyboard_placed: Cell<bool>,
     }
 
     impl std::fmt::Debug for OpenWithDialog {
@@ -530,20 +532,22 @@ impl OpenWithDialog {
         // With no app suggested for the type, every installed app is
         // listed at once, so there is something to choose from.
         let nothing_suggested = scope == ApplicationScope::Recommended && list.choices.is_empty();
-        let first_listing = imp.applications.replace(Some(list)).is_none();
+        imp.applications.replace(Some(list));
         self.set_status(status.as_deref());
         self.show_applications();
         if nothing_suggested && !imp.more_expander.is_expanded() {
             imp.more_expander.set_expanded(true);
             return;
         }
-        if first_listing {
-            // The keyboard starts on the chosen application, as in Windows.
+        if !imp.keyboard_placed.get() {
+            // The keyboard starts on the chosen application, as in Windows,
+            // once a listing shows one.
             let selected = Section::ALL
                 .into_iter()
                 .find_map(|section| self.list(section).selected_row());
             if let Some(row) = selected {
                 row.grab_focus();
+                imp.keyboard_placed.set(true);
             }
         }
     }
@@ -948,6 +952,17 @@ impl OpenWithDialog {
     /// The chosen application's desktop ID.
     pub(crate) fn chosen(&self) -> Option<String> {
         self.imp().chosen.borrow().clone()
+    }
+
+    /// The name of the chosen application.
+    pub(crate) fn chosen_name(&self) -> Option<String> {
+        let chosen = self.chosen()?;
+        let applications = self.imp().applications.borrow();
+        let list = applications.as_ref()?;
+        list.choices
+            .iter()
+            .find(|choice| choice.id == chosen)
+            .map(|choice| choice.name.clone())
     }
 
     /// The name of the application whose row has the keyboard.
