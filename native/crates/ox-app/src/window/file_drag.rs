@@ -410,9 +410,11 @@ impl BrowserWindow {
 
     /// Lets the address bar's crumbs be dragged out like the folders
     /// they name, as a sidebar folder is: into another folder, the
-    /// sidebar or another app. A plain drag offers Copy, as any drag out
-    /// of the app does (DND-008); the crumb of search results, a page and
-    /// the address being edited drag nothing.
+    /// sidebar or another app. A drop in this app follows the usual drop
+    /// rules (on the same drive it moves, Ctrl copies, and the label says
+    /// which); another app is offered Copy, as by any drag out of the app
+    /// (DND-008). The crumb of search results, a page and the address
+    /// being edited drag nothing.
     pub(super) fn attach_crumb_file_drag(&self) {
         let source = file_drag_source();
         // Before the crumb buttons' own click, which would take the press.
