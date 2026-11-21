@@ -170,3 +170,27 @@ fn a_real_drag_of_the_pane_edge_saves_its_width() {
         test.context.settings_data().preferences.sidebar_width == u32::try_from(moved).ok()
     });
 }
+
+/// A drive that cannot be ejected, because a program still uses it or
+/// it is not a removable mount at all, leaves the tab on the folder it
+/// showed, as Windows leaves its window there with "This device is
+/// currently in use". The tab used to stay at Home, where it was moved so
+/// that the window's own listing would not keep the drive busy.
+///
+/// parity: DEV-007, DEV-009
+#[gtk::test]
+fn a_drive_that_cannot_be_ejected_leaves_the_tab_where_it_was() {
+    let fixture = Fixture::standard();
+    let documents = fixture.uri();
+    let test = TestWindow::open(&documents);
+
+    test.window.remove_drive(&documents, crate::devices::Removal::Eject);
+    let moved_away = test.window.current_uri();
+    wait_until("the tab to be back on its folder", || {
+        test.window.current_uri().as_deref() == Some(documents.as_str())
+    });
+    test.wait_for_listing("the folder again");
+
+    assert_ne!(moved_away.as_deref(), Some(documents.as_str()), "the tab left the drive first");
+    assert_eq!(test.names(), ["Documents", "Notes 2.txt", "Notes 10.txt", "Résumé.txt"]);
+}
