@@ -448,7 +448,7 @@ impl Sidebar {
         // Windows 11's navigation pane does.
         if entry.section == Section::Home && entry.menu.is_none() {
             if let RowTarget::Location(uri) = &entry.target {
-                return Some(page_menu(uri));
+                return Some(open_elsewhere_items(uri));
             }
         }
         let place = entry.menu.as_ref()?;
