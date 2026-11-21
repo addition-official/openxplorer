@@ -416,6 +416,80 @@ fn open_with_sorts_apps_like_windows_and_opens_just_once_or_always() {
     }
 }
 
+/// "Always" changes the default of one file type, as Windows changes the
+/// default of one extension: it is offered only where the file's
+/// extension names its type. A file of a type GIO does not know shares
+/// `application/octet-stream` with every other unknown file, and a file
+/// without an extension, or with one GIO does not know, has the type its
+/// contents suggest, such as plain text; "Always" there would change what
+/// opens all of those files, so it stays off while "Just once" works.
+///
+/// parity: OPEN-012
+#[gtk::test]
+fn always_is_offered_only_where_the_extension_names_the_type() {
+    const VIEWER: &str = "io.winspace.AnyFileViewer.desktop";
+    let applications = glib::user_data_dir().join("applications");
+    assert!(
+        applications.starts_with(std::env::temp_dir()),
+        "tests run with private XDG folders"
+    );
+    std::fs::create_dir_all(&applications).expect("the private data folder");
+    let entry = "[Desktop Entry]\nType=Application\nName=Any File Viewer\nExec=true %F\n";
+    std::fs::write(applications.join(VIEWER), entry).expect("the fixture entry");
+    wait_until("GIO to read the entry", || {
+        super::installed_application(VIEWER).is_some()
+    });
+    let fixture = Fixture::standard();
+    std::fs::write(fixture.path("scene.xyz"), [0_u8, 159, 146, 150, 1, 2, 3]).expect("an unknown file");
+    std::fs::write(fixture.path("README"), "Plain words without an extension.\n").expect("a text file");
+    std::fs::write(fixture.path("notes.weird"), "Plain words, odd extension.\n").expect("a text file");
+    let test = TestWindow::open(&fixture.uri());
+    let launches: LaunchChoices = Rc::default();
+
+    for name in ["scene.xyz", "README", "notes.weird", "Notes 2.txt"] {
+        let subject = OpenWithSubject {
+            uri: fixture.uri_of(name),
+            name: name.to_owned(),
+            is_folder: false,
+        };
+        let dialog = OpenWithDialog::present_for(
+            &test.window,
+            subject,
+            choice_recording_launcher(&launches),
+            |_| {},
+        );
+        dialog.expand_more_apps(true);
+        wait_until("every application", || {
+            dialog.is_listed()
+                && dialog
+                    .shown_names()
+                    .iter()
+                    .any(|shown| shown == "Any File Viewer")
+        });
+        dialog.select_named("Any File Viewer");
+        let (shows_always, just_once, always) = dialog.controls_state();
+        assert!(shows_always, "{name}: Always shows for a file");
+        assert!(just_once, "{name}: Just once works");
+        assert_eq!(always, name == "Notes 2.txt", "{name}: Always");
+        // A click on the disabled button, or a stale one, changes nothing.
+        dialog.click_always();
+        dialog.click_just_once();
+        wait_until("the launch", || {
+            launches.borrow().last().is_some_and(|(id, _)| id == VIEWER)
+        });
+        let (_, choice) = launches.borrow_mut().pop().expect("a launch");
+        let expected = if name == "Notes 2.txt" {
+            DefaultChoice::MakeDefault
+        } else {
+            DefaultChoice::Keep
+        };
+        assert_eq!(choice, expected, "{name}");
+        wait_until("the dialog to close", || !dialog.is_visible());
+    }
+
+    std::fs::remove_file(applications.join(VIEWER)).expect("the fixture entry");
+}
+
 /// Menus and Open with draw an application with its own icon, from its
 /// desktop entry, and keep their glyph for one without.
 ///
@@ -496,6 +570,7 @@ fn applications_start_with_the_windows_display() {
         target: LaunchTarget::Path(fixture.path("Notes 2.txt")),
         content_type: "text/plain".to_owned(),
         is_folder: false,
+        may_change_default: true,
     };
 
     let launcher = test.window.launcher_with(record_start);

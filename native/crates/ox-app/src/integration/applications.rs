@@ -55,6 +55,9 @@ pub(crate) enum OpenWithError {
         ox_core::i18n::gettext("The selected application could not be started.")
     )]
     NotStarted,
+    /// The default application could not be changed.
+    #[error("{}", ox_core::i18n::gettext("The default app could not be changed."))]
+    DefaultNotChanged,
     /// The worker thread stopped without an answer.
     #[error(
         "{}",
@@ -183,6 +186,9 @@ pub(crate) struct ApplicationList {
     pub(crate) content_type: String,
     /// The item is a folder.
     pub(crate) is_folder: bool,
+    /// "Always" may make the chosen application the default of
+    /// `content_type`: a file whose extension names its type.
+    pub(crate) may_change_default: bool,
 }
 
 impl ApplicationList {
@@ -249,16 +255,17 @@ pub(crate) fn list_applications(
     };
     Ok(ApplicationList {
         choices: facts.choices(candidates),
+        may_change_default: !entry.is_dir && extension_names_type(&entry.name, &content_type),
         content_type,
         is_folder: entry.is_dir,
     })
 }
 
-/// The applications a menu offers for the item at `uri` beside Open
-/// with… (OPEN-013): up to `limit` of those registered for its type that
-/// can open it, as Open with orders them, leaving out a file's default,
-/// which Open starts. Reads the desktop's application database, not the
-/// item.
+/// The applications a menu offers for the item at `uri` in Open with
+/// (OPEN-013): up to `limit` of those registered for its type that can
+/// open it, as Open with orders them, its default first, as Windows 11's
+/// Open with submenu lists it. Reads the desktop's application database,
+/// not the item.
 pub(crate) fn menu_applications(
     uri: &str,
     content_type: Option<&str>,
@@ -269,21 +276,31 @@ pub(crate) fn menu_applications(
         (true, _) => FOLDER_CONTENT_TYPE,
         (false, known) => known.unwrap_or(UNKNOWN_CONTENT_TYPE),
     };
-    let default_id: Option<String> = gio::AppInfo::default_for_type(content_type, false)
-        .and_then(|app| app.id())
+    let default = gio::AppInfo::default_for_type(content_type, false);
+    let default_id: Option<String> = default
+        .as_ref()
+        .and_then(gio::prelude::AppInfoExt::id)
         .map(Into::into);
-    let recommended = gio::AppInfo::recommended_for_type(content_type);
+    let mut recommended = gio::AppInfo::recommended_for_type(content_type);
     let recommended_ids: Vec<String> = recommended
         .iter()
         .filter_map(|app| app.id().map(Into::into))
         .collect();
+    // A default the user chose for the type need not be registered for it.
+    if let Some(default) = default.filter(|_| {
+        default_id
+            .as_ref()
+            .is_some_and(|id| !recommended_ids.contains(id))
+    }) {
+        recommended.push(default);
+    }
     let facts = ChoiceFacts {
         default_id: default_id.as_deref(),
         recommended_ids: &recommended_ids,
         has_local_path: local_path(uri).is_some(),
     };
     let mut choices = facts.choices(recommended);
-    choices.retain(|choice| choice.is_available && (is_folder || !choice.is_default));
+    choices.retain(|choice| choice.is_available);
     choices.truncate(limit);
     choices
 }
@@ -296,6 +313,25 @@ fn content_type_of(entry: &Entry) -> String {
     }
     let content_type = entry.content_type.as_deref();
     content_type.unwrap_or(UNKNOWN_CONTENT_TYPE).to_owned()
+}
+
+/// Whether the extension of the file named `name` names `content_type`:
+/// GIO is sure of the type from the name alone, and it is that type.
+///
+/// "Always" makes an application the default of a content type, which
+/// Windows does for one extension. A file without an extension, or with
+/// one GIO does not know, gets the type its contents suggest, such as
+/// `text/plain`, and a file GIO cannot identify gets
+/// `application/octet-stream`, the type of every unknown file; making a
+/// default for those would change what opens far more than that file's
+/// kind, so "Always" is offered only where the name settles the type.
+fn extension_names_type(name: &str, content_type: &str) -> bool {
+    let has_extension = name.rfind('.').is_some_and(|dot| dot > 0 && dot + 1 < name.len());
+    if !has_extension || content_type == UNKNOWN_CONTENT_TYPE {
+        return false;
+    }
+    let (named, uncertain) = gio::content_type_guess(Some(name), None);
+    !uncertain && named != UNKNOWN_CONTENT_TYPE && gio::content_type_equals(&named, content_type)
 }
 
 /// What decides how an application is offered for one item.
@@ -347,6 +383,8 @@ pub(crate) struct PreparedLaunch {
     pub(crate) content_type: String,
     /// The item is a folder, whose default is never changed.
     pub(crate) is_folder: bool,
+    /// "Always" may make the application the default of the content type.
+    pub(crate) may_change_default: bool,
 }
 
 /// The file the application receives.
@@ -392,6 +430,7 @@ pub(crate) async fn prepare_launch(uri: String, app_id: String) -> Result<Prepar
             target,
             content_type: list.content_type,
             is_folder: list.is_folder,
+            may_change_default: list.may_change_default,
         })
     });
     prepared.await.map_err(|_| OpenWithError::Interrupted)?
@@ -416,6 +455,7 @@ pub(crate) async fn prepare_target(uri: String) -> Result<PreparedLaunch, OpenWi
             target,
             content_type: content_type_of(&entry),
             is_folder: entry.is_dir,
+            may_change_default: false,
         })
     });
     prepared.await.map_err(|_| OpenWithError::Interrupted)?
@@ -450,6 +490,26 @@ pub(crate) fn launch(
     Ok(default_after_launch(&app, prepared, default))
 }
 
+/// Makes `app_id` the default of the type of the file `prepared`, without
+/// opening it (Properties' Change...), and returns its name. Only a type
+/// the file's extension names gets a new default
+/// ([`extension_names_type`]), never a folder's.
+///
+/// # Errors
+///
+/// [`OpenWithError::NotInstalled`], or
+/// [`OpenWithError::DefaultNotChanged`] when the type may not get a new
+/// default or the desktop refused it.
+pub(crate) fn make_default(app_id: &str, prepared: &PreparedLaunch) -> Result<String, OpenWithError> {
+    let app = installed_application(app_id).ok_or(OpenWithError::NotInstalled)?;
+    if prepared.is_folder || !prepared.may_change_default {
+        return Err(OpenWithError::DefaultNotChanged);
+    }
+    app.set_as_default_for_type(&prepared.content_type)
+        .map_err(|_| OpenWithError::DefaultNotChanged)?;
+    Ok(app.display_name().to_string())
+}
+
 /// Makes `app` the default when asked, and returns the toast.
 fn default_after_launch(
     app: &gio::AppInfo,
@@ -464,6 +524,11 @@ fn default_after_launch(
     // folder's handler is changed only in Settings > Default apps.
     if prepared.is_folder {
         return "Opened the folder. Its default file-manager association was not changed.";
+    }
+    // A type the file's extension does not name is never given a new
+    // default (extension_names_type); the dialog does not offer it.
+    if !prepared.may_change_default {
+        return ox_core::i18n::gettext_static(OPENED);
     }
     match app.set_as_default_for_type(&prepared.content_type) {
         Ok(()) => ox_core::i18n::gettext_static(OPENED),
@@ -532,6 +597,7 @@ mod tests {
             choices,
             content_type: "text/plain".to_owned(),
             is_folder: false,
+            may_change_default: true,
         };
         let with_default = list(vec![
             choice("Viewer", true, true, true),
@@ -589,6 +655,7 @@ mod tests {
             target: LaunchTarget::Uri("file:///tmp/example".to_owned()),
             content_type: "application/x-openxplorer-test".to_owned(),
             is_folder,
+            may_change_default: !is_folder,
         };
         assert_eq!(
             default_after_launch(&app, &prepared(false), DefaultChoice::Keep),
@@ -605,6 +672,62 @@ mod tests {
         assert_eq!(message, "Opened with the selected application.");
         let default = gio::AppInfo::default_for_type("application/x-openxplorer-test", false);
         assert_eq!(default.and_then(|default| default.id()), app.id());
+    }
+
+    /// "Always" may change the default of the file's content type only
+    /// when its extension names that type, as Windows changes the default
+    /// of one extension.
+    ///
+    /// parity: OPEN-012
+    #[test]
+    fn only_a_type_its_extension_names_may_get_a_new_default() {
+        assert!(extension_names_type("Notes.txt", "text/plain"));
+        assert!(extension_names_type("PHOTO.JPG", "image/jpeg"));
+        assert!(extension_names_type("song.mp3", "audio/mpeg"));
+        assert!(extension_names_type(
+            "letter.odt",
+            "application/vnd.oasis.opendocument.text"
+        ));
+        assert!(!extension_names_type("README", "text/plain"), "no extension");
+        assert!(
+            !extension_names_type(".bashrc", "text/plain"),
+            "a hidden file's dot"
+        );
+        assert!(
+            !extension_names_type("notes.weird", "text/plain"),
+            "an unknown extension"
+        );
+        assert!(
+            !extension_names_type("scene.xyz", UNKNOWN_CONTENT_TYPE),
+            "an unknown type"
+        );
+        assert!(
+            !extension_names_type("photo.jpg", "text/plain"),
+            "contents of another type"
+        );
+    }
+
+    /// "Always" never changes the default of a type the file's extension
+    /// does not name, even when asked.
+    ///
+    /// parity: OPEN-012
+    #[test]
+    fn always_never_changes_a_type_the_extension_does_not_name() {
+        let app =
+            gio::AppInfo::create_from_commandline("true", Some("Test viewer"), gio::AppInfoCreateFlags::NONE)
+                .expect("an application made from a command line");
+        let prepared = PreparedLaunch {
+            target: LaunchTarget::Uri("file:///tmp/example".to_owned()),
+            content_type: "application/x-openxplorer-unnamed-test".to_owned(),
+            is_folder: false,
+            may_change_default: false,
+        };
+        assert_eq!(
+            default_after_launch(&app, &prepared, DefaultChoice::MakeDefault),
+            "Opened with the selected application."
+        );
+        let default = gio::AppInfo::default_for_type("application/x-openxplorer-unnamed-test", false);
+        assert_eq!(default.and_then(|default| default.id()), None);
     }
 
     /// A launcher in a folder inside an `applications` folder is chosen by
@@ -631,7 +754,8 @@ mod tests {
     }
 
     /// The menu offers the installed applications of a file's type up to
-    /// its limit, without the file's default, which Open starts.
+    /// its limit, the file's default first, as Windows 11's Open with
+    /// lists it.
     ///
     /// parity: OPEN-013
     #[gtk::test]
@@ -679,8 +803,9 @@ mod tests {
                 .collect()
         };
 
-        assert_eq!(offered(3), [names[1].0, names[2].0]);
-        assert_eq!(offered(1), [names[1].0]);
+        // The default comes first, as in Windows 11's Open with.
+        assert_eq!(offered(3), [names[0].0, names[1].0, names[2].0]);
+        assert_eq!(offered(2), [names[0].0, names[1].0]);
 
         gio::AppInfo::reset_type_associations(MENU_TYPE);
         for (id, _) in names {
