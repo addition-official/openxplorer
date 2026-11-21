@@ -164,7 +164,7 @@ mod slow_click_rename;
 mod slow_delay;
 mod slow_location;
 mod snapshot_tabs;
-mod software_search;
+pub(crate) mod software_search;
 mod sort_actions;
 mod split_view;
 mod status_bar;
