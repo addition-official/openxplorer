@@ -61,7 +61,7 @@ fn name_label(cell: &FileCell, name: &str) -> gtk::Label {
 }
 
 /// The middle of the text `label` draws, in its own coordinates: a tile
-/// centres its name, a row's name starts at the left of a wider label.
+/// centers its name, a row's name starts at the left of a wider label.
 fn text_middle(label: &gtk::Label) -> (f64, f64) {
     let (left, top) = label.layout_offsets();
     let (_, lines) = label.layout().pixel_extents();
@@ -175,7 +175,7 @@ fn a_click_on_another_item_keeps_the_typed_name_and_selects_that_item() {
 }
 
 /// A slow second click on the name of the only selected item renames it
-/// in place in the icon views too, whose names are centred under the
+/// in place in the icon views too, whose names are centered under the
 /// icon: the click used to be measured against a name starting at the
 /// tile's left edge, so a click on the middle of the text missed it.
 ///

@@ -863,7 +863,7 @@ impl FileCell {
     }
 
     /// Whether `point`, in the cell's coordinates, is on the name's text
-    /// rather than beside it. A tile's name is centred in its label, so
+    /// rather than beside it. A tile's name is centered in its label, so
     /// the text is where Pango lays its lines out, not at the label's
     /// left edge (OPS-011).
     pub(crate) fn name_text_contains(&self, point: gtk::graphene::Point) -> bool {
