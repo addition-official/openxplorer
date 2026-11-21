@@ -5,11 +5,8 @@
 //! accessibility bus cannot be reached, or when `GTK_A11Y` is `test`.
 //! That context has no announce handler, so `gtk_accessible_announce`
 //! calls a null function and the app crashes. With `GTK_A11Y` set to
-//! `none` a widget has no context at all, which gtk-rs's `at_context`
-//! does not allow for. Nothing listens to such a widget, so [`announce`]
-//! skips it.
-
-use std::sync::OnceLock;
+//! `none` a widget has no context at all, and asking for it aborts the
+//! app. Nothing listens in either case, so [`announce`] skips both.
 
 use gtk::prelude::*;
 
@@ -24,24 +21,40 @@ pub(crate) fn announce(
     message: &str,
     priority: gtk::AccessibleAnnouncementPriority,
 ) {
-    if has_no_accessibility() {
-        return;
-    }
-    if widget.at_context().type_().name() != TEST_CONTEXT {
+    let a11y = std::env::var("GTK_A11Y").ok();
+    if reaches_screen_readers(a11y.as_deref(), || widget.at_context().type_().name().to_owned()) {
         widget.announce(message, priority);
     }
 }
 
-/// Whether GTK was told to give widgets no accessibility context
-/// (`GTK_A11Y=none`, read as GTK reads it, without regard to case).
-fn has_no_accessibility() -> bool {
-    static NONE: OnceLock<bool> = OnceLock::new();
-    *NONE.get_or_init(|| std::env::var("GTK_A11Y").is_ok_and(|value| value.eq_ignore_ascii_case("none")))
+/// Whether an announcement can reach a screen reader, with `GTK_A11Y` set
+/// to `a11y`, from a widget whose accessibility context has the type
+/// `context` names. With accessibility turned off (`none`) the widget has
+/// no context, and the context is never asked for.
+fn reaches_screen_readers(a11y: Option<&str>, context: impl FnOnce() -> String) -> bool {
+    if a11y.is_some_and(|value| value.eq_ignore_ascii_case("none")) {
+        return false;
+    }
+    context() != TEST_CONTEXT
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// With `GTK_A11Y=none`, which people set to turn GTK's accessibility
+    /// off, GTK 4.14 gives a widget no accessibility context at all: asking
+    /// for it aborted the app at the first file drag. The context is never
+    /// asked for then; otherwise only the test context is left out.
+    #[test]
+    fn accessibility_turned_off_is_never_asked_for_a_context() {
+        let never = || -> String { panic!("the context is never asked for") };
+        assert!(!reaches_screen_readers(Some("none"), never));
+        assert!(!reaches_screen_readers(Some("NONE"), never));
+        assert!(!reaches_screen_readers(None, || TEST_CONTEXT.to_owned()));
+        assert!(reaches_screen_readers(None, || "GtkAtSpiContext".to_owned()));
+        assert!(reaches_screen_readers(Some("atspi"), || "GtkAtSpiContext".to_owned()));
+    }
 
     /// Announcing from a widget whose accessibility context reaches no
     /// screen reader does nothing instead of crashing.
