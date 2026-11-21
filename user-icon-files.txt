@@ -1,8 +1,10 @@
 STATUS: DONE
-HEAD: user-icon-files 575caaec (merge of upstream PR 366, File icons, head b80e9b0a, into user-icon-files; no rebase, no force-push)
-DEPENDS ON: AKolenda/openxplorer PR 366 (feat/file-icons, closes issue 357). This branch contains its commits and must land after it, or together with it.
-QUESTION: none. Confirmed by the workflow session: when the user picks one of the app's kinds in File icons (for example "Folder with a zipper" for .iso), the Windows icon files draw that kind; a kind the files have no picture for keeps the app's drawing; the user's own picture always wins.
-NOTE: Rebuilt on the owner's File icons (PR 366). The "Icons from Windows icon files" switch and the "Windows icon files" Choose/Clear rows now close his Settings > Appearance > File icons group; my separate Icons group is gone. Order of sources: (1) the user's per-kind or per-ending choice from PR 366 (his Art::for_entry / file_icons::art_for, and a picture of the user's in the cells' custom-icon slot, which covers the icon), (2) the Windows icon files (user_icons::texture_for, which ArtImage asks before drawing), (3) the built-in icon. Reading the files or turning them off calls his file_icons::count_new_generation(), a new one-line function beside his generation counter, so folder views following his generation draw again; ArtImage and the plain role images are also redrawn directly. His kind_of now also maps my new art values, so his choices keep applying to them: a listed standard folder is "folder", PDFs, archives, programs and shortcuts are "document", scripts are "code". Name-ending choices skip standard folders, as they skip folders. Windows icon files took parity ID LOOK-030; his LOOK-029 is untouched apart from the merge. The .pot is regenerated; no .po changed. Merge conflicts were in appearance.rs, sidebar/menu.rs, sidebar/row.rs, settings/preferences.rs (both sides kept), features.toml (his LOOK-029 as is, mine added as LOOK-030) and the .pot (regenerated).
+HEAD: user-icon-files b8011241 (632c6175 merges upstream 2.0.21; b8011241 adds the Windows symbol font)
+QUESTION: The PR text has no "CLA: I agree" line. The last request to add it was relayed by another session; agreeing to a CLA is a legal statement in the user's name, so I'm leaving that line for the user to add or confirm directly.
+NOTE: Round 3 after the deb 46 test.
+(1) Merged upstream main 5336b108 (OpenXplorer 2.0.21) with a merge commit, no rebase or force-push. #366 landed squashed (4689b74e); the conflicting files were merged with its PR head b80e9b0a as base, so only the owner's final File icons changes met mine, and none conflicted. The branch no longer depends on an open PR.
+(2) Windows symbol font (LOOK-031). Settings > Appearance > File icons now ends with three rows: Icons from Windows icon files (the switch), Windows icon files, and Windows symbol font (Choose font... / Clear). Only the path is stored (symbolFont). The font is read with a small bounds-checked TrueType reader in ox-core (cmap formats 4 and 12, simple and composite glyf, every offset checked, counts capped, PostScript-outline fonts refused). Each glyph the app uses is written as a symbolic SVG into ~/.cache/winspace/windows-glyphs/<key>/hicolor/scalable/actions/, and that folder joins GTK's icon theme search path. The font is never installed, copied or registered with fontconfig, so no FFI or unsafe code is needed. GTK recolors only themed -symbolic icons, hence the hicolor layout. icons::set_icon draws drawn_name(icon), so every symbolic glyph comes from the font at the same size and in the same CSS color (it follows the theme). The skin's CSS chevrons follow through a generated stylesheet that repeats only the -gtk-icontheme declarations with the font's names. A glyph the font lacks keeps the built-in Fluent icon; a damaged font gives none; turning the switch off restores every bundled glyph at once. Codepoints are Microsoft's published Segoe Fluent Icons table (learn.microsoft.com, version 1.56), read for this round, with names as in the table. Segoe MDL2 Assets shares most of them, but Microsoft's page does not say so; glyphs missing from segmdl2.ttf simply fall back. No crate added; cargo-sources.json unchanged.
+(3) Coverage audit below (three parts): every Art the app draws, every one of the 126 bundled icons, and the other pictures. Icons: 79 are covered by font glyphs, 24 are color pictures covered through their Art roles, and 23 have no Windows glyph (each with its reason: Microsoft's table names none, Windows shows a file-type picture there, or the icon is kept from an earlier design and not drawn). Not mapped though Windows has an equivalent: the link emblem (Windows' shortcut-arrow overlay is in imageres, group not verified) and the message-box warning and error icons (imageres, groups not verified); listed for a later round.
 
 ROLE TABLE (file, group, provenance; SHEET = checked on the imageres sheet from the user's file, still marked BestMatch in code until the VM registry check)
 VERIFIED  Folder ............................ imageres 3
@@ -36,10 +38,182 @@ SHEET     Script (.sh, .bat, .cmd, .ps1) ... imageres 68
 BEST MATCH Shortcut (.desktop, .lnk) ........ imageres 15 (Windows draws a .lnk as its target's icon; the program icon stands in)
 BEST MATCH Settings tab (gear) .............. shell32 16826 (VM registry check pending)
 
-PASS python3 native/parity/check.py (LOOK-029 his, LOOK-030 mine)
-PASS check.py stages with Rust 1.92.0 on 575caaec: parity and driver unit tests, i18n check (.pot regenerated), drawn-icon and stray-image guards, rustfmt, clippy -D warnings, doctests
-PASS every test executable under check.py-style isolation: 78 executables all green as root; ox_core 1306/1307 and ox_app 2581/2594 as root, and every failure among them (13 in ox_app, 1 in ox_core, plus display_scale, launch, integration_file_chooser, ops_delete_plan) passes as user nobody. These are root-bypassed permission tests and the app refusing to start as root.
-NOTE location_fixture_drift (python_fixture_matches_desktop_core_py) and network_python (fuse_export_paths_match_native_opening_py) fail in this container only: its Python 3.13 can't import the system gi module and its ipaddress answers differently. Unrelated to icons.
-PASS new tests on the merge: a_choice_in_file_icons_comes_before_the_windows_files (no choice: the Windows ZIP; "zip-document" for zip: the app's document with a zipper; ".iso" as "zip-folder": drawn as the Windows ZIP; reading and turning off count a File icons generation), file_icons_kinds_cover_the_windows_art, and icons_from_windows_icon_files_are_off_until_chosen now checks both rows close the File icons group. His tests (views.rs icons_chosen_in_file_icons_replace_the_usual_ones_at_once and the File icons settings tests) pass.
-PASS earlier: role table and provenance, every role's art, file kinds, drive media, window test (nav pane, list, address bar, Quick access tiles), cache, parser bounds and fuzz-ish cases
-NOT RUN real Windows files (none may be here); GTK's file dialog; network computers/shares and removable/optical drives on screen. New captures weren't taken for the merge; the 1x captures earlier in the chat still show where each role lands.
+PASS python3 native/parity/check.py (LOOK-029 owner's, LOOK-030 icon files, LOOK-031 symbol font)
+PASS check.py stages with Rust 1.92.0 on b8011241: parity and driver unit tests, i18n check (.pot regenerated, no .po touched), drawn-icon and stray-image guards, rustfmt, clippy -D warnings, doctests
+PASS new tests: ox-core windows_glyphs 8/8 (cmap 4 and 12, outline to SVG, implied points, composites, self-referencing composite refused, non-TrueType refused, every truncation plus 4,000 seeded mutations plus every byte at its extremes, cache as a hicolor theme); preferences the_symbol_font_is_unset_by_default_and_takes_only_font_paths; ox-app user_glyphs 5/5 (audit of every icon with the listed codepoints pinned, off by default, the font's glyphs replace the bundled ones, symbolic, from the cache, missing glyph falls back, off restores, damaged font, CSS override); window test the_windows_glyphs_come_from_the_chosen_symbol_font (New, Back, tab close from the font, Cut kept, off restores); settings test the_windows_symbol_font_row_saves_the_path_and_counts_the_glyphs. All use a tiny synthetic TrueType font built in the test, never Microsoft's.
+PASS full run under check.py isolation on b8011241: 78 executables green as root; ox_app 2588/2601 and ox_core 1315/1316 as root. Every failure except one passes as user nobody: root-bypassed permission tests and the app refusing to start as root.
+NOTE window::tests::search_history::a_tab_on_results_keeps_its_selection_and_scroll_position fails here, as root and as nobody. Traced: when the results tab returns to the front it shows 82 results at once and the re-run search adds "notes inside.txt" from a subfolder after the scroll position was restored, so GTK re-anchors the list at the top. The same instrumentation on plain upstream 5336b108 shows the same late result, ending at scroll 0 in one run and 300 in another, so it's a timing race already in the app, which this branch loses consistently in this container. The owner's PR head b80e9b0a also failed it here. The test is unchanged; a fix belongs in the search tab's restore and is not part of this branch.
+NOTE location_fixture_drift and network_python's fuse_export test fail in this container only (Python 3.13 without the gi module, different ipaddress answers); unrelated.
+NOT RUN Microsoft's SegoeIcons.ttf / segmdl2.ttf (never here by design; the user will point the setting at their own copies); GTK's file dialog; captures this round.
+
+COVERAGE AUDIT
+
+PART 1: EVERY ART THE APP DRAWS -> WINDOWS SOURCE (icon files) -> COVERED
+place | art | Windows source | covered
+folders in lists, tabs, Properties, folder tree | Folder | imageres 3 | yes
+standard folders in lists and Home's Quick access tiles | StandardFolder(Desktop/Downloads/Documents/Pictures/Music/Videos) | imageres 183/184/112/113/108/189 | yes
+Templates and Public listed | StandardFolder(Templates/Public) | imageres 3 (the folder; Windows has no tile for them) | yes
+nav pane, tabs and address bar of the standard folders | TintedGlyph(_, KnownFolder) | imageres 183/184/112/113/108/189 | yes
+ZIP archives | ZipFolder | imageres 175 | yes
+File icons' "Document with a zipper" choice (LOOK-029) | ZipDocument | none in imageres/shell32: the app's own | no (no Windows equivalent)
+text files | File(Text) | imageres 102 | yes
+pictures | File(Image) | imageres 132 | yes
+audio | File(Audio) | imageres 131 | yes
+video | File(Video) | imageres 133 | yes
+7z, tar.*, rar | File(Archive) | imageres 175 | yes
+programs (.exe, AppImage, ELF) | File(Executable) | imageres 15 | yes
+scripts (.sh, .bat, .cmd, .ps1) | File(Script) | imageres 68 | yes
+shortcuts (.desktop, .lnk) | File(Shortcut) | imageres 15 | yes
+PDFs, office documents, spreadsheets, code, unknown files | File(Pdf/Document/Spreadsheet/Code) | imageres 2 (Windows' blank page when no app claims the type) | yes
+Home | Glyph/TintedGlyph(Home) | shell32 51380 | yes
+Gallery | TintedGlyph(Image, Home) | shell32 51586 | yes
+This PC | Glyph/TintedGlyph(Laptop) | imageres 109 | yes
+Network (nav item, page, tab) | Glyph/TintedGlyph(Organization) | imageres 25 | yes
+fixed drives, Local Disk included | Glyph(HardDrive) | imageres 32 | yes
+removable drives / optical drives | RemovableDrive(Disk/Optical) | imageres 30 / 56 | yes
+Recycle Bin empty / full | Glyph(Delete) / TintedGlyph(Delete) | imageres 55 / 54 | yes
+network computers and servers | Network(Server) | imageres 104 (unverified best match) | yes
+connected shares | Network(Share, Connected) | imageres 28 | yes
+disconnected shares | Network(Share, Disconnected) | none: Windows has no disconnected-share icon; the app keeps its red cross | no (no Windows equivalent)
+mapped drives connected / disconnected | Network(MappedDrive) | imageres 33 / 31 | yes
+a standard folder moved onto the network | Network(KnownFolder) | that folder's tile | yes
+Settings tab | Glyph(Settings) | shell32 16826 (VM check pending) | yes
+other glyph art (Recent files, Recent locations, phones, saved searches, Templates' glyph) | Glyph(History/Clock/Phone/Search/Document) | font glyph (part 2) when the symbol font is on; no imageres equivalent | via the font
+
+PART 3: OTHER PICTURES THE APP DRAWS
+place | what | Windows source | covered
+the skin's CSS chevrons (address bar dividers and « button, folder tree expanders, column sort arrows) | -gtk-icontheme names in resources/skin/*.css | Segoe Fluent Icons via an override stylesheet (ChevronRight/Left/Down/UpSmall); the « buttons have no glyph | yes, except the double chevrons
+link and read-only emblems over items | ox-link / lock overlays (icons/emblem.rs) | Windows draws the shortcut arrow overlay from imageres (group not verified) and no lock | no (not mapped)
+message boxes' warning and error | WarningColor32, DismissCircleColor32 | Windows' message-box icons come from imageres (groups not verified) | no (not mapped)
+Send to > Mail recipient | MailColor20 | Windows shows the mail app's icon | no (no file equivalent)
+thumbnails, previews, folder pictures, custom icons, File icons' own pictures | the files' own content | not icons | n/a
+the app's own window icon | openxplorer.svg | not a Windows icon | n/a
+
+PART 2: EVERY BUNDLED ICON (126) -> WINDOWS SOURCE -> COVERED
+place | bundled icon | Windows source | covered
+New, the new-tab "+", Map network drive and Larger text. | ox-add-20-symbolic | Segoe Fluent Icons U+E710 Add | yes
+Add a network location in This PC's "…": an original icon made for `OpenXplorer` to match Windows 11's command-bar gl... | ox-add-network-location-24-symbolic | none: an original glyph matching Windows 11's; Microsoft's table names none for it | no
+the Default apps settings. | ox-apps-20-symbolic | Segoe Fluent Icons U+E71D AllApps | yes
+View > Tiles. | ox-apps-list-detail-20-symbolic | Segoe Fluent Icons U+ECA5 Tiles | yes
+View > Show > Compact view, as Windows 11 draws it. | ox-arrow-autofit-height-20-symbolic | none: Microsoft's table names no glyph for this command | no
+Refresh, Check for updates, and the Refresh and Reset buttons of Settings. | ox-arrow-clockwise-20-symbolic | Segoe Fluent Icons U+E72C Refresh | yes
+Restore, in the Recycle Bin. | ox-arrow-counterclockwise-20-symbolic | Segoe Fluent Icons U+E777 UpdateRestore | yes
+the Descending sort. | ox-arrow-down-20-symbolic | Segoe Fluent Icons U+E74B Down | yes
+Eject, Safely remove, Disconnect and Sign out of server, the commands app.js drew with its eject glyph, and the eject... | ox-arrow-eject-20-symbolic | Segoe Fluent Icons U+F847 Eject | yes
+the Downloads folder and the Brave & downloads settings. | ox-arrow-download-20-symbolic | Segoe Fluent Icons U+E896 Download | yes
+Back, Back to files and a settings page's way back. | ox-arrow-left-20-symbolic | Segoe Fluent Icons U+E72B Back | yes
+Redo. | ox-arrow-redo-20-symbolic | Segoe Fluent Icons U+E7A6 Redo | yes
+Reset text size. | ox-arrow-reset-20-symbolic | none: no glyph of this name in Microsoft's table (Reset, EmptyRecycleBin, Server, double chevrons) | no
+Forward. | ox-arrow-right-20-symbolic | Segoe Fluent Icons U+E72A Forward | yes
+Sort and its columns. | ox-arrow-sort-20-symbolic | Segoe Fluent Icons U+E8CB Sort | yes
+Invert selection until "…" took Windows 11's glyph for it (2026-11-03); still bundled with the approved set, for the ... | ox-arrow-swap-20-symbolic | none: kept from an earlier design; not drawn | no
+Undo, and "Skip this file" in Replace or Skip Files. | ox-arrow-undo-20-symbolic | Segoe Fluent Icons U+E7A7 Undo | yes
+Up and the Ascending sort. | ox-arrow-up-20-symbolic | Segoe Fluent Icons U+E74A Up | yes
+Send to ▸ Bluetooth device. | ox-bluetooth-20-symbolic | Segoe Fluent Icons U+E702 Bluetooth | yes
+New JSON file until New took Windows 11's list (2026-11-06); still bundled with the approved set, for the owner to ke... | ox-braces-20-symbolic | none: kept from an earlier design; not drawn | no
+View > Show > Item check boxes. | ox-checkbox-checked-20-symbolic | Segoe Fluent Icons U+E73A CheckboxComposite | yes
+a checked menu item, the chosen option of a settings drop-down, and "Replace the file in the destination". | ox-checkmark-20-symbolic | Segoe Fluent Icons U+E73E CheckMark | yes
+the menu carets of New, Sort and View. | ox-chevron-down-20-symbolic | Segoe Fluent Icons U+E70D ChevronDown | yes
+the address bar's « button, which lists the crumbs a long path hides (named by `resources/skin/navigation.css`). | ox-chevron-double-left-16-symbolic | none: no glyph of this name in Microsoft's table (Reset, EmptyRecycleBin, Server, double chevrons) | no
+the same button in a right-to-left language. | ox-chevron-double-right-16-symbolic | none: no glyph of this name in Microsoft's table (Reset, EmptyRecycleBin, Server, double chevrons) | no
+the small carets (the address bar's edit chevron, a column title's sort arrow, the sidebar's expanders and a settings... | ox-chevron-down-16-symbolic | Segoe Fluent Icons U+E96E ChevronDownSmall | yes
+the address bar's crumb dividers in a right-to-left language (named by `resources/skin/navigation.css`) and the tab s... | ox-chevron-left-16-symbolic | Segoe Fluent Icons U+E96F ChevronLeftSmall | yes
+a settings row that opens a page of its own, and the tab strip's arrow that scrolls it forward. | ox-chevron-right-16-symbolic | Segoe Fluent Icons U+E970 ChevronRightSmall | yes
+the progress window's "Fewer details". | ox-chevron-up-16-symbolic | Segoe Fluent Icons U+E96D ChevronUpSmall | yes
+the dot a menu shows beside the chosen view or sort, and the open Details pane, as Windows 11 marks a choice. | ox-circle-small-20-filled-symbolic | Segoe Fluent Icons U+E915 RadioBullet | yes
+Paste. | ox-clipboard-paste-20-symbolic | Segoe Fluent Icons U+E77F Paste | yes
+Previous versions, and the banner of a tab that browses one (`icon('clock')` in app.js). | ox-clock-20-symbolic | Segoe Fluent Icons U+E917 Clock | yes
+the address menu's Keep address editable. | ox-code-20-symbolic | Segoe Fluent Icons U+E943 Code | yes
+code, HTML and JSON files at small sizes. | ox-code-20-color | a color picture, drawn by its Art role (part 1) | by Art role
+code, HTML and JSON files at larger sizes, the largest design of this picture. | ox-code-24-color | a color picture, drawn by its Art role (part 1) | by Art role
+View > Content. | ox-content-view-20-symbolic | none: Microsoft's table names no glyph for this command | no
+Copy, and the details pane's picture of several selected items. | ox-copy-20-symbolic | Segoe Fluent Icons U+E8C8 Copy | yes
+Cut. | ox-cut-20-symbolic | Segoe Fluent Icons U+E8C6 Cut | yes
+Move to Trash. | ox-delete-20-symbolic | Segoe Fluent Icons U+E74D Delete | yes
+Empty Recycle Bin. | ox-delete-dismiss-20-symbolic | none: no glyph of this name in Microsoft's table (Reset, EmptyRecycleBin, Server, double chevrons) | no
+the Desktop folder, the open-windows menu's windows, Use system appearance, Discovered servers and Settings' Open win... | ox-desktop-20-symbolic | Segoe Fluent Icons U+E7F4 TVMonitor | yes
+Disconnect network drive in This PC's "…": an original icon made for `OpenXplorer` to match Windows 11's command-bar ... | ox-disconnect-network-drive-24-symbolic | none: an original glyph matching Windows 11's; Microsoft's table names none for it | no
+the window's close button and Quit `OpenXplorer`. | ox-dismiss-20-symbolic | Segoe Fluent Icons U+E8BB ChromeClose | yes
+the close buttons of tabs and the details pane. | ox-dismiss-16-symbolic | Segoe Fluent Icons U+E711 Cancel | yes
+the badge of a disconnected network share or mapped drive, as Windows marks one with a red cross. | ox-dismiss-circle-16-filled-symbolic | none: a coloured status badge, not a command glyph | no
+the error icon of a message box, such as the one that says a typed address was not found, in colour as Windows draws it. | ox-dismiss-circle-32-color | a color picture, drawn by its Art role (part 1) | by Art role
+the Documents and Templates folders, License & source, and New ▸ Rich Text Document and the user's templates. | ox-document-20-symbolic | Segoe Fluent Icons U+E8A5 Document | yes
+the panel of a file being created. | ox-document-add-20-symbolic | none: Windows shows the file type's picture here, not a glyph | no
+documents, PDFs, slides and unknown files at small sizes, and Send to ▸ Documents. | ox-document-20-color | a color picture, drawn by its Art role (part 1) | by Art role
+the same at medium sizes. | ox-document-32-color | a color picture, drawn by its Art role (part 1) | by Art role
+the same at large sizes. | ox-document-48-color | a color picture, drawn by its Art role (part 1) | by Art role
+Duplicate, Compare files, and "Compare info for both files". | ox-document-copy-20-symbolic | none: Windows shows the file type's picture here, not a glyph | no
+New text document. | ox-document-text-20-symbolic | none: Windows shows the file type's picture here, not a glyph | no
+text and Markdown files at small sizes. | ox-document-text-20-color | a color picture, drawn by its Art role (part 1) | by Art role
+the same at medium sizes. | ox-document-text-32-color | a color picture, drawn by its Art role (part 1) | by Art role
+the same at large sizes. | ox-document-text-48-color | a color picture, drawn by its Art role (part 1) | by Art role
+Show hidden files. | ox-eye-20-symbolic | Segoe Fluent Icons U+E890 View | yes
+the yellow folder of folders, tabs, the address bar, Quick access and network shares. | ox-file-folder-flat | a color picture, drawn by its Art role (part 1) | by Art role
+the empty-folder page and Default file explorer. | ox-folder-20-symbolic | Segoe Fluent Icons U+E8B7 Folder | yes
+New folder. | ox-folder-add-20-symbolic | Segoe Fluent Icons U+E8F4 NewFolder | yes
+the badge that marks a ZIP archive, and New ▸ Compressed (zipped) Folder. | ox-folder-zip-20-symbolic | Segoe Fluent Icons U+F012 ZipFolder | yes
+View and the icon views. | ox-grid-20-symbolic | Segoe Fluent Icons U+E8A9 ViewAll | yes
+Local Disk, drives and mapped network drives. | ox-hard-drive-20-symbolic | Segoe Fluent Icons U+EDA2 HardDrive | yes
+audio files at small sizes. | ox-headphones-20-color | a color picture, drawn by its Art role (part 1) | by Art role
+the same at medium sizes. | ox-headphones-32-color | a color picture, drawn by its Art role (part 1) | by Art role
+the same at large sizes. | ox-headphones-48-color | a color picture, drawn by its Art role (part 1) | by Art role
+Previous versions. | ox-history-20-symbolic | Segoe Fluent Icons U+E81C History | yes
+Home. | ox-home-20-symbolic | Segoe Fluent Icons U+E80F Home | yes
+the Pictures folder and New ▸ Bitmap image. | ox-image-20-symbolic | Segoe Fluent Icons U+E8B9 Picture | yes
+pictures at small sizes. | ox-image-20-color | a color picture, drawn by its Art role (part 1) | by Art role
+the same at medium sizes. | ox-image-32-color | a color picture, drawn by its Art role (part 1) | by Art role
+the same at large sizes. | ox-image-48-color | a color picture, drawn by its Art role (part 1) | by Art role
+About this build, the details pane's note, and the About settings and the notes of Settings. | ox-info-20-symbolic | Segoe Fluent Icons U+E946 Info | yes
+Invert selection in the "…" menu: an original icon made for `OpenXplorer` to match Windows 11's command-bar glyph (`n... | ox-invert-selection-24-symbolic | none: an original glyph matching Windows 11's; Microsoft's table names none for it | no
+This PC. | ox-laptop-20-symbolic | Segoe Fluent Icons U+E7F8 DeviceLaptopNoPic | yes
+Copy as path in the context menus, and New ▸ Shortcut. | ox-link-20-symbolic | Segoe Fluent Icons U+E71B Link | yes
+Send to ▸ Mail recipient, in colour as in Windows. | ox-mail-20-color | a color picture, drawn by its Art role (part 1) | by Art role
+Map network drive in This PC's "…": an original icon made for `OpenXplorer` to match Windows 11's command-bar glyph (... | ox-map-network-drive-24-symbolic | Segoe Fluent Icons U+E8CE MapDrive | yes
+New Markdown document until New took Windows 11's list (2026-11-06); still bundled with the approved set, for the own... | ox-markdown-20-symbolic | none: kept from an earlier design; not drawn | no
+the window's maximise button. | ox-maximize-20-symbolic | Segoe Fluent Icons U+E922 ChromeMaximize | yes
+More options. | ox-more-horizontal-20-symbolic | Segoe Fluent Icons U+E712 More | yes
+the Music folder. | ox-music-note-2-20-symbolic | Segoe Fluent Icons U+E90B MusicInfo | yes
+the details pane's Open and a link's Show target. | ox-open-20-symbolic | Segoe Fluent Icons U+E8E5 OpenFile | yes
+Options in the "…" menu: an original icon made for `OpenXplorer` to match Windows 11's command-bar glyph (`native/ico... | ox-options-24-symbolic | none: an original glyph matching Windows 11's; Microsoft's table names none for it | no
+Network, its page, SMB addresses, Map network location and a location that cannot be reached. | ox-organization-20-symbolic | Segoe Fluent Icons U+E968 Network | yes
+the Appearance settings. | ox-paint-brush-20-symbolic | Segoe Fluent Icons U+E771 Personalize | yes
+View > Show > Navigation pane. | ox-panel-left-20-symbolic | Segoe Fluent Icons U+E90C DockLeft | yes
+the details pane toggle. | ox-panel-right-20-symbolic | Segoe Fluent Icons U+E90D DockRight | yes
+View > Preview pane. | ox-panel-right-gallery-20-symbolic | Segoe Fluent Icons U+E8A1 PreviewLink | yes
+pausing an action in the progress window. | ox-pause-16-symbolic | Segoe Fluent Icons U+E769 Pause | yes
+phones and other devices. | ox-phone-20-symbolic | Segoe Fluent Icons U+E8EA CellPhone | yes
+resuming a paused action in the progress window. | ox-play-16-symbolic | Segoe Fluent Icons U+E768 Play | yes
+pins and the Quick access headings. | ox-pin-16-symbolic | Segoe Fluent Icons U+E718 Pin | yes
+View > Extra large icons and Large icons. | ox-rectangle-landscape-20-symbolic | none: Microsoft's table names no glyph for this command | no
+Rename. | ox-rename-20-symbolic | Segoe Fluent Icons U+E8AC Rename | yes
+the search box, Cache this folder for search, Select items matching, the settings search and the Search & indexing se... | ox-search-20-symbolic | Segoe Fluent Icons U+E721 Search | yes
+Search options in the command bar while searching, as Windows 11 File Explorer shows it (SRCH-046). | ox-search-settings-20-symbolic | none: Microsoft's table names no glyph for this command | no
+Select all in the "…" menu: an original icon made for `OpenXplorer` to match Windows 11's command-bar glyph (`native/... | ox-select-all-24-symbolic | Segoe Fluent Icons U+E8B3 SelectAll | yes
+Select none until "…" took Windows 11's four squares for it (2026-11-03); still bundled with the approved set, for th... | ox-select-all-off-20-symbolic | none: kept from an earlier design; not drawn | no
+Select all until "…" took Windows 11's blue squares for it (2026-11-04); still bundled with the approved set, for the... | ox-select-all-on-20-symbolic | none: kept from an earlier design; not drawn | no
+Select none in the "…" menu: an original icon made for `OpenXplorer` to match Windows 11's command-bar glyph (`native... | ox-select-none-24-symbolic | Segoe Fluent Icons U+E8E6 ClearSelection | yes
+an SMB server on the network bar. | ox-server-20-symbolic | none: no glyph of this name in Microsoft's table (Reset, EmptyRecycleBin, Server, double chevrons) | no
+Settings. | ox-settings-20-symbolic | Segoe Fluent Icons U+E713 Settings | yes
+Share in the command bar. | ox-share-20-symbolic | Segoe Fluent Icons U+E72D Share | yes
+the search index's privacy note. | ox-shield-lock-20-symbolic | Segoe Fluent Icons U+EA18 Shield | yes
+the window's restore button. | ox-square-multiple-20-symbolic | Segoe Fluent Icons U+E923 ChromeRestore | yes
+an empty star of the Details tab's Rating. | ox-star-20-symbolic | Segoe Fluent Icons U+E734 FavoriteStar | yes
+a star the Rating gives. | ox-star-20-filled-symbolic | Segoe Fluent Icons U+E735 FavoriteStarFill | yes
+the window's minimise button and Smaller text. | ox-subtract-20-symbolic | Segoe Fluent Icons U+E921 ChromeMinimize | yes
+New CSV file until New took Windows 11's list (2026-11-06); still bundled with the approved set, for the owner to kee... | ox-table-20-symbolic | none: kept from an earlier design; not drawn | no
+spreadsheets and CSV files at small sizes. | ox-table-20-color | a color picture, drawn by its Art role (part 1) | by Art role
+the same at medium sizes. | ox-table-32-color | a color picture, drawn by its Art role (part 1) | by Art role
+the same at large sizes. | ox-table-48-color | a color picture, drawn by its Art role (part 1) | by Art role
+the details view. | ox-text-bullet-list-ltr-20-symbolic | Segoe Fluent Icons U+E8FD BulletedList | yes
+View > List. | ox-text-column-two-20-symbolic | Segoe Fluent Icons U+EA37 List | yes
+the Videos folder. | ox-video-20-symbolic | Segoe Fluent Icons U+E714 Video | yes
+videos at small sizes. | ox-video-20-color | a color picture, drawn by its Art role (part 1) | by Art role
+the same at medium sizes. | ox-video-32-color | a color picture, drawn by its Art role (part 1) | by Art role
+the same at large sizes. | ox-video-48-color | a color picture, drawn by its Art role (part 1) | by Art role
+the warning icon of a message box, such as Rename's question about a changed extension and Confirm Save As, in colour... | ox-warning-32-color | a color picture, drawn by its Art role (part 1) | by Art role
+the dark appearance. | ox-weather-moon-20-symbolic | Segoe Fluent Icons U+E708 QuietHours | yes
+the light appearance. | ox-weather-sunny-20-symbolic | Segoe Fluent Icons U+E706 Brightness | yes
+Open in Terminal. | ox-window-console-20-symbolic | Segoe Fluent Icons U+E756 CommandPrompt | yes
+the General settings. | ox-window-multiple-20-symbolic | Segoe Fluent Icons U+E7C4 TaskView | yes
+New window, in menus and in Settings. | ox-window-new-20-symbolic | Segoe Fluent Icons U+E78B NewWindow | yes
+Properties in the "…" menu, as Windows 11 draws it. | ox-wrench-20-symbolic | Segoe Fluent Icons U+E90F Repair | yes
