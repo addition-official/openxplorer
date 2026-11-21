@@ -39,8 +39,8 @@ use gio::prelude::*;
 
 use crate::location::split_location;
 use crate::transfer::{
-    check_cancelled, clean_staging, Cancellation, FilesystemInfo, ItemIdentity, Node, NodeInfo, NodeKind,
-    TransferError, WriteGuard,
+    check_cancelled, clean_staging, mounted_kind, Cancellation, FilesystemInfo, ItemIdentity, Node, NodeInfo,
+    NodeKind, TransferError, WriteGuard,
 };
 
 /// A file or folder addressed through GIO, including `GVfs` remote backends.
@@ -286,10 +286,16 @@ impl Node for GioNode {
             .ok()
             .and_then(|info| info.attribute_string("id::filesystem"))
             .map(String::from);
-        let kind = filesystem
+        let gio_kind = filesystem
             .as_ref()
-            .and_then(|info| info.attribute_string("filesystem::type"))
-            .map(String::from);
+            .and_then(|info| info.attribute_string("filesystem::type"));
+        // XFER-028: GIO names every FUSE drive `fuse`; the mount table
+        // tells an NTFS or exFAT USB stick apart.
+        let mounts = match gio_kind.as_deref() {
+            Some("fuse") => crate::search::read_mounts().unwrap_or_default(),
+            _ => Vec::new(),
+        };
+        let kind = mounted_kind(gio_kind.as_deref(), self.file.path().as_deref(), &mounts);
         let free = filesystem
             .as_ref()
             .filter(|info| info.has_attribute("filesystem::free"))
