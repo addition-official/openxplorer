@@ -443,6 +443,65 @@ fn changing_the_view_keeps_the_focused_item_in_view() {
     }
 }
 
+/// A grouped folder keeps the item with the keyboard in view when the
+/// view changes too, in the grouped grids as in Details: from Details to
+/// Large, Medium and Extra large icons, Tiles and Content and back.
+///
+/// parity: SEL-007, VIEW-001, VIEW-022
+#[gtk::test]
+fn changing_the_view_of_a_grouped_folder_keeps_the_focused_item_in_view() {
+    let fixture = Fixture::empty();
+    for number in 0..30 {
+        for extension in ["mp3", "jpg", "pdf", "odt"] {
+            fixture.write(&format!("Track {number:02}.{extension}"));
+        }
+    }
+    let test = TestWindow::open(&fixture.uri());
+    test.activate("group-by", Some("type"));
+    let none = gdk::ModifierType::empty();
+    show_view(&test, "details");
+    start_at(&test, 0);
+    press_key(&test, gdk::Key::End, none);
+    let last = test.window.folder_pane().model().n_items() - 1;
+    assert_eq!(selected(&test), [last]);
+    let pane = test.window.folder_pane();
+    let in_view = || {
+        let shown = pane.view_widget();
+        pane.owners().widget_at(last).is_some_and(|cell| {
+            cell.is_ancestor(&shown)
+                && cell.compute_bounds(&shown).is_some_and(|bounds| {
+                    let bottom = f64::from(bounds.y() + bounds.height());
+                    bounds.y() >= 0.0 && bottom <= f64::from(shown.height()) + 1.0
+                })
+        })
+    };
+    let views = [
+        "large",
+        "details",
+        "medium",
+        "tiles",
+        "extra-large",
+        "content",
+        "details",
+    ];
+    for view in views {
+        test.activate("view", Some(view));
+        wait_until(
+            &format!("{view}: the last item in view, with the keyboard"),
+            || in_view() && pane.focused_position() == Some(last),
+        );
+        assert_eq!(selected(&test), [last], "{view}: the selection stays");
+    }
+    // With the keyboard elsewhere, as after a choice in the View menu, the
+    // selected item still shows.
+    for view in views {
+        gtk::prelude::GtkWindowExt::set_focus(&test.window, None::<&gtk::Widget>);
+        test.activate("view", Some(view));
+        wait_until(&format!("{view}: the selected item in view"), || in_view());
+        assert_eq!(selected(&test), [last], "{view}: the selection stays");
+    }
+}
+
 /// parity: SEL-009
 #[gtk::test]
 fn ctrl_arrows_move_without_selecting_and_ctrl_space_toggles() {
