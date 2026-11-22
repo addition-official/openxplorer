@@ -8,13 +8,13 @@ Model: claude-opus-5-5
 
 CLA: I agree
 
-## Merge with the passes (efb363f1)
+## Merge with the passes (efb363f1, a365af0f)
 
 origin/pass-19-a11y (passes 1–19 and network-like-windows) is merged, with one memory design:
 
 - **One store of previews:** this branch's LRU (64 MB, each preview at the size it is shown) replaces the passes' 512-preview, 64 MB store.
 - **The passes' 30 s rule stays:** it empties that store and the Gallery's sharp pictures once no view has asked for a preview for 30 seconds, and it now also stops the decoders started for batched cache reads and the warm-up ones.
-- **Revisits after 30 s idle:** a folder revisited after that reads its thumbnails back from the shared cache, in about 150 ms with no icon flash, instead of drawing them on the first frame.
+- **Revisits after 30 s idle:** a folder revisited after that reads its thumbnails back from the shared cache, in about 150 ms with no icon flash, instead of drawing them on the first frame. Keeping the 30 s release was decided over keeping previews longer, so memory comes back down.
 - **Flavors:** the passes' `XXLarge` flavor and `makes` check are kept.
 - **Tests:** the passes' budget and larger-view tests are ported to the cache.
 
