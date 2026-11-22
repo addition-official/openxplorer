@@ -512,14 +512,10 @@ fn frame_driven_motion() -> Vec<String> {
                 .iter()
                 .any(|call| text.contains(call));
             let follows_the_setting = text.contains("is_gtk_enable_animations");
-            // loading.rs counts frames only to wait for the list's layout
-            // before an instant scroll to a new item (finish_revealing,
-            // OPS-001): nothing moves frame by frame there.
             if moves
                 && !follows_the_setting
                 && !path.ends_with("snapshot.rs")
                 && !path.ends_with("accessibility.rs")
-                && !path.ends_with("window/loading.rs")
             {
                 found.push(path.display().to_string());
             }
