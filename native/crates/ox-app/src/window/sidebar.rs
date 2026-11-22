@@ -43,8 +43,8 @@ use super::window_action::WindowAction;
 use super::{gestures, preferences};
 
 pub(super) use drop_spots::SidebarDropSpot;
-pub(super) use entries::{recent_and_bin_entries, sidebar_entries};
-use entries::{RowLevel, RowTarget, Section, SidebarEntry};
+pub(super) use entries::{computer_entries, recent_and_bin_entries, sidebar_entries, Section};
+use entries::{RowLevel, RowTarget, SidebarEntry};
 
 /// Whether a row shows something hidden, listed while "Show all
 /// entries" is on (SIDE-010).
@@ -176,6 +176,7 @@ impl Sidebar {
         self.open_places_in_tabs_on_ctrl_click(&list);
         self.open_menus_on_right_click(&list);
         self.collapse_sections_with_arrow_keys(&list);
+        self.toggle_sections_on_double_click(&list);
         let scroller = gtk::ScrolledWindow::builder()
             .hscrollbar_policy(gtk::PolicyType::Never)
             // The list is never narrower than the narrowest saved sidebar.

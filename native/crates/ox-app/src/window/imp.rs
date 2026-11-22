@@ -46,6 +46,10 @@ use crate::search::{FolderSearch, SearchInfoStrip};
 use crate::settings_page::SettingsPage;
 use crate::volumes::VolumeRow;
 
+/// A computer under Network whose shared folders the navigation pane
+/// lists: its location, and its folders' names and locations once read.
+pub(super) type ExpandedComputer = (String, Option<Vec<(String, String)>>);
+
 /// Private state of [`super::BrowserWindow`]: the parts of the frame
 /// it updates, then the state of its tabs.
 #[derive(Debug, Default, gtk::CompositeTemplate)]
@@ -88,6 +92,12 @@ pub(crate) struct BrowserWindow {
     pub(super) sidebar_resizer: TemplateChild<ResizerControl>,
     /// Whether the sidebar lists its hidden rows (SIDE-010).
     pub(super) sidebar_show_all: Cell<bool>,
+    /// The computers under Network whose shared folders the navigation
+    /// pane lists, by location, with the folders once read (SIDE-019).
+    pub(super) expanded_computers: RefCell<Vec<ExpandedComputer>>,
+    /// Whether the navigation pane is discovering the computers on the
+    /// network, after Network was expanded there.
+    pub(super) discovering_computers: Cell<bool>,
     /// How many items the Recycle Bin holds, as its sidebar row shows.
     pub(super) trash_items: Cell<u32>,
     /// The generation of the icons chosen in File icons (LOOK-029) the
