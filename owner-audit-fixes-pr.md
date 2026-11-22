@@ -10,7 +10,9 @@ Reliability first, then Windows look-alikes. Where the current behavior was a cl
 ### Crash, data safety and hangs
 
 - **fix(a11y): Never crash an announcement when GTK_A11Y is none.** With `GTK_A11Y=none`, GTK 4.14 gives widgets no accessibility context and the binding wraps the missing context as a real one, so the app crashed when a file drag started or ended, when `:` was typed while renaming in place, and when the status bar read the type-to-select hint. All of these go through one helper, which now reads nothing aloud when `GTK_A11Y` is `none`. A new test runs the test program again with `GTK_A11Y=none`; it fails without the fix.
-- **fix(properties): Ask before Read-only reaches into a folder.** Ticking or clearing Read-only on a folder (or a selection with a folder) changed every file in the tree without asking. OK and Apply now show "Confirm Attribute Changes" with "Apply changes to this folder only" or "Apply changes to this folder, subfolders and files" (selection wording for several items), then OK and Cancel. "This folder only" leaves the folder's files and subfolders untouched; Cancel changes nothing and keeps the choice to apply.
+- **fix(properties): Ask before Read-only reaches into a folder.** Ticking or clearing Read-only on a folder (or a selection with a folder) changed every file in the tree without asking. OK and Apply now show "Confirm Attribute Changes" in Windows 11's words ("set read-only" or "unset read-only"), with "Apply changes to this folder only" or "Apply changes to this folder, subfolders and files" (selected, as in Windows), then OK and Cancel. Cancel changes nothing and keeps the choice to apply.
+  - Windows greys out "this folder only" for Read-only. Here it stays available on purpose: on Linux a folder's own Read-only changes nothing ("Only applies to files in folder"), so this answer is the one way to confirm without touching any file inside. Greying it out would leave recursion or Cancel as the only choices, and it was kept for data safety.
+  - Not changed: the box's click order. Windows cycles mixed → clear → ticked; the current order (mixed → ticked → clear) is left as is.
 - **fix(address): Never freeze the window on a crumb of a huge folder.** A crumb's subfolder menu sorted every subfolder and built one row per subfolder on the main thread. Sorting now runs on a worker thread, the menu lists at most 1,000 subfolders followed by "Show all <n> folders" (opens the folder), and any menu builds its first 100 rows at once and the rest 100 at a time while idle. It still scrolls.
 - **fix(dnd): Read a drag's items once instead of at every motion.** Every drag-motion event cloned and scanned all dragged URIs (up to 100,000). The label and drop facts are now read once per drag.
 
@@ -23,10 +25,11 @@ Reliability first, then Windows look-alikes. Where the current behavior was a cl
 
 ### Smaller gaps
 
-- **fix(views):** a folder's infotip adds Size, Folders and Files (first five names), or "Empty folder". Contents are read on a worker thread, only for local folders, and a size that takes over a second is left out.
+- **fix(views):** a folder's infotip adds Size, Folders and Files (first seven names, then "...", as Windows 11 lists seven of eight files), or "Empty folder". Contents are read on a worker thread, only for local folders, and a size that takes over a second is left out.
 - **fix(network):** Map network drive has a Browse... button beside Folder.
 - **fix(properties):** a local or removable drive's label box on its General tab can be edited; OK or Apply sets the label through UDisks (polkit may ask). Shares and discs stay read-only.
 - **fix(search):** a word starting at the extension's dot follows the same rule as one without it: `.doc` no longer finds `report.docx`, just as `doc` does not; `.docx` and `docx` still do.
+- **feat(search):** new switch in Settings > Search, "Match words at the start of file extensions (like Windows)", off by default. Windows 11 finds report.docx for doc, .doc and docx, and the PDF for pd; with the switch on, a word may also start at an extension's dot or first character (never inside it). The owner's rule stays the default.
 - **fix(previews):** a `remotePreviews: true` that 2.0.18 saved as its default goes back off once, unless the user turned it on since (marked with `remotePreviewsChosen`).
 
 The message template (`native/po/openxplorer.pot`) is regenerated in each commit that adds strings; no translation file is changed.
@@ -44,8 +47,12 @@ The message template (`native/po/openxplorer.pot`) is regenerated in each commit
 - FAIL, in files this branch does not change: `location_fixture_drift::python_fixture_matches_desktop_core_py` (the installed Python 3.13 `urlparse` accepts `[V1.x]`, which the committed fixture expects to be rejected); `network_python::fuse_export_paths_match_native_opening_py` (the system `gi` module does not import under Python 3.13); nine `admin_copy` tests (the isolated run puts their folders under the world-writable `/tmp`). Not re-run on upstream main.
 - Real input (xdotool, release build, private Xvfb, throwaway HOME, generated files), with `GTK_A11Y=none` and with it unset, two runs each: file drag, `:` while renaming, type-to-select, an MP3 playing in the Preview pane then renamed and deleted, an MP4 selected then renamed and deleted. The app stayed up after every step. The MP4 showed only its icon in the pane in this environment, so no video played.
 
-## Needs a Windows 11 check
+## Checked on Windows 11
 
-The Windows wording and defaults below were not checked on Windows: the exact "Confirm Attribute Changes" text for clearing Read-only and for several items, the folder infotip's number of names and its empty-folder text, and whether Windows' search finds `report.docx` for `doc` or `.doc`.
+The Read-only dialog wording, the folder infotip format and empty-folder text, and Windows' search matches for doc, .doc, docx, pd, txt and mp were checked in a Windows 11 VM, and the branch follows them as described above. Still not checked: the Read-only dialog's wording for a selection of several items.
+
+## Known test failure not caused by this branch
+
+`window::tests::search_history::a_tab_on_results_keeps_its_selection_and_scroll_position` times out intermittently in this environment; it fails the same way on main 5d21fd3e (3 of 3 runs).
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

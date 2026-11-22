@@ -1,12 +1,13 @@
 STATUS: DONE
-HEAD: claude/owner-audit-fixes 34560d50
+HEAD: claude/owner-audit-fixes de695b5d
 QUESTION: none
 NOTE:
-- 13 commits on upstream 5d21fd3e, one per fix: GTK_A11Y=none crash; #229
+- 14 commits on upstream 5d21fd3e, one per fix: GTK_A11Y=none crash; #229
   Confirm Attribute Changes; #225 crumb menu; #226/#223 drag facts; #322
   resize band; #132/#143 Restore previous; #373 SMB lookup threads; #373
   Restore over the original (setting, off by default); #183 infotip; #230
-  Browse...; #216 drive label; #164 search dot; #327 remotePreviews.
+  Browse...; #216 drive label; #164 search dot; #327 remotePreviews; #164 search setting "Match words at the start of file
+  extensions (like Windows)", off by default (VM results).
   Skipped as asked: rows marked None, #133, #231, #232, #387, #374.
 - PASS: native/parity/check.py (exit 0).
 - PASS: check.py stages before the tests: inventories, driver tests, icon
@@ -22,7 +23,15 @@ NOTE:
   HOME, GTK_A11Y=none and unset: drag, ":" while renaming, type-to-select,
   MP3 playing in the Preview pane then renamed and deleted, MP4 renamed and
   deleted. App stayed up after every step.
-- NOT TESTED: MP4 video playback (only its icon showed in the pane here);
+- VM results applied (items 1, 3, 4): #229 wording "set/unset read-only",
+  "attribute changes:"; folder-only kept available (Windows greys it out;
+  reason in the PR text); #183 lists 7 names; #164 setting added.
+- PASS after the VM changes: ox-core search and settings tests (302),
+  ox-app folder_summary, read_only, extension_word, redesign, tooltip;
+  rustfmt --check; clippy -D warnings; parity check; i18n template check.
+- FAIL, also on upstream 5d21fd3e (3/3 runs there): search_history
+  a_tab_on_results_keeps_its_selection_and_scroll_position (timeout).
+- NOT TESTED: full check.py after the VM changes; MP4 video playback (only its icon showed in the pane here);
   SMB, UDisks on a real drive, polkit, Wayland; anything on Windows.
 
 VM CHECK
@@ -30,7 +39,7 @@ Windows 11 23H2 or 24H2, a test account, sample files only. Steps for the
 behaviors this branch changed come first, then every other row the audit
 marks "needs VM", unchanged here.
 
-1. #229 Confirm Attribute Changes (folder). Make a folder holding a file and
+1. DONE (VM result applied). #229 Confirm Attribute Changes (folder). Make a folder holding a file and
    a subfolder with a file. Folder > Properties > General, tick Read-only,
    click Apply. Then do it again clearing Read-only.
    Look for: the dialog title, the exact line under "You have chosen to make
@@ -43,13 +52,13 @@ marks "needs VM", unchanged here.
    Look for: the radio labels for a selection (this branch says "Apply
    changes to the selected items only" / "... selected items, subfolders and
    files") and the question line. Also note whether Hidden asks the same.
-3. #183 folder infotip. Hover a folder holding 3 subfolders and 8 files, an
+3. DONE (VM result applied). #183 folder infotip. Hover a folder holding 3 subfolders and 8 files, an
    empty folder, and a folder of several GB.
    Look for: the lines and their order (Date created, Size, Folders, Files),
    how many names each line lists and how it ends ("..."), the empty-folder
    text (this branch says "Empty folder"), and what Size shows for a folder
    too big to count quickly.
-4. #164 search words. In a folder holding "WO - M5753.pdf" and "report.docx",
+4. DONE (VM result applied). #164 search words. In a folder holding "WO - M5753.pdf" and "report.docx",
    type pd, doc, .doc, docx, mp in the search box, in an indexed and a
    non-indexed folder.
    Look for: which of these find report.docx and the PDF. This branch makes
