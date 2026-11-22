@@ -1,0 +1,9 @@
+STATUS: RUNNING
+HEAD: claude/owner-audit-fixes 5d21fd3e
+QUESTION: none
+NOTE:
+- Started from upstream main 5d21fd3e. No fixes committed yet.
+- NOT TESTED: nothing run yet.
+
+VM CHECK
+(filled in as work goes on)
