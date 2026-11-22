@@ -45,6 +45,8 @@ PASS all 87 test binaries at 9e992f6a via check.py's run_isolated as an unprivil
   one earlier ox-app run also failed home_has_no_band_under_the_titles_and_its_tiles_do_not_touch once (flaky: passes alone 3/3 and in the other two full runs)
 PASS all 87 test binaries at 77ae92d6, same way: 4,996 passed, 4 failed (the same 4 as above)
 PASS all 87 test binaries at HEAD 00b00987, same way: 4,999 passed, 4 failed (the same 4); rustfmt and Clippy -D warnings (Rust 1.92.0)
+PASS revisit after 40 s (past the 30 s network-answer life), 300 photos, real input: visible tiles on their first frame 0 -> 30 of 30, all visible 110 -> 3 ms after the first tile
+PASS 4 more interleaved scroll-only pairs at HEAD: stalls of 34 ms or more 5/0/5/19 before (longest 49 ms) vs 1/0/1/4 after (longest 39 ms)
 PASS sanity pair at HEAD (one run each, same hour): after the first tile photos cold 1,158 -> 494 ms, restart 322 -> 73 ms, cache drop 339 -> 67 ms, mixed cold 2,604 -> 639 ms; real-input rename again: 20 moved, 0 made
 PASS tumbler 4.18.1 (installed here, D-Bus activated on a private session bus with the throwaway HOME): GetFlavors lists xx-large, x-large, large, normal; at 1x Large icons it makes normal and at 2x Extra large icons x-large (512 px) thumbnails of 6 photos and an MP4, the app shows them all, and on the next launch reads all 7 from the cache without asking tumbler again; tumbler's Thumb::MTime has microseconds (1795342906.979486), which the app reads to the second
 PASS real input, rename (Xvfb, xdotool, unprivileged user): a folder of 20 photos opened, Alt+Up, F2, typed "Trip 2026", Enter, opened again: 20 entries moved with it, 20 thumbnails read from the cache, 0 made again, 20 entries in the cache in all
