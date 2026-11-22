@@ -27,8 +27,11 @@ script itself (Python's `zipfile` and `tarfile`, Pillow, ffmpeg when it is
 installed, and `seed-maker` for 7z and Zstandard). `run.sh TARGET SECONDS`
 runs one target with a 2-second timeout and a 1 GiB memory limit, keeping
 new inputs in `corpus/` and failures in `artifacts/`; `stats.py` adds up the
-executions in `logs/`. Archive targets need `-detect_leaks=0` after the
-seconds: the 7z decoder's thread may still be running when an input ends.
+executions in `logs/`. With `OX_FUZZ_WORK` set to a folder outside the
+checkout, all three scripts keep `corpus/`, `artifacts/` and `logs/` there
+instead, so a long run's files stay out of the tree the checks copy.
+Archive targets need `-detect_leaks=0` after the seconds: the 7z decoder's
+thread may still be running when an input ends.
 
 | Target | What it reads |
 |---|---|

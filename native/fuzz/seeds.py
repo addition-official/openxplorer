@@ -7,7 +7,8 @@ archive seeds start with the option byte that ``ox_core::fuzzing::archive``
 reads: its low three bits pick the name the archive is opened under, bit 3
 asks for the password ``lighthouse``.
 
-Run from ``native/fuzz``: ``python3 seeds.py``. The 7z and Zstandard seeds
+Run from ``native/fuzz``: ``python3 seeds.py`` (into ``$OX_FUZZ_WORK/corpus``
+when ``OX_FUZZ_WORK`` is set, as for ``run.sh``). The 7z and Zstandard seeds
 need ``seed-maker`` (built on the first run with the stable toolchain).
 """
 
@@ -26,7 +27,8 @@ import zlib
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-CORPUS = HERE / 'corpus'
+# Where run.sh keeps the corpora: $OX_FUZZ_WORK, else here.
+CORPUS = Path(os.environ.get('OX_FUZZ_WORK') or HERE) / 'corpus'
 SEED_MAKER = HERE / 'seed-maker' / 'target' / 'release' / 'ox-fuzz-seed-maker'
 
 # The option byte's name index (see NAMES in ox_core::fuzzing::archive).

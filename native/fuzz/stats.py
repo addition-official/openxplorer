@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-only
-"""Prints each target's executions over every run logged in logs/: the
-finished runs' totals plus the running one's latest count."""
+"""Prints each target's executions over every run logged in logs/ (in
+$OX_FUZZ_WORK when it is set): the finished runs' totals plus the running
+one's latest count."""
 
+import os
 import re
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+# Where run.sh keeps the logs: $OX_FUZZ_WORK, else here.
+WORK = Path(os.environ.get('OX_FUZZ_WORK') or HERE)
 
 
 def executions(log):
@@ -25,7 +29,7 @@ def executions(log):
 
 
 def main():
-    for log in sorted((HERE / 'logs').glob('*.log')):
+    for log in sorted((WORK / 'logs').glob('*.log')):
         print(f'{log.stem:18} {executions(log):>14,}')
 
 
