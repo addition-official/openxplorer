@@ -24,10 +24,10 @@ fn previews_and_picture_decoders_are_let_go_once_unused() {
     let _shortened = UnusedForTests::shorten_to(Duration::from_millis(300));
     let fixture = Fixture::standard();
     for number in 0..24_u32 {
-        let colour = 0x2040_60ff_u32.wrapping_add(number.wrapping_mul(0x0a0b_0c00));
+        let color = 0x2040_60ff_u32.wrapping_add(number.wrapping_mul(0x0a0b_0c00));
         std::fs::write(
             fixture.path(&format!("Harbor {number:02}.jpg")),
-            jpeg_sized(320, 240, colour),
+            jpeg_sized(320, 240, color),
         )
         .expect("a photo");
     }
