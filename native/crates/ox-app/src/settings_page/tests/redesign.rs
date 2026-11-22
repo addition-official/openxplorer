@@ -251,6 +251,9 @@ fn every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages() {
         "Music icon",
         "Code icon",
         "File name endings",
+        // The owner's opt-in for Windows' permanent delete on removable
+        // drives (OPS-018).
+        "Delete files on removable drives permanently (like Windows)",
     ];
     for title in added_since {
         settings.row(title);
@@ -646,6 +649,7 @@ fn the_search_finds_settings_by_the_words_people_use() {
                 // It brings the Recycle Bin back to the navigation pane.
                 "Show more items in the navigation pane",
                 "When replacing a file, move the old one to the Recycle Bin",
+                "Delete files on removable drives permanently (like Windows)",
                 "Moving items to the Recycle Bin",
                 "Emptying the Recycle Bin",
             ],

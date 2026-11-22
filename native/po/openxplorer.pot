@@ -3848,6 +3848,18 @@ msgid "Copying and moving"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs
+msgid "Delete files on removable drives permanently (like Windows)"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/files_folders.rs
+msgid "Delete on a USB stick or SD card asks, then deletes for good. Off: the items go to the drive's own Recycle Bin and keep using its space until it is emptied."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/files_folders.rs
+msgid "Deleting"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/files_folders.rs
 msgid "Documents and other files"
 msgstr ""
 
@@ -4009,6 +4021,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs
 msgid "copy cut paths text clipboard terminal editor plain ctrl+c paste location"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/files_folders.rs
+msgid "delete permanently removable drive usb stick sd card memory card recycle bin trash space windows erase"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs

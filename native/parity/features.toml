@@ -7669,7 +7669,7 @@ bridge = ["operate", "trashSupport"]
 dolphin = "KIO::trash (kio_trash implements the freedesktop Trash spec)"
 gnome = "g_file_trash + access::can-trash"
 native = "done"
-native_note = "native/crates/ox-app/src/window/tests/file_operations.rs (delete_moves_to_the_recycle_bin_without_asking_and_ctrl_z_restores) trashes through GIO into the freedesktop Trash; Delete is named plainly (CMD-003) and the engine never falls back to a delete (XFER-014)."
+native_note = "native/crates/ox-app/src/window/tests/file_operations.rs (delete_moves_to_the_recycle_bin_without_asking_and_ctrl_z_restores) trashes through GIO into the freedesktop Trash; Delete is named plainly (CMD-003) and the engine never falls back to a delete (XFER-014). Items on a removable drive go to its own .Trash-$UID by default (the owner's choice, 2026-11-22), where they keep using its space until the Recycle Bin is emptied. The opt-in setting Files & folders > Deleting > \"Delete files on removable drives permanently (like Windows)\" (deleteRemovablePermanently, stored only when on) makes Delete on a drive that can be ejected or powered off ask Windows 11's question (\"Are you sure you want to permanently delete this file?\", \"...these N items?\", Yes and No) and delete for good, as Windows does; items elsewhere in the same selection keep their way (ox-core ops/delete_plan.rs items_on_a_removable_drive_can_be_deleted_permanently; settings/preferences.rs deleting_on_removable_drives_permanently_is_opt_in; window/tests/removable_delete.rs for both modes; settings_page/tests.rs the_removable_drives_delete_switch_is_off_by_default_and_saved_when_on)."
 
 [[feature]]
 id = "OPS-019"
