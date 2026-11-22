@@ -1,0 +1,184 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+//! The OpenDocument types New offers while an application opens them.
+//!
+//! Windows' New menu lists a file type once a program registers it: with
+//! Microsoft Office, "Microsoft Word Document" and the others; with
+//! LibreOffice, its OpenDocument types. Here New offers "OpenDocument
+//! Presentation", "OpenDocument Spreadsheet" and "OpenDocument Text"
+//! while the desktop has an application for the type, LibreOffice above
+//! all, each with that application's icon. The desktop's application
+//! database is read when a New menu is built, as the item menus read it
+//! for their applications.
+
+use ox_core::ops::NewDocument;
+
+use crate::icons::Icon;
+use crate::window::menu_popover::{MenuEntry, MenuItem};
+use crate::window::window_action::WindowAction;
+
+/// The New menu's name of `document`, a type an application must open.
+fn document_label(document: NewDocument) -> Option<&'static str> {
+    let label = match document {
+        NewDocument::OpenDocumentPresentation => crate::i18n::message_id("OpenDocument Presentation"),
+        NewDocument::OpenDocumentSpreadsheet => crate::i18n::message_id("OpenDocument Spreadsheet"),
+        NewDocument::OpenDocumentText => crate::i18n::message_id("OpenDocument Text"),
+        NewDocument::BitmapImage
+        | NewDocument::RichTextDocument
+        | NewDocument::TextDocument
+        | NewDocument::CompressedFolder => return None,
+    };
+    Some(ox_core::i18n::gettext_static(label))
+}
+
+/// The documents an application must open that one does now, in New's
+/// order, each with that application's icon.
+pub(in crate::window) fn offered_documents() -> Vec<(NewDocument, Option<String>)> {
+    NewDocument::ALL
+        .into_iter()
+        .filter_map(|document| {
+            let icon = application_for(document.content_type()?)?;
+            Some((document, icon))
+        })
+        .collect()
+}
+
+/// Whether New offers `document` now.
+pub(in crate::window) fn is_offered(document: NewDocument) -> bool {
+    document.content_type().is_none()
+        || offered_documents()
+            .iter()
+            .any(|(offered, _)| *offered == document)
+}
+
+/// The New menu's items for the documents an application opens now:
+/// each makes its document ([`WindowAction::NewOpenDocument`], whose
+/// target is the extension) and shows its application's icon.
+pub(in crate::window) fn document_entries() -> Vec<MenuEntry> {
+    offered_documents()
+        .into_iter()
+        .filter_map(|(document, icon)| {
+            let item = MenuItem::with_text_target(
+                document_label(document)?,
+                Icon::Document,
+                WindowAction::NewOpenDocument,
+                document.extension(),
+            );
+            Some(item.with_application_icon(icon.as_deref()).into())
+        })
+        .collect()
+}
+
+/// The icon of the application that opens `content_type`, or `None` when
+/// none does; the inner `None` is an application without an icon.
+fn application_for(content_type: &str) -> Option<Option<String>> {
+    #[cfg(test)]
+    {
+        pretended_application_for(content_type)
+    }
+    #[cfg(not(test))]
+    {
+        installed_application_for(content_type)
+    }
+}
+
+/// The icon of the desktop's application for `content_type`: its default,
+/// else the first that says it opens the type, as GIO picks one.
+#[cfg_attr(test, allow(dead_code, reason = "tests read it in their own test only"))]
+fn installed_application_for(content_type: &str) -> Option<Option<String>> {
+    let application = gtk::gio::AppInfo::default_for_type(content_type, false)?;
+    Some(ox_core::integration::ApplicationInfo::icon(&application))
+}
+
+#[cfg(test)]
+thread_local! {
+    /// The content types tests pretend an application opens, with its
+    /// icon; none unless a test says so, whatever is installed.
+    static PRETENDED: std::cell::RefCell<Vec<(&'static str, &'static str)>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// [`application_for`] in tests: what [`pretend_document_applications`]
+/// says.
+#[cfg(test)]
+fn pretended_application_for(content_type: &str) -> Option<Option<String>> {
+    PRETENDED.with(|pretended| {
+        pretended
+            .borrow()
+            .iter()
+            .find(|(pretended_type, _)| *pretended_type == content_type)
+            .map(|(_, icon)| Some((*icon).to_owned()))
+    })
+}
+
+/// Pretends, for tests, that applications open the content types of
+/// `applications`, each with its icon, until the guard is dropped.
+#[cfg(test)]
+pub(crate) fn pretend_document_applications(
+    applications: &[(&'static str, &'static str)],
+) -> PretendedApplications {
+    PRETENDED.with(|pretended| pretended.replace(applications.to_vec()));
+    PretendedApplications
+}
+
+/// Ends [`pretend_document_applications`] when dropped.
+#[cfg(test)]
+pub(crate) struct PretendedApplications;
+
+#[cfg(test)]
+impl Drop for PretendedApplications {
+    fn drop(&mut self) {
+        PRETENDED.with(|pretended| pretended.borrow_mut().clear());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The desktop's own lookup finds an application that says it opens
+    /// the OpenDocument text type, from a launcher in the private data
+    /// folder each test run gets.
+    #[test]
+    fn an_installed_application_for_the_type_is_found_with_its_icon() {
+        let data = gtk::glib::user_data_dir();
+        assert!(
+            data.starts_with(std::env::temp_dir()),
+            "launchers are written only to a private data folder below {}; found {}",
+            std::env::temp_dir().display(),
+            data.display()
+        );
+        let applications = data.join("applications");
+        std::fs::create_dir_all(&applications).expect("the applications folder");
+        let launcher = applications.join("ox-test-writer.desktop");
+        std::fs::write(
+            &launcher,
+            "[Desktop Entry]\nType=Application\nName=Sample Writer\nExec=true %f\nIcon=ox-sample-writer\n\
+             MimeType=application/vnd.oasis.opendocument.text;\n",
+        )
+        .expect("a launcher");
+
+        crate::test_support::harness::wait_until("the launcher to be read", || {
+            installed_application_for("application/vnd.oasis.opendocument.text").is_some()
+        });
+        let _ = std::fs::remove_file(launcher);
+    }
+
+    #[test]
+    fn only_the_opendocument_types_need_an_application() {
+        let labelled: Vec<_> = NewDocument::ALL
+            .into_iter()
+            .filter(|document| document_label(*document).is_some())
+            .collect();
+        let needing: Vec<_> = NewDocument::ALL
+            .into_iter()
+            .filter(|document| document.content_type().is_some())
+            .collect();
+
+        assert_eq!(labelled, needing);
+        assert!(is_offered(NewDocument::TextDocument));
+        assert!(
+            !is_offered(NewDocument::OpenDocumentText),
+            "no application is pretended"
+        );
+    }
+}

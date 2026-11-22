@@ -6350,6 +6350,10 @@ msgid "Creating a compressed (zipped) folder…"
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/new_items.rs
+msgid "Creating a document…"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/new_items.rs
 msgid "Creating a file…"
 msgstr ""
 
@@ -6370,6 +6374,18 @@ msgid "New Compressed (zipped) Folder"
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/new_items.rs
+msgid "New OpenDocument Presentation"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/new_items.rs
+msgid "New OpenDocument Spreadsheet"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/new_items.rs
+msgid "New OpenDocument Text"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/new_items.rs
 msgid "New Rich Text Document"
 msgstr ""
 
@@ -6379,6 +6395,18 @@ msgstr ""
 
 #: crates/ox-app/src/window/file_ops/new_items.rs crates/ox-app/src/window/shortcuts_window.rs
 msgid "New folder"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/opendocuments.rs crates/ox-core/src/entry/type_label.rs
+msgid "OpenDocument Presentation"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/opendocuments.rs crates/ox-core/src/entry/type_label.rs
+msgid "OpenDocument Spreadsheet"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/opendocuments.rs crates/ox-core/src/entry/type_label.rs
+msgid "OpenDocument Text"
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/pasted_content.rs
@@ -8612,18 +8640,6 @@ msgstr ""
 
 #: crates/ox-core/src/entry/type_label.rs
 msgid "Microsoft Word Document"
-msgstr ""
-
-#: crates/ox-core/src/entry/type_label.rs
-msgid "OpenDocument Presentation"
-msgstr ""
-
-#: crates/ox-core/src/entry/type_label.rs
-msgid "OpenDocument Spreadsheet"
-msgstr ""
-
-#: crates/ox-core/src/entry/type_label.rs
-msgid "OpenDocument Text"
 msgstr ""
 
 #: crates/ox-core/src/entry/type_label.rs

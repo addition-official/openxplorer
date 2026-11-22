@@ -68,7 +68,7 @@ fn new_text_document_makes_the_file_at_once_and_renames_its_name_in_place() {
     assert!(created.is_file(), "made before any name is typed");
     assert_eq!(
         fs::read(&created).expect("the new file"),
-        NewDocument::TextDocument.contents(),
+        &*NewDocument::TextDocument.contents(),
         "an empty text document"
     );
     assert_eq!(test.selected_names(), ["New Text Document.txt"]);
@@ -233,7 +233,7 @@ type NewMenuFile = (
     Option<&'static str>,
     &'static str,
     i32,
-    &'static [u8],
+    std::borrow::Cow<'static, [u8]>,
 );
 
 /// Bitmap image, Rich Text Document and Compressed (zipped) Folder, and a
@@ -278,7 +278,7 @@ fn the_other_new_files_are_made_at_once_and_renamed_in_place() {
             Some("user:Letter.odt"),
             "Letter.odt",
             6,
-            b"letter",
+            std::borrow::Cow::Borrowed(b"letter"),
         ),
     ];
 
@@ -297,7 +297,7 @@ fn the_other_new_files_are_made_at_once_and_renamed_in_place() {
         escape(&test, &field);
         assert_eq!(
             fs::read(fixture.path(name)).expect("the new file"),
-            contents,
+            &*contents,
             "{action}"
         );
         assert_eq!(test.selected_names(), [name], "{action}");
@@ -1068,4 +1068,95 @@ fn a_template_added_while_the_window_is_open_is_in_the_folder_menus_new_at_once(
         menu.popdown();
         settle();
     }
+}
+
+/// As Windows lists a file type in New only once a program registers it,
+/// the OpenDocument types are offered only while an installed application
+/// opens them, LibreOffice above all: among the documents in the order of
+/// their extensions, with that application's icon. Each is made at once
+/// as "New OpenDocument Text.odt" and so on, an empty document of its
+/// type, and renamed in place.
+///
+/// parity: CMD-004, OPS-002
+#[gtk::test]
+fn the_opendocument_types_are_offered_while_an_application_opens_them() {
+    let _installed = crate::window::file_ops::pretend_document_applications(&[
+        (
+            "application/vnd.oasis.opendocument.spreadsheet",
+            "x-office-spreadsheet",
+        ),
+        ("application/vnd.oasis.opendocument.text", "x-office-document"),
+    ]);
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    super::support::show_file_name_extensions(&test);
+    super::context_menus::choose_menu_style(&test, ox_core::settings::ContextMenu::Win10);
+
+    test.window.right_click(None);
+    let menu = test.window.context_menu();
+    let new = menu.open_submenu_of("New");
+    assert_eq!(
+        new.row_labels(),
+        [
+            "Folder",
+            "Shortcut",
+            "-",
+            "Bitmap image",
+            "OpenDocument Spreadsheet",
+            "OpenDocument Text",
+            "Rich Text Document",
+            "Text Document",
+            "Compressed (zipped) Folder",
+        ]
+    );
+    let icons: Vec<Option<String>> = new
+        .items()
+        .into_iter()
+        .filter(|item| item.label.starts_with("OpenDocument"))
+        .map(|item| item.application_icon)
+        .collect();
+    assert_eq!(
+        icons,
+        [
+            Some("x-office-spreadsheet".to_owned()),
+            Some("x-office-document".to_owned())
+        ],
+        "each with its application's icon"
+    );
+    menu.popdown();
+    settle();
+
+    for (extension, name, name_end, document) in [
+        (
+            "odt",
+            "New OpenDocument Text.odt",
+            21,
+            NewDocument::OpenDocumentText,
+        ),
+        (
+            "ods",
+            "New OpenDocument Spreadsheet.ods",
+            28,
+            NewDocument::OpenDocumentSpreadsheet,
+        ),
+    ] {
+        test.activate("new-opendocument", Some(extension));
+        let field = name_editor(&test);
+        settle();
+
+        assert_eq!(field.text(), name);
+        assert_eq!(field.selection_bounds(), Some((0, name_end)), "{name}");
+        escape(&test, &field);
+        assert_eq!(
+            fs::read(fixture.path(name)).expect("the new document"),
+            &*document.contents(),
+            "{name}"
+        );
+    }
+    test.activate("new-opendocument", Some("odp"));
+    settle();
+    assert!(
+        !fixture.path("New OpenDocument Presentation.odp").exists(),
+        "a type no application opens is not made"
+    );
 }

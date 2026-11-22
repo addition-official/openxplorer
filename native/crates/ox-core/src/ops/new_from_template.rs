@@ -579,7 +579,7 @@ mod tests {
             publish_new_file(
                 &folder,
                 &target,
-                document.contents(),
+                &document.contents(),
                 &OperationContext::default(),
             )
             .expect("the new document");
