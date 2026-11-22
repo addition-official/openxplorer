@@ -4746,6 +4746,23 @@ native = "done"
 native_note = "native/crates/ox-app/src/window/quiet_tooltips.rs (install_tooltip_hiding, hide_tooltip, pointer_moved, follow_focus_for_tooltips, watch_tooltip_window and the Pressed, Menu and Rename reasons of TooltipsOff); native/crates/ox-app/src/window/location_view.rs (render_location hides the tooltip). GTK 4 has no call that hides a tooltip: the window turns its widgets' tooltips off and has GTK look under the pointer again, which hides it; they stay off until the pointer moves 3 pixels, as GTK would otherwise show at once the tooltip of whatever comes under a resting pointer, such as the first row of the folder a double-click opened, and a tooltip a widget made since then shows is hidden again. The keyboard in a menu, another popover or a rename box keeps them off until it leaves, or the popover closes. Tested with a real pointer and keys in native/crates/ox-app/src/window/tests/tooltips.rs (no_tooltip_stays_over_a_menu_the_rename_box_or_the_next_folder)."
 
 [[feature]]
+id = "VIEW-074"
+area = "VIEW"
+title = "Launchers look and are named like shortcuts"
+behaviour = "A .desktop launcher is a shortcut as Windows has them: its icon carries the link arrow in the bottom-left corner, as a symbolic link's does and as Windows draws its shortcut overlay, and its name never shows '.desktop', whatever 'File name extensions' says, as Windows never shows a shortcut's '.lnk' (NeverShowExt); renaming one edits the name without '.desktop' and keeps it. The launcher's own Icon= picture is not drawn: the view draws only the app's bundled Fluent art."
+origin = ["openxplorer"]
+priority = "could"
+openxplorer = "missing"
+sources = [
+  "https://devblogs.microsoft.com/oldnewthing/20241120-00/?p=110547 (some extensions, such as .lnk, are never shown)",
+  "https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nn-shobjidl_core-ishelliconoverlayidentifier (the link arrow in the lower-left corner)",
+]
+python_tests = []
+bridge = []
+native = "partial"
+native_note = "native/crates/ox-app/src/icons/emblem.rs (is_launcher; links_and_read_only_items_carry_their_emblems) and native/crates/ox-app/src/folder_view/shown_name.rs (launcher_extension; a_launchers_desktop_extension_is_always_hidden). Partial: the launcher's Icon= picture is not shown."
+
+[[feature]]
 id = "SEL-001"
 area = "SEL"
 title = "Mouse selection: click, Ctrl+click, Shift+click"
