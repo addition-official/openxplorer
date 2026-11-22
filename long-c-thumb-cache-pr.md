@@ -83,6 +83,9 @@ Thumbnails of files that were deleted or sent to the Recycle Bin stay in the cac
 - **Benchmark:** the table above (`thumbnail-bench.py --scroll`).
 - **Interop:** the release build was run by hand on a private Xvfb display as an unprivileged user with a throwaway HOME, then `gio info` was checked on its entries (0600 files in 0700 folders, with all four keys).
 - **Tumbler 4.18.1**, D-Bus activated on a private session bus with the throwaway HOME. `GetFlavors` lists all four sizes. At 1x Large icons it makes `normal` thumbnails, and at 2x Extra large icons `x-large` ones (512 px), of 6 photos and an MP4. The app shows them all, and on the next launch reads all 7 from the cache without asking tumbler again. Tumbler writes `Thumb::MTime` with microseconds (`1795342906.979486`), which the app reads to the second.
+- **Real input, rename** (Xvfb, xdotool): a folder of 20 photos was opened, then Alt+Up, F2, "Trip 2026" and Enter, then opened again. All 20 entries moved with it, all 20 thumbnails were read from the cache, none was made again, and the cache holds 20 entries in all.
+- **The real app with "Always show icons, never thumbnails" on:** no thumbnail was requested, no decoder was started, and no thumbnails folder was created.
+- **The real app's fail cache:** a PNG cut short is tried once and recorded in `fail/openxplorer` on the first launch. On the second launch it is answered from that entry, with no decode and nothing made, and the good PNG beside it is read from the cache.
 - **2x scale by hand** (`GDK_SCALE=2`): Large icons write `large` entries, and Extra large icons write 512 × 341 `x-large` entries.
 - The website's pictures of the app were not changed, and no website build was run.
 

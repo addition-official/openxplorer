@@ -38,6 +38,9 @@ PASS all 87 test binaries at 9e992f6a via check.py's run_isolated as an unprivil
 PASS all 87 test binaries at 77ae92d6, same way: 4,996 passed, 4 failed (the same 4 as above)
 PASS ox-app thumbnails and decoder tests at HEAD 9f5546de (spelling only since 77ae92d6), rustfmt and Clippy -D warnings
 PASS tumbler 4.18.1 (installed here, D-Bus activated on a private session bus with the throwaway HOME): GetFlavors lists xx-large, x-large, large, normal; at 1x Large icons it makes normal and at 2x Extra large icons x-large (512 px) thumbnails of 6 photos and an MP4, the app shows them all, and on the next launch reads all 7 from the cache without asking tumbler again; tumbler's Thumb::MTime has microseconds (1795342906.979486), which the app reads to the second
+PASS real input, rename (Xvfb, xdotool, unprivileged user): a folder of 20 photos opened, Alt+Up, F2, typed "Trip 2026", Enter, opened again: 20 entries moved with it, 20 thumbnails read from the cache, 0 made again, 20 entries in the cache in all
+PASS real app, Always show icons (viewOptions.showPreviews off): no thumbnail requested, no decoder started, no thumbnails folder created
+PASS real app, fail cache: a PNG cut short is tried once and recorded in fail/openxplorer on the first launch; on the second it is answered from that entry (no decode, nothing made) and the good PNG beside it from the cache
 PASS 2x scale by hand (GDK_SCALE=2, Xvfb, unprivileged user): Large icons write large entries, Extra large icons write x-large (512 x 341) entries
 PASS doctests; check.py through parity tests, parity/check.py, i18n, driver tests, drawn-icon guard, rustfmt, Clippy -D warnings (Rust 1.92.0 as CI); parity/check.py alone; sync-docs --check; audit-public-data on the changed docs
 FAIL none of this branch's
