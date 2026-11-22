@@ -733,6 +733,9 @@ pub(super) fn popup_place_menu_in(
         let closed = popover.clone();
         glib::idle_add_local_once(move || closed.unparent());
         if let Some(opener) = opener.as_ref().and_then(glib::WeakRef::upgrade) {
+            // On Wayland the menu's grab takes the button's release, so a
+            // tile or row would stay drawn as pressed.
+            opener.unset_state_flags(gtk::StateFlags::ACTIVE);
             if opener.is_drawable() {
                 opener.grab_focus();
             }

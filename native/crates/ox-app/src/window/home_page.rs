@@ -2090,7 +2090,6 @@ impl BrowserWindow {
                 Icon::ArrowRedo,
                 WindowAction::Redo,
             )
-            .mirrored()
             .with_shortcut("Ctrl+Y")
             .into(),
         ]);

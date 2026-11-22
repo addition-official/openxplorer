@@ -519,3 +519,38 @@ fn the_command_bar_acts_on_the_selected_row() {
         !recent_names(&test).contains(&"plan".to_owned())
     });
 }
+
+/// A row right-clicked and left with Escape does not stay drawn as
+/// pressed: once its menu has closed and a click on blank space has
+/// cleared the selection, no row looks selected or pressed.
+///
+/// parity: HOME-036
+#[gtk::test]
+fn a_right_clicked_row_is_not_left_drawn_as_pressed() {
+    let (_fixture, test) = recent_home(&["plan.txt", "budget.txt"]);
+    let mut pointer = Pointer::connect();
+    let row = home_page::item_named(body(&test), "plan");
+    click(&mut pointer, &test, &row, None, Button::Secondary);
+    let menu = open_menu(&test);
+    pointer.tap_key(gtk::gdk::Key::Escape);
+    wait_until("the menu to close", || !menu.is_mapped());
+    let page = body(&test);
+    click(
+        &mut pointer,
+        &test,
+        page,
+        Some((f64::from(page.width()) - 30.0, 8.0)),
+        Button::Primary,
+    );
+    wait_for_frames(&test.window, 3);
+
+    let drawn_pressed: Vec<String> = descendants::<gtk::FlowBoxChild>(body(&test))
+        .into_iter()
+        .filter(|child| child.is_selected() || child.state_flags().contains(gtk::StateFlags::ACTIVE))
+        .map(|child| child.widget_name().to_string())
+        .collect();
+    assert!(
+        drawn_pressed.is_empty(),
+        "drawn as pressed or selected: {drawn_pressed:?}"
+    );
+}
