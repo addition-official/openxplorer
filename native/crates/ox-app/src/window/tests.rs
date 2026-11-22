@@ -21,6 +21,7 @@ mod clipboard_lifetime;
 mod clipboard_shares;
 mod clipboard_switches;
 mod closing;
+mod cut_look;
 mod column_fitting;
 mod command_bar;
 mod command_bar_switch;
