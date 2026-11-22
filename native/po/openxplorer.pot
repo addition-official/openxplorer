@@ -2881,6 +2881,14 @@ msgid "The search cache holds names only"
 msgstr ""
 
 #: crates/ox-app/src/search/report.rs
+msgid "(first 500)"
+msgstr ""
+
+#: crates/ox-app/src/search/report.rs
+msgid "Cached"
+msgstr ""
+
+#: crates/ox-app/src/search/report.rs
 msgid "Cached metadata · see update coverage in Settings"
 msgstr ""
 
@@ -2913,9 +2921,11 @@ msgid "Searching…"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-app/src/search/report.rs
-msgid "{shown} results"
-msgstr ""
+#: crates/ox-app/src/search/report.rs crates/ox-app/src/window/status_bar.rs
+msgid "{count} item"
+msgid_plural "{count} items"
+msgstr[0] ""
+msgstr[1] ""
 
 #: crates/ox-app/src/search/source.rs
 msgid "All cached folders"
@@ -7845,13 +7855,6 @@ msgstr ""
 #: crates/ox-app/resources/ui/status-bar.ui crates/ox-app/src/window/status_bar.rs
 msgid "Ready"
 msgstr ""
-
-#. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-app/src/window/status_bar.rs
-msgid "{count} item"
-msgid_plural "{count} items"
-msgstr[0] ""
-msgstr[1] ""
 
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/status_bar.rs
