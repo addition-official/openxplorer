@@ -599,6 +599,14 @@ msgid "Add a network location"
 msgstr ""
 
 #: crates/ox-app/src/dialogs/network_map.rs
+msgid "Browse For Folder"
+msgstr ""
+
+#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/properties/change_icon.rs
+msgid "Browse..."
+msgstr ""
+
+#: crates/ox-app/src/dialogs/network_map.rs
 msgid "Connect"
 msgstr ""
 
@@ -1488,10 +1496,6 @@ msgstr ""
 
 #: crates/ox-app/src/properties/attribute_confirm.rs
 msgid "unset read-only"
-msgstr ""
-
-#: crates/ox-app/src/properties/change_icon.rs
-msgid "Browse..."
 msgstr ""
 
 #: crates/ox-app/src/properties/change_icon.rs
