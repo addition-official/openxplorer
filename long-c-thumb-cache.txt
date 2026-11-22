@@ -47,6 +47,9 @@ PASS all 87 test binaries at 77ae92d6, same way: 4,996 passed, 4 failed (the sam
 PASS all 87 test binaries at HEAD 00b00987, same way: 4,999 passed, 4 failed (the same 4); rustfmt and Clippy -D warnings (Rust 1.92.0)
 PASS revisit after 40 s (past the 30 s network-answer life), 300 photos, real input: visible tiles on their first frame 0 -> 30 of 30, all visible 110 -> 3 ms after the first tile
 PASS real-input rename again at HEAD: 20 moved, 0 made
+PASS preview-smoke.py at HEAD (300 real and mangled files of 18 kinds, Preview and Details panes): app running, 0 bad stderr lines
+PASS the same mangled corpus in Large icons, paged through twice at HEAD: app running both times, 0 bad stderr lines; 44 broken files recorded in fail/ on the first visit; on the second, 0 thumbnailers started and 44 answered from fail/ (upstream started 31 thumbnailers again for them); crash.log holds only "The last run ended abnormally.", from the harness stopping the first run with SIGTERM, as on upstream
+PASS memory again at HEAD: cold scroll through 2,000 photos and back 343 -> 359 MB, warm 265 -> 286 MB
 PASS tumbler 4.18.1 (installed here, D-Bus activated on a private session bus with the throwaway HOME): GetFlavors lists xx-large, x-large, large, normal; at 1x Large icons it makes normal and at 2x Extra large icons x-large (512 px) thumbnails of 6 photos and an MP4, the app shows them all, and on the next launch reads all 7 from the cache without asking tumbler again; tumbler's Thumb::MTime has microseconds (1795342906.979486), which the app reads to the second
 PASS real input, rename (Xvfb, xdotool, unprivileged user): a folder of 20 photos opened, Alt+Up, F2, typed "Trip 2026", Enter, opened again: 20 entries moved with it, 20 thumbnails read from the cache, 0 made again, 20 entries in the cache in all
 PASS real app, Always show icons (viewOptions.showPreviews off): no thumbnail requested, no decoder started, no thumbnails folder created

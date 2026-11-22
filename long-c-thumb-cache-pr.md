@@ -97,6 +97,8 @@ Thumbnails of files that were deleted or sent to the Recycle Bin stay in the cac
 - **Real input, rename** (Xvfb, xdotool): a folder of 20 photos was opened, then Alt+Up, F2, "Trip 2026" and Enter, then opened again. All 20 entries moved with it, all 20 thumbnails were read from the cache, none was made again, and the cache holds 20 entries in all.
 - **The real app with "Always show icons, never thumbnails" on:** no thumbnail was requested, no decoder was started, and no thumbnails folder was created.
 - **The real app's fail cache:** a PNG cut short is tried once and recorded in `fail/openxplorer` on the first launch. On the second launch it is answered from that entry, with no decode and nothing made, and the good PNG beside it is read from the cache.
+- **`preview-smoke.py`** (300 real and mangled files of 18 kinds, through the Preview and Details panes): the app keeps running, with no bad output.
+- **The same mangled files in Large icons**, paged through twice: the app keeps running, with no bad output. On the first visit 44 broken files are recorded in `fail/`. On the second, no thumbnailer is started for them and all 44 are answered from `fail/`, where upstream started 31 sandboxed thumbnailers again.
 - **2x scale by hand** (`GDK_SCALE=2`): Large icons write `large` entries, and Extra large icons write 512 × 341 `x-large` entries.
 - The website's pictures of the app were not changed, and no website build was run.
 
