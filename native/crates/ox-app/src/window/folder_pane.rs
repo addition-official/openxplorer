@@ -724,6 +724,45 @@ impl FolderPane {
         }
     }
 
+    /// Moves the keyboard from the list itself onto an item once rows are
+    /// drawn: the selected item when it shows, else the first item shown,
+    /// without selecting or scrolling. GTK keeps the keyboard on the list
+    /// when it took it before the listing arrived (a new tab, a typed
+    /// address: the keyboard goes to the list while it is still empty),
+    /// where a screen reader heard only "list". The window calls it when
+    /// a listing ends; it tries for a few frames and stops once an item has
+    /// the keyboard or the keyboard left the list.
+    pub(super) fn move_keyboard_onto_an_item_once_drawn(&self) {
+        /// Frames to wait for rows before giving up.
+        const FRAMES: u32 = 30;
+        let left = std::cell::Cell::new(FRAMES);
+        self.view_widget().add_tick_callback(glib::clone!(
+            #[weak(rename_to = pane)]
+            self,
+            #[upgrade_or]
+            glib::ControlFlow::Break,
+            move |_, _| {
+                left.set(left.get().saturating_sub(1));
+                if !pane.view_has_focus() || pane.focused_position().is_some() || pane.shows_gallery_page() {
+                    return glib::ControlFlow::Break;
+                }
+                let shown = pane.positions_shown();
+                let selected = pane
+                    .model()
+                    .first_selected()
+                    .filter(|selected| shown.contains(selected));
+                match selected.or_else(|| shown.iter().min().copied()) {
+                    Some(position) => {
+                        pane.focus_item(position);
+                        glib::ControlFlow::Break
+                    }
+                    None if left.get() == 0 => glib::ControlFlow::Break,
+                    None => glib::ControlFlow::Continue,
+                }
+            }
+        ));
+    }
+
     /// Makes sure the item with the list's keyboard focus shows, for the
     /// keyboard entering the list (Esc in the address bar, Tab): when the
     /// keyboard rests on the list itself, it goes to the first selected

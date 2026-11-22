@@ -342,3 +342,48 @@ fn a_details_row_is_heard_with_its_type_size_and_date() {
         "a folder's empty Size is left out: {folder:?}"
     );
 }
+
+/// A new tab or a typed address, once its folder is listed, has the
+/// keyboard on an item, so a screen reader hears the item: the keyboard
+/// went to the list while it was still empty and stayed on the list
+/// itself once the items came, and Orca heard only "list".
+///
+/// parity: ACC-003, ACC-016
+#[gtk::test]
+fn a_new_tab_or_address_puts_the_keyboard_on_an_item_once_listed() {
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri_of("Documents"));
+    test.activate("view", Some("details"));
+    test.window.folder_pane().focus_view();
+    let on_an_item = || {
+        gtk::prelude::GtkWindowExt::focus(&test.window)
+            .is_some_and(|focus| focus.accessible_role() == gtk::AccessibleRole::Row)
+    };
+    let check = |what: &str, selected: &[&str]| {
+        test.wait_for_listing(what);
+        crate::test_support::harness::wait_for(std::time::Duration::from_millis(500));
+        let focus = gtk::prelude::GtkWindowExt::focus(&test.window);
+        assert!(
+            on_an_item(),
+            "{what}: the keyboard is on an item, not {:?} {:?}",
+            focus.as_ref().map(|focus| focus.type_().name()),
+            focus.as_ref().map(AccessibleExt::accessible_role),
+        );
+        assert_eq!(test.selected_names(), selected, "{what}: the selection");
+        let focused = test.window.folder_pane().focused_position();
+        let first_selected = test.window.folder_model().first_selected();
+        if !selected.is_empty() {
+            assert_eq!(
+                focused, first_selected,
+                "{what}: the keyboard is on the selected item"
+            );
+        }
+    };
+    test.window.add_tab(&fixture.uri()).expect("a folder");
+    check("the new tab", &[]);
+    test.window.navigate_or_report(&fixture.uri_of("Documents"));
+    test.wait_for_listing("the empty folder");
+    test.window.navigate_or_report(&fixture.uri());
+    // The folder it came from is selected, as in Windows.
+    check("the typed address", &["Documents"]);
+}
