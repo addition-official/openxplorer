@@ -567,14 +567,17 @@ enum Declared {
 /// Reads the size a picture's header declares.
 type HeaderReader = fn(&[u8]) -> Declared;
 
-/// The size a PNG, JPEG, GIF, WebP or BMP declares in its first `bytes`.
+/// The size a PNG, JPEG, GIF, WebP or BMP declares in its first `bytes`,
+/// or that an icon's directory is one no loader may be given.
 fn declared_size(bytes: &[u8]) -> Declared {
-    let readers: [(&[u8], HeaderReader); 5] = [
+    let readers: [(&[u8], HeaderReader); 7] = [
         (PNG_SIGNATURE, png_size),
         (b"\xFF\xD8", jpeg_size),
         (b"GIF87a", gif_size),
         (b"GIF89a", gif_size),
         (b"BM", bmp_size),
+        (b"\0\0\x01\0", icon_size),
+        (b"\0\0\x02\0", icon_size),
     ];
     let mut incomplete = false;
     for (signature, read) in readers {
@@ -754,6 +757,38 @@ fn bmp_size(bytes: &[u8]) -> Declared {
         height,
     })
 }
+
+/// What an icon's or cursor's directory says: gdk-pixbuf reserves room
+/// from the start of the file to an image's data, as the image's entry
+/// gives its offset and length, before it reads the image; an entry past
+/// [`MAX_ICON_DATA_END`] is refused. Each image's size is read by the
+/// loader itself, and is at most 256 pixels square in the directory.
+fn icon_size(bytes: &[u8]) -> Declared {
+    let Some(count) = field(bytes, 4).map(u16::from_le_bytes) else {
+        return Declared::Incomplete;
+    };
+    let directory = 6 + 16 * usize::from(count);
+    // A directory longer than the start read before deciding is no icon's.
+    if directory > HEADER_LIMIT {
+        return Declared::Damaged;
+    }
+    if bytes.len() < directory {
+        return Declared::Incomplete;
+    }
+    let past_limit = bytes[6..directory].chunks_exact(16).any(|entry| {
+        let word = |at: usize| u32::from_le_bytes([entry[at], entry[at + 1], entry[at + 2], entry[at + 3]]);
+        word(12).saturating_add(word(8)) > MAX_ICON_DATA_END
+    });
+    if past_limit {
+        Declared::Damaged
+    } else {
+        Declared::Unknown
+    }
+}
+
+/// The furthest an icon's image data may end: far past any icon a program
+/// writes, which holds a few pictures of at most 256 pixels square.
+const MAX_ICON_DATA_END: u32 = 64 * 1024 * 1024;
 
 /// The length of the longest BMP information header, `BITMAPV5HEADER`.
 const MAX_BMP_INFO_HEADER: u32 = 124;
@@ -1332,6 +1367,35 @@ mod tests {
         webp.extend_from_slice(&(width - 1).to_le_bytes()[..3]);
         webp.extend_from_slice(&(height - 1).to_le_bytes()[..3]);
         webp
+    }
+
+    /// An icon whose directory puts an image gigabytes in is refused
+    /// before a loader reserves room up to it; an icon as programs write
+    /// them is still read (found by fuzzing).
+    #[test]
+    fn an_icon_with_an_image_gigabytes_in_is_refused_before_it_is_read() {
+        let pixbuf = Pixbuf::new(gtk::gdk_pixbuf::Colorspace::Rgb, true, 8, 16, 16).expect("a small picture");
+        pixbuf.fill(0x3366_99ff);
+        let icon = pixbuf.save_to_bufferv("ico", &[]).expect("an icon");
+        assert_eq!(declared_size(&icon), Declared::Unknown);
+        let mut reader = std::io::Cursor::new(icon.clone());
+        let decoded = decode_reader_here_to_fit(&mut reader, 64, 64, Limits::DISPLAY, None).expect("the icon");
+        assert_eq!((decoded.width, decoded.height), (16, 16));
+        for (offset, size) in [(0x4849_4441_u32, 40_u32), (22, 0xFFFF_FF00)] {
+            let mut far = icon.clone();
+            far[6 + 8..6 + 12].copy_from_slice(&size.to_le_bytes());
+            far[6 + 12..6 + 16].copy_from_slice(&offset.to_le_bytes());
+            assert_eq!(declared_size(&far), Declared::Damaged, "offset {offset:#x}, size {size:#x}");
+            let mut reader = std::io::Cursor::new(far);
+            let decoded = decode_reader_here_to_fit(&mut reader, 64, 64, Limits::DISPLAY, None);
+            assert_eq!(decoded.err(), Some(Refusal::Damaged));
+        }
+        // The directory is read whole before deciding, and one longer
+        // than the start read before deciding is refused.
+        assert_eq!(declared_size(&icon[..10]), Declared::Incomplete);
+        let mut crowded = icon.clone();
+        crowded[4..6].copy_from_slice(&u16::MAX.to_le_bytes());
+        assert_eq!(declared_size(&crowded), Declared::Damaged);
     }
 
     /// A BMP whose information header claims to be gigabytes long is
