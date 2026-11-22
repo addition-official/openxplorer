@@ -1,0 +1,62 @@
+STATUS: DONE
+HEAD: pass-14-tabs-windows aeaffd55c1d7b6820b0bcdfa704bb54d9a4daa4d
+QUESTION: pass-4-nav-pane (5cb3a27c) and network-like-windows (2af9384b) both added the computers under Network to the navigation pane, with conflicting actions (toggle-network-computer vs toggle-computer), types (DiscoveredServer vs DiscoveredComputer) and row classes. To merge both into this branch I reverted pass-4's copy in its own commit (499d43fd, "revert(sidebar): Drop pass-4's computers under Network for network-like-windows' version") and kept network-like-windows' version. Every later branch that merges both will hit the same conflict; please confirm that network-like-windows' version is the one to keep.
+NOTE: Branched from upstream main 5d21fd3e. Merged (no rebase) pass-1 to pass-9, network-like-windows and pass-11-new-menu, which all change files this branch changes (at least the .pot and features.toml). Conflicts resolved: transfer.rs imports (union), status_bar.rs doc comment, docs.json (both sentences kept; Markdown regenerated with tools/sync-docs.py), .pot regenerated with i18n.py extract. pass-3-rename's :not(.renaming) focus rules made theme::stylesheets::focus_rings_sit_on_controls_and_items_not_around_the_file_list fail after the merges (pass-3 and pass-7 as pushed hold the same rules and the old expectation; read, not run there); the test now expects those rules (commit 6220f6cc). Tested with real input (xdotool) on a private Xvfb with Openbox, as the unprivileged user "tester" with a throwaway HOME and a fixture tree of real files (mp3, mp4, jpg, png, pdf, docx, odt, zip, 7z, a 2 GB sparse .iso, broken jpg/mp4/pdf, odd names: leading space, two spaces, unicode, #/%20, ;'" quotes, a 180-character name, an invalid-UTF-8 name, 400 files in one folder). stderr was watched for Bail out, CRITICAL, panicked and SIG*: none seen in any run.
+NOTE: Worked as in Windows 11 (no change): Ctrl+T, +, Ctrl+W, middle-click and x on a tab, Ctrl+Tab / Ctrl+Shift+Tab, Ctrl+1..9 (Ctrl+9 is the ninth tab, as in Windows; with 3 tabs it does nothing), Windows' four-item tab menu when "more tab menu items" is off, Duplicate tab, drag to reorder, drag out to a new window, drag into another window, dropping a file on a tab (hover brings the tab to the front, the drop moves on the same volume), per-tab history/selection/scroll/view, Ctrl+N, closing the last window ends the app, folder opened from the command line raises the window, F6 visits both split panes and makes each active, the address and status bars follow the active pane, Ctrl+C/Ctrl+V between panes, 50 tabs (5 s for 50 Ctrl+T, RSS 200->202 MB, strip scrolls and arrows work).
+NOTE: Differences kept on purpose (owner's choices, documented in parity): Ctrl+double-click / Ctrl+Enter on a folder opens a background tab (Dolphin, TAB-026; Windows opens a new window per press); double-click on a tab duplicates it (Dolphin, TAB-014); Ctrl+Shift+T reopens a closed tab (Dolphin; Windows has no such key); Duplicate tab of a split tab copies only its active pane (documented in Session::duplicate).
+NOTE: Split panes at the default 1320 px window, 1x: each pane is 548 px, the default columns need about 569 (Name at its 140+14 px floor, Date 176, Type 135, Size about 104), so both panes scroll sideways by about 20 px and Size is cut at the edge until scrolled. This is the documented, tested design (narrow_windows.rs: Name gives way first, then the list scrolls with a bar that stays shown); left unchanged. Windows has no split view to compare with.
+NOTE: Seen but left for other passes: a window opened from the command line with a folder (ox /) has Back enabled, back to Home, because the window opens at the startup folder and then navigates (startup, pass-13); once, after files were dragged out of a tab to another tab, the tab came back scrolled to the end; not reproducible in three later tries. The new window from a dragged-out tab opens where the window manager puts it, not under the pointer (GTK 4 cannot place windows on X11 or Wayland).
+NOTE: check.py with this container's Rust 1.97 stops at Clippy's new duration_suboptimal_units lint in untouched upstream files; all runs below use Rust 1.92.0, CI's toolchain.
+PASS new ox-core test every_saved_window_comes_back_with_the_front_one_first (failed before: SavedWindows did not exist)
+PASS new ox-app tests, each seen failing before its fix: the_window_in_front_saves_the_tabs_of_every_window, a_start_reopens_every_saved_window, quit_keeps_every_window_for_the_next_start (also fails with the quit guard disabled), a_split_tab_moves_to_another_window_with_both_panes, a_tab_opened_in_front_puts_the_keyboard_in_its_folder, a_drag_over_the_tab_strip_draws_no_frame_round_it; the_tab_of_a_drive_shows_the_drive and the Local Disk case of tabs_and_the_address_bar_show_each_locations_own_icon (the old code returned the folder)
+PASS live, real input: two windows (Fixture+Home, Home+Music) ended with SIGTERM after 66 s reopen both, Music in front; Quit (Ctrl+Q) with two windows reopens both; a split tab dragged out with the pointer arrives with both panes and the same pane active; Down after Ctrl+T selects in the new tab's list; a file drag over a tab outlines that tab only; the Local Disk tab and address show the drive. 1x captures light and dark of each changed screen are in the chat.
+PASS native/parity/check.py
+PASS check.py stages with Rust 1.92: parity inventories and driver tests, icon guard, rustfmt, Clippy -D warnings (after fixing one redundant closure in a new test)
+PASS check.py stages on the final merged tree with Rust 1.92: parity inventories and driver tests, icon guard, rustfmt --check, Clippy -D warnings; tools/i18n.py check
+PASS every test executable through check.py's run_isolated as the unprivileged user, on the merged tree before the last two test-only commits: 85 of 88 executables pass, doctests pass; ox_app 2746 passed, 1 failed (window::tests::accessibility::animations_stay_off_when_the_desktop_turns_them_off, from the pass-11 merge; fixed in aeaffd55, then the accessibility module passes 20/20). An earlier full run before the pass-11 merge: ox_app 2740 passed, 1 failed (theme::stylesheets focus rings, from the pass-3 merge; fixed in 6220f6cc, theme::stylesheets passes 12/12).
+PASS final live smoke on the merged build: Down after Ctrl+T selects in the new tab; a split tab moved to a new window keeps both panes; Ctrl+Q with two windows saves both (the split tab with both panes) and the next start reopens both.
+FAIL location_fixture_drift::python_fixture_matches_desktop_core_py and network_python::fuse_export_paths_match_native_opening_py: also fail on unchanged main 5d21fd3e here (this machine's Python parses smb://[V1.x] differently from the committed fixture); not related to tabs
+NOT TESTED: Wayland/Weston (tab drags are XTEST; the app's own Wayland tests were not run); a session manager's query-end at a real logout (the 3 s save and SIGTERM were tested); Orca; translations; the website build.
+
+VM CHECK
+Check these in the Windows 11 VM's File Explorer (24H2 or later, with tabs). Turn on Folder Options > View > "Restore previous folder windows at logon" for 1.
+
+1. Restoring several windows
+   Steps: Open two File Explorer windows, give each two or three tabs in different folders, sign out, sign in.
+   Look for: both windows come back with all their tabs and the tab that was in front in each; which window ends up in front. The branch reopens every window, the one used last in front.
+
+2. Keyboard after Ctrl+T
+   Steps: Click the Refresh button, then press Ctrl+T, then press Down.
+   Look for: whether Down moves the selection in the new tab's Home list, or moves focus to another control. The branch selects the first item.
+
+3. Keyboard after another app opens a folder
+   Steps: With File Explorer open, click the desktop or another app, then press Win+R, run "explorer C:\Windows", then press Down.
+   Look for: whether it opens a tab or a window (build dependent), and whether Down moves in the file list. The branch opens a tab and Down selects the first item.
+
+4. Dragging files over the tab row
+   Steps: Drag a file from the file list over another tab and hold it there.
+   Look for: what is highlighted (only that tab, or the whole tab row) and after how long the tab comes to the front.
+
+5. The tab of a drive
+   Steps: Open C:\ and a USB stick's root, each in a tab.
+   Look for: the tab icon (drive or folder) and the address bar icon, and the tab title ("Local Disk (C:)"). The branch shows the drive icon, titled "Local Disk" for /.
+
+6. The tab of a ZIP folder
+   Steps: With "File name extensions" off, open a .zip file as a folder in a tab.
+   Look for: whether the tab, the address bar and "Search ..." say "Name" or "Name.zip". The branch says "Name.zip" everywhere while the file list says "Name".
+
+7. Where new tabs go
+   Steps: With three tabs, select the first; middle-click a folder; then press Ctrl+T.
+   Look for: whether the middle-clicked folder's tab goes right after the current tab or to the end, and where the Ctrl+T tab goes. The branch: middle-click right after the current tab, Ctrl+T at the end.
+
+8. Double-click on a tab
+   Steps: Double-click a tab that is not in front, then one that is.
+   Look for: whether anything happens (a copy of the tab, maximize, nothing). The branch duplicates the tab (Dolphin's behavior, kept by the owner).
+
+9. A tab dragged out of the window
+   Steps: Drag a tab down out of the window and let go.
+   Look for: where the new window appears (under the pointer?) and its size.
+
+10. Back in a window opened from Run
+   Steps: Win+R, "explorer C:\Windows" with no Explorer window open.
+   Look for: whether Back is enabled in the new window. The branch's window opened from the command line has Back enabled (to Home); left for the startup pass.
