@@ -7486,7 +7486,7 @@ native_note = "native/crates/ox-app/src/window/tests/renaming.rs (a_slow_second_
 id = "OPS-012"
 area = "OPS"
 title = "Tab moves to renaming the next item"
-behaviour = "During inline rename, Tab commits and starts renaming the next item; Shift+Tab does the same for the previous item. Up and Down only move the text cursor, as Right and Left do, as in Windows 11."
+behaviour = "During inline rename, Tab commits and starts renaming the next item; Shift+Tab does the same for the previous item. Up and Down only move the text cursor to the start and the end of the name, as Home and End do, as in Windows 11."
 origin = ["dolphin"]
 priority = "should"
 openxplorer = "missing"
@@ -7498,7 +7498,7 @@ python_tests = []
 bridge = ["rename"]
 dolphin = "EditNext/EditPrevious"
 native = "done"
-native_note = "native/crates/ox-app/src/window/tests/renaming.rs (tab_commits_the_name_and_goes_on_to_rename_the_next_item); native/crates/ox-app/src/window/file_ops/inline_rename.rs (tab_moves_the_rename_on_and_the_arrows_move_the_cursor); native/crates/ox-app/src/window/tests/renaming_by_pointer.rs (down_and_up_while_renaming_move_the_text_cursor). During an in-place rename Tab commits the name and starts renaming the next item in the order shown, Shift+Tab the previous one. Deliberate change after a check in Windows 11 26200: Down and Up no longer commit and move on as in Dolphin; in every view they move the text cursor as Right and Left do, clearing the selection, and the rename goes on (GTK's own Down and Up would leave the one-line field); a changed name moves on once the rename has finished and the folder is listed again, an unchanged one at once; either way the next item is scrolled into view first; a refused name stays in the field. Ctrl+Tab and Alt keys are left alone."
+native_note = "native/crates/ox-app/src/window/tests/renaming.rs (tab_commits_the_name_and_goes_on_to_rename_the_next_item); native/crates/ox-app/src/window/file_ops/inline_rename.rs (tab_moves_the_rename_on_and_the_arrows_move_the_cursor); native/crates/ox-app/src/window/tests/renaming_by_pointer.rs (down_and_up_while_renaming_move_the_cursor_to_the_ends, the_row_being_renamed_draws_no_focus_outline). During an in-place rename Tab commits the name and starts renaming the next item in the order shown, Shift+Tab the previous one. Deliberate change after a check in Windows 11 26200: Down and Up no longer commit and move on as in Dolphin; in every view Down moves the text cursor to the very end of the name, past the extension, and Up to its start, as End and Home do, clearing the selection, and the rename goes on (GTK's own Down and Up would leave the one-line field); the row being renamed draws no focus outline, as Windows draws no focus rectangle around it; a changed name moves on once the rename has finished and the folder is listed again, an unchanged one at once; either way the next item is scrolled into view first; a refused name stays in the field. Ctrl+Tab and Alt keys are left alone."
 
 [[feature]]
 id = "OPS-013"
