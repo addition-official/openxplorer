@@ -53,7 +53,11 @@ fn pixels_in(rows: &[Vec<Pixel>], area: Area) -> Vec<Pixel> {
 
 /// The darkest pixel of `area`: how strong its text is drawn.
 fn ink(rows: &[Vec<Pixel>], area: Area) -> u32 {
-    pixels_in(rows, area).into_iter().map(lightness).min().unwrap_or(255)
+    pixels_in(rows, area)
+        .into_iter()
+        .map(lightness)
+        .min()
+        .unwrap_or(255)
 }
 
 /// The window as drawn now, as rows of BGRA pixels.

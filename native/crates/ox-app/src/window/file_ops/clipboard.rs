@@ -18,7 +18,7 @@
 //!   never freezes the window. When none of them holds a file list and
 //!   Settings' "Paste pictures as new files" is on, the clipboard's
 //!   picture is read, which a paste writes as one new file
-//!   (CLIP-015); it is on by default. With it off, a picture leaves Paste
+//!   (CLIP-015). It is off by default, when a picture leaves Paste
 //!   disabled, as in Windows 11 File Explorer. Plain text is neither a file
 //!   list nor a file: as in Windows Explorer, it leaves Paste disabled.
 //! - An empty or failed conversion, an oversized payload or an owner
@@ -573,9 +573,9 @@ impl BrowserWindow {
         self.update_file_commands();
     }
 
-    /// Whether Settings' "Paste pictures as new files" is on (CLIP-015), as by
-    /// default; off, Paste is unavailable for a picture, as in Windows 11 File
-    /// Explorer.
+    /// Whether Settings' "Paste pictures as new files" is on (CLIP-015); off,
+    /// as by default, Paste is unavailable for a picture, as in Windows 11
+    /// File Explorer.
     fn pastes_pictures_as_files(&self) -> bool {
         self.context().settings_data().preferences.paste_pictures_as_files
     }

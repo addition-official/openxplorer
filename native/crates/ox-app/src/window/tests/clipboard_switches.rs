@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-//! Settings' two clipboard switches turned off. Both are on by default, so
-//! the `clipboard` and `clipboard_interop` tests cover them on; off, the
-//! window behaves as Windows 11 File Explorer does:
+//! Settings' two clipboard switches. "Paste pictures as new files" starts
+//! off and "Also copy paths as text" on; the `clipboard` and
+//! `clipboard_interop` tests cover paths as text on, and turn picture paste
+//! on where they paste a picture. Off, the window behaves as Windows 11
+//! File Explorer does:
 //!
-//! - "Paste pictures as new files" off: a picture is no data, so Paste and
-//!   Paste into folder are unavailable and Ctrl+V does nothing (CLIP-015,
-//!   CLIP-016).
+//! - "Paste pictures as new files" off, as by default: a picture is no
+//!   data, so Paste and Paste into folder are unavailable and Ctrl+V does
+//!   nothing (CLIP-015, CLIP-016).
 //! - "Also copy paths as text" off: Copy and Cut publish only the file
 //!   formats, so a text reader gets nothing (CLIP-004).
 
@@ -46,6 +48,26 @@ fn pictures_in(fixture: &Fixture, folder: &str) -> Vec<String> {
         .collect()
 }
 
+/// Out of the box a picture is no data, as in Windows 11 File Explorer
+/// (checked on Windows 11, 2026-11-22: Paste is grayed for a bitmap and
+/// Ctrl+V does nothing): "Paste pictures as new files" starts off.
+///
+/// parity: CLIP-015, CLIP-016
+#[gtk::test]
+fn a_picture_pastes_nothing_by_default() {
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+
+    copy_a_picture(&test);
+    wait_for(Duration::from_millis(200));
+
+    assert!(!is_enabled(&test, "paste"), "Paste is unavailable");
+    test.window.paste_from_keyboard();
+    wait_for(Duration::from_millis(200));
+    assert_eq!(test.window.shown_message(), "", "nothing is said");
+    assert!(pictures_in(&fixture, "").is_empty(), "nothing is written");
+}
+
 /// With "Paste pictures as new files" off, a picture is no data: Paste and
 /// Paste into folder are unavailable and Ctrl+V writes nothing and says
 /// nothing. Turning it on again enables Paste for the same clipboard at once,
@@ -84,6 +106,7 @@ fn a_picture_is_no_data_while_picture_paste_is_off() {
 fn turning_picture_paste_off_turns_paste_off_at_once() {
     let fixture = Fixture::standard();
     let test = TestWindow::open(&fixture.uri_of("Documents"));
+    test.set_paste_pictures_as_files(true);
     copy_a_picture(&test);
     wait_until("Paste to be enabled", || is_enabled(&test, "paste"));
 
@@ -102,6 +125,7 @@ fn turning_picture_paste_off_turns_paste_off_at_once() {
 fn a_picture_read_overtaken_by_turning_picture_paste_off_is_dropped() {
     let fixture = Fixture::standard();
     let test = TestWindow::open(&fixture.uri_of("Documents"));
+    test.set_paste_pictures_as_files(true);
     let slow_owner = ScriptedOwner::new(
         "image/png",
         Script::Late {
