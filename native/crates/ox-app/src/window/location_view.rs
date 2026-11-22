@@ -185,7 +185,7 @@ fn listed_place_glyph(uri: &str) -> Option<Icon> {
 /// What a tab's icon depends on besides its location: the network
 /// locations of the navigation pane, the standard folders of Quick access
 /// and the roots of the mounted drives.
-type TabPlaces<'a> = (&'a [NetworkLocation], &'a [Place], &'a [String]);
+pub(in crate::window) type TabPlaces<'a> = (&'a [NetworkLocation], &'a [Place], &'a [String]);
 
 /// Whether `uri` is the root of the file system, which the navigation pane
 /// and This PC show as the Local Disk.
@@ -219,7 +219,7 @@ fn standard_folder_at(uri: &str, known_folders: &[Place]) -> Option<KnownFolder>
 /// The root of the file system, the Local Disk, and the root of a mounted
 /// drive of `drives` show the drive, as their navigation pane rows do and
 /// Windows 11's tab of a drive does.
-fn tab_icon(uri: &str, locations: &LocationContext, places: TabPlaces<'_>) -> Art {
+pub(in crate::window) fn tab_icon(uri: &str, locations: &LocationContext, places: TabPlaces<'_>) -> Art {
     let (network, known_folders, drives) = places;
     match Page::from_uri(uri) {
         Some(page @ (Page::Home | Page::Network | Page::Settings)) => return Art::Glyph(page.icon()),
