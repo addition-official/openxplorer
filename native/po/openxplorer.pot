@@ -1713,7 +1713,7 @@ msgstr ""
 msgid "Data rate"
 msgstr ""
 
-#: crates/ox-app/src/properties/details_rows.rs
+#: crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/properties/general_tab.rs
 msgid "Description"
 msgstr ""
 

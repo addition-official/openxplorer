@@ -243,3 +243,53 @@ fn properties_on_a_stalled_mount_or_of_a_pipe_open_at_once() {
     }
     drop(stalled);
 }
+
+/// A shortcut's Properties open on its Shortcut tab, as Windows 11 opens a
+/// shortcut's; its General tab gives the target's name as its Description
+/// and shows its icon with the shortcut arrow (checked in a Windows 11
+/// VM). A symbolic link named for a type opens on General, as a file does.
+///
+/// parity: PROP-004
+#[gtk::test]
+fn a_shortcuts_properties_open_on_its_shortcut_tab_and_describe_the_target() {
+    let fixture = Fixture::standard();
+    fs::create_dir(fixture.path("Plans")).expect("a folder");
+    fs::write(fixture.path("Plans/Budget.txt"), b"budget").expect("a file");
+    std::os::unix::fs::symlink(
+        fixture.path("Plans/Budget.txt"),
+        fixture.path("Budget - Shortcut"),
+    )
+    .expect("the shortcut");
+    std::os::unix::fs::symlink(fixture.path("Plans/Budget.txt"), fixture.path("budget.txt"))
+        .expect("a link named for a type");
+    let test = TestWindow::open(&fixture.uri());
+
+    test.select_named("Budget - Shortcut");
+    test.activate("properties", None);
+    let window = test.wait_for_properties("Budget - Shortcut Properties");
+    let general = tab(&window, "general");
+    wait_until("the item to be read", || {
+        value_after(&general, "Description:").is_some()
+    });
+
+    assert_eq!(window.selected_tab().as_deref(), Some("shortcut"));
+    assert_eq!(
+        value_after(&general, "Description:").as_deref(),
+        Some("Budget.txt")
+    );
+    assert_eq!(
+        value_after(&general, "Target:"),
+        None,
+        "Windows' General tab has no Target"
+    );
+    let arrow = descendants::<crate::icons::ArtImage>(&general)
+        .iter()
+        .any(|art| art.shown_emblems().link);
+    assert!(arrow, "the icon carries the shortcut arrow");
+    window.close();
+
+    test.select_named("budget.txt");
+    test.activate("properties", None);
+    let typed = test.wait_for_properties("budget Properties");
+    assert_eq!(typed.selected_tab().as_deref(), Some("general"));
+}
