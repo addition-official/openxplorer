@@ -9,9 +9,10 @@
 //! gives once the reader has read them ([`MetadataRequest`]). Several
 //! selected items show their pictures stacked, "N items selected" and
 //! their total size while every one is a file; nothing selected shows the
-//! folder's item count. A folder on an SMB share is pictured as
-//! its tab and sidebar row picture it, on the network bar (the owner's
-//! icon mapping, 2026-09-28).
+//! folder's item count under its picture, which is its tab's: a place's
+//! own icon (This PC, Network, the Recycle Bin, Home, a standard folder),
+//! and for a folder on an SMB share its picture on the network bar (the
+//! owner's icon mapping, 2026-09-28).
 
 use std::path::PathBuf;
 
@@ -19,7 +20,7 @@ use gtk::gio;
 use gtk::prelude::FileExt;
 use ox_core::format;
 use ox_core::location::{is_smb_location, parent_location, ArchiveLocation, LocationContext};
-use ox_core::places::NetworkLocation;
+use ox_core::places::{NetworkLocation, Place};
 
 use crate::folder_view::item::FileItem;
 use crate::i18n::message_id;
@@ -27,6 +28,7 @@ use crate::icons::{Art, Tint};
 use crate::locations::Page;
 use crate::media_details::MediaKind;
 use crate::window::landing::TileFacts;
+use crate::window::location_view::tab_icon;
 
 use super::preview_page::{preview_page, PreviewPage, PreviewRules, NO_PREVIEW};
 
@@ -273,6 +275,9 @@ pub(in crate::window) struct PaneFacts<'a> {
     pub locations: &'a LocationContext,
     /// The Network list, for the picture of an SMB folder.
     pub network: &'a [NetworkLocation],
+    /// The standard folders, for the picture of one with nothing
+    /// selected.
+    pub known_folders: &'a [Place],
     /// Dates show the day only; else the time too (PROP-010).
     pub condensed_dates: bool,
     /// Whether the Preview pane may read the folder's files.
@@ -416,18 +421,22 @@ fn is_zip_top(uri: &str) -> bool {
     ArchiveLocation::from_uri(uri).is_some_and(|location| location.parent().is_none())
 }
 
-/// The picture of the folder itself: a ZIP's top as a compressed folder,
-/// on an SMB share the art its tab shows, else the folder.
+/// The picture of the folder itself, as its tab pictures it: This PC's,
+/// Network's or the Recycle Bin's icon, a standard folder's, Home's for
+/// the home folder, a ZIP's top as a compressed folder, on an SMB share
+/// the art its tab shows, else the folder. Home and Network take the
+/// colours of their navigation pane rows, as This PC does, since the pane
+/// draws them as large as Windows draws their icons; a folder inside a
+/// ZIP is a folder.
 fn folder_art(facts: &PaneFacts<'_>) -> Art {
-    if Page::from_uri(facts.folder_uri) == Some(Page::ThisPc) {
-        // This PC's own icon, as its tab and navigation pane row show it.
-        Art::TintedGlyph(Page::ThisPc.icon(), Tint::ThisPc)
-    } else if is_zip_top(facts.folder_uri) {
-        Art::ZipFolder
-    } else if is_smb_location(facts.folder_uri) {
-        Art::for_smb_location(facts.folder_uri, facts.network)
-    } else {
-        Art::Folder
+    let uri = facts.folder_uri;
+    if ox_core::location::is_archive_location(uri) && !is_zip_top(uri) {
+        return Art::Folder;
+    }
+    match tab_icon(uri, facts.locations, facts.network, facts.known_folders) {
+        Art::Glyph(icon) if icon == Page::Home.icon() => Art::TintedGlyph(icon, Tint::Home),
+        Art::Glyph(icon) if icon == Page::Network.icon() => Art::TintedGlyph(icon, Tint::Network),
+        art => art,
     }
 }
 
@@ -484,6 +493,7 @@ mod tests {
             folder_item_count: 7,
             locations: &locations,
             network: &network,
+            known_folders: &[],
             condensed_dates: false,
             preview_rules: PreviewRules {
                 remote: false,
@@ -506,6 +516,7 @@ mod tests {
             folder_item_count: 7,
             locations: &locations,
             network: &[],
+            known_folders: &[],
             condensed_dates: false,
             preview_rules: rules,
         })
@@ -725,7 +736,11 @@ mod tests {
     fn no_selection_counts_the_folders_items() {
         let content = content_for(&[], "file:///home/demo");
         assert_eq!(content.name, "Home (7 items)");
-        assert_eq!(content.preview, Preview::Art(Art::Folder));
+        assert_eq!(
+            content.preview,
+            Preview::Art(Art::TintedGlyph(Page::Home.icon(), Tint::Home)),
+            "the home folder pictured as Home"
+        );
         assert!(content.subject == Subject::Folder && !content.small_icon);
         assert!(content.properties.is_empty(), "no Details rows");
         assert!(!content.has_properties, "no Properties button");
@@ -794,8 +809,61 @@ mod tests {
         assert_eq!(drive_root.preview, Preview::Art(drive_art));
         let inside = content_for(&[], "smb://studio-nas/projects/2024");
         assert_eq!(inside.preview, Preview::Art(Art::SHARE));
-        let local = content_for(&[], "file:///home/demo");
+        let local = content_for(&[], "file:///home/demo/Projects");
         assert_eq!(local.preview, Preview::Art(Art::Folder));
+    }
+
+    /// With nothing selected, a place is pictured as its tab and its
+    /// navigation pane row picture it, as Windows 11's pane shows the
+    /// Recycle Bin's, Network's or the Downloads folder's own icon: never
+    /// a plain folder for the Recycle Bin, Network, Home or a standard
+    /// folder.
+    ///
+    /// parity: PROP-009
+    #[test]
+    fn a_place_is_pictured_as_its_tab_is() {
+        use ox_core::places::KnownFolder;
+        let downloads = Place {
+            label: String::new(),
+            uri: "file:///home/demo/Downloads".to_owned(),
+            known_folder: Some(KnownFolder::Downloads),
+            is_shared: false,
+        };
+        let locations = context();
+        let picture = |uri: &str| {
+            pane_content(&PaneFacts {
+                selection: &[],
+                folder_uri: uri,
+                folder_item_count: 2,
+                locations: &locations,
+                network: &[],
+                known_folders: std::slice::from_ref(&downloads),
+                condensed_dates: false,
+                preview_rules: NO_NETWORK_PREVIEWS,
+            })
+            .preview
+        };
+        assert_eq!(
+            picture("trash:///"),
+            Preview::Art(Art::Glyph(crate::icons::Icon::Delete))
+        );
+        assert_eq!(
+            picture(Page::Network.uri()),
+            Preview::Art(Art::TintedGlyph(Page::Network.icon(), Tint::Network))
+        );
+        assert_eq!(
+            picture("file:///home/demo"),
+            Preview::Art(Art::TintedGlyph(Page::Home.icon(), Tint::Home))
+        );
+        assert_eq!(
+            picture("file:///home/demo/Downloads"),
+            Preview::Art(Art::for_known_folder(KnownFolder::Downloads))
+        );
+        assert_eq!(
+            picture("recent:///"),
+            Preview::Art(Art::Glyph(crate::icons::Icon::History))
+        );
+        assert_eq!(picture("file:///home/demo/Projects"), Preview::Art(Art::Folder));
     }
 
     /// parity: PROP-009
