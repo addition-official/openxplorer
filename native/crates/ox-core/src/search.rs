@@ -71,6 +71,12 @@ mod index;
 mod limits;
 mod live;
 mod mounts;
+
+/// Reads `table` as `/proc/self/mountinfo`, for the fuzz targets.
+#[cfg(feature = "fuzzing")]
+pub(crate) fn fuzz_mounts(table: &[u8]) {
+    let _ = mounts::parse_mounts(table);
+}
 mod ownership;
 mod pattern;
 mod pins;

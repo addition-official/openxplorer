@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Fuzz targets for the parsers of untrusted bytes, run with cargo-fuzz on a
+# nightly toolchain (see README.md). This crate is not a member of the
+# native workspace, so normal builds, tests and packages never compile it.
+[package]
+name = "ox-fuzz"
+version = "0.0.0"
+edition = "2021"
+license = "AGPL-3.0-only"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+ox-core = { path = "../crates/ox-core", features = ["fuzzing"] }
+tempfile = "3"
+
+# Its own workspace, so the native workspace does not adopt it.
+[workspace]
+members = ["."]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "archive_list"
+path = "fuzz_targets/archive_list.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "archive_extract"
+path = "fuzz_targets/archive_extract.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "core_text"
+path = "fuzz_targets/core_text.rs"
+test = false
+doc = false
+bench = false

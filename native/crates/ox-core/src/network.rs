@@ -103,6 +103,8 @@ pub use secret_service::SecretService;
 pub use server::{ServerKey, DEFAULT_SMB_PORT};
 pub use session_credentials::SessionCredentials;
 pub use shadow_copies::SmbShadowCopies;
+#[cfg(feature = "fuzzing")]
+pub(crate) use shadow_copies::fuzz_snapshot_reply;
 pub use sign_out::{
     begin_sign_out, finish_sign_out, SignOutRegistry, SignOutReport, SignOutRequest, SigningOut,
 };

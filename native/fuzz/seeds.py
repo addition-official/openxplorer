@@ -1,0 +1,289 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-only
+"""Writes the seed corpora of the fuzz targets into ``corpus/<target>/``.
+
+Every seed is a small valid file made here, never a user's file. The
+archive seeds start with the option byte that ``ox_core::fuzzing::archive``
+reads: its low three bits pick the name the archive is opened under, bit 3
+asks for the password ``lighthouse``.
+
+Run from ``native/fuzz``: ``python3 seeds.py``. The 7z and Zstandard seeds
+need ``seed-maker`` (built on the first run with the stable toolchain).
+"""
+
+import bz2
+import gzip
+import hashlib
+import io
+import lzma
+import os
+import struct
+import subprocess
+import sys
+import tarfile
+import zipfile
+import zlib
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+CORPUS = HERE / 'corpus'
+SEED_MAKER = HERE / 'seed-maker' / 'target' / 'release' / 'ox-fuzz-seed-maker'
+
+# The option byte's name index (see NAMES in ox_core::fuzzing::archive).
+ZIP, SEVEN, TAR, TGZ, TBZ, TXZ, TZST, OTHER = range(8)
+PASSWORD = 0x08
+
+
+def write(target, name, data):
+    folder = CORPUS / target
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / name).write_bytes(data)
+
+
+def archive_seed(name, option, data):
+    for target in ('archive_list', 'archive_extract'):
+        write(target, name, bytes([option]) + data)
+
+
+def zip_with(method, members, **options):
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, 'w', compression=method, **options) as archive:
+        for member, data in members:
+            if member.endswith('/'):
+                archive.writestr(zipfile.ZipInfo(member), b'')
+            else:
+                archive.writestr(member, data)
+    return buffer.getvalue()
+
+
+MEMBERS = [
+    ('Docs/', b''),
+    ('Docs/Guide.txt', b'hello world, ' * 20),
+    ('Docs/Notes.md', b'# Notes\n\n- one\n- two\n'),
+    ('Pictures/photo.png', b'\x89PNG\r\n\x1a\n' + b'\0' * 32),
+    ('readme.txt', b'hello'),
+]
+
+
+# The traditional PKWARE cipher, to write one encrypted member.
+def _crc_table():
+    table = []
+    for byte in range(256):
+        value = byte
+        for _ in range(8):
+            value = (value >> 1) ^ 0xEDB88320 if value & 1 else value >> 1
+        table.append(value)
+    return table
+
+
+CRC = _crc_table()
+
+
+class ZipCipher:
+    def __init__(self, password):
+        self.keys = [0x12345678, 0x23456789, 0x34567890]
+        for byte in password:
+            self.update(byte)
+
+    def update(self, byte):
+        k0, k1, k2 = self.keys
+        k0 = (k0 >> 8) ^ CRC[(k0 ^ byte) & 0xFF]
+        k1 = (k1 + (k0 & 0xFF)) & 0xFFFFFFFF
+        k1 = (k1 * 134775813 + 1) & 0xFFFFFFFF
+        k2 = (k2 >> 8) ^ CRC[(k2 ^ (k1 >> 24)) & 0xFF]
+        self.keys = [k0, k1, k2]
+
+    def encrypt(self, data):
+        out = bytearray()
+        for byte in data:
+            temp = (self.keys[2] | 2) & 0xFFFF
+            out.append(byte ^ (((temp * (temp ^ 1)) >> 8) & 0xFF))
+            self.update(byte)
+        return bytes(out)
+
+
+def encrypted_zip(name, data, password=b'lighthouse', deflate=False):
+    crc = zlib.crc32(data)
+    if deflate:
+        compressor = zlib.compressobj(6, zlib.DEFLATED, -15)
+        body = compressor.compress(data) + compressor.flush()
+        method = 8
+    else:
+        body = data
+        method = 0
+    header = bytes(range(11)) + bytes([crc >> 24 & 0xFF])
+    payload = ZipCipher(password).encrypt(header + body)
+    raw_name = name.encode()
+    local = struct.pack('<IHHHHHIIIHH', 0x04034B50, 20, 1, method, 0, 0x21,
+                        crc, len(payload), len(data), len(raw_name), 0) + raw_name + payload
+    central = struct.pack('<IHHHHHHIIIHHHHHII', 0x02014B50, 20, 20, 1, method, 0, 0x21,
+                          crc, len(payload), len(data), len(raw_name), 0, 0, 0, 0, 0o100644 << 16, 0) + raw_name
+    end = struct.pack('<IHHHHIIH', 0x06054B50, 0, 0, 1, 1, len(central), len(local), 0)
+    return local + central + end
+
+
+def zip_seeds():
+    for method, label in [(zipfile.ZIP_STORED, 'stored'), (zipfile.ZIP_DEFLATED, 'deflate'),
+                          (zipfile.ZIP_BZIP2, 'bzip2'), (zipfile.ZIP_LZMA, 'lzma')]:
+        archive_seed(f'zip-{label}', ZIP, zip_with(method, MEMBERS))
+    archive_seed('zip-zip64', ZIP, zip_with(zipfile.ZIP_DEFLATED, MEMBERS[:2], allowZip64=True))
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, 'w') as archive:
+        info = zipfile.ZipInfo('big.txt')
+        with archive.open(info, 'w', force_zip64=True) as member:
+            member.write(b'zip64 ' * 10)
+        archive.writestr('Ünïcödé/naïve.txt', 'unicode')
+        archive.comment = b'a comment'
+    archive_seed('zip-force64-unicode', ZIP, buffer.getvalue())
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, 'w') as archive:
+        link = zipfile.ZipInfo('link')
+        link.external_attr = (0o120777 << 16)
+        archive.writestr(link, 'Docs/Guide.txt')
+        archive.writestr('Docs/Guide.txt', 'guide')
+        archive.writestr('../escape.txt', 'up')
+        archive.writestr('/absolute.txt', 'root')
+        archive.writestr('back\\slash.txt', 'win')
+    archive_seed('zip-odd-names', ZIP, buffer.getvalue())
+    archive_seed('zip-encrypted', ZIP | PASSWORD, encrypted_zip('secret.txt', b'secret text ' * 10))
+    archive_seed('zip-encrypted-deflate', ZIP | PASSWORD,
+                 encrypted_zip('Docs/secret.txt', b'secret text ' * 10, deflate=True))
+    archive_seed('zip-empty', ZIP, zip_with(zipfile.ZIP_STORED, []))
+    archive_seed('zip-as-bin', OTHER, zip_with(zipfile.ZIP_DEFLATED, MEMBERS[1:3]))
+
+
+def tar_bytes(fmt):
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode='w', format=fmt) as archive:
+        folder = tarfile.TarInfo('Docs')
+        folder.type = tarfile.DIRTYPE
+        archive.addfile(folder)
+        for name, data in [('Docs/Guide.txt', b'hello world ' * 30),
+                           ('Docs/' + ('n' * 150 if fmt != tarfile.USTAR_FORMAT else 'deep/' * 20 + 'x') + '.txt', b'abc'),
+                           ('Ünïcödé.txt', b'unicode')]:
+            member = tarfile.TarInfo(name)
+            member.size = len(data)
+            member.mtime = 1_700_000_000
+            archive.addfile(member, io.BytesIO(data))
+        link = tarfile.TarInfo('Docs/link')
+        link.type = tarfile.SYMTYPE
+        link.linkname = 'Guide.txt'
+        archive.addfile(link)
+        hard = tarfile.TarInfo('hard')
+        hard.type = tarfile.LNKTYPE
+        hard.linkname = 'Docs/Guide.txt'
+        archive.addfile(hard)
+    return buffer.getvalue()
+
+
+def tar_seeds(work):
+    for fmt, label in [(tarfile.USTAR_FORMAT, 'ustar'), (tarfile.GNU_FORMAT, 'gnu'),
+                       (tarfile.PAX_FORMAT, 'pax')]:
+        plain = tar_bytes(fmt)
+        archive_seed(f'tar-{label}', TAR, plain)
+        archive_seed(f'tgz-{label}', TGZ, gzip.compress(plain, mtime=0))
+        archive_seed(f'tbz-{label}', TBZ, bz2.compress(plain))
+        archive_seed(f'txz-{label}', TXZ, lzma.compress(plain))
+        plain_path = work / f'{label}.tar'
+        plain_path.write_bytes(plain)
+        packed = work / f'{label}.tar.zst'
+        subprocess.run([str(SEED_MAKER), 'zst', str(plain_path), str(packed)], check=True)
+        archive_seed(f'tzst-{label}', TZST, packed.read_bytes())
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode='w', format=tarfile.USTAR_FORMAT) as archive:
+        for name, kind, target in [('up', tarfile.SYMTYPE, '../../etc'), ('abs', tarfile.SYMTYPE, '/etc'),
+                                   ('fifo', tarfile.FIFOTYPE, ''), ('dev', tarfile.CHRTYPE, '')]:
+            member = tarfile.TarInfo(name)
+            member.type = kind
+            member.linkname = target
+            archive.addfile(member)
+    archive_seed('tar-odd-links', TAR, buffer.getvalue())
+
+
+def seven_zip_seeds(work):
+    members = ['Docs/', 'Docs/Guide.txt=hello world ', 'Docs/Notes.md=# Notes ', 'readme.txt=hello']
+    for mode in ['solid', 'plain', 'lzma', 'bzip2', 'copy']:
+        out = work / f'{mode}.7z'
+        subprocess.run([str(SEED_MAKER), '7z', str(out), mode, *members], check=True)
+        archive_seed(f'7z-{mode}', SEVEN, out.read_bytes())
+
+
+def core_text_seeds():
+    """Seeds of the core_text target: the selector byte, then the input."""
+    seeds = {
+        0: ['/home/alex/Documents\nsmb://nas.example/share/Folder/\n~/Music\n..\\Downloads\n'
+            'file:///home/alex/%C3%A9t%C3%A9\nwinspace-archive:///home/alex/a.zip#Docs/a.txt\nnetwork:///\n'
+            'smb://user@[fe80::1%25eth0]:445/share\nC:\\Users\nrecent:///\nsftp://host/path',
+            'smb://SERVER\n\\\\server\\share\\folder\nmtp://Phone/Internal/DCIM'],
+        1: ['{"mode": "cut", "uris": ["file:///home/alex/a.txt"], "token": "0123abcd"}',
+            'copy\nfile:///home/alex/a.txt\nfile:///home/alex/b%20c.txt',
+            'file:///home/alex/a.txt\r\nsmb://nas.example/share/b.txt\r\n\x001'],
+        2: ["{'multiple': <true>, 'directory': <false>, 'accept_label': <'_Open'>, "
+            "'filters': <[('PDF', [(uint32 0, '*.pdf'), (1, 'application/pdf')]), ('All', [(0, '*')])]>, "
+            "'current_filter': <('PDF', [(uint32 0, '*.pdf')])>, "
+            "'current_folder': <b'/home/alex/Documents'>, 'current_file': <b'/home/alex/a.txt'>, "
+            "'current_name': <'Report.pdf'>, 'files': <[b'/home/alex/a.txt']>, "
+            "'choices': <[('encoding', 'Encoding', [('utf8', 'UTF-8'), ('latin1', 'Latin-1')], 'utf8'), "
+            "('reencode', 'Reencode', @a(ss) [], 'true')]>}"],
+        3: ['file:///home/alex/Documents\nsmb://nas.example/share/a.txt'],
+        4: ['36 35 98:0 /mnt1 /mnt2 rw,noatime master:1 - ext3 /dev/root rw,errors=continue\n'
+            '29 1 0:26 / /media/alex/USB\\040Stick rw shared:1 - vfat /dev/sdb1 rw\n'],
+        5: ['36 35 98:0 / /home rw - ext4 /dev/sda2 rw\n40 36 0:50 / /run/user/1000/gvfs rw - fuse.gvfsd-fuse gvfsd-fuse rw\n'],
+        6: ['/dev/sdb1 /media/usb vfat user,noauto 0 0\nUUID=1234-ABCD /mnt/data ext4 defaults 0 2\n'
+            'SRC=/dev/sdc1 TARGET=/media/alex/Disk ROOT=/ OPTS=uhelper=udisks2\n'],
+        7: ['//nas.example/share /mnt/share cifs rw,relatime,vers=3.1.1,username=alex 0 0\n'
+            'gvfsd-fuse /run/user/1000/gvfs fuse.gvfsd-fuse rw,nosuid 0 0\n'],
+        8: ['XDG_DESKTOP_DIR="$HOME/Desktop"\nXDG_DOWNLOAD_DIR="$HOME/Downloads"\n'
+            'XDG_MUSIC_DIR="/srv/music"\n# comment\nXDG_PICTURES_DIR="$HOME/Pictures\\"x"\n'],
+        11: ['file:///home/alex/Projects Projects\nfile:///home/alex/Music\nsmb://nas.example/share Share\n'],
+        12: ['[Desktop Entry]\nType=Service\nMimeType=text/plain;all/allfiles;\nX-KDE-MinNumberOfUrls=1\n'
+             'Actions=view;edit\n[Desktop Action view]\nName=View safely\nExec=/usr/bin/cat %F\n'
+             '[Desktop Action edit]\nName=Edit\nExec=sh -c "echo %u" %U %f\nIcon=edit\n'],
+        13: ['Report 2024.final.pdf\nNew folder\n.hidden\nCON\na:b?c\nname.tar.gz\n' + 'x' * 300],
+    }
+    for selector, texts in seeds.items():
+        for index, text in enumerate(texts):
+            write('core_text', f'seed-{selector:02}-{index}', bytes([selector]) + text.encode())
+    # A compiled catalog with two messages, one plural.
+    originals = [b'', b'Copy', b'item\0items']
+    translations = [b'Content-Type: text/plain; charset=UTF-8\nPlural-Forms: nplurals=2; plural=(n != 1);\n',
+                    b'Kopieren', b'Element\0Elemente']
+    count = len(originals)
+    header = 28
+    tables = header + 16 * count
+    data = b''
+    offsets = []
+    for text in originals + translations:
+        offsets.append((len(text), tables + len(data)))
+        data += text + b'\0'
+    mo = struct.pack('<IIIIIII', 0x950412DE, 0, count, header, header + 8 * count, 0, 0)
+    for length, offset in offsets:
+        mo += struct.pack('<II', length, offset)
+    write('core_text', 'seed-09-mo', bytes([9]) + mo + data)
+    snapshot = '@GMT-2024.01.02-03.04.05\0@GMT-2024.02.03-04.05.06\0\0'.encode('utf-16-le')
+    write('core_text', 'seed-10-snapshots', bytes([10]) + struct.pack('<III', 2, 2, len(snapshot)) + snapshot)
+
+
+def build_seed_maker():
+    if not SEED_MAKER.exists():
+        subprocess.run(['cargo', '+stable', 'build', '--release', '--manifest-path',
+                        str(HERE / 'seed-maker' / 'Cargo.toml')], check=True)
+
+
+def main():
+    import tempfile
+    build_seed_maker()
+    with tempfile.TemporaryDirectory() as work:
+        work = Path(work)
+        zip_seeds()
+        tar_seeds(work)
+        seven_zip_seeds(work)
+    core_text_seeds()
+    for extra in sys.argv[1:]:
+        print('unknown argument', extra, file=sys.stderr)
+    for folder in sorted(CORPUS.iterdir()):
+        print(folder.name, len(list(folder.iterdir())), 'seeds')
+
+
+if __name__ == '__main__':
+    main()
