@@ -245,6 +245,9 @@ type NewMenuFile = (
 /// parity: OPS-002, OPS-003, OPS-010, CMD-004
 #[gtk::test]
 fn the_other_new_files_are_made_at_once_and_renamed_in_place() {
+    // Windows lists Rich Text Document only with WordPad.
+    let _rtf =
+        crate::window::file_ops::pretend_document_applications(&[("application/rtf", "x-office-document")]);
     let _template = UserTemplate::add("Letter.odt", b"letter");
     let fixture = Fixture::standard();
     let test = TestWindow::open(&fixture.uri());
@@ -1100,11 +1103,9 @@ fn the_opendocument_types_are_offered_while_an_application_opens_them() {
         [
             "Folder",
             "Shortcut",
-            "-",
             "Bitmap image",
             "OpenDocument Spreadsheet",
             "OpenDocument Text",
-            "Rich Text Document",
             "Text Document",
             "Compressed (zipped) Folder",
         ]
@@ -1158,5 +1159,115 @@ fn the_opendocument_types_are_offered_while_an_application_opens_them() {
     assert!(
         !fixture.path("New OpenDocument Presentation.odp").exists(),
         "a type no application opens is not made"
+    );
+}
+
+/// Windows 11's New menu, in the command bar and in the folder menu,
+/// shows no shortcut beside Folder (VM check 2026-11-22), and lists Rich
+/// Text Document only while an application opens RTF files, as Windows
+/// lists it only with WordPad: between the OpenDocument types and Text
+/// Document, by extension.
+///
+/// parity: CMD-004
+#[gtk::test]
+fn the_new_menu_shows_no_shortcut_and_rich_text_only_with_an_application() {
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    let shortcuts: Vec<Option<&str>> = crate::window::command_bar::new_menu(Vec::new())
+        .into_iter()
+        .filter_map(|entry| match entry {
+            crate::window::menu_popover::MenuEntry::Item(item) => Some(item.shortcut),
+            crate::window::menu_popover::MenuEntry::Divider => None,
+        })
+        .collect();
+    assert!(shortcuts.iter().all(Option::is_none), "{shortcuts:?}");
+    test.activate("new-rich-text-document", None);
+    settle();
+    assert!(
+        !fixture.path("New Rich Text Document.rtf").exists(),
+        "no application opens RTF files"
+    );
+
+    let _installed = crate::window::file_ops::pretend_document_applications(&[
+        ("application/rtf", "x-office-document"),
+        ("application/vnd.oasis.opendocument.text", "x-office-document"),
+    ]);
+    let labels: Vec<String> = crate::window::command_bar::new_menu(Vec::new())
+        .into_iter()
+        .map(|entry| match entry {
+            crate::window::menu_popover::MenuEntry::Item(item) => item.label,
+            crate::window::menu_popover::MenuEntry::Divider => "-".to_owned(),
+        })
+        .collect();
+    assert_eq!(
+        labels,
+        [
+            "Folder",
+            "Shortcut",
+            "Bitmap image",
+            "OpenDocument Text",
+            "Rich Text Document",
+            "Text Document",
+            "Compressed (zipped) Folder"
+        ]
+    );
+}
+
+/// As in Windows 11 (VM check 2026-11-22), New stays in the command bar,
+/// grayed, where nothing can be made: This PC, Gallery, the Recycle Bin
+/// and Windows' Home page.
+///
+/// parity: CMD-004, OPS-001
+#[gtk::test]
+fn new_is_shown_grayed_where_nothing_can_be_made() {
+    use ox_core::location::{GALLERY_URI, HOME_URI, PC_URI, TRASH_URI};
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    super::home_page::open_quick_access_on_home(&test, true);
+    for page in [PC_URI, GALLERY_URI, TRASH_URI, HOME_URI] {
+        test.window.navigate(page).expect("a page");
+        wait_until(&format!("New grayed on {page}"), || {
+            !is_enabled(&test, "new-folder")
+        });
+        settle();
+        let button = test.window.command_bar().new_button();
+        assert!(button.is_visible(), "New shows on {page}");
+        assert!(!button.is_sensitive(), "New is grayed on {page}");
+    }
+}
+
+/// As in Windows 11 (VM check 2026-11-22): New Text Document made as
+/// "New Text Document (2).txt" and renamed "Garden plan.txt"; the first
+/// Undo gives it back its "(2)" name, the second moves it to the Recycle
+/// Bin without a question.
+///
+/// parity: OPS-029, OPS-002
+#[gtk::test]
+fn undo_after_new_and_rename_gives_back_the_name_then_the_file_goes_without_a_question() {
+    require_private_trash();
+    let fixture = Fixture::standard();
+    fs::write(fixture.path("New Text Document.txt"), b"").expect("a taken name");
+    let test = TestWindow::open(&fixture.uri());
+    super::support::show_file_name_extensions(&test);
+    let field = make_new_text_document(&test);
+    assert_eq!(field.text(), "New Text Document (2).txt");
+    field.set_text("Garden plan.txt");
+    field.emit_activate();
+    wait_until("the rename", || fixture.path("Garden plan.txt").exists());
+
+    test.activate("undo", None);
+    wait_until("the name to come back", || {
+        fixture.path("New Text Document (2).txt").exists()
+    });
+    assert!(!fixture.path("Garden plan.txt").exists());
+    test.activate("undo", None);
+    wait_until("the file to go", || {
+        !fixture.path("New Text Document (2).txt").exists()
+    });
+    settle();
+    assert!(dialog_over(&test).is_none(), "no question");
+    assert!(
+        fixture.path("New Text Document.txt").exists(),
+        "the other file stays"
     );
 }

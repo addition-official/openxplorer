@@ -267,22 +267,16 @@ impl BrowserWindow {
             };
         }
         let in_recycle_bin = facts.folder.is_recycle_bin;
+        let mut strip = Vec::new();
         let entries = match (items.first(), in_recycle_bin) {
             (None, true) if compact => {
                 compact_recycle_bin_background_menu(&self.undo_redo(), self.background_submenus())
             }
             (None, true) => recycle_bin_background_menu(),
             (None, false) if style == MenuStyle::Compact => {
-                self.refresh_template_menu();
-                compact_background_menu(
-                    &self.journal_label(JournalDirection::Undo),
-                    BackgroundSubmenus {
-                        view: self.background_view_menu(),
-                        sort: sort_menu(),
-                        group: group_by_menu(),
-                        new: new_menu(self.template_menu_entries()),
-                    },
-                )
+                let menu = compact_background_menu(&self.undo_redo(), self.background_submenus());
+                strip = menu.strip;
+                menu.entries
             }
             (None, false) => {
                 self.refresh_template_menu();
@@ -324,10 +318,7 @@ impl BrowserWindow {
         } else {
             entries
         };
-        ContextMenu {
-            entries,
-            strip: Vec::new(),
-        }
+        ContextMenu { entries, strip }
     }
 
     /// The widget whose context menu shows for the page shown: the

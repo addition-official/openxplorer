@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-//! The OpenDocument types New offers while an application opens them.
+//! The document types New offers while an application opens them: the
+//! OpenDocument types, and Rich Text Document, which Windows 11 lists only
+//! with WordPad (VM check 2026-11-22).
 //!
 //! Windows' New menu lists a file type once a program registers it: with
 //! Microsoft Office, "Microsoft Word Document" and the others; with
@@ -22,10 +24,8 @@ fn document_label(document: NewDocument) -> Option<&'static str> {
         NewDocument::OpenDocumentPresentation => crate::i18n::message_id("OpenDocument Presentation"),
         NewDocument::OpenDocumentSpreadsheet => crate::i18n::message_id("OpenDocument Spreadsheet"),
         NewDocument::OpenDocumentText => crate::i18n::message_id("OpenDocument Text"),
-        NewDocument::BitmapImage
-        | NewDocument::RichTextDocument
-        | NewDocument::TextDocument
-        | NewDocument::CompressedFolder => return None,
+        NewDocument::RichTextDocument => crate::i18n::message_id("Rich Text Document"),
+        NewDocument::BitmapImage | NewDocument::TextDocument | NewDocument::CompressedFolder => return None,
     };
     Some(ox_core::i18n::gettext_static(label))
 }
@@ -64,12 +64,17 @@ pub(in crate::window) fn document_entries() -> Vec<MenuEntry> {
     offered_documents()
         .into_iter()
         .filter_map(|(document, icon)| {
-            let item = MenuItem::with_text_target(
-                document_label(document)?,
-                Icon::Document,
-                WindowAction::NewOpenDocument,
-                document.extension(),
-            );
+            let label = document_label(document)?;
+            let item = if document == NewDocument::RichTextDocument {
+                MenuItem::new(label, Icon::Document, WindowAction::NewRichTextDocument)
+            } else {
+                MenuItem::with_text_target(
+                    label,
+                    Icon::Document,
+                    WindowAction::NewOpenDocument,
+                    document.extension(),
+                )
+            };
             Some(item.with_application_icon(icon.as_deref()).into())
         })
         .collect()
@@ -174,7 +179,7 @@ mod tests {
     }
 
     #[test]
-    fn only_the_opendocument_types_need_an_application() {
+    fn only_the_types_an_application_registers_need_one() {
         let labelled: Vec<_> = NewDocument::ALL
             .into_iter()
             .filter(|document| document_label(*document).is_some())
