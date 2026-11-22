@@ -15,6 +15,23 @@
 mod picture;
 mod streams;
 
+/// Reads `bytes` as a video or audio file, as the reader process does with
+/// `GStreamer`, and the Preview pane's rows of what it found, for the fuzz
+/// targets. The bytes are written to a file in `folder` first.
+#[cfg(feature = "fuzzing")]
+pub(crate) fn fuzz_streams(bytes: &[u8], folder: &std::path::Path) {
+    let path = folder.join("fuzz.media");
+    if std::fs::write(&path, bytes).is_err() {
+        return;
+    }
+    let uri = gio::File::for_path(&path).uri();
+    let size = u64::try_from(bytes.len()).ok();
+    for kind in [MediaKind::Video, MediaKind::Audio] {
+        let details = read_details(&uri, kind, size);
+        let _ = crate::properties::pane_media_rows(kind, &details);
+    }
+}
+
 /// Reads `head` as the start of a picture, as the reader process does, and
 /// `head` as the reader's JSON, as the app does, with the Preview pane's
 /// rows of each, for the fuzz targets.

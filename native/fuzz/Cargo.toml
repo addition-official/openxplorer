@@ -73,3 +73,24 @@ path = "fuzz_targets/text_preview.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "core_formats"
+path = "fuzz_targets/core_formats.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "app_protocols"
+path = "fuzz_targets/app_protocols.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "media_streams"
+path = "fuzz_targets/media_streams.rs"
+test = false
+doc = false
+bench = false

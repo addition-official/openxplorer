@@ -62,6 +62,8 @@ mod error;
 mod keyring;
 mod local_path;
 mod mount_helper;
+#[cfg(feature = "fuzzing")]
+pub(crate) use mount_helper::fuzz_arguments as fuzz_mount_helper;
 mod mount_plan;
 mod mount_table;
 mod mounting;
@@ -75,6 +77,8 @@ mod sign_out;
 #[cfg(test)]
 mod test_support;
 mod usershare;
+#[cfg(feature = "fuzzing")]
+pub(crate) use usershare::fuzz_info as fuzz_usershares;
 mod visited;
 mod volumes;
 

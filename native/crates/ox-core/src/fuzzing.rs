@@ -9,4 +9,5 @@
 //! minimized inputs, so a fixed crash stays fixed.
 
 pub mod archive;
+pub mod formats;
 pub mod text;

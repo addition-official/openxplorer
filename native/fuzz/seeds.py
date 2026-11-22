@@ -371,6 +371,84 @@ def text_seeds():
         write('text_preview', name, data)
 
 
+def core_formats_seeds():
+    import json
+    release = {
+        'tag_name': 'v2.0.2', 'draft': False, 'prerelease': False, 'body': '## Changes\n- Fixes',
+        'assets': [{'name': 'openxplorer_2.0.2_amd64.deb', 'size': 1234567,
+                    'digest': 'sha256:' + '0' * 64,
+                    'browser_download_url': 'https://github.com/AKolenda/openxplorer/releases/download/v2.0.2/'
+                                            'openxplorer_2.0.2_amd64.deb'}],
+    }
+    tab = {'uri': 'file:///home/alex/Documents', 'history': ['file:///home/alex', 'file:///home/alex/Documents'],
+           'index': 1, 'selection': ['file:///home/alex/Documents/a.txt'], 'scroll': 12.5,
+           'view': 'details', 'sort': 'name'}
+    seeds = {
+        0: 'smb://nas.example/Share/Folder/Sub\nsmb://192.168.1.20/Media$\nsmb://nas/My Share/a%20b/..\n'
+           '\\\\nas\\share\\folder\nsmb://user@nas:445/share',
+        1: '--share\0//nas.example/Share\0--remove\0--plan\nalex:x:1000:1000:Alex:/home/alex:/bin/bash',
+        2: '--item\x002049:1234567\x00--\x00/home/alex/Old folder',
+        3: json.dumps(release),
+        4: 'https://api.github.com/repos/AKolenda/openxplorer/releases/latest\n'
+           'https://github.com/AKolenda/openxplorer/releases/download/v2.0.2/a.deb\n2.0.10\nv2.1.0-rc1',
+        5: 'report kind:document date:>2024-01-01 size:<10MB "exact words" *.pdf -draft\nReport 2024 final.PDF',
+        6: 'root:x:0:0:root:/root:/bin/bash\nalex:x:1000:1000:Alex,,,:/home/alex:/bin/bash\n'
+           '[Music]\npath=/home/alex/Music\ncomment=Songs\nusershare_acl=Everyone:R,\nguest_ok=n\n',
+        7: json.dumps({'version': 1, 'tabs': [tab], 'active': 0}),
+        8: '*.tx?[!a-c]',
+    }
+    for selector, text in seeds.items():
+        write('core_formats', f'seed-{selector:02}', bytes([selector]) + text.encode())
+    write('core_formats', 'seed-07-tab', bytes([7]) + json.dumps(tab).encode())
+
+
+def app_protocol_seeds():
+    seeds = {
+        'player': 'ox-player 1\nready 1500000 1 1 1\nposition 250000\nframe 4 2 16\nseeked\nseek-failed\n'
+                  'ended\nfailed No decoder for this file\nplay\npause\nseek 1000\nvolume 0.5 0\nquit\n',
+        'parent': 'x11:0x3a00007',
+        'wayland': 'wayland:abc-123_handle',
+        'names': '"Report.pdf" "Notes 2024.txt" "a b.c"',
+        'search': 'dark mode  file  extensions hidden items',
+        'arguments': '--new-window\0--select\0file:///home/alex/a.txt\0--\0/home/alex/Documents\0smb://nas/share',
+    }
+    for name, text in seeds.items():
+        write('app_protocols', name, text.encode())
+
+
+def media_stream_seeds(work):
+    """Tiny tagged audio and video files, made with ffmpeg when it is installed."""
+    import shutil
+    if not shutil.which('ffmpeg'):
+        print('ffmpeg is missing: no media_streams seeds', file=sys.stderr)
+        return
+    tags = ['-metadata', 'title=Harbor', '-metadata', 'artist=Example Artist', '-metadata', 'album=Seeds',
+            '-metadata', 'date=2024', '-metadata', 'track=3', '-metadata', 'genre=Ambient',
+            '-metadata', 'composer=Someone', '-metadata', 'comment=A comment']
+    audio = ['-f', 'lavfi', '-i', 'sine=frequency=440:duration=0.2:sample_rate=8000']
+    video = ['-f', 'lavfi', '-i', 'testsrc=size=16x16:rate=5:duration=0.4']
+    outputs = {
+        'mp3-id3.mp3': audio + ['-ac', '1', '-b:a', '8k', '-id3v2_version', '3'],
+        'audio.m4a': audio + ['-ac', '1', '-c:a', 'aac', '-b:a', '8k'],
+        'audio.ogg': audio + ['-ac', '1', '-c:a', 'libvorbis', '-q:a', '0'],
+        'audio.opus': audio + ['-ac', '1', '-c:a', 'libopus', '-b:a', '6k'],
+        'audio.flac': audio + ['-ac', '1'],
+        'audio.wav': audio + ['-ac', '1', '-c:a', 'pcm_u8'],
+        'video.mp4': video + audio + ['-c:v', 'mpeg4', '-q:v', '31', '-c:a', 'aac', '-b:a', '8k', '-shortest'],
+        'video.mkv': video + ['-c:v', 'mpeg4', '-q:v', '31'],
+        'video.webm': video + ['-c:v', 'libvpx', '-b:v', '20k'],
+        'video.avi': video + ['-c:v', 'mjpeg', '-q:v', '31'],
+    }
+    for name, arguments in outputs.items():
+        out = work / name
+        done = subprocess.run(['ffmpeg', '-v', 'error', '-y', *arguments, *tags, str(out)],
+                              capture_output=True)
+        if done.returncode == 0 and out.stat().st_size <= 65536:
+            write('media_streams', name, out.read_bytes())
+        else:
+            print('ffmpeg could not write', name, done.stderr.decode()[-200:], file=sys.stderr)
+
+
 def build_seed_maker():
     if not SEED_MAKER.exists():
         subprocess.run(['cargo', '+stable', 'build', '--release', '--manifest-path',
@@ -385,10 +463,13 @@ def main():
         zip_seeds()
         tar_seeds(work)
         seven_zip_seeds(work)
+        media_stream_seeds(work)
     core_text_seeds()
+    core_formats_seeds()
     picture_seeds()
     media_seeds()
     text_seeds()
+    app_protocol_seeds()
     for extra in sys.argv[1:]:
         print('unknown argument', extra, file=sys.stderr)
     for folder in sorted(CORPUS.iterdir()):

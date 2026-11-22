@@ -59,10 +59,32 @@ pub fn media_details(data: &[u8]) {
     crate::thumbnails::fuzz_thumbnailer(data);
 }
 
+/// A video or audio file read as the media reader process reads it, with
+/// `GStreamer` in this process.
+pub fn media_streams(data: &[u8]) {
+    let folder = std::env::temp_dir().join(format!("ox-fuzz-media-{}", std::process::id()));
+    if std::fs::create_dir_all(&folder).is_ok() {
+        crate::media_details::fuzz_streams(data, &folder);
+    }
+}
+
 /// The Preview pane's text and rich text readers, and desktop entries the
 /// app may follow as links.
 pub fn text_preview(data: &[u8]) {
     crate::window::fuzz_text(data);
     crate::window::fuzz_rtf(data);
     crate::window::fuzz_link(&String::from_utf8_lossy(data));
+}
+
+/// The lines the media player process and the app write each other, a
+/// portal's parent window, the file dialog's typed names, the command
+/// line and the Settings search box.
+pub fn app_protocols(data: &[u8]) {
+    let text = String::from_utf8_lossy(data);
+    crate::media_player::fuzz_protocol(&text);
+    crate::window::fuzz_parent(&text);
+    crate::window::fuzz_quoted_names(&text);
+    crate::settings_page::fuzz_search(&text);
+    let words: Vec<String> = text.split('\0').map(str::to_owned).collect();
+    let _ = crate::arguments::Arguments::parse(&words);
 }
