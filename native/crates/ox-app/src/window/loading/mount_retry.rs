@@ -91,7 +91,11 @@ impl BrowserWindow {
             return;
         }
         if let Err(error) = mounted {
-            self.refuse_listing(id, mode, listing_error(error));
+            let error = listing_error(error);
+            // From a folder, Windows says "Network Error" and stays.
+            if !self.leave_unreachable_share(id, &start.uri, mode, &error) {
+                self.refuse_listing(id, mode, error);
+            }
             return;
         }
         // An SFTP server opens at the account's home: the tab is there now.
