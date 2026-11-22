@@ -15,6 +15,26 @@
 mod picture;
 mod streams;
 
+/// Reads `head` as the start of a picture, as the reader process does, and
+/// `head` as the reader's JSON, as the app does, with the Preview pane's
+/// rows of each, for the fuzz targets.
+#[cfg(feature = "fuzzing")]
+pub(crate) fn fuzz_details(head: &[u8]) {
+    let mut details = MediaDetails::default();
+    picture::read_picture(head, &mut details);
+    let _ = crate::properties::pane_media_rows(MediaKind::Picture, &details);
+    if let Ok(text) = std::str::from_utf8(head) {
+        if let Some(time) = NaiveDateTime::parse_exif(text) {
+            let _ = time.local_unix_seconds();
+        }
+    }
+    if let Ok(details) = serde_json::from_slice::<MediaDetails>(head) {
+        for kind in [MediaKind::Picture, MediaKind::Video, MediaKind::Audio] {
+            let _ = crate::properties::pane_media_rows(kind, &details);
+        }
+    }
+}
+
 use std::ffi::OsStr;
 use std::time::Duration;
 

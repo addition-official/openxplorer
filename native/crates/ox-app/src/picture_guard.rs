@@ -56,6 +56,10 @@ mod vector;
 
 pub(crate) use decoder::run_as_decoder;
 pub(crate) use vector::run_as_drawer;
+#[cfg(feature = "fuzzing")]
+pub(crate) use decoder::{fuzz_answer, fuzz_serve};
+#[cfg(feature = "fuzzing")]
+pub(crate) use vector::fuzz_vector_answer;
 
 /// The most pixels a raster picture may have to be decoded for display:
 /// 64 megapixels (8192 × 8192), more than any camera's photo, 256 MB
@@ -916,6 +920,58 @@ impl Ending {
     fn is_complete(&self) -> bool {
         self.start != PNG_SIGNATURE || self.ended
     }
+}
+
+/// Runs the header readers and the stream cutters on `bytes`, for the
+/// fuzz targets, and checks that neither depends on how the bytes come:
+/// the size read from any start of the picture that is no longer
+/// incomplete is the size read from all of it, and feeding the picture
+/// in the pieces `cuts` gives the bytes feeding it whole gives.
+///
+/// # Panics
+///
+/// When a reader's answer depends on where the reads end.
+#[cfg(feature = "fuzzing")]
+pub(crate) fn fuzz_headers(bytes: &[u8], cuts: &[usize]) {
+    let whole = declared_size(bytes);
+    let _ = refusal_by_header(whole, Limits::DISPLAY);
+    let _ = refusal_by_header(whole, Limits::THUMBNAIL_FILE);
+    let _ = declared_dimensions(bytes);
+    for &cut in cuts {
+        let start = &bytes[..cut.min(bytes.len())];
+        let declared = declared_size(start);
+        assert!(
+            declared == Declared::Incomplete || declared == whole,
+            "the first {} bytes declare {declared:?}, all {} bytes {whole:?}",
+            start.len(),
+            bytes.len()
+        );
+    }
+    let feed = |pieces: &mut dyn Iterator<Item = &[u8]>| {
+        let mut first_frame = FirstFrame::default();
+        let mut ending = Ending::default();
+        let mut fed = Vec::new();
+        for piece in pieces {
+            let (chunk, first_frame_done) = first_frame.take(piece);
+            let (chunk, png_done) = ending.take(chunk);
+            fed.extend_from_slice(chunk);
+            if first_frame_done || png_done {
+                return (fed, true, ending.is_complete());
+            }
+        }
+        (fed, false, ending.is_complete())
+    };
+    let whole_feed = feed(&mut std::iter::once(bytes));
+    let mut pieces = Vec::new();
+    let mut from = 0;
+    for &cut in cuts {
+        let to = cut.clamp(from, bytes.len());
+        pieces.push(&bytes[from..to]);
+        from = to;
+    }
+    pieces.push(&bytes[from..]);
+    let pieces_feed = feed(&mut pieces.into_iter());
+    assert_eq!(whole_feed, pieces_feed, "feeding in pieces differs from feeding whole");
 }
 
 /// The byte that ends a GIF.

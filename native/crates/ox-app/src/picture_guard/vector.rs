@@ -228,6 +228,13 @@ fn read_answer(answer: &[u8]) -> Result<Decoded, Refusal> {
     }
 }
 
+/// Reads `bytes` as the drawing process's answer, for the fuzz targets.
+#[cfg(feature = "fuzzing")]
+pub(crate) fn fuzz_vector_answer(bytes: &[u8]) {
+    let _ = may_be_vector(bytes);
+    let _ = read_answer(bytes);
+}
+
 /// The picture was drawn.
 const STATUS_DRAWN: u8 = 0;
 /// [`Refusal::TooLarge`].

@@ -264,6 +264,113 @@ def core_text_seeds():
     write('core_text', 'seed-10-snapshots', bytes([10]) + struct.pack('<III', 2, 2, len(snapshot)) + snapshot)
 
 
+def picture_files():
+    """Small pictures in every format the app reads, made with Pillow."""
+    from PIL import Image, PngImagePlugin
+    pictures = {}
+    image = Image.new('RGB', (12, 8), (200, 40, 40))
+    for x in range(12):
+        image.putpixel((x, x % 8), (10, 200, 30))
+
+    def saved(picture, fmt, **options):
+        buffer = io.BytesIO()
+        picture.save(buffer, fmt, **options)
+        return buffer.getvalue()
+
+    text = PngImagePlugin.PngInfo()
+    text.add_text('Title', 'Harbor at dawn')
+    text.add_itxt('Description', 'Ünïcödé description', lang='en', tkey='Description')
+    text.add_text('Thumb::URI', 'file:///home/alex/Pictures/harbor.png')
+    text.add_text('Thumb::MTime', '1700000000')
+    text.add_text('XML:com.adobe.xmp', '<x:xmpmeta><rdf:Description xmp:Rating="4"/></x:xmpmeta>')
+    pictures['png'] = saved(image, 'PNG', pnginfo=text)
+    pictures['png-alpha'] = saved(image.convert('RGBA'), 'PNG')
+    pictures['png-palette'] = saved(image.convert('P'), 'PNG')
+    exif = Image.Exif()
+    exif[0x0112] = 6  # orientation
+    exif[0x010F] = 'Example camera maker'
+    exif[0x0110] = 'Model 1'
+    exif[0x0131] = 'Fuzz seeds'
+    exif[0x9C9B] = 'Title'.encode('utf-16-le') + b'\0\0'
+    ifd = exif.get_ifd(0x8769)
+    ifd[0x9003] = '2024:05:06 07:08:09'
+    ifd[0x829A] = (1, 250)
+    ifd[0x829D] = (28, 10)
+    ifd[0x8827] = 200
+    ifd[0x9209] = 16
+    ifd[0x920A] = (50, 1)
+    ifd[0x9286] = b'ASCII\0\0\0A comment'
+    pictures['jpeg-exif'] = saved(image, 'JPEG', exif=exif, quality=80)
+    pictures['jpeg-progressive'] = saved(image, 'JPEG', progressive=True)
+    pictures['jpeg-plain'] = saved(image.convert('L'), 'JPEG')
+    frames = [image, image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)]
+    pictures['gif'] = saved(frames[0], 'GIF', save_all=True, append_images=frames[1:], loop=0, duration=50)
+    pictures['gif-still'] = saved(image.convert('P'), 'GIF')
+    pictures['bmp'] = saved(image, 'BMP')
+    pictures['webp-lossy'] = saved(image, 'WEBP', quality=50)
+    pictures['webp-lossless'] = saved(image, 'WEBP', lossless=True)
+    pictures['webp-extended'] = saved(image.convert('RGBA'), 'WEBP', exif=exif)
+    pictures['tiff'] = saved(image, 'TIFF')
+    pictures['ico'] = saved(image, 'ICO')
+    pictures['svg'] = (b'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="10">'
+                       b'<rect width="16" height="10" fill="#c33"/><circle cx="5" cy="5" r="3"/></svg>')
+    return pictures
+
+
+def picture_seeds():
+    cuts = struct.pack('<4H', 3, 17, 30, 200)
+    pictures = picture_files()
+    for name, data in pictures.items():
+        write('picture_headers', name, cuts + data)
+        write('picture_decode', name, cuts + data)
+        write('media_details', name, data)
+    # The decoder's answers: a 2x1 RGB picture, a refusal, and a framed answer.
+    magic = b'\0OXPIX1\0'
+    pixels = bytes([255, 0, 0, 0, 255, 0])
+    good = (magic + b'\0' + struct.pack('<5i', 2, 1, 2, 1, 6) + b'\0' + struct.pack('<I', 1)
+            + struct.pack('<I', 17) + b'tEXt::Thumb::URI' [:17] + struct.pack('<I', 4) + b'file' + pixels)
+    write('picture_headers', 'answer', good)
+    write('picture_headers', 'answer-large', magic + b'\x01' + struct.pack('<2i', 9000, 9000))
+    write('picture_headers', 'answer-framed', b'noise\n\0OXFRM1\0' + struct.pack('<Q', len(good)) + good)
+    write('picture_headers', 'request', b'\0OXREQ1\0' + struct.pack('<2i3Q', 256, 256, 1 << 26, 1 << 28, 10000))
+    write('picture_headers', 'vector-answer', b'OX-VECTOR-PICTURE-1\n\0' + struct.pack('<2i', 16, 10)
+          + pictures['png'])
+
+
+def media_seeds():
+    details = {
+        'title': 'Harbor', 'subject': 'Boats', 'rating': 4, 'rating_readable': True, 'tags': 'sea; dawn',
+        'comments': 'A comment', 'width': 4000, 'height': 3000, 'duration_ns': 125_000_000_000,
+        'bitrate': 320000, 'frame_rate': [30000, 1001], 'channels': 2, 'sample_rate': 44100,
+        'exposure_time': [1, 250], 'f_number': 2.8, 'iso': 200, 'flash': 16,
+    }
+    import json
+    write('media_details', 'details.json', json.dumps(details).encode())
+    write('media_details', 'date', b'2024:05:06 07:08:09')
+    write('media_details', 'thumbnailer', b'[Thumbnailer Entry]\nTryExec=sh\nExec=sh -c "convert %i %o" %u %s\n'
+          b'MimeType=image/png;image/x-portable-pixmap;\n')
+
+
+def text_seeds():
+    texts = {
+        'utf8': '# Notes\n\n- one\n- two\n\n```rust\nfn main() {}\n```\n'.encode(),
+        'utf8-bom': b'\xef\xbb\xbfH\xc3\xa9llo\r\nline two\r\n',
+        'utf16le': b'\xff\xfe' + 'Ünïcödé text\nline'.encode('utf-16-le'),
+        'utf16be': b'\xfe\xff' + 'Ünïcödé text\nline'.encode('utf-16-be'),
+        'latin1': 'caf\xe9 cr\xe8me\n'.encode('latin-1'),
+        'long-line': b'x' * 3000 + b'\n' + b'y\n' * 300,
+        'code': b'#include <stdio.h>\nint main(void) { printf("%d\\n", 1); }\n\t\x1b[0m',
+        'rtf': (rb'{\rtf1\ansi\ansicpg1252\deff0{\fonttbl{\f0 Calibri;}}{\colortbl;\red255\green0\blue0;}'
+                rb'\f0\fs22 Hello {\b bold} \u8364? caf\'e9 \uc2\u55357\'3f\'3f\u56832\'3f\'3f\par'
+                rb'{\*\generator Fuzz;}\line\tab end\par}'),
+        'rtf-cp': rb'{\rtf1\ansi\ansicpg1251 \'cf\'f0\'e8\par{\pict\pngblip 89504e47}}',
+        'desktop-link': b'[Desktop Entry]\nType=Link\nName=Projects\nURL=file:///home/alex/Projects\n',
+        'desktop-web': b'[Desktop Entry]\nType=Link\nName[de]=Seite\nURL=https://example.org/a?b=c\nIcon=web\n',
+    }
+    for name, data in texts.items():
+        write('text_preview', name, data)
+
+
 def build_seed_maker():
     if not SEED_MAKER.exists():
         subprocess.run(['cargo', '+stable', 'build', '--release', '--manifest-path',
@@ -279,6 +386,9 @@ def main():
         tar_seeds(work)
         seven_zip_seeds(work)
     core_text_seeds()
+    picture_seeds()
+    media_seeds()
+    text_seeds()
     for extra in sys.argv[1:]:
         print('unknown argument', extra, file=sys.stderr)
     for folder in sorted(CORPUS.iterdir()):

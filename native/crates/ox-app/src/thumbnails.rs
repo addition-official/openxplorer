@@ -45,6 +45,8 @@ use ox_core::settings::{ViewOptions, PREVIEW_SIZE_LIMIT};
 pub(crate) use network_fs::is_on_network_filesystem;
 pub(crate) use slots::Slots;
 pub(crate) use thumbnailers::{decoder_sandbox, pdf_pages};
+#[cfg(feature = "fuzzing")]
+pub(crate) use thumbnailers::fuzz_thumbnailer;
 
 use crate::picture_guard::{self, Limits};
 use thumbnailers::Catalogue;

@@ -15,6 +15,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 ox-core = { path = "../crates/ox-core", features = ["fuzzing"] }
+ox-app = { path = "../crates/ox-app", features = ["fuzzing"] }
 tempfile = "3"
 
 # Its own workspace, so the native workspace does not adopt it.
@@ -41,6 +42,34 @@ bench = false
 [[bin]]
 name = "core_text"
 path = "fuzz_targets/core_text.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "picture_headers"
+path = "fuzz_targets/picture_headers.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "picture_decode"
+path = "fuzz_targets/picture_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "media_details"
+path = "fuzz_targets/media_details.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "text_preview"
+path = "fuzz_targets/text_preview.rs"
 test = false
 doc = false
 bench = false
