@@ -44,8 +44,8 @@ use gtk::{gio, glib};
 
 use super::{
     extension_of, installed_program, pdf_pages_in, program_folders, read_picture, run_within,
-    sandbox_arguments, writer, Job, Sandbox, Source, Thumbnailer, UserFolders, Workspace, INPUT, INSIDE,
-    PDF_PROGRAM,
+    sandbox_arguments, sweep_stale_workspaces, writer, Job, Sandbox, Source, Thumbnailer, UserFolders,
+    Workspace, INPUT, INSIDE, PDF_PROGRAM,
 };
 
 /// The longest a conversion may take before it is stopped: a document
@@ -74,6 +74,9 @@ const CACHE_BYTE_LIMIT: u64 = 512 * 1024 * 1024;
 /// The cache's folder, in the app's own folder of the user's cache.
 #[cfg(not(test))]
 const CACHE_FOLDER: &str = "document-previews";
+
+/// The folder beside the cache that Flatpak's `LibreOffice` works in.
+const WORK_FOLDER: &str = "document-work";
 
 /// What the cache's names start with, so a cache of another version's
 /// conversions is never taken for this one's.
@@ -145,6 +148,10 @@ const DOCUMENT_EXTENSIONS: [&str; 15] = [
 /// it reads at start): its own count, the processors', would exceed the
 /// thumbnailers' task limit on a computer of many processors.
 const THREADS: &str = "4";
+
+/// `soffice` inside the Flatpak [`FLATPAK_APP`], whose own command is a
+/// launcher of its own.
+const FLATPAK_SOFFICE: &str = "/app/libreoffice/program/soffice";
 
 /// The Flatpak of `LibreOffice`, used when no `LibreOffice` is installed
 /// with the system.
@@ -511,7 +518,13 @@ impl Converter {
     /// Converts the document at `path` in the sandbox, and keeps its PDF
     /// in the cache as `name`.
     fn convert(&self, path: &Path, name: &str, cancellation: &gio::Cancellable) -> Result<PathBuf, Failure> {
-        let workspace = Workspace::new().ok_or(Failure::Failed)?;
+        let workspace = match &self.program {
+            Program::Installed { .. } => Workspace::new(),
+            // Flatpak never shows an app the computer's `/tmp`: the
+            // folder is in the app's own cache instead.
+            Program::Flatpak { .. } => self.cache.workspace(),
+        }
+        .ok_or(Failure::Failed)?;
         let profile = workspace.path().join(PROFILE_FOLDER).join("user");
         let output = workspace.path().join(OUTPUT_FOLDER);
         let made = fs::DirBuilder::new()
@@ -697,6 +710,20 @@ impl Cache {
             let _ = file.set_modified(SystemTime::now());
         }
         Some(path)
+    }
+
+    /// A private folder for one conversion by Flatpak's `LibreOffice`, in
+    /// [`WORK_FOLDER`] beside the cache, after removing what an earlier
+    /// run left there ([`sweep_stale_workspaces`]).
+    fn workspace(&self) -> Option<Workspace> {
+        let parent = self.folder.with_file_name(WORK_FOLDER);
+        fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(&parent)
+            .ok()?;
+        sweep_stale_workspaces(&parent);
+        Workspace::new_in(&parent)
     }
 
     /// Keeps `pdf` as `name`, written whole before it takes the name, and
@@ -912,7 +939,7 @@ impl Sandbox {
         home.push(workspace.as_os_str());
         command.push(home);
         command.push(format!("--env=MAX_CONCURRENCY={THREADS}").into());
-        command.push("--command=soffice".into());
+        command.push(format!("--command={FLATPAK_SOFFICE}").into());
         command.push(FLATPAK_APP.into());
         command.extend(Program::conversion(&workspace.join(PROFILE_FOLDER), output, copy));
         command
@@ -1179,6 +1206,7 @@ mod tests {
             "--no-session-bus",
             "--nofilesystem=host",
             "--filesystem=/tmp/ws",
+            "--command=/app/libreoffice/program/soffice",
             "org.libreoffice.LibreOffice",
             "-env:UserInstallation=file:///tmp/ws/profile",
             "/tmp/ws/openxplorer-item.odt",

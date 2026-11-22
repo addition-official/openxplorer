@@ -1269,7 +1269,11 @@ struct Workspace(PathBuf);
 impl Workspace {
     /// A new folder under the system's temporary folder.
     fn new() -> Option<Self> {
-        let parent = glib::tmp_dir();
+        Self::new_in(&glib::tmp_dir())
+    }
+
+    /// A new folder in `parent`.
+    fn new_in(parent: &Path) -> Option<Self> {
         for _ in 0..8 {
             let path = parent.join(format!("{WORKSPACE}{:08x}", glib::random_int()));
             match fs::DirBuilder::new().mode(0o700).create(&path) {
