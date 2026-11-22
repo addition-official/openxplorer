@@ -123,6 +123,7 @@ mod mounting;
 mod navigation;
 mod navigation_buttons;
 mod network_actions;
+mod network_computers;
 mod network_info_bar;
 mod network_session;
 mod network_sign_out;

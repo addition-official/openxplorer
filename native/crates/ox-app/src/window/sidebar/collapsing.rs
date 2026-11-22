@@ -6,11 +6,24 @@
 //! window, not saved. While the place that holds the current location is
 //! inside a collapsed section, the section's head is highlighted instead.
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{gdk, glib};
 
-use super::entries::{RowLevel, Section, SidebarEntry};
+use super::entries::{RowLevel, RowTarget, Section, SidebarEntry};
+
+/// What a double-click on a row of the navigation pane collapses or
+/// expands.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum DoubleClicked {
+    /// This PC's or Network's section.
+    Section(Section),
+    /// The computer under Network at this location.
+    Computer(String),
+}
 
 /// How long a drag must stay over a collapsed section's head before it
 /// expands (DND-027).
@@ -63,13 +76,126 @@ impl Sidebar {
                     continue;
                 };
                 match entry.level {
-                    RowLevel::Place => {}
                     RowLevel::Group => row::show_expanded(&row, section, !collapsed),
-                    RowLevel::Child => row.set_visible(!collapsed),
+                    level if level.is_inside() => row.set_visible(!collapsed),
+                    _ => {}
                 }
             }
         }
         self.highlight_location();
+        // Expanding Network discovers the computers on the network, as
+        // Windows' navigation pane does (SIDE-019).
+        if section == Section::Network && !collapsed {
+            if let Some(window) = self.root().and_downcast::<super::super::BrowserWindow>() {
+                window.discover_computers_for_pane();
+            }
+        }
+    }
+
+    /// Puts the keyboard on the row that opens `uri`, if one does.
+    pub(in crate::window) fn focus_location(&self, uri: &str) {
+        let index = self
+            .imp()
+            .entries
+            .borrow()
+            .iter()
+            .position(|entry| matches!(&entry.target, RowTarget::Location(shown) if shown == uri));
+        let row = index
+            .and_then(|index| i32::try_from(index).ok())
+            .and_then(|index| self.list().row_at_index(index));
+        if let Some(row) = row {
+            row.grab_focus();
+        }
+    }
+
+    /// A double-click on the row of This PC or Network collapses its
+    /// section, or expands it, and one on a computer under Network lists
+    /// its shared folders or hides them, as a double-click on a node of
+    /// Windows Explorer's navigation pane does (checked in Windows 11);
+    /// the first click opened the place.
+    pub(super) fn toggle_sections_on_double_click(&self, list: &gtk::ListBox) {
+        // What the second press of a double-click asked for, done once
+        // its button is released: changing the rows between the press
+        // and the release, while the list still handles the click,
+        // corrupts GTK's memory, which crashed the app later.
+        let pending: Rc<RefCell<Option<DoubleClicked>>> = Rc::default();
+        let click = gtk::GestureClick::new();
+        click.set_button(gdk::BUTTON_PRIMARY);
+        click.connect_pressed(glib::clone!(
+            #[weak(rename_to = sidebar)]
+            self,
+            #[strong]
+            pending,
+            move |gesture, presses, x, y| {
+                if presses != 2 || !super::gestures::held_modifiers(gesture).is_empty() {
+                    return;
+                }
+                let clicked = sidebar.double_clicked_at(x, y);
+                // The second click only collapses or expands, as in
+                // Windows: claiming it keeps the list from opening the
+                // place once more, which reloaded it as the rows changed.
+                if clicked.is_some() {
+                    gesture.set_state(gtk::EventSequenceState::Claimed);
+                }
+                pending.replace(clicked);
+            }
+        ));
+        list.add_controller(click);
+        // A legacy controller sees the release even after the list's own
+        // gesture claimed the click, which cancels other gestures.
+        let release = gtk::EventControllerLegacy::new();
+        release.set_propagation_phase(gtk::PropagationPhase::Capture);
+        release.connect_event(glib::clone!(
+            #[weak(rename_to = sidebar)]
+            self,
+            #[upgrade_or]
+            glib::Propagation::Proceed,
+            move |_, event| {
+                if event.event_type() == gdk::EventType::ButtonRelease {
+                    if let Some(clicked) = pending.take() {
+                        glib::idle_add_local_once(glib::clone!(
+                            #[weak]
+                            sidebar,
+                            move || sidebar.toggle_double_clicked(clicked)
+                        ));
+                    }
+                }
+                glib::Propagation::Proceed
+            }
+        ));
+        list.add_controller(release);
+    }
+
+    /// What a double-click at (`x`, `y`) of the list toggles: This PC's
+    /// or Network's section, or a computer under Network; `None` on any
+    /// other row and on a chevron, which takes each click itself.
+    fn double_clicked_at(&self, x: f64, y: f64) -> Option<DoubleClicked> {
+        let picked = self.list().pick(x, y, gtk::PickFlags::DEFAULT);
+        if picked.is_some_and(|widget| row::is_on_chevron(&widget)) {
+            return None;
+        }
+        #[expect(clippy::cast_possible_truncation, reason = "pointer positions are small")]
+        let row = self.list().row_at_y(y as i32)?;
+        let entries = self.imp().entries.borrow();
+        let entry = entries.get(usize::try_from(row.index()).ok()?)?;
+        match (&entry.level, &entry.target) {
+            (RowLevel::Group, _) => Some(DoubleClicked::Section(entry.section)),
+            (RowLevel::Computer { .. }, RowTarget::Location(uri)) => {
+                Some(DoubleClicked::Computer(uri.clone()))
+            }
+            _ => None,
+        }
+    }
+
+    /// Collapses or expands what a double-click asked for.
+    fn toggle_double_clicked(&self, clicked: DoubleClicked) {
+        match clicked {
+            DoubleClicked::Section(section) => self.collapse_section(section, !self.is_collapsed(section)),
+            DoubleClicked::Computer(uri) => {
+                super::super::WindowAction::ToggleNetworkComputer
+                    .activate_from(self, Some(&uri.to_variant()));
+            }
+        }
     }
 
     /// A drag is at `y` of the list, or left it with `None`: held over the
@@ -179,7 +305,9 @@ impl Sidebar {
                     gdk::Key::Left | gdk::Key::KP_Left => false,
                     _ => return glib::Propagation::Proceed,
                 };
-                let moved = sidebar.expand_focused_section(expand) || sidebar.step_through_tree(expand);
+                let moved = sidebar.expand_focused_section(expand)
+                    || sidebar.open_focused_computer(expand)
+                    || sidebar.step_through_tree(expand);
                 // With nowhere to go the keyboard stays on its row, as in
                 // Windows' tree; GTK moved it out of the pane, to the
                 // resize handle beside it.
@@ -226,6 +354,31 @@ impl Sidebar {
         true
     }
 
+    /// Lists the shared folders of the computer whose row has keyboard
+    /// focus, or hides them (SIDE-019); false when another row has it or
+    /// the computer already is as asked.
+    fn open_focused_computer(&self, expand: bool) -> bool {
+        let Some(row) = self.list().focus_child().and_downcast::<gtk::ListBoxRow>() else {
+            return false;
+        };
+        let entry = usize::try_from(row.index())
+            .ok()
+            .and_then(|index| self.imp().entries.borrow().get(index).cloned());
+        let Some(SidebarEntry {
+            level: RowLevel::Computer { expanded },
+            target: RowTarget::Location(uri),
+            ..
+        }) = entry
+        else {
+            return false;
+        };
+        if expanded == expand {
+            return false;
+        }
+        super::super::WindowAction::ToggleNetworkComputer.activate_from(self, Some(&uri.to_variant()));
+        true
+    }
+
     /// Moves keyboard focus as Windows' tree does once a section is as
     /// the key asks: `into` (Right) from an expanded head to its first
     /// row, else (Left) from a row inside a section to its head; false
@@ -245,9 +398,16 @@ impl Sidebar {
             match (into, entry.level) {
                 (true, RowLevel::Group) if !self.is_collapsed(entry.section) => entries
                     .get(index + 1)
-                    .filter(|next| next.section == entry.section && next.level == RowLevel::Child)
+                    .filter(|next| next.section == entry.section && next.level.is_inside())
                     .map(|_| index + 1),
-                (false, RowLevel::Child) => entries[..index]
+                (true, RowLevel::Computer { expanded: true }) => entries
+                    .get(index + 1)
+                    .filter(|next| next.level == RowLevel::Share)
+                    .map(|_| index + 1),
+                (false, RowLevel::Share) => entries[..index]
+                    .iter()
+                    .rposition(|computer| matches!(computer.level, RowLevel::Computer { .. })),
+                (false, RowLevel::Child | RowLevel::Computer { .. }) => entries[..index]
                     .iter()
                     .rposition(|head| head.level == RowLevel::Group && head.section == entry.section),
                 _ => None,
@@ -292,7 +452,7 @@ fn shown_row(entries: &[SidebarEntry], collapsed: &[Section], index: usize) -> u
     let Some(entry) = entries.get(index) else {
         return index;
     };
-    if entry.level != RowLevel::Child || !collapsed.contains(&entry.section) {
+    if !entry.level.is_inside() || !collapsed.contains(&entry.section) {
         return index;
     }
     entries

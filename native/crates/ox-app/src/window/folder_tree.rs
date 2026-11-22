@@ -17,6 +17,8 @@ mod actions;
 mod drops;
 mod follow;
 mod menu;
+
+pub(super) use menu::expand_to_current_item;
 mod model;
 
 use std::cell::{Cell, OnceCell, RefCell};
@@ -276,10 +278,14 @@ impl FolderTree {
             self,
             #[weak]
             item,
-            move |gesture, _, x, y| {
+            move |gesture, presses, x, y| {
                 let position = item.position();
+                let modifiers = gestures::held_modifiers(gesture);
                 match gesture.current_button() {
-                    gdk::BUTTON_PRIMARY => tree.open_row(position, gestures::held_modifiers(gesture)),
+                    // The second click of a double-click opens or closes
+                    // the folder's subfolders instead.
+                    gdk::BUTTON_PRIMARY if presses == 2 && modifiers.is_empty() => {}
+                    gdk::BUTTON_PRIMARY => tree.open_row(position, modifiers),
                     gdk::BUTTON_SECONDARY => {
                         if let Some(widget) = gesture.widget() {
                             tree.show_menu(position, &widget, x, y);
@@ -289,6 +295,47 @@ impl FolderTree {
                 }
             }
         ));
+        // The second press of a double-click opens or closes the folder's
+        // subfolders, as in Windows Explorer's navigation pane; the first
+        // click opened the folder. It is done once the button is released:
+        // changing the rows between the press and the release, while the
+        // list still handles the click, corrupts GTK's memory (see the
+        // navigation pane's double-click).
+        let pending = std::rc::Rc::new(std::cell::Cell::new(false));
+        click.connect_pressed(glib::clone!(
+            #[strong]
+            pending,
+            move |gesture, presses, _, _| {
+                let is_double = presses == 2
+                    && gesture.current_button() == gdk::BUTTON_PRIMARY
+                    && gestures::held_modifiers(gesture).is_empty();
+                pending.set(is_double);
+            }
+        ));
+        // A legacy controller sees the release even after the list's own
+        // gesture claimed the click, which cancels this one.
+        let release = gtk::EventControllerLegacy::new();
+        release.set_propagation_phase(gtk::PropagationPhase::Capture);
+        release.connect_event(glib::clone!(
+            #[weak(rename_to = tree)]
+            self,
+            #[weak]
+            item,
+            #[upgrade_or]
+            glib::Propagation::Proceed,
+            move |_, event| {
+                if event.event_type() == gdk::EventType::ButtonRelease && pending.replace(false) {
+                    let position = item.position();
+                    glib::idle_add_local_once(glib::clone!(
+                        #[weak]
+                        tree,
+                        move || tree.toggle_row(position)
+                    ));
+                }
+                glib::Propagation::Proceed
+            }
+        ));
+        content.add_controller(release);
         content.add_controller(click);
         let middle = gestures::middle_click(glib::clone!(
             #[weak(rename_to = tree)]
@@ -479,6 +526,14 @@ impl FolderTree {
     pub(super) fn uri_at(&self, position: u32) -> Option<String> {
         let row = self.row(position)?;
         Some(model::row_file(&row)?.uri().to_string())
+    }
+
+    /// Opens the subfolders of the folder at `position`, or closes them
+    /// while they are open.
+    fn toggle_row(&self, position: u32) {
+        if let Some(row) = self.row(position) {
+            row.set_expanded(!row.is_expanded());
+        }
     }
 
     /// Opens the folder at `position`: in this tab, unless `modifiers`
