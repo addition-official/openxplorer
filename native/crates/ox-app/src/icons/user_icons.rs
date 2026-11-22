@@ -156,7 +156,7 @@ const fn file_role(file_type: FileType) -> IconRole {
 fn network_role(network: NetworkArt) -> Option<IconRole> {
     let connected = network.connection == Connection::Connected;
     match network.place {
-        NetworkPlace::Server => Some(IconRole::NetworkComputer),
+        NetworkPlace::Server | NetworkPlace::Computer => Some(IconRole::NetworkComputer),
         NetworkPlace::Share => connected.then_some(IconRole::NetworkShare),
         NetworkPlace::MappedDrive if connected => Some(IconRole::NetworkDrive),
         NetworkPlace::MappedDrive => Some(IconRole::NetworkDriveDisconnected),

@@ -429,6 +429,7 @@ fn rename_changes_a_removable_drives_label() {
             can_stop: true,
             can_open_in_disks: false,
             can_format: true,
+            is_optical: false,
         },
     };
     let local_disk = PlaceMenu::Drive {

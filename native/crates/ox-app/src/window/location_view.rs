@@ -561,11 +561,18 @@ impl BrowserWindow {
         // The same place as the tab shows, for Windows icon files (LOOK-030).
         let role = (!is_search)
             .then(|| {
+                let drive_roots: Vec<String> = self
+                    .imp()
+                    .volumes
+                    .borrow()
+                    .iter()
+                    .filter(|row| row.kind == VolumeKind::Drive && !row.is_network())
+                    .filter_map(|row| row.uri().map(str::to_owned))
+                    .collect();
                 tab_icon(
                     uri,
                     &locations,
-                    &self.network_locations(),
-                    &self.context().known_folders(),
+                    (&self.network_locations(), &known_folders, &drive_roots),
                 )
             })
             .and_then(crate::icons::user_icons::role_of);
