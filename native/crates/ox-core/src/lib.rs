@@ -61,6 +61,7 @@ pub mod settings;
 pub mod sizes;
 pub mod system_error;
 pub mod transfer;
+pub mod typed_addresses;
 pub mod update;
 pub mod versions;
 
