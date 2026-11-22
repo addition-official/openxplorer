@@ -241,7 +241,8 @@ mod tests {
     }
 
     /// A drive a program still uses is refused in Windows' words, which
-    /// say what to do; any other refusal keeps the system's message.
+    /// say what to do; any other refusal shows the system's error, in
+    /// Windows' words too.
     ///
     /// parity: DEV-006, DEV-007
     #[test]
@@ -251,6 +252,8 @@ mod tests {
         let in_use = "This device is currently in use. \
                       Close any programs or windows that might be using the device, and then try again.";
         assert_eq!(Removal::failure_detail(&busy), in_use);
-        assert_eq!(Removal::failure_detail(&other), "No medium found");
+        // Since pass 15 the system's message reaches the user in Windows'
+        // words: ENOMEDIUM is ERROR_NOT_READY.
+        assert_eq!(Removal::failure_detail(&other), "The device is not ready.");
     }
 }

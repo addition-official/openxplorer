@@ -159,7 +159,8 @@ mod tests {
     use super::*;
 
     /// A cancelled mount ends the listing quietly; GIO's refusals keep
-    /// their kind, and the service's own refusals their words.
+    /// their kind, in Windows' words (pass 15), and the service's own
+    /// refusals their words.
     #[test]
     fn a_failed_mount_is_reported_as_the_listing_reports_errors() {
         let not_found = gtk::glib::Error::new(gtk::gio::IOErrorEnum::NotFound, "No such share");
@@ -167,7 +168,7 @@ mod tests {
         assert_eq!(listing_error(NetworkError::Cancelled), EntryError::Cancelled);
         assert_eq!(
             listing_error(NetworkError::Gio(not_found)),
-            EntryError::NotFound("No such share".into())
+            EntryError::NotFound("The system cannot find the file specified.".into())
         );
         assert_eq!(
             listing_error(NetworkError::ServerSigningOut),
