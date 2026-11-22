@@ -251,6 +251,8 @@ fn every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages() {
         "Music icon",
         "Code icon",
         "File name endings",
+        // Previous Versions' Restore as Windows', off by default.
+        "Restore over the original (Windows)",
     ];
     for title in added_since {
         settings.row(title);

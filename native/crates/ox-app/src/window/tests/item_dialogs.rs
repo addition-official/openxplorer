@@ -2363,6 +2363,69 @@ fn restore_a_copy_copies_the_version_into_a_live_folder_only() {
     );
 }
 
+/// With "Restore over the original (Windows)" on, Restore copies the
+/// version back into the item's folder and asks "Replace or Skip Files"
+/// as a paste does: Skip keeps the live file, Replace puts the version
+/// there. The setting is off by default, so Restore asks for a folder.
+///
+/// parity: PROP-025
+#[gtk::test]
+fn restore_over_the_original_asks_before_replacing_the_live_item() {
+    let fixture = fixture_with_snapshot();
+    let test = TestWindow::open(&fixture.uri());
+    assert!(
+        !test.context.settings_data().preferences.restore_over_original,
+        "off by default, the owner's choice"
+    );
+    let update = ox_core::settings::PreferencesUpdate {
+        restore_over_original: Some(true),
+        ..ox_core::settings::PreferencesUpdate::default()
+    };
+    ox_core::settings::Settings::open(test.settings_directory())
+        .update_preferences(&update)
+        .expect("the settings file takes the choice");
+    test.context.reload_settings();
+    wait_until("the window to read the choice", || {
+        test.context.settings_data().preferences.restore_over_original
+    });
+    let version = fixture
+        .path("Documents")
+        .join(".snapshot")
+        .join(SNAPSHOT_NAME)
+        .join("plan.txt");
+    let request = RestoreRequest {
+        version_uri: ox_core::location::file_uri(&version),
+        label: SNAPSHOT_NAME.to_owned(),
+        name: "plan.txt".to_owned(),
+    };
+    let live = fixture.path("Documents/plan.txt");
+    let original = ox_core::location::file_uri(&live);
+
+    test.window.restore_over_original(&request, &original);
+    super::file_ops_support::answer_conflicts(&test, super::file_ops_support::ConflictAnswer::Skip);
+    super::file_ops_support::assert_ended_without_a_message(&test);
+    assert_eq!(
+        fs::read(&live).expect("the live file"),
+        b"live plan",
+        "Skip keeps it"
+    );
+
+    test.window.restore_over_original(&request, &original);
+    super::file_ops_support::answer_conflicts(&test, super::file_ops_support::ConflictAnswer::Replace);
+    wait_until("the version back in place", || {
+        fs::read(&live).is_ok_and(|bytes| bytes == b"earlier plan")
+    });
+    assert_eq!(
+        fs::read(&version).expect("the snapshot file"),
+        b"earlier plan",
+        "the snapshot is never changed"
+    );
+    assert!(
+        !fixture.path("Documents/plan - Copy.txt").exists(),
+        "no copy name"
+    );
+}
+
 /// `ShowItemProperties` opens the item's folder in a new tab with the
 /// item selected, and the item's Properties.
 ///

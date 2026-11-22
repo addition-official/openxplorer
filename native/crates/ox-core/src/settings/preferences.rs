@@ -368,6 +368,13 @@ pub struct Preferences {
     /// `recycleReplacedFiles`, only when off.
     #[serde(skip_serializing_if = "is_true")]
     pub recycle_replaced_files: bool,
+    /// Previous Versions' Restore copies the version back over the item,
+    /// asking "Replace or Skip Files" as a paste does, as Windows 11's
+    /// Restore does. Off by default, the owner's choice: Restore then
+    /// asks for another folder and never touches the live item. Stored as
+    /// `restoreOverOriginal`, only when on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub restore_over_original: bool,
     /// Explicitly enabled installed service actions, keyed by definition digest.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub enabled_service_actions: Vec<String>,
@@ -656,6 +663,7 @@ impl Default for Preferences {
             ask_to_run_programs: false,
             progress_details: false,
             recycle_replaced_files: true,
+            restore_over_original: false,
             enabled_service_actions: Vec::new(),
             desktop_font: false,
             hide_sidebar: false,
@@ -757,6 +765,7 @@ impl Preferences {
         replace_if_some(&mut self.confirm_delete, update.confirm_delete);
         replace_if_some(&mut self.confirm_empty_trash, update.confirm_empty_trash);
         replace_if_some(&mut self.recycle_replaced_files, update.recycle_replaced_files);
+        replace_if_some(&mut self.restore_over_original, update.restore_over_original);
         replace_if_some(&mut self.confirm_close_tabs, update.confirm_close_tabs);
         replace_if_some(&mut self.ask_to_run_programs, update.ask_to_run_programs);
     }
@@ -1072,6 +1081,8 @@ pub struct PreferencesUpdate {
     pub confirm_empty_trash: Option<bool>,
     /// See [`Preferences::recycle_replaced_files`].
     pub recycle_replaced_files: Option<bool>,
+    /// See [`Preferences::restore_over_original`].
+    pub restore_over_original: Option<bool>,
     /// Ask before closing a window with several tabs.
     pub confirm_close_tabs: Option<bool>,
     /// Ask whether to run a program or script that is opened.
@@ -1228,6 +1239,7 @@ impl PreferencesUpdate {
             confirm_delete: flag("confirmDelete"),
             confirm_empty_trash: flag("confirmEmptyTrash"),
             recycle_replaced_files: flag("recycleReplacedFiles"),
+            restore_over_original: flag("restoreOverOriginal"),
             confirm_close_tabs: flag("confirmCloseTabs"),
             ask_to_run_programs: flag("askToRunPrograms"),
             progress_details: flag("progressDetails"),

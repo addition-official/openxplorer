@@ -931,6 +931,39 @@ fn the_replaced_files_switch_is_on_by_default_and_saves_only_its_turning_off() {
     );
 }
 
+/// "Restore over the original (Windows)" is in Files & folders, off by
+/// default (the owner's choice), and saves only its turning on, which
+/// Previous Versions' Restore follows.
+///
+/// parity: PROP-025
+#[gtk::test]
+fn the_restore_over_the_original_switch_is_off_by_default_and_saves_only_its_turning_on() {
+    let settings = SettingsTest::open();
+    let switch = switch_of(&settings.row("Restore over the original (Windows)"));
+    assert!(!switch.is_active(), "off by default");
+    assert!(!settings.test.window.restores_over_original());
+
+    switch.set_active(true);
+    wait_until("the choice to be saved", || {
+        settings.saved_preferences().restore_over_original
+    });
+    let stored = std::fs::read_to_string(settings.test.settings_directory().join("settings.json")).unwrap();
+    assert!(stored.contains("restoreOverOriginal"), "stored when on: {stored}");
+    wait_until("the window to follow", || {
+        settings.test.window.restores_over_original()
+    });
+
+    switch.set_active(false);
+    wait_until("the choice to be saved", || {
+        !settings.saved_preferences().restore_over_original
+    });
+    let stored = std::fs::read_to_string(settings.test.settings_directory().join("settings.json")).unwrap();
+    assert!(
+        !stored.contains("restoreOverOriginal"),
+        "stored only when on: {stored}"
+    );
+}
+
 /// "Show thumbnails in network folders" is off by default, as Windows 11
 /// File Explorer shows only icons in network folders, says so in its ⓘ,
 /// and is stored only once turned on: turning it off again leaves the

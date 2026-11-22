@@ -14440,7 +14440,7 @@ python_tests = [
 ]
 bridge = ["normalise", "operate", "previousVersions"]
 native = "done"
-native_note = "native/crates/ox-app/src/window/tests/item_dialogs.rs (restore_a_copy_copies_the_version_into_a_live_folder_only); native/crates/ox-app/src/properties/restore.rs (a_destination_inside_a_snapshot_is_refused): the dialog, its note, Home as the default, normalising the destination, the refusal inside a snapshot, and the copy with Keep both on the transfer engine with progress and Cancel in the progress window."
+native_note = "native/crates/ox-app/src/window/tests/item_dialogs.rs (restore_a_copy_copies_the_version_into_a_live_folder_only); native/crates/ox-app/src/properties/restore.rs (a_destination_inside_a_snapshot_is_refused): the dialog, its note, Home as the default, normalising the destination, the refusal inside a snapshot, and the copy with Keep both on the transfer engine with progress and Cancel in the progress window. Settings > Files & folders > 'Restore over the original (Windows)', off by default, makes Restore copy the version back into the item's own folder, as Windows 11's Restore does, asking 'Replace or Skip Files' as a paste does; the snapshot stays unchanged (native/crates/ox-app/src/window/version_restore.rs; item_dialogs.rs: restore_over_the_original_asks_before_replacing_the_live_item; settings_page/tests.rs: the_restore_over_the_original_switch_is_off_by_default_and_saves_only_its_turning_on)."
 
 [[feature]]
 id = "PROP-026"

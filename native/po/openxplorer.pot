@@ -2755,6 +2755,10 @@ msgid "Availability details"
 msgstr ""
 
 #: crates/ox-app/src/properties/versions_panel.rs
+msgid "Copy this version back over the item; you are asked before anything is replaced."
+msgstr ""
+
+#: crates/ox-app/src/properties/versions_panel.rs
 msgid "File versions:"
 msgstr ""
 
@@ -3884,6 +3888,10 @@ msgid "Previews and thumbnails"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs
+msgid "Previous Versions' Restore copies the version back over the item, asking before it replaces anything, as in Windows. Off: Restore asks where to put a copy, and the item is never touched."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/files_folders.rs
 msgid "Relative dates (Today, Yesterday)"
 msgstr ""
 
@@ -3893,6 +3901,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs
 msgid "Replace in a copy, move or restore keeps the old file in the Recycle Bin, so Undo can bring it back. Off: the new file overwrites it, as in Windows, and it is gone."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/files_folders.rs
+msgid "Restore over the original (Windows)"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs
@@ -3989,6 +4001,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs
 msgid "preview videos thumbnails types plugins movies films"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/files_folders.rs
+msgid "previous versions restore snapshot shadow copy overwrite original replace windows"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs
