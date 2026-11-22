@@ -78,7 +78,7 @@ The two builds were run by turns, 3 times each, in the same hour. Earlier sets t
 
 ## Known limitation
 
-With a cache of 200,000 other entries, the thumbnails still arrive 51 to 57 ms after the first tile after a restart. But the first folder after a start shows its type icons for that moment: none of its 30 tiles avoids the flash, against all 30 with a small cache. The background listing of the cache's names, which tells a tile to wait without its icon, is not ready in time. Starting that listing at application start-up did not help (measured and reverted), so this is left as a follow-up.
+With a cache of 200,000 other entries, the thumbnails still arrive 51 to 57 ms after the first tile after a restart. But the first folder after a start shows its type icons for that moment: none of its 30 tiles avoids the flash, against all 30 with a small cache. The background listing of the cache's names, which tells a tile to wait without its icon, is not ready in time. Starting that listing at application start-up did not help (measured and reverted). A temporary trace point, not committed, shows why: the 200,193 names are listed 264 ms after the warm-up starts, and the first tiles are bound at 218 ms. A follow-up could hold the type icons for at most 250 ms while that listing is still running.
 
 ## Question
 
