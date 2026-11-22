@@ -11,6 +11,7 @@ A pass over every right-click menu of the app, in both styles, with the real poi
 
 Fixes:
 
+- A crash (SIGSEGV in GTK 4.14's gdk_surface_request_motion during a window layout) after closing a place, Home item, crumb, address bar, Details options, group heading, status bar or Back/Forward history menu. Those menus were unparented once they closed, and a pointer event that reached the hidden popup first left GTK asking its gone surface for the pointer. They are now kept by their owner and shown again, as the file list's menu already was.
 - A file's compact menu now lists Share with before Add to Favorites, as Windows 11's does.
 - A search result or a Recent row lists one "Open file location" in the compact menu, after Share with and before Add to Favorites, as Windows 11's Gallery lists it. It listed three ("in new tab" and "in new window" too); those two stay in the classic menu, right after Open file location.
 - Network's and Gallery's blank space no longer offer a working-looking Open in Terminal: Network's menu leaves it out, as Windows 11's does, and Gallery's grays it.
