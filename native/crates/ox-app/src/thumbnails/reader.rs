@@ -62,7 +62,7 @@ enum Names {
     /// Being listed.
     Listing,
     /// Listed: the entries' names.
-    Listed(HashSet<String>),
+    Listed(HashSet<thumbnail_cache::EntryKey>),
 }
 
 thread_local! {
@@ -179,7 +179,9 @@ fn read_batch(cache_dir: &std::path::Path, batch: Vec<Read>) {
 /// tile it binds. `false` until the names are read, which the first
 /// call starts.
 pub(super) fn probably_cached(cache_dir: &std::path::Path, uri: &str, flavor: ThumbnailFlavor) -> bool {
-    let name = thumbnail_cache::entry_name(uri);
+    let Some(name) = thumbnail_cache::entry_key(uri) else {
+        return false;
+    };
     flavor.and_larger().any(|flavor| {
         NAMES.with_borrow_mut(|names| match names.get(flavor.as_str()) {
             Some(Names::Listed(listed)) => listed.contains(&name),
@@ -209,7 +211,9 @@ pub(super) fn probably_cached(cache_dir: &std::path::Path, uri: &str, flavor: Th
 
 /// Notes that the cache now holds a thumbnail of `uri` in `flavor`.
 pub(super) fn note_written(uri: &str, flavor: ThumbnailFlavor) {
-    let name = thumbnail_cache::entry_name(uri);
+    let Some(name) = thumbnail_cache::entry_key(uri) else {
+        return;
+    };
     NAMES.with_borrow_mut(|names| {
         if let Some(Names::Listed(listed)) = names.get_mut(flavor.as_str()) {
             listed.insert(name);

@@ -318,21 +318,22 @@ pub fn follow_move(cache_dir: &Path, old_uri: &str, moved: &Version) -> usize {
         .count()
 }
 
+/// An entry's name as a number: the MD5 of its URI, which takes 16 bytes
+/// where its hexadecimal text takes 32 and an allocation, so the names of
+/// a cache of a few hundred thousand entries fit in a few megabytes.
+pub type EntryKey = u128;
+
 /// The names of the entries in `flavor`'s folder under `cache_dir`, read
 /// in one listing: which files probably have a thumbnail, known without
 /// opening any of them. Blocks.
-pub fn entry_names(cache_dir: &Path, flavor: ThumbnailFlavor) -> HashSet<String> {
+pub fn entry_names(cache_dir: &Path, flavor: ThumbnailFlavor) -> HashSet<EntryKey> {
     let folder = cache_dir.join("thumbnails").join(flavor.as_str());
     let Ok(listing) = fs::read_dir(folder) else {
         return HashSet::new();
     };
     listing
         .filter_map(Result::ok)
-        .filter_map(|entry| {
-            let name = entry.file_name();
-            let stem = name.to_str()?.strip_suffix(".png")?;
-            (stem.len() == 32).then(|| stem.to_owned())
-        })
+        .filter_map(|entry| key_of_name(entry.file_name().to_str()?.strip_suffix(".png")?))
         .collect()
 }
 
@@ -342,6 +343,18 @@ pub fn entry_name(uri: &str) -> String {
     glib::compute_checksum_for_string(glib::ChecksumType::Md5, uri)
         .map(|hash| hash.to_string())
         .unwrap_or_default()
+}
+
+/// The name of `uri`'s entries as an [`EntryKey`].
+pub fn entry_key(uri: &str) -> Option<EntryKey> {
+    key_of_name(&entry_name(uri))
+}
+
+/// The key a name of 32 hexadecimal digits stands for.
+fn key_of_name(name: &str) -> Option<EntryKey> {
+    (name.len() == 32 && name.bytes().all(|byte| byte.is_ascii_hexdigit()))
+        .then(|| EntryKey::from_str_radix(name, 16).ok())
+        .flatten()
 }
 
 /// Reads the regular file at `path`, never following a link, if it is no
@@ -777,9 +790,15 @@ mod tests {
         let cache = cache();
         assert!(entry_names(cache.path(), ThumbnailFlavor::Normal).is_empty());
         let uri = "file:///home/demo/Pictures/Lake.jpg";
-        put(cache.path(), uri, ThumbnailFlavor::Normal, b"x");
+        let path = put(cache.path(), uri, ThumbnailFlavor::Normal, b"x");
+        // Neither a temporary file nor a name that is no MD5 counts.
+        let folder = path.parent().expect("its folder");
+        fs::write(folder.join(".5f3c.openxplorer.tmp"), b"x").expect("written");
+        fs::write(folder.join("not-a-hash.png"), b"x").expect("written");
+        fs::write(folder.join("0123456789abcdef0123456789abcdeZ.png"), b"x").expect("written");
         let names = entry_names(cache.path(), ThumbnailFlavor::Normal);
-        assert!(names.contains(&entry_name(uri)));
+        assert_eq!(names.len(), 1);
+        assert!(names.contains(&entry_key(uri).expect("a key")));
         assert_eq!(entry_name(uri).len(), 32);
         assert!(entry_names(cache.path(), ThumbnailFlavor::Large).is_empty());
     }
