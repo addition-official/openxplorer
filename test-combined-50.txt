@@ -1,0 +1,98 @@
+STATUS: DONE (deb ready; long tests running)
+HEAD: test-combined-50 f16d903f (the deb was built from exactly this tree; cargo clean before the release build; guard on HEAD and a clean tree before and after)
+DEB: claude/test-combined-50-deb 41fba8b0
+  openxplorer_2.0.23+test50_all.deb (io.winspace.Development)
+  SHA256: 676afc9708fdf2c04aba68d42f8bdab4c247bb436f03be8ca7157ed2c3597304
+BASE: upstream main 5d21fd3e (2.0.23 plus #376-#379 and #386), as asked.
+
+SKIPPED (each needs a choice between two branches' implementations of the same thing; left out as instructed):
+- long-c-thumb-cache 00b00987: the passes (753e8d6c/4ad3247d, "Keep previews within 64 MB and stop each unused decoder") and long-c (77ae92d6, "Keep thumbnails in memory at the size they are shown, within 64 MB", plus its scheduling and cache-key changes) each add their own in-memory thumbnail budget to the same code. Conflicts: ox-app thumbnails.rs (6 blocks, 330 lines), thumbnails/service.rs (3), ox-core entry/thumbnail.rs (5) and lib.rs (1, trivial). Needs one design picked on the branch.
+- long-b-soak 5178f87b: its aaefe16d ("Keep idle picture decoders alive after their worker thread ends") and long-d's 2d53b02d ("Never hand a picture to a decoder that ended while idle") fix the same bug in picture_guard/decoder.rs, each with its own function (take_idle vs idle_alive). long-b's is the broader one (decoders started from one long-lived thread; the dead check uses waitid with WNOWAIT so stop()'s process group kill still targets the right pid), so the likely resolution is long-b's take_idle in decode() and removing long-d's idle_alive, but that deletes another branch's code. long-b's other change, "Today at" dates after midnight (4d9379d5), is therefore also not in this deb.
+
+MERGED, in the requested order (each the branch tip):
+   1 pass-1-copy-move       ac63a204 -> 3a78435f: transfer.rs, main's open_local_staging and pass-1's keep_without_modes on the same `use modes::{...}` line; kept both, wrapped as rustfmt does.
+   2 pass-2-undo-redo       813aab9d -> b28265a5 (clean)
+   3 pass-3-rename          aa60ccd6 -> 6c1ff23a (clean)
+   4 pass-4-nav-pane        d17c3b4c -> 66a34824 (clean)
+   5 pass-5-address-bar     a3c6c481 -> 6a740d87 (clean)
+   6 pass-6-context-menu    e2c7dafe -> 3cbfbe5a: status_bar.rs module comment as in debs 44-49; markdown.json regenerated.
+   7 pass-7-views           f369765c -> 06e5dcab: markdown.json only.
+   8 pass-8-open-with       7d90128a -> 54d983c2: openxplorer.pot and markdown.json, regenerated.
+   9 pass-9-scaling         c60ab4ab -> cf429b7a: markdown.json only.
+  10 network-like-windows   4a9544d0: merged through pass-10, not on its own. 4a9544d0 contains pass-8 and pass-9 but not pass-4 d17c3b4c (5cb3a27c), pass-3 or pass-7, so merging it directly still gave deb 49's two Network trees (conflicts in sidebar/collapsing.rs, entries.rs, row.rs, network/services.rs, sidebar.css, window_action.rs). pass-10 9e9453e7 and every later pass contain network-like-windows with that overlap already resolved by the branch owner (228b256b "Merge pass-6-context-menu (without pass-4's second Network tree)"): network-like-windows' tree (sidebar/network_tree.rs, ToggleComputer) is kept and pass-4's window/network_computers.rs is gone. So network-like-windows is in this deb, as pass-10 resolved it.
+  11 pass-10-home-recent    9e9453e7 -> d648841f: markdown.json only.
+  12 pass-11-new-menu       b285c58d -> 72e3a97e (clean)
+  13 pass-12-details-status 2e2e3e67 -> 8344a564 (clean)
+  14 pass-13-startup        3bac681d -> 3713a415 (clean)
+  15 pass-14-tabs-windows   aeaffd55 -> 6edadfd1:
+     - theme/stylesheets.rs (a test): pass-14 moved the ":focus:not(:focus-visible):not(.file-drop-active):not(.renaming)" suffix from the format! into the selector list, which merged without conflict; took pass-14's format! (HEAD's would have doubled the suffix) and pass-14's comment (OPS-012, rows and tiles).
+     - window/location_view.rs: pass-12's 1ebf3e0a ("Picture a place as its tab does with nothing selected") made tab_icon visible to the window module and calls it from details_pane/content.rs with four arguments; pass-14 reshaped it to take a TabPlaces tuple (network, standard folders, drive roots). Kept pass-14's signature and doc with pass-12's visibility (TabPlaces made visible too) and updated the details pane's call to pass no drive roots, as its PaneFacts have none: a mounted drive's root may show a folder in the details pane where its tab shows the drive.
+  16 pass-15-errors         94bf9761 -> 890d8115 (clean)
+  17 pass-16-clipboard      dfcf4b4d -> b98ed514: markdown.json only.
+  18 pass-17-shortcuts      63ecd16e -> e3f81415: markdown.json only.
+  19 pass-18-drives         1f30a28a -> 52b77f61 (clean)
+  20 pass-19-a11y           4bb6397a -> 961345b6 (clean)
+  21 sort-header-windows    05dc1f61 -> 63bb57cb: markdown.json only.
+  22 long-c-thumb-cache     SKIPPED (above)
+  23 long-d-doc-previews    c8e18b0b -> 9034e1df, all additive:
+     - thumbnails.rs: the passes' MAX_KEPT_BYTES and long-d's SMALLEST_DOCUMENT_THUMBNAIL constants at the same place, kept both; and two different new tests at the same place (a_larger_view_does_not_stretch_a_smaller_thumbnail, a_document_keeps_its_type_icon_in_small_rows plus a_documents_thumbnail_is_its_first_page), kept all.
+     - picture_guard/decoder.rs: the passes' stop_unused / stop_unused_later / stop_unused_after and long-d's idle_alive at the same place, kept both (different jobs: stopping decoders idle for 30 s, and skipping one that died while idle); decoder/tests.rs: one new test from each, kept both.
+     - parity/features.toml: both appended a sentence to the same native_note (previews' memory limit; office document thumbnails); kept the passes' one-word spelling change and both sentences, passes' first.
+     - apps/web/lib/docs.json: merged word by word against the base with no overlap; markdown.json regenerated.
+  24 long-a-fuzz            2e5b7e12 -> 6d002fde: export lists only. picture_guard.rs (the passes' unused_limit and test hooks, long-a's fuzzing-only fuzz_answer / fuzz_serve / fuzz_vector_answer), thumbnails.rs (documents and fuzz_thumbnailer), ox-core search.rs (mount helpers and fuzz_query / fuzz_mounts): kept both sides. ox-app and ox-core also check cleanly with the fuzzing feature.
+  25 long-b-soak            SKIPPED (above)
+  26 user-icon-files        1c37a0bc -> 371e8c36, then 1aa6ff1b and f16d903f:
+     - icons/icon.rs ALL_ICONS: as in deb 49, user-icon-files' doc and visibility, count 125, every merged Icon variant once in enum order.
+     - settings_page/appearance.rs: sort-header-windows' "Column header style" row and user-icon-files' Windows icon file and symbol font rows at the same place; kept all, with both imports and a module comment naming both. settings_page/tests.rs: each side's new tests at the end, kept both. openxplorer.pot regenerated.
+     - 1aa6ff1b: as in deb 49, dropped user_glyphs.rs's mapping of Icon::Code (removed by pass-5's 8952ead6).
+     - f16d903f (build breaks between user-icon-files and the later passes): its address-bar icon lookup called tab_icon in the old four-argument form, now passes the TabPlaces tuple with the mounted drives' roots as the tab strip does; its network icon roles gained network-like-windows' NetworkPlace::Computer, given the same Windows icon as a server's computer (IconRole::NetworkComputer); a pass-18 test's MountControls gained user-icon-files' is_optical field (false, a USB stick).
+
+QUICK CHECKS (before pushing):
+- parity/check.py, i18n check, sync-docs --check and rustfmt pass; cargo check of the workspace (all targets) and of ox-app with the fuzzing feature show no errors or warnings; clippy is clean with only the three lints allowed in earlier debs (same on main).
+- IDENTITY: 370 commits on top of main: 368 (branches, merges and the two fix commits) by addition-official <239187859+addition-official@users.noreply.github.com>, and the owner's 2 #366 commits (5cfe748c, b80e9b0a) by AKolenda <akole779@mtroyal.ca>, carried by user-icon-files. No trailers; no other author or committer. The only address in the added lines is the fictional mailto:team@example.org in an ox-core unit test (not in the deb). In the deb, AKolenda appears only in the upstream repository and update URLs (as in main); the other addresses are the same third-party crate licence files and translator credit as in debs 48-49.
+- POLKIT: record /var/lib/openxplorer/install-updates-without-password = "off" before install -> /etc/polkit-1/rules.d empty after install, record still "off". Purged afterwards.
+- NO WINDOWS ICON OR FONT DATA: 683 files; none named .ttf/.otf/.ttc/.fon/.woff/.woff2/.ico/.cur/.exe/.dll/.mun/.res; none starting with a TrueType/OpenType/collection/WOFF, PE (MZ) or ICO/CUR header; file(1) reports no font and no Windows type.
+- ZH_CN: native/po/zh_CN.po is byte-identical to main 5d21fd3e's, and the deb's zh_CN openxplorer.mo is byte-identical to main's zh_CN.po compiled with main's i18n.py.
+- UNIQUE STRINGS IN THE BUILT BINARY, one per merged branch (text with grep -caF, functions with nm; none in main 5d21fd3e's sources; each checked so that the earliest branch in merge order holding a commit that adds it is that branch, which rules out cherry-picked copies):
+   pass-1-copy-move       function mounted_kind
+   pass-2-undo-redo       function remember_extraction
+   pass-3-rename          function finish_rename_in_place
+   pass-4-nav-pane        function expand_to_current_item
+   pass-5-address-bar     "Copy Address"
+   pass-6-context-menu    function text_editor_for
+   pass-7-views           function show_heading_above
+   pass-8-open-with       "The default app could not be changed."
+   pass-9-scaling         function of_thumbnail
+   network-like-windows   function open_on_primary_button
+   pass-10-home-recent    function tile_drop_place
+   pass-11-new-menu       function update_open_new_menus
+   pass-12-details-status function items_selected
+   pass-13-startup        function forget_kept_previews_after
+   pass-14-tabs-windows   function receive_pane
+   pass-15-errors         function rename_wording
+   pass-16-clipboard      function serve_clipboard
+   pass-17-shortcuts      function is_marked_trusted
+   pass-18-drives         function show_rename_drive_dialog
+   pass-19-a11y           function theme_contrast
+   sort-header-windows    function column_header_style_row
+   long-d-doc-previews    function pdf_pages_in
+   long-a-fuzz            function media_details
+   user-icon-files        function glyph_icon_name
+
+LONG CHECKS: test runs in progress (3 full ox_app runs, the other test binaries, failures compared with main by name); smoke run and input sweep done, below.
+
+SMOKE RUN (installed deb, Xvfb, non-root user with a throwaway HOME under /var/tmp, own D-Bus session and display, driven by the snapshot hook):
+- 300 files (the same generated set as debs 45-49), Details view: Details pane on and Down through all 300, then Preview pane on, Home and Down through all 300 again. Exit 0 after 384 s, ended on the last file (song-100) with the Preview pane's player shown. 0 "Bail out", 0 CRITICAL, 0 panic, 0 SIGSEGV/abort/core lines; no child process left after exit. Main process sampled every second (371 samples): fds max 29, 25 at the end; threads max 33, 24 at the end; at most 5 child processes at once; RSS about 326 MB, steady.
+
+INPUT SWEEP (installed deb, same isolation; keys through the window's real key handlers via the scene hook's key= step, text through type=, the pointer through hover=; each run on fresh fictional files; results read from disk and the window picture; every run exit 0 with no error lines):
+- Rename: F2, typed "Meeting notes", Enter -> Meeting notes.txt. F2, typed, Escape -> unchanged.
+- Rename, Down while editing: F2, Down, typed " v2", Enter -> v2.txt: the field stayed open through Down (the name part stayed selected, so the typed text replaced it), as in deb 49.
+- Rename onto an existing folder (Archive -> Projects): nothing changed on disk and the field stayed open; the merge question is its own window, which the picture does not show and key= cannot answer, so the merge itself is not confirmed here.
+- Undo/redo: rename, Ctrl+Z -> back; Ctrl+Y -> renamed again.
+- Copy: Ctrl+C, Ctrl+V -> "Notes - Copy.txt"; Ctrl+Z -> the copy is gone.
+- Cut/paste: Ctrl+X on Budget 2027.csv, open a folder, Ctrl+V -> moved, both into Archive (opened with Enter) and into Projects (opened with the open action).
+- OBSERVATION, to check by hand: with Projects selected by the hook's select= step while the keyboard focus ring stays on the first row (Archive), Enter opened nothing at all (neither Projects nor Archive), so a cut-paste using Enter there pasted back into Documents. select= selects without moving the keyboard, so this may be the hook's own state rather than one a user reaches by clicking; deb 48's run of this step only worked because its target was the first, focused row.
+- Address bar: from Documents/Projects, Ctrl+L, typed "Documents", Enter -> Documents.
+- Menus: Shift+F10 on a file and the Menu key on a folder open the compact menu; with the pointer moved from Compress to onto its submenu's 7z File row, the submenu stays open. (The hook cannot move the pointer outside every menu.)
+- Small icons: 37 files in three columns filled row by row, left to right.
+- Network page: opens with network-like-windows' "Network discovery is turned off. Network computers and devices are not visible. Click to change..." bar and "This folder is empty." (no devices in this isolated container); the Network row in the navigation pane has its own chevron.
