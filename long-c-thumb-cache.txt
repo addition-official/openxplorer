@@ -31,7 +31,7 @@ PASS benchmark at HEAD 00b00987, medians of 6 runs each, the two builds run by t
   mixed (photos, MP4 via ffmpegthumbnailer, PDF via evince-thumbnailer, in bwrap) cold: 3,196 -> 1,081 ms (2,799 -> 672); decodes 360 -> 120; thumbnailers 80 -> 80
   mixed revisit 124 -> 64 ms (78 -> 4); restart 647 -> 493 ms (236 -> 73); cache drop 695 -> 473 ms (302 -> 60)
   sets taken earlier in the night (9f5546de) agree; the VM's speed drifted
-PASS paging down a new 2,000-photo folder for 4.7 s while thumbnails are made, 10 interleaved pairs at HEAD: main-loop stalls of 34 ms or more 50 in all before (longest 49 ms) vs 20 after (longest 42 ms)
+PASS paging down a new 2,000-photo folder for 4.7 s while thumbnails are made, 16 interleaved pairs at HEAD: main-loop stalls of 34 ms or more 57 in all before (longest 49 ms) vs 29 after (longest 53 ms, one run); 12-run medians of the table above agree with the 6-run ones
 PASS memory (VmRSS, single runs): after scrolling a cold 2,000-photo folder to the end and back, 341 MB before -> 357 MB after; warm, 267 -> 286 MB; a 200,000-entry cache's name index adds 5.6 MB
 PASS interop (release build, Xvfb, unprivileged user): gio info reports thumbnail::is-valid TRUE for the app's entries and FALSE after the file changes; entries 0600 in 0700 folders with Thumb::URI, MTime, Size, Mimetype
 PASS new tests (the ox-core cache tests and the cache-name key test were written first and seen failing; the app tests were written with their code):
