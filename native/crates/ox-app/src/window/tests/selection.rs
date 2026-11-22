@@ -14,7 +14,7 @@ use gtk::prelude::*;
 use gtk::{gdk, glib};
 
 use super::file_ops_support::{is_triggered_by, press_shortcut_where_focused, shortcuts_of};
-use crate::test_support::harness::{capture, descendants, wait_until, Fixture, TestWindow};
+use crate::test_support::harness::{capture, descendants, wait_for_frames, wait_until, Fixture, TestWindow};
 use crate::window::rubber_band::{BandMode, RELEASE_WATCH};
 
 /// A folder long enough to scroll.
@@ -499,6 +499,60 @@ fn changing_the_view_of_a_grouped_folder_keeps_the_focused_item_in_view() {
         test.activate("view", Some(view));
         wait_until(&format!("{view}: the selected item in view"), in_view);
         assert_eq!(selected(&test), [last], "{view}: the selection stays");
+    }
+}
+
+/// Switching to Small icons (Ctrl+Shift+4) from Details or Large icons
+/// shows the list from the top, its first row whole, as Windows 11 keeps
+/// the scroll at the top: with nothing selected, with the first item
+/// selected, and with nothing selected while the keyboard rests on an
+/// item further down (after a Ctrl+click took the selection away). Only
+/// a selected item out of view would scroll it.
+///
+/// parity: VIEW-006, SEL-007
+#[gtk::test]
+fn switching_to_small_icons_keeps_the_list_at_the_top() {
+    let fixture = Fixture::with_files(LONG_FOLDER);
+    let test = TestWindow::open(&fixture.uri());
+    let views = gdk::ModifierType::CONTROL_MASK | gdk::ModifierType::SHIFT_MASK;
+    let pane = test.window.folder_pane();
+    let last = u32::try_from(LONG_FOLDER).expect("small") - 1;
+    for (from, first_selected, keyboard_at) in [
+        (gdk::Key::_6, false, 0),
+        (gdk::Key::_2, false, 0),
+        (gdk::Key::_6, true, 0),
+        (gdk::Key::_2, true, 0),
+        (gdk::Key::_6, false, last),
+        (gdk::Key::_2, false, last),
+    ] {
+        press_key(&test, from, views);
+        wait_for_frames(&test.window, 4);
+        pane.focus_view();
+        start_at(&test, keyboard_at);
+        if !first_selected {
+            pane.model().select_none();
+        }
+        pane.restore_scroll_position(0.0);
+        wait_for_frames(&test.window, 4);
+        press_key(&test, gdk::Key::_4, views);
+        for _ in 0..10 {
+            wait_for_frames(&test.window, 1);
+        }
+        let adjustment = pane.icon_view().scroll_adjustment();
+        let shown = pane.view_widget();
+        let first = pane
+            .owners()
+            .widget_at(0)
+            .filter(|cell| cell.is_ancestor(&shown))
+            .and_then(|cell| cell.compute_bounds(&shown))
+            .expect("the first item is laid out");
+        assert!(
+            adjustment.value() <= adjustment.lower() + 0.5 && first.y() >= 0.0,
+            "from {from:?}, first selected {first_selected}, keyboard at {keyboard_at}: \
+             scrolled to {} (first row at {})",
+            adjustment.value(),
+            first.y()
+        );
     }
 }
 
