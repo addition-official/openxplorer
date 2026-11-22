@@ -67,4 +67,31 @@ mod tests {
             gtk::AccessibleAnnouncementPriority::Medium,
         );
     }
+
+    /// With `GTK_A11Y=none`, which some users set to quiet the warning
+    /// about a missing accessibility bus, GTK gives widgets no
+    /// accessibility context at all. Announcing, as type-to-select does
+    /// for every key, does nothing instead of stopping the app. GTK reads
+    /// the variable once, so the test runs itself again with it set.
+    #[gtk::test]
+    fn a_widget_without_any_accessibility_context_announces_nothing() {
+        if std::env::var_os("GTK_A11Y").as_deref() != Some(std::ffi::OsStr::new("none")) {
+            let status = std::process::Command::new(std::env::current_exe().expect("the test binary"))
+                .args([
+                    "announcement::tests::a_widget_without_any_accessibility_context_announces_nothing",
+                    "--exact",
+                    "--test-threads=1",
+                ])
+                .env("GTK_A11Y", "none")
+                .status()
+                .expect("the test binary runs again");
+            assert!(status.success(), "announcing with GTK_A11Y=none failed: {status}");
+            return;
+        }
+        let window = gtk::Window::new();
+        let label = gtk::Label::new(Some("Notes"));
+        window.set_child(Some(&label));
+        announce(&label, "Notes", gtk::AccessibleAnnouncementPriority::Medium);
+        window.destroy();
+    }
 }
