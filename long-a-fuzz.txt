@@ -155,3 +155,21 @@ picture_headers        11,281,265
 text_preview            8,338,769
 Found and fixed since last update: 0.
 Tests as tester: ox-app's 2,643 library tests ran; 1 failed, settings_page::tests::every_preference_switch_saves_persists_and_turns_back_exactly ("timed out waiting for Pictures to be turned back"), which fails the same way, run alone, on upstream main 5d21fd3e built the same way. integration_file_chooser also fails the same way on main (GLib critical made fatal, exit 133). Remaining executables still running.
+
+== 2026-11-22 03:05 CST ==
+Executions so far (all runs):
+app_protocols             421,336
+archive_extract         2,252,328
+archive_fixup             696,786
+archive_list           10,035,932
+archive_zipgen            860,629
+core_formats            8,701,840
+core_text              13,628,757
+media_details          60,579,591
+media_streams               8,968
+picture_decode          5,391,094
+picture_headers        11,281,265
+text_preview            8,338,769
+Found and fixed since last update: 0. Not a bug: a 4 KB search query of ~40 nested NOT groups takes 0.3 s under ASan alone (it hit the 2 s limit only while the fuzzers ran at nice 19 beside the tests).
+Checks finished. All 87 test executables and the doctests ran through check.py's run_isolated with Rust 1.92.0: 82 passed as tester; ox_core's library tests passed as tester once its folder was no longer world-writable (my own setup had made it so; the 24 parent-path tests then pass) and its one root-only failure (an unreadable fstab is readable to root) passes as tester; doctests passed. Failing, and failing the same way on upstream main 5d21fd3e built the same way: integration_file_chooser (GLib critical made fatal), location_fixture_drift and network_python (Python 3.13 here vs the system's 3.12 gi), and ox_app's settings_page::tests::every_preference_switch_saves_persists_and_turns_back_exactly (2,642 of 2,643 pass).
+Fuzzers back at normal priority; the extraction targets now also check Extract here's lift of a lone folder.
