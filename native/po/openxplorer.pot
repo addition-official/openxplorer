@@ -802,6 +802,19 @@ msgstr ""
 msgid "Resize {name} column"
 msgstr ""
 
+#: crates/ox-app/src/folder_view/column_titles.rs
+msgid "Sorted ascending."
+msgstr ""
+
+#: crates/ox-app/src/folder_view/column_titles.rs
+msgid "Sorted descending."
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/folder_view/details.rs
+msgid "{column}: {value}"
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/folder_view/details/column_fit.rs
 msgid "Resize {label} column: Left and Right change its width, Home fits it"

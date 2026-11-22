@@ -89,12 +89,12 @@ fn the_file_list_its_items_and_every_icon_button_are_named() {
         gtk::AccessibleRole::Status,
         "a live region"
     );
+    // Buttons that sort: GTK's column-header role reaches no screen
+    // reader as one (tests/screen_reader.rs).
     let titles = crate::folder_view::column_titles::title_buttons(&details);
     let roles: Vec<gtk::AccessibleRole> = titles.iter().map(AccessibleExt::accessible_role).collect();
     assert!(
-        roles
-            .iter()
-            .all(|role| *role == gtk::AccessibleRole::ColumnHeader),
+        roles.iter().all(|role| *role == gtk::AccessibleRole::Button),
         "{roles:?}"
     );
     let resizers = descendants::<ResizerControl>(&details);
