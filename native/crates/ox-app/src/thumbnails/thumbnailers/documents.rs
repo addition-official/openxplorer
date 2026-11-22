@@ -22,9 +22,12 @@
 //! file's icon, and the item keeps its icon.
 //!
 //! One document is converted at a time ([`Lane`]): the Preview pane's
-//! selection goes first, and only a few thumbnails wait behind it. A PDF
+//! selection goes first, and stops a thumbnail's conversion of another
+//! document, which waits for its turn again; only a few thumbnails wait
+//! behind it. A PDF
 //! made is kept in the app's cache ([`Cache`]), named after the
-//! document's path, size and modification time, so selecting it again
+//! document's real path, size, modification time and inode
+//! ([`Version`]), so selecting it again
 //! shows it at once and a changed document is converted again; a
 //! document that could not be converted (damaged, protected by a
 //! password, or too slow twice) is not tried again in this run.
@@ -53,7 +56,7 @@ use super::{
 pub(crate) const TIMEOUT: Duration = Duration::from_secs(15);
 
 /// The largest document converted, in bytes; a larger one keeps its icon.
-pub(crate) const SIZE_LIMIT: u64 = 100 * 1024 * 1024;
+const SIZE_LIMIT: u64 = 100 * 1024 * 1024;
 
 /// The largest PDF read back from `LibreOffice`, in bytes.
 const PDF_SIZE_LIMIT: u64 = 64 * 1024 * 1024;
@@ -108,7 +111,7 @@ const OUTPUT_PDF: &str = "openxplorer-item.pdf";
 ///
 /// The sandbox has no network and none of the user's files anyway; these
 /// keep `LibreOffice` from even trying.
-pub(crate) const PROFILE: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+const PROFILE: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 <oor:items xmlns:oor="http://openoffice.org/2001/registry" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 <item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="DisableMacrosExecution" oor:op="fuse"><value>true</value></prop></item>
 <item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="MacroSecurityLevel" oor:op="fuse"><value>3</value></prop></item>
@@ -203,7 +206,7 @@ pub(crate) enum Priority {
 /// The `LibreOffice` installed on this computer, with the system or in
 /// `/opt`.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct Program {
+struct Program {
     /// `…/program/soffice`, as it really is.
     soffice: PathBuf,
     /// The folders the sandbox shows read-only besides the system's: the
@@ -707,13 +710,13 @@ impl Version {
 
 /// The PDFs made, in a private folder of the user's cache.
 #[derive(Debug)]
-pub(crate) struct Cache {
+struct Cache {
     folder: PathBuf,
 }
 
 impl Cache {
     /// The cache in `folder`, made when the first PDF is kept.
-    pub(crate) fn new(folder: PathBuf) -> Self {
+    fn new(folder: PathBuf) -> Self {
         Self { folder }
     }
 
@@ -814,7 +817,7 @@ impl Cache {
 /// before the thumbnails, in the order they came, and at most
 /// [`QUEUE_LIMIT`] thumbnails wait.
 #[derive(Debug, Default)]
-pub(crate) struct Lane {
+struct Lane {
     state: Mutex<LaneState>,
     changed: Condvar,
 }
@@ -832,7 +835,7 @@ struct LaneState {
 
 /// A conversion's turn; the next one's starts when it is dropped.
 #[derive(Debug)]
-pub(crate) struct Turn<'lane>(&'lane Lane);
+struct Turn<'lane>(&'lane Lane);
 
 impl Drop for Turn<'_> {
     fn drop(&mut self) {
@@ -855,7 +858,7 @@ impl Lane {
     /// selection waiting; that thumbnail is asked again the next time it
     /// is shown. A conversion of the selected document itself goes on, as
     /// its PDF is what the Preview pane waits for. Blocks.
-    pub(crate) fn wait(
+    fn wait(
         &self,
         priority: Priority,
         name: &str,
