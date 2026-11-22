@@ -1,5 +1,12 @@
 STATUS: BLOCKED - needs a decision on network-like-windows (no deb yet)
-ORDER CHANGE RECEIVED (deb first with quick checks, long checks after, "LONG TESTS: DONE" at the end): understood and will be followed. It does not answer the question below, which still decides what goes into the deb. Meanwhile I am building option D locally (steps 1-9 plus user-icon-files, not pushed), so if you choose D the deb can go out as soon as you say so.
+ORDER CHANGE RECEIVED (deb first with quick checks, long checks after, "LONG TESTS: DONE" at the end): understood and will be followed. It does not answer the question below, which still decides what goes into the deb.
+OPTION D IS BUILT AND QUICK-CHECKED, NOT PUSHED: local branch test-combined-49d e0ce5c82 = steps 1-9 plus user-icon-files, without network-like-windows.
+  openxplorer_2.0.23+test49_all.deb, SHA256 26b6a2bbc2aa5fae0ac8c2329fa13e5b7b16b457a1c6400ba1142ae43e52aaae (built from exactly e0ce5c82; cargo clean first; guard on HEAD and a clean tree)
+  Merging user-icon-files 1c37a0bc on top of step 9 needed two real fixes:
+  - icons/icon.rs, ALL_ICONS: the passes kept it test-only with 125 icons; user-icon-files makes it non-test (its glyph lookup uses it) with 126. Kept user-icon-files' doc and visibility; the count is 125, matching the merged list, which holds every Icon variant once and in enum order.
+  - icons/user_glyphs.rs (commit e0ce5c82): pass-5's 8952ead6 removed Icon::Code, which user-icon-files maps to a Windows glyph (0xE943). Dropped that one mapping; ox-app then compiles with no warnings.
+  Quick checks, all pass: identity (147 commits by addition-official plus the owner's two #366 commits by AKolenda via user-icon-files; no trailers; in the deb AKolenda only in the upstream repository and update URLs, as in main); polkit "off" (record "off" before install, rules.d empty after, purged); no Windows icon or font data (683 files: no font/PE/ICO extension, header or file(1) type); zh_CN .mo byte-identical to main 3ef87f79's; one unique string per branch in the binary, none in main: pass-1 mounted_kind, pass-2 remember_extraction, pass-3 rename_refusal, pass-4 install_network_computers (its old "Expand to open folder" text is gone from the merged sources), pass-5 remember_typed_address, pass-6 terminal_opens_at, pass-7 show_heading_above, pass-8 "Set default", pass-9 "OxSettingsWrapLayout", user-icon-files "Windows symbol font".
+  Reply D and I push it as claude/test-combined-49-deb at once and start the long checks; reply A, B or C and I build that instead.
 BRANCH: test-combined-49 e614b4b4 (steps 1-9 merged on upstream main 3ef87f79, 2.0.23; pushed for inspection, not built)
 
 MERGED SO FAR, in the requested order (each the branch tip):
