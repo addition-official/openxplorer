@@ -388,9 +388,23 @@ impl BrowserWindow {
             editor.grab_focus();
             return;
         }
-        let Some(renamed) = self.rename_or_offer_number(cell, editor, target, name).await else {
+        let Some(mut renamed) = self.rename_or_offer_number(cell, editor, target, name).await else {
             return;
         };
+        // A refused rename asks to try again, as Windows does; Try Again
+        // renames to the same name once more.
+        while let Err(error) = &renamed {
+            if !self
+                .ask_to_rename_again(&target.uri, &target.name, target.is_folder, error)
+                .await
+            {
+                break;
+            }
+            let Some(again) = self.admitted_rename(cell, &target.uri, name).await else {
+                return;
+            };
+            renamed = again;
+        }
         match renamed {
             Ok(renamed) => {
                 // Before the folder is listed again, which rebinds the cell.
@@ -400,11 +414,10 @@ impl BrowserWindow {
                     None => self.finish_rename(renamed),
                 }
             }
-            Err(error) => {
+            Err(_) => {
                 self.take_rename_next();
                 editor.set_sensitive(true);
                 editor.grab_focus();
-                self.show_message(&error.to_string());
             }
         }
     }
