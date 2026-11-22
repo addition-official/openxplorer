@@ -44,14 +44,16 @@ Run by `native/tools/thumbnail-bench.py` (added here) on a private Xvfb display,
 
 | Folder | Visit | All visible, from launch (ms) | All visible, after the first tile (ms) | Tile bound → its thumbnail, median (ms) | Visible tiles drawn with their thumbnail on their first frame | Visible tiles that never showed their type icon first | Pictures decoded | Thumbnailers started |
 |---|---|---|---|---|---|---|---|---|
-| Photos | Cold | 2,535 → 2,134 | 1,065 → 584 | 710 → 397 | 0 → 0 of 30 | 0 → 0 of 30 | 579 → 193 | 0 → 0 |
-| Photos | Same-session revisit | 141 → 77 | 82 → 3 | 81 → 0 | 0 → 30 of 30 | 0 → 30 of 30 | 0 → 0 | 0 → 0 |
-| Photos | Restart | 698 → 500 | 273 → 70 | 212 → 43 | 0 → 0 of 30 | 0 → 30 of 30 | 193 → 195 (18 batches) | 0 → 0 |
-| Photos | Cache drop | 914 → 493 | 284 → 64 | 205 → 40 | 0 → 0 of 30 | 0 → 30 of 30 | 193 → 195 (18 batches) | 0 → 0 |
-| Mixed | Cold | 3,303 → 1,210 | 2,923 → 755 | 1,565 → 426 | 0 → 0 of 30 | 0 → 0 of 30 | 360 → 120 | 80 → 80 |
-| Mixed | Same-session revisit | 117 → 72 | 62 → 4 | 58 → 0 | 0 → 30 of 30 | 0 → 30 of 30 | 0 → 0 | 0 → 0 |
-| Mixed | Restart | 729 → 496 | 258 → 61 | 186 → 21 | 0 → 1 of 30 | 0 → 30 of 30 | 120 → 144 (in batches) | 0 → 0 |
-| Mixed | Cache drop | 773 → 530 | 268 → 62 | 201 → 23 | 0 → 0 of 30 | 0 → 30 of 30 | 120 → 144 (in batches) | 0 → 0 |
+| Photos | Cold | 2,196 → 1,734 | 1,075 → 491 | 738 → 373 | 0 → 0 of 30 | 0 → 0 of 30 | 579 → 193 | 0 → 0 |
+| Photos | Same-session revisit | 131 → 71 | 72 → 3 | 72 → 0 | 0 → 30 of 30 | 0 → 30 of 30 | 0 → 0 | 0 → 0 |
+| Photos | Restart | 670 → 467 | 258 → 62 | 197 → 38 | 0 → 0 of 30 | 0 → 30 of 30 | 193 → 195 (18 batches) | 0 → 0 |
+| Photos | Cache drop | 644 → 471 | 252 → 68 | 188 → 38 | 0 → 0 of 30 | 0 → 30 of 30 | 193 → 195 (18 batches) | 0 → 0 |
+| Mixed | Cold | 3,035 → 1,098 | 2,682 → 685 | 1,528 → 379 | 0 → 0 of 30 | 0 → 0 of 30 | 360 → 120 | 80 → 80 |
+| Mixed | Same-session revisit | 124 → 62 | 75 → 4 | 57 → 0 | 0 → 30 of 30 | 0 → 30 of 30 | 0 → 0 | 0 → 0 |
+| Mixed | Restart | 650 → 487 | 239 → 73 | 186 → 24 | 0 → 0 of 30 | 0 → 30 of 30 | 120 → 144 (in batches) | 0 → 0 |
+| Mixed | Cache drop | 663 → 631 | 291 → 71 | 226 → 26 | 0 → 0 of 30 | 0 → 30 of 30 | 120 → 144 (in batches) | 0 → 0 |
+
+Measured at 00b00987, the head of the branch, with the two builds run by turns, 3 times each, in the same hour. Sets taken earlier in the night at 9f5546de gave the same picture; the virtual machine's speed drifted over the night. The extra decodes after a restart of the mixed folder are tiles GTK bound twice while laying out, whose reads had already been sent.
 
 The two builds were run by turns, 3 times each, in the same hour. Earlier sets taken hours before gave the same picture with lower times all round; the virtual machine's speed drifted over the night. The extra decodes after a restart of the mixed folder are tiles GTK bound twice while laying out, whose reads had already been sent.
 
@@ -60,9 +62,8 @@ The two builds were run by turns, 3 times each, in the same hour. Earlier sets t
   - Each new photo costs one decode instead of three. Before, there was a look for an earlier thumbnail that decoded a missing file, then the decode, then a read-back of the written PNG.
   - Visible tiles are made first.
   - Thumbnails are made one fewer at a time than the processors, between 2 and 3: 3 on this 4-processor machine. In an earlier set, 2 slots gave 512 ms (photos) and 796 ms (mixed) after the first tile, against 464 ms and 555 ms with 3. A 2-processor computer keeps 2.
-- **Paging down through a new folder** of 2,000 photos for 4.7 s while its thumbnails are made, 3 interleaved runs each: the main loop missed its 5 ms timer for 34 ms or more 2, 6 and 2 times before (longest 40 ms), against 1, 1 and 0 after (longest 35 ms). About 570 thumbnails were made meanwhile in both. Other interleaved scroll-only runs gave 4, 11 and 6 stalls before against 4, 7 and 1 after: no regression, and the stalls come mostly from the machine.
+- **Paging down through a new folder** of 2,000 photos for 4.7 s while its thumbnails are made, 7 interleaved pairs at the head of the branch. The main loop missed its 5 ms timer for 34 ms or more 0, 3, 0, 5, 0, 5 and 19 times before (32 in all, longest 49 ms), against 1, 3, 4, 1, 0, 1 and 4 after (14 in all, longest 42 ms). About 577 thumbnails were made meanwhile in both.
 - **Revisit after 40 s** (past the 30 s the network check is trusted for), 300 photos, real input: visible tiles drawn with their thumbnail on their first frame go from 0 to 30 of 30, and all visible arrive 110 → 3 ms after the first tile.
-- **Four more interleaved scroll-only pairs at the head of the branch:** 5, 0, 5 and 19 stalls before (longest 49 ms), against 1, 0, 1 and 4 after (longest 39 ms).
 - **Memory:** resident memory after scrolling through the cold 2,000-photo folder and back is 341 MB before and 357 MB after. After a restart, with the cache warm, it is 267 MB before and 286 MB after. These are single runs measured from `/proc/<pid>/status`; the picture decoders are separate processes and are not counted.
 - **First frame after a restart:** after a restart, a tile still cannot show its thumbnail on its very first frame. The read takes 35 ms or so, and holding the window's first frame back for it would be slower overall. The tile shows nothing in the icon's place until then, so there is no icon flash.
 
@@ -90,7 +91,7 @@ Thumbnails of files that were deleted or sent to the Recycle Bin stay in the cac
   - One earlier run of the ox-app suite also failed `home_has_no_band_under_the_titles_and_its_tiles_do_not_touch` once. It is a timing flake: it passes alone 3 of 3 times and in every other full run.
   - The doctests pass.
 - **Other checks:** `check.py` up to the Rust tests (the parity tests and `parity/check.py`, i18n, the driver tests, the drawn-icon guard, rustfmt and Clippy with `-D warnings` on Rust 1.92.0) passes, and `parity/check.py` passes alone. `tools/sync-docs.py --check` passes after regenerating the guides from `docs.json`.
-- **Benchmark:** the table above (`thumbnail-bench.py --scroll`), measured at 9f5546de. One run of each build at the head of the branch, after the review fixes, gives the same picture: photos 1,158 → 494 ms after the first tile cold, 322 → 73 ms after a restart and 339 → 67 ms after a cache drop; mixed 2,604 → 639 ms cold.
+- **Benchmark:** the table above (`thumbnail-bench.py --scroll`), at the head of the branch.
 - **Interop:** the release build was run by hand on a private Xvfb display as an unprivileged user with a throwaway HOME, then `gio info` was checked on its entries (0600 files in 0700 folders, with all four keys).
 - **Tumbler 4.18.1**, D-Bus activated on a private session bus with the throwaway HOME. `GetFlavors` lists all four sizes. At 1x Large icons it makes `normal` thumbnails, and at 2x Extra large icons `x-large` ones (512 px), of 6 photos and an MP4. The app shows them all, and on the next launch reads all 7 from the cache without asking tumbler again. Tumbler writes `Thumb::MTime` with microseconds (`1795342906.979486`), which the app reads to the second.
 - **Real input, rename** (Xvfb, xdotool): a folder of 20 photos was opened, then Alt+Up, F2, "Trip 2026" and Enter, then opened again. All 20 entries moved with it, all 20 thumbnails were read from the cache, none was made again, and the cache holds 20 entries in all.
