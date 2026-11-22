@@ -1,14 +1,18 @@
 STATUS: RUNNING
-HEAD: claude/owner-audit-fixes 9ea2c19e
+HEAD: claude/owner-audit-fixes 6d6f46c8
 QUESTION: none
 NOTE:
-- Committed: GTK_A11Y=none announcement crash; #229 Confirm Attribute Changes;
-  #225 crumb menu cap, off-thread sort and batched rows; #226/#223 drag facts
-  read once per drag.
-- PASS (targeted runs only, as tester, Rust 1.92.0, private Xvfb and bus):
-  announcement tests, including the GTK_A11Y=none child test (it fails
-  without the fix); read_only tests; crumb tests; label tests.
-- NOT TESTED yet: full native/tools/check.py, xdotool input checks.
+- All fixes in the task list are committed (13 commits on upstream 5d21fd3e).
+  Skipped as the task says: rows marked None, #133, #231, #232, #387, #374.
+- PASS (targeted runs, as tester, Rust 1.92.0, private Xvfb and bus):
+  announcement (incl. the GTK_A11Y=none child test, which fails without the
+  fix), read_only, crumb/menu batching, drag label facts, resize_edges,
+  default_apps, restore/versions, settings rows, tooltip/folder summary,
+  network_map, dialog, drive tab, ox-core drive_format, search, settings.
+- RUNNING: full native/tools/check.py (second run after the message
+  template was regenerated; the first run stopped at "openxplorer.pot is
+  out of date").
+- NOT TESTED yet: xdotool real-input checks.
 
 VM CHECK
-(filled in as work goes on)
+(being written)
