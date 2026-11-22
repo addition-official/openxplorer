@@ -422,6 +422,10 @@ fn folder_art(facts: &PaneFacts<'_>) -> Art {
     if Page::from_uri(facts.folder_uri) == Some(Page::ThisPc) {
         // This PC's own icon, as its tab and navigation pane row show it.
         Art::TintedGlyph(Page::ThisPc.icon(), Tint::ThisPc)
+    } else if Page::from_uri(facts.folder_uri) == Some(Page::Home) {
+        // Home's house, as its navigation pane row shows it and Windows
+        // 11's pane does (checked on Windows 11, 2026-11-22).
+        Art::TintedGlyph(Page::Home.icon(), Tint::Home)
     } else if is_zip_top(facts.folder_uri) {
         Art::ZipFolder
     } else if is_smb_location(facts.folder_uri) {
