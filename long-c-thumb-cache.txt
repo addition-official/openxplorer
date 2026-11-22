@@ -45,8 +45,8 @@ PASS all 87 test binaries at 9e992f6a via check.py's run_isolated as an unprivil
   one earlier ox-app run also failed home_has_no_band_under_the_titles_and_its_tiles_do_not_touch once (flaky: passes alone 3/3 and in the other two full runs)
 PASS all 87 test binaries at 77ae92d6, same way: 4,996 passed, 4 failed (the same 4 as above)
 PASS all 87 test binaries at HEAD 00b00987, same way: 4,999 passed, 4 failed (the same 4); rustfmt and Clippy -D warnings (Rust 1.92.0)
-PASS revisit after 40 s (past the 30 s network-answer life), 300 photos, real input: visible tiles on their first frame 0 -> 30 of 30, all visible 110 -> 3 ms after the first tile
-PASS real-input rename again at HEAD: 20 moved, 0 made
+PASS revisit after 40 s (past the 30 s network-answer life), 300 photos, real input: visible tiles on their first frame 0 -> 30 of 30 (30 of 30 in all 3 runs at HEAD), all visible 110 -> 3 ms after the first tile (3-82 ms over the 3 runs)
+PASS real-input rename again at HEAD, 3 runs: 20 moved, 0 made, 20 read from the cache each time
 PASS preview-smoke.py at HEAD (300 real and mangled files of 18 kinds, Preview and Details panes): app running, 0 bad stderr lines
 PASS the same mangled corpus in Large icons, paged through twice at HEAD: app running both times, 0 bad stderr lines; 44 broken files recorded in fail/ on the first visit; on the second, 0 thumbnailers started and 44 answered from fail/ (upstream started 31 thumbnailers again for them); crash.log holds only "The last run ended abnormally.", from the harness stopping the first run with SIGTERM, as on upstream
 PASS memory again at HEAD: cold scroll through 2,000 photos and back 343 -> 359 MB, warm 265 -> 286 MB
