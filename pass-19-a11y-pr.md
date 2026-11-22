@@ -42,6 +42,7 @@ Pass 19 walked the whole app as a screen reader sees it, through the real access
 - With real keys (XTEST) on the private display: `settings_page::tests::tab_leaves_the_category_list_without_opening_another_category`, `tab_leaves_the_theme_cards_and_the_arrows_still_choose`
 - `theme::contrast::tests::the_portal_and_a_high_contrast_theme_ask_for_more_contrast` (fake portal), `high_contrast_themes_are_told_by_name`, `theme::system::tests::the_inverse_high_contrast_theme_is_dark`, `window::tests::high_contrast::high_contrast_rings_the_selection_in_the_text_color` (painted pixels, light and dark)
 - `accessibility::f6_moves_focus_round_the_regions_and_back_to_the_same_item` now includes the status bar
+- `focus::the_first_down_on_home_in_a_new_tab_selects_its_first_item` (real keys): on Home, which Ctrl+T opens, the first Down selects the first item, as a Windows 11 VM showed; a folder opened from outside or by its address, whose first Down selects the second item, is pass-14's fix and test
 
 `test_support::pointer::Pointer` now parks the real pointer off every window when a test drops it: the new real-key Settings tests left it over the next test's window, whose Gallery tooltip then failed `update::tests::browsing_never_checks_and_untrusted_text_stays_text`.
 
