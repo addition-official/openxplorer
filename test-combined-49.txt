@@ -1,35 +1,41 @@
-STATUS: BLOCKED - needs a decision on network-like-windows (no deb yet)
-ORDER CHANGE RECEIVED (deb first with quick checks, long checks after, "LONG TESTS: DONE" at the end): understood and will be followed. It does not answer the question below, which still decides what goes into the deb.
-OPTION D IS BUILT AND QUICK-CHECKED, NOT PUSHED: local branch test-combined-49d e0ce5c82 = steps 1-9 plus user-icon-files, without network-like-windows.
-  openxplorer_2.0.23+test49_all.deb, SHA256 26b6a2bbc2aa5fae0ac8c2329fa13e5b7b16b457a1c6400ba1142ae43e52aaae (built from exactly e0ce5c82; cargo clean first; guard on HEAD and a clean tree)
-  Merging user-icon-files 1c37a0bc on top of step 9 needed two real fixes:
-  - icons/icon.rs, ALL_ICONS: the passes kept it test-only with 125 icons; user-icon-files makes it non-test (its glyph lookup uses it) with 126. Kept user-icon-files' doc and visibility; the count is 125, matching the merged list, which holds every Icon variant once and in enum order.
-  - icons/user_glyphs.rs (commit e0ce5c82): pass-5's 8952ead6 removed Icon::Code, which user-icon-files maps to a Windows glyph (0xE943). Dropped that one mapping; ox-app then compiles with no warnings.
-  Quick checks, all pass: identity (147 commits by addition-official plus the owner's two #366 commits by AKolenda via user-icon-files; no trailers; in the deb AKolenda only in the upstream repository and update URLs, as in main); polkit "off" (record "off" before install, rules.d empty after, purged); no Windows icon or font data (683 files: no font/PE/ICO extension, header or file(1) type); zh_CN .mo byte-identical to main 3ef87f79's; one unique string per branch in the binary, none in main: pass-1 mounted_kind, pass-2 remember_extraction, pass-3 rename_refusal, pass-4 install_network_computers (its old "Expand to open folder" text is gone from the merged sources), pass-5 remember_typed_address, pass-6 terminal_opens_at, pass-7 show_heading_above, pass-8 "Set default", pass-9 "OxSettingsWrapLayout", user-icon-files "Windows symbol font".
-  Reply D and I push it as claude/test-combined-49-deb at once and start the long checks; reply A, B or C and I build that instead.
-BRANCH: test-combined-49 e614b4b4 (steps 1-9 merged on upstream main 3ef87f79, 2.0.23; pushed for inspection, not built)
+STATUS: DONE (deb ready; long tests running)
+HEAD: test-combined-49d e0ce5c82 (the deb was built from exactly this tree; cargo clean before the release build; guard on HEAD and a clean tree before and after)
+DEB: claude/test-combined-49-deb 784e0448
+  openxplorer_2.0.23+test49_all.deb (io.winspace.Development)
+  SHA256: 26b6a2bbc2aa5fae0ac8c2329fa13e5b7b16b457a1c6400ba1142ae43e52aaae
+BASE: upstream main 3ef87f79 (2.0.23), as asked.
+CONTENT: option D, as chosen: the nine passes and user-icon-files. network-like-windows 4790c970 is NOT in this deb: it implements the navigation pane's Network computers separately from pass-4's 5cb3a27c (window/sidebar/network_tree.rs and network_pane.rs against window/network_computers.rs), conflicting in 8 files; it goes into a later deb once that overlap is resolved on its branch. (test-combined-49 e614b4b4 is the same tree before user-icon-files.)
 
-MERGED SO FAR, in the requested order (each the branch tip):
+MERGED HEADS, in this order (each the branch tip):
    1 pass-1-copy-move    ac63a204 -> 69ea3725: transfer.rs, main's open_local_staging and pass-1's keep_without_modes on the same `use modes::{...}` line; kept both, wrapped as rustfmt does.
    2 pass-2-undo-redo    813aab9d -> d20f221f (clean)
    3 pass-3-rename       ac5a340a -> 2a7c214d (clean)
    4 pass-4-nav-pane     d17c3b4c -> bb8dd9e8 (clean)
    5 pass-5-address-bar  a3c6c481 -> d84af361 (clean)
-   6 pass-6-context-menu e2c7dafe -> e477ca47 (contains 1603b85c): status_bar.rs module comment as in debs 44-48; markdown.json regenerated. The deb 48 sidebar/menu.rs conflict no longer occurs.
-   7 pass-7-views        47f23ab9 -> c1e4c50e: sidebar/menu.rs, comment only. Kept pass-6's code and its comment ("Home, Gallery and the computers under Network with their shared folders open in a new tab or window"), which describes the code; pass-7's comment named only Home and Gallery. markdown.json regenerated.
+   6 pass-6-context-menu e2c7dafe -> e477ca47 (contains the menu_sweep fix 1603b85c): status_bar.rs module comment as in debs 44-48; markdown.json regenerated. The deb 48 sidebar/menu.rs conflict no longer occurs.
+   7 pass-7-views        47f23ab9 -> c1e4c50e: sidebar/menu.rs, comment only. Kept pass-6's code and comment ("Home, Gallery and the computers under Network with their shared folders open in a new tab or window"), which describes the code; pass-7's comment named only Home and Gallery. markdown.json regenerated.
    8 pass-8-open-with    7d90128a -> 87ba1ec3: openxplorer.pot and markdown.json, regenerated.
    9 pass-9-scaling      c60ab4ab -> e614b4b4: markdown.json, regenerated.
+  10 user-icon-files     1c37a0bc -> 893b6675, then e0ce5c82:
+     - icons/icon.rs, ALL_ICONS: the passes kept it test-only with 125 icons; user-icon-files makes it non-test (its glyph lookup uses it) with 126. Kept user-icon-files' doc and visibility; the count is 125, matching the merged list, which holds every Icon variant once and in enum order.
+     - icons/user_glyphs.rs (commit e0ce5c82, not a conflict but a build break): pass-5's 8952ead6 removed Icon::Code, which user-icon-files maps to a Windows glyph (0xE943). Dropped that one mapping; ox-app then compiles with no warnings.
 
-BLOCKED AT 10, network-like-windows 4790c970 (merge aborted; nothing of it is in the branch):
-Two separate implementations of the same feature, "Network in the navigation pane expands to the computers found, each with its own chevron to its shares":
-- pass-4 5cb3a27c "feat(sidebar): List the computers Network discovered under it, each with its own chevron" (in pass-4 d17c3b4c and so in pass-6 to pass-9): new window/network_computers.rs (226 lines), sidebar/collapsing.rs +150, entries.rs +70, row.rs +40, tests/nav_pane.rs +278.
-- network-like-windows 2af9384b "feat(network): Expand Network to computers in the navigation pane, and fix mapped drives, SFTP and sign-in": new window/sidebar/network_tree.rs (387 lines) and window/network_pane.rs (219), entries.rs +112, collapsing.rs +52, row.rs +41, tests/network.rs +195; also moves saved and drive-letter-mapped shares under This PC, and the review 5 B1/B2/B6 fixes. It contains the older pass-4 b60a3e28, not 5cb3a27c.
-The merge conflicts in 8 files: sidebar/collapsing.rs (3 blocks, 96 lines), sidebar/entries.rs (94 lines), sidebar/row.rs (5 blocks), sidebar/menu.rs, network/services.rs, skin/sidebar.css, window_action.rs, tests/context_menus.rs (plus markdown.json). Keeping both would list Network's computers through two code paths. Resolving it means removing one branch's implementation and tests, which is a change to the branches rather than a merge resolution, so I have not done it.
+QUICK CHECKS (before pushing):
+- parity/check.py, i18n check, sync-docs --check and rustfmt pass on e0ce5c82.
+- IDENTITY: 149 commits on top of main: 147 (branches, merges and e0ce5c82) by addition-official <239187859+addition-official@users.noreply.github.com>, and the owner's 2 #366 commits (5cfe748c, b80e9b0a) by AKolenda <akole779@mtroyal.ca>, carried by user-icon-files. No trailers; no other author or committer. In the deb, AKolenda appears only in the upstream repository and update-check URLs (as in main); the other addresses are third-party crate licence files and the translator credit already in main's zh_CN.po.
+- POLKIT: record /var/lib/openxplorer/install-updates-without-password = "off" before install -> /etc/polkit-1/rules.d empty after install, record still "off". Purged afterwards.
+- NO WINDOWS ICON OR FONT DATA: 683 files; none named .ttf/.otf/.ttc/.fon/.woff/.woff2/.ico/.cur/.exe/.dll/.mun/.res; none starting with a TrueType/OpenType/collection/WOFF, PE (MZ) or ICO/CUR header; file(1) reports no font and no Windows type.
+- ZH_CN: native/po/zh_CN.po is byte-identical to main 3ef87f79's, and the deb's zh_CN openxplorer.mo is byte-identical to main's zh_CN.po compiled with main's i18n.py.
+- UNIQUE STRINGS IN THE BUILT BINARY (text with grep -caF, functions with nm; none in main 3ef87f79's sources):
+   1 pass-1-copy-move:    function mounted_kind
+   2 pass-2-undo-redo:    function remember_extraction
+   3 pass-3-rename:       function rename_refusal
+   4 pass-4-nav-pane:     function install_network_computers (its "Expand to open folder" text is no longer in the merged sources)
+   5 pass-5-address-bar:  function remember_typed_address
+   6 pass-6-context-menu: function terminal_opens_at
+   7 pass-7-views:        function show_heading_above
+   8 pass-8-open-with:    "Set default"
+   9 pass-9-scaling:      "OxSettingsWrapLayout"
+  10 user-icon-files:     "Windows symbol font"
 
-OPTIONS (reply with one; the other session could not be messaged from here):
- A) Keep network-like-windows' tree (network_tree.rs) and remove pass-4's 5cb3a27c code and its nav_pane tests in the merge.
- B) Keep pass-4's network_computers.rs and take only network-like-windows' other parts (Network page tiles, mapped drives, SFTP, sign-in).
- C) Merge pass-9 c60ab4ab (or pass-4 d17c3b4c) into network-like-windows on its own branch, resolved there, and give me the new head.
- D) Build deb 49 without network-like-windows (steps 1-9 then user-icon-files 1c37a0bc), network in a later deb.
-
-IDENTITY so far: 136 commits on top of main, all by addition-official <239187859+addition-official@users.noreply.github.com> (branch commits and 9 merges); no trailers, no other author or committer.
+LONG CHECKS: running (3 full ox_app runs, the other test binaries, failures compared with main by name, gallery sharpness test, 300-file smoke run, input sweep). Results will be appended below.
