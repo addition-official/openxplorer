@@ -88,7 +88,7 @@ pub(super) enum PlaceMenu {
         uri: String,
         /// Whether it is among the Favorites.
         favorite: bool,
-        /// Whether it is a row of Recent, which offers Remove from Recent.
+        /// Whether it is a row of Recent, which offers Remove from list.
         recent: bool,
     },
 }
@@ -728,7 +728,18 @@ pub(super) fn popup_place_menu_in(
     style: MenuStyle,
     opener: Option<&gtk::Widget>,
 ) -> Option<MenuPopover> {
-    let (entries, strip) = menu.styled(facts_in(menu, owner), style);
+    let (entries, strip) = match (menu, owner.root().and_downcast::<BrowserWindow>()) {
+        // A Recent row offers what this computer has for its file.
+        (
+            PlaceMenu::HomeFile {
+                uri,
+                favorite,
+                recent: true,
+            },
+            Some(window),
+        ) => window.home_recent_menu(uri, *favorite, style),
+        _ => menu.styled(facts_in(menu, owner), style),
+    };
     if entries.is_empty() {
         return None;
     }

@@ -1143,3 +1143,46 @@ fn the_keyboard_entering_a_scrolled_list_lands_on_an_item_in_view() {
     );
     assert!(pane.positions_shown().contains(&0), "and is scrolled into view");
 }
+
+/// Home, which Ctrl+T opens, has no current item in Windows 11 File
+/// Explorer, so the first real Down selects its first item (checked in a
+/// Windows 11 VM, 2026-11-22), unlike a folder opened from outside or by
+/// its address, whose first item is ringed so that Down selects the second
+/// (`focus_ring.rs`,
+/// `a_folder_opened_from_outside_or_typed_rings_its_first_item_and_down_selects_the_second`).
+///
+/// parity: SEL-020, ACC-016
+#[gtk::test]
+fn the_first_down_on_home_in_a_new_tab_selects_its_first_item() {
+    let home = TestHome::new();
+    std::fs::create_dir_all(home.home.join("Desktop")).expect("a folder");
+    // Before the window opens, which a new pointer would put away.
+    let mut pointer = Pointer::connect();
+    let test = TestWindow::open_with_standard_folders(&home.uri_of("Documents"), home.locations(), |_| {});
+    test.activate("view", Some("details"));
+    test.wait_for_listing("Documents");
+    test.window.present();
+    wait_for_frames(&test.window, 3);
+    let (x, y) = screen_point(&mut pointer, &test.window, (4.0, 4.0), (8, 8));
+    // The keyboard follows the pointer on the private display; the pointer
+    // rests on the window's edge, off every row.
+    pointer.move_to(x, y);
+    // Home is the test's home, not the test session's empty one.
+    test.window.imp().locations.borrow_mut().home = Some(home.home.clone());
+
+    test.activate("new-tab", None);
+    test.wait_for_listing("Home in the new tab");
+    assert_eq!(
+        test.window.current_uri(),
+        Some(file_uri(&home.home)),
+        "a new tab opens Home"
+    );
+    wait_until("the keyboard in Home's list", || {
+        test.window.folder_pane().view_has_focus()
+    });
+    assert!(test.selected_names().is_empty(), "nothing is selected yet");
+    pointer.tap_key(gdk::Key::Down);
+    wait_until("the first Down selects Home's first item", || {
+        test.selected_names() == ["Desktop"]
+    });
+}
