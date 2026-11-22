@@ -28,11 +28,13 @@ How it runs:
 - Only files of at most 100 MB that start as a ZIP, a Compound File, RTF or markup (the HTML `.xls` exports many sites produce) are converted.
 - A damaged document and one that needs a password are not tried again in the run. Neither is one that runs out of time twice. A cancelled conversion is tried again, and so is one the app could not prepare or keep (a full disk).
 - If a sandbox cannot mount its own `/proc`, which LibreOffice needs, no conversion is started; the app logs that once.
-- The app's picture decoder can end without an answer on the first picture after launch (see below), so a document's pages are drawn once more when the first try gives nothing and the request still stands.
+- A document's pages are drawn once more when the first try gives nothing and the request still stands.
+- A thumbnail conversion that the Preview pane stopped waits for its turn again, so arrowing through Large icons leaves no tile without its thumbnail.
+- A document that takes the full 15 s holds the one thumbnail slot that long.
 
 Not included: the Flatpak `org.libreoffice.LibreOffice`. Flatpak always mounts the app's own data folder read-write, and that is where the user's LibreOffice keeps its profile. A converted document could therefore change the profile the user opens next, which this sandbox otherwise rules out.
 
-Found on the way, not changed here: on main too, the first picture the app decodes after launch often loses its decoder ("A picture's decoder ended without an answer"). The first PDF selected after launch then says "No preview available." (3 of 3 runs on 5d21fd3e with a PDF selected first).
+Fixed on the way, in `picture_guard/decoder.rs`: the picture decoders run in bubblewrap with `--die-with-parent`. That flag ends a decoder when the thread that started it exits, not when the app does. GLib's worker threads exit once idle, so decoders kept in the pool were ended while they waited. The next picture handed to one got no answer ("A picture's decoder ended without an answer"). On main, the first PDF selected after launch said "No preview available." in 3 of 3 runs, and thumbnails went missing now and then. The pool now drops an idle decoder that no longer runs. A test kills an idle decoder and fails without the fix. In the real app, Large icons runs went from 2 to 5 such failures each to none.
 
 No new dependency. The test documents are written by the tests themselves as small hand-built ZIP containers (`test_support/office_documents.rs`, with a deflate bomb written through GIO). No third-party file is used.
 
@@ -46,17 +48,20 @@ All runs used the unprivileged `tester` account with check.py's isolation: priva
   - 75 of 88 binaries pass, and the doctests pass.
   - The 12 failing ox-core binaries (Python-interop, `admin_copy` and versions suites) are untouched by this branch.
   - ox-app: 2,654 passed. Its failures are the 7 that also fail on main in the same isolation, plus one timing-sensitive test per run that passes alone.
-- New converter tests (15) and window tests (4) run where LibreOffice, pdftoppm and a working bubblewrap are installed, and skip with a note elsewhere. Here, LibreOffice 24.2 was used:
+- New converter tests (17) and window tests (4) run where LibreOffice, pdftoppm and a working bubblewrap are installed, and skip with a note elsewhere. Here, LibreOffice 24.2 was used:
   - each kind converts in 0.46–0.67 s;
   - a cache hit takes about 70 µs;
   - a slow workbook is stopped at 15.0 s;
   - a 256 MiB deflate bomb is stopped by the file-size limit in about 2 s;
   - damaged, password-required and noise files fail quietly;
-  - cancelling stops LibreOffice at once.
+  - cancelling stops LibreOffice at once;
+  - a document changed to the same size 1 ms later is converted again and never shown from its old PDF;
+  - a docx embedding a 20000×20000 picture converts in 13 s at a 664 MiB peak.
 - Preview pane, cold, from selection to first page: small documents 0.58–0.88 s; a 600-paragraph docx 1.3 s, a 3,000-row xlsx 2.0–2.2 s, a 120-slide pptx 1.0–1.1 s. Selecting a document again takes 106–170 ms, including the pane's 90 ms settle.
 - Real X input (XTEST) through 50 mixed documents with the Preview pane, then the Details pane: the longest main-loop step was 6.7–48 ms. No LibreOffice was left running, and nothing was written beside the documents.
 - The real app, driven with xdotool on a private Xvfb, 1x in light and dark, through the same 50 documents: every keypress showed within 0.49 s (screenshot-based timing). The first document after launch shows its page, and no LibreOffice remains after quitting.
 - LibreOffice's peak memory per conversion was 175–322 MiB.
+- The real app in Large icons (Ctrl+Shift+2), with real keys moving the selection while thumbnails were made: every visible document got its framed first page (47 thumbnails in 66 s), the damaged and noise files kept their icons, and no decoder failures occurred.
 - Not run:
   - a file encrypted by Office itself (an OpenDocument whose manifest asks for a password was tested);
   - a systemd user scope (the container has none, so the per-process limits were used);
