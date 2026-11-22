@@ -35,6 +35,11 @@ const MAX_CLAUSES: usize = 64;
 /// Most terms one clause keeps.
 const MAX_TERMS_PER_CLAUSE: usize = 64;
 
+/// The deepest group of parentheses read as a group; groups inside it are
+/// read as if their parentheses were not there. A search typed by hand
+/// never nests this deep, and each level is read by a call of its own.
+const MAX_GROUP_DEPTH: usize = 32;
+
 /// What one term tests.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Test {
@@ -271,6 +276,8 @@ pub(crate) fn parse(text: &str, normalise: &dyn Fn(&str) -> String) -> Clauses {
         tokens: &tokens,
         at: 0,
         normalise,
+        depth: 0,
+        flattened: 0,
     };
     let mut clauses = parser.sequence(None, false).unwrap_or_default();
     dedupe(&mut clauses);
@@ -310,6 +317,11 @@ struct Parser<'a> {
     tokens: &'a [Token],
     at: usize,
     normalise: &'a dyn Fn(&str) -> String,
+    /// How many groups the token read last is in.
+    depth: usize,
+    /// How many groups past [`MAX_GROUP_DEPTH`] are open, read as if their
+    /// parentheses were not there.
+    flattened: usize,
 }
 
 impl Parser<'_> {
@@ -323,9 +335,18 @@ impl Parser<'_> {
         while let Some(token) = self.tokens.get(self.at) {
             self.at += 1;
             let part = match token {
+                // The end of a group read flat ends nothing.
+                Token::Close if self.flattened > 0 => {
+                    self.flattened -= 1;
+                    continue;
+                }
                 Token::Close if in_group => break,
                 // An unmatched `)` is ignored.
                 Token::Close => continue,
+                Token::Open | Token::PropertyGroup(_) if self.depth >= MAX_GROUP_DEPTH => {
+                    self.flattened += 1;
+                    continue;
+                }
                 Token::Text {
                     text,
                     quoted_from: None,
@@ -347,8 +368,8 @@ impl Parser<'_> {
                     negate = !negate;
                     continue;
                 }
-                Token::Open => self.sequence(property, true),
-                Token::PropertyGroup(keyword) => self.sequence(self::property(keyword), true),
+                Token::Open => self.group(property),
+                Token::PropertyGroup(keyword) => self.group(self::property(keyword)),
                 Token::Text { text, quoted_from } => self
                     .term(text, *quoted_from, property)
                     .map(|term| vec![vec![term]]),
@@ -372,6 +393,14 @@ impl Parser<'_> {
             join = Join::And;
         }
         result
+    }
+
+    /// The group that starts here, up to its closing parenthesis.
+    fn group(&mut self, property: Option<Property>) -> Option<Clauses> {
+        self.depth += 1;
+        let group = self.sequence(property, true);
+        self.depth -= 1;
+        group
     }
 
     /// The term `text` stands for: a property with its value, a wildcard
@@ -535,6 +564,42 @@ fn negated(clauses: Clauses) -> Clauses {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Parentheses nested far deeper than anyone types are read without
+    /// running out of stack, and in a moment: the groups past the deepest
+    /// one followed are read as if their parentheses were not there
+    /// (found by fuzzing).
+    #[test]
+    fn groups_nested_past_the_deepest_followed_are_read_flat() {
+        let opened = "(".repeat(100_000);
+        assert_eq!(parse(&opened, &lower), Clauses::new());
+        let closed = format!("{}a{}", "(".repeat(100_000), ")".repeat(100_000));
+        assert_eq!(parse(&closed, &lower), vec![vec![word("a")]]);
+        let started = std::time::Instant::now();
+        let negated = parse(&"NOT (a ".repeat(3000), &lower);
+        assert!(negated.len() <= MAX_CLAUSES);
+        assert!(
+            started.elapsed() < std::time::Duration::from_millis(500),
+            "{:?}",
+            started.elapsed()
+        );
+        // Every word of a deep group is still required, and a closing
+        // parenthesis past the deepest group does not end the groups
+        // around it early.
+        let deep: String = (0..MAX_GROUP_DEPTH + 8).fold(String::new(), |mut text, level| {
+            let _ = std::fmt::Write::write_fmt(&mut text, format_args!("w{level} ("));
+            text
+        });
+        let deep = format!("{deep}last{} after", ")".repeat(MAX_GROUP_DEPTH + 8));
+        let clauses = parse(&deep, &lower);
+        assert_eq!(clauses.len(), MAX_GROUP_DEPTH + 8 + 2);
+        assert!(clauses.contains(&vec![word("last")]));
+        assert!(clauses.contains(&vec![word("after")]));
+        assert_eq!(
+            parse("a OR (b c)", &lower),
+            vec![vec![word("a"), word("b")], vec![word("a"), word("c")]]
+        );
+    }
 
     /// `NOT` gives what joining each clause's negated terms with `OR` gives.
     #[test]
