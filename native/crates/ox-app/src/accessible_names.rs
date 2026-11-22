@@ -22,7 +22,15 @@ use gtk::prelude::*;
 
 /// Names `value` after `caption` and the value it shows, and keeps the
 /// name when the value changes (sizes are counted after the window opens).
+///
+/// The caption itself is left out for screen readers, which read it in
+/// the value's name: Orca read Properties' page as "Type of file: Type of
+/// file: Text Document ...". GTK allows that only until the caption is
+/// realized.
 pub(crate) fn name_value_label(value: &gtk::Label, caption: &gtk::Label) {
+    if !caption.is_realized() && caption.accessible_role() == gtk::AccessibleRole::Label {
+        caption.set_accessible_role(gtk::AccessibleRole::Presentation);
+    }
     let name = |caption: &gtk::Label, value: &gtk::Label| joined(&caption.text(), &value.text());
     value.update_property(&[gtk::accessible::Property::Label(&name(caption, value))]);
     value.connect_label_notify(glib::clone!(

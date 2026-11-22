@@ -141,6 +141,16 @@ fn properties_values_are_heard_with_their_names() {
         named("Size:")
     );
     assert!(named("Location:").name.len() > "Location: ".len());
+    // The caption is in the value's name, so it is not heard again
+    // beside it: Orca read the page as "Type of file: Type of file: ...".
+    let captions: Vec<Heard> = bus
+        .showing()
+        .into_iter()
+        .filter(|heard| {
+            heard.role == "label" && ["Type of file:", "Size:", "Location:"].contains(&heard.name.as_str())
+        })
+        .collect();
+    assert!(captions.is_empty(), "{captions:?}");
     for heard in &values {
         let (name, value) = heard
             .name
