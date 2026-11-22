@@ -1,8 +1,16 @@
 STATUS: RUNNING
 
-Long job B: overnight real-use soak of upstream main 5d21fd3e (release build).
-Started 2026-11-21 23:00:50 CST; runs until 06:30 CST, crossing midnight in
-America/Chicago. Isolated: unprivileged user, throwaway HOME, private Xvfb,
-D-Bus session, gnome-keyring, GVfs, AT-SPI bus, openbox, local Samba share.
-Driven with xdotool; metrics every minute (fine log) and every 15 minutes
-(the required CSV). Results, graphs and fixes follow at 06:30.
+Long job B: overnight real-use soak of upstream main 5d21fd3e (release build),
+23:00 CST to 06:30 CST, crossing midnight in America/Chicago.
+
+So far (00:45 CST):
+- Midnight: date group headings moved Today -> Yesterday by themselves at
+  00:00:01 (Downloads and Recent files). With relative dates on, the rows
+  under them (and every row of an ungrouped folder) kept "Today at ..."
+  even after input and F5. Fixed on long-b-soak (4d9379d5), guard tests added.
+- Child processes: idle picture decoders (bwrap --die-with-parent) died with
+  the GIO worker thread that started them and sat in the pool as zombies.
+  Fixed on long-b-soak (aaefe16d), guard tests added.
+- Idle CPU settles at ~0.1%. fds, threads, inotify watches flat so far.
+- Heap grows with use (457 -> 612 MiB RSS by 00:45, partly 4 windows);
+  watching it on the fixed build, restarted at 00:44.
