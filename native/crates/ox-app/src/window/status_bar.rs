@@ -4,7 +4,7 @@
 //! Ports `footer.statusbar` in `v2.0.0:desktop/ui/index.html` and `updateStatus`
 //! in `v2.0.0:desktop/ui/app.js`, laid out as Windows 11 File Explorer's
 //! status bar: the item count ("6 items"), a thin divider and the
-//! selection ("1 item selected  19.0 KB", the size only when every
+//! selection ("1 item selected  19.0\u{a0}KB", the size only when every
 //! selected item is a file) with a divider after it, as Windows ends it,
 //! the type-to-select hint, then at the right
 //! "Check for updates" while a check found a newer release or a restart

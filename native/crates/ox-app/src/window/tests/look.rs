@@ -297,11 +297,16 @@ fn the_command_bar_keeps_its_right_group_and_shows_details_as_selected() {
         place.right() - 15,
         "at the right end"
     );
-    let scroller = descendants::<gtk::ScrolledWindow>(bar)
+    // The commands never scroll out of sight: those that do not fit move
+    // into "…" (command_bar/overflow.rs).
+    let group = descendants::<gtk::Box>(bar)
         .into_iter()
-        .next()
-        .expect("the commands scroll");
-    assert_eq!(scroller.hscrollbar_policy(), gtk::PolicyType::External);
+        .find(|group| group.has_css_class("command-group"))
+        .expect("the commands");
+    assert!(
+        group.ancestor(gtk::ScrolledWindow::static_type()).is_none(),
+        "the commands are not in a scroller"
+    );
     assert!(details.is_active(), "the details pane is open");
     let colour = painted_colour(&details, 2, details.height() / 2);
     assert_same_colour(colour, css_colour("#e8f1fb"), "the selected colour");
@@ -427,6 +432,54 @@ fn a_dialog_is_510_pixels_with_an_accent_button_in_each_appearance() {
             save_place.height >= 32 && save_place.width >= 92,
             "{save_place:?}"
         );
+        dialog.close();
+    }
+}
+
+/// A disabled accent button is drawn as Windows draws a disabled primary
+/// button: the neutral control fill of a bordered button, not the accent
+/// color, so it does not look clickable. Here Set default in the chooser
+/// Properties' Change... opens for a file without an extension, which
+/// cannot get a new default.
+///
+/// parity: LOOK-020
+#[gtk::test]
+fn a_disabled_accent_button_is_not_drawn_in_the_accent_color() {
+    let _theme = ThemeGuard::keep();
+    let fixture = Fixture::standard();
+    std::fs::write(fixture.path("README"), "Plain words without an extension.\n").expect("a text file");
+    let test = laid_out(&fixture.uri());
+    for theme in ["light", "dark"] {
+        show_theme(&test, theme);
+        let subject = crate::integration::OpenWithSubject {
+            uri: fixture.uri_of("README"),
+            name: "README".to_owned(),
+            is_folder: false,
+        };
+        let dialog = crate::integration::OpenWithDialog::present_to_change_default(
+            &test.window,
+            subject,
+            |_| {},
+            |_| {},
+        );
+        wait_until("the list", || dialog.is_listed());
+        wait_for(TRANSITION_TIME);
+        wait_for_frames(&dialog, 3);
+        let buttons = descendants::<gtk::Button>(&dialog);
+        let find = |label: &str| {
+            buttons
+                .iter()
+                .find(|button| button.label().as_deref() == Some(label))
+                .unwrap_or_else(|| panic!("{label} is shown"))
+                .clone()
+        };
+        let (set_default, cancel) = (find("Set default"), find("Cancel"));
+        assert!(set_default.has_css_class("accent") && !set_default.is_sensitive());
+        let fill_of = |button: &gtk::Button| {
+            let place = bounds_in(button, &dialog);
+            painted_colour(&dialog, place.x + 4, place.y + place.height / 2)
+        };
+        assert_same_colour(fill_of(&set_default), fill_of(&cancel), theme);
         dialog.close();
     }
 }
