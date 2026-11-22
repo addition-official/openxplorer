@@ -556,6 +556,15 @@ impl DetailsView {
     fn describe_rows(&self, model: &FolderModel) {
         let column_view = self.column_view();
         cells::label_view(column_view.upcast_ref());
+        // Its list of rows takes the keyboard while there is no row, and a
+        // screen reader reads it on its own: it is named the same.
+        let rows = std::iter::successors(column_view.first_child(), WidgetExt::next_sibling)
+            .find(ObjectExt::is::<gtk::ListView>);
+        if let Some(rows) = rows {
+            rows.update_property(&[gtk::accessible::Property::Label(&ox_core::i18n::gettext(
+                cells::ITEMS_VIEW_NAME,
+            ))]);
+        }
         let rows = gtk::SignalListItemFactory::new();
         // A heading row's name follows its heading's title: the grouped
         // model retitles a heading in place when the groups change, and GTK

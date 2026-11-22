@@ -413,3 +413,28 @@ fn a_tile_is_heard_with_its_type() {
     let folder = tile("Documents");
     assert!(folder.starts_with("Type: File folder"), "{folder}");
 }
+
+/// In an empty folder the keyboard rests on the list, which is heard by
+/// its name and as empty: in Details it is the list of rows inside the
+/// view, which had neither, so Orca heard only "list".
+///
+/// parity: ACC-001, VIEW-048
+#[gtk::test]
+fn an_empty_folder_is_heard_as_empty() {
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri_of("Documents"));
+    test.activate("view", Some("details"));
+    test.wait_for_listing("the empty folder");
+    test.window.folder_pane().focus_view();
+    let Some(bus) = AtSpi::connect(&test.window) else {
+        return;
+    };
+    let focused: Vec<Heard> = bus
+        .showing()
+        .into_iter()
+        .filter(|heard| heard.has("focused"))
+        .collect();
+    assert_eq!(focused.len(), 1, "{focused:?}");
+    assert_eq!(focused[0].name, "Items View", "{focused:?}");
+    assert_eq!(focused[0].description, "This folder is empty.", "{focused:?}");
+}
