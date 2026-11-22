@@ -61,3 +61,24 @@ Also fuzzing, locally and read-only, the fork branch user-icon-files (PE icon re
 Found and fixed since last update: 1
 - Read search words with many negated groups without stalling (each NOT copied up to 262,144 terms; a 370-byte query took >2 s under the fuzzer, 220 ms in a debug build) - fixed 156e3cb3, tests: timing and equivalence with the old definition
 Open: none.
+
+== 2026-11-22 01:19 CST ==
+Executions so far (all runs):
+app_protocols             375,464
+archive_extract         1,984,660
+archive_fixup             207,990
+archive_list            7,390,921
+core_formats            4,461,970
+core_text              13,615,244
+media_details          28,475,888
+media_streams               5,120
+picture_decode          1,297,682
+picture_headers        11,006,863
+text_preview            8,338,769
+Fork branch user-icon-files (local, read-only): pe_icons ~3.5M, truetype 19.3M executions, nothing found.
+New: archive_zipgen (ZIPs written from the input with consistent offsets and CRCs: odd names, links, special files, Unicode path fields with matching name CRCs, ZIP64 fields, data descriptors, encryption flags, wrong methods, differing local names); preview copies now checked to be plain files in their own folder, as long as listed; seeds for TGA, PNM, XBM, XPM, ICNS, CUR, ANI, JPEG 2000.
+Found and fixed since last update: 2
+- Don't crash on malformed icon directories (ICO/CUR entry offset of 1.2 GB made the loader reserve it) - fixed 0616796c
+- Don't open archive members whose data ends early (a ZIP or 7z member shorter than its recorded size, with a matching checksum, previewed as a silently shorter copy; Extract All already refused it) - fixed cee1d612
+Open (not in the app's code): media_streams crash inside GStreamer 1.24.2's parsebin with a Matroska input, about 1 run in 60 in one process; it runs only in the media reader child, which the app already treats as allowed to crash. Kept as fixed/media_streams-open in the fuzz folder, not committed.
+Notes: the fuzz harness now gives each archive input its own location (the 7z header cache is keyed by location, length and start header, so one input's headers could be reused for the next).
