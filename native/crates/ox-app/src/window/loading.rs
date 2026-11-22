@@ -646,34 +646,48 @@ impl BrowserWindow {
             }
             return;
         }
+        let Some(clock) = self.frame_clock() else {
+            if renames {
+                self.continue_renaming();
+            }
+            return;
+        };
         let generation = self.imp().input_generation.get();
-        let frames = std::cell::Cell::new(0);
-        // The window's frames, which go on while it shows, whichever view
-        // the pane switches to meanwhile.
-        self.add_tick_callback(glib::clone!(
+        let frames = Rc::new(std::cell::Cell::new(0));
+        let handler: Rc<std::cell::Cell<Option<glib::SignalHandlerId>>> = Rc::default();
+        // After each frame is painted, so the rows are laid out: no motion,
+        // only a look at where the row ended up, as `keep_top` does.
+        let watch = Rc::clone(&handler);
+        let painted = clock.connect_after_paint(glib::clone!(
             #[weak(rename_to = window)]
             self,
-            #[upgrade_or]
-            glib::ControlFlow::Break,
-            move |_, _| {
+            move |clock| {
+                let stop = || {
+                    if let Some(id) = watch.take() {
+                        clock.disconnect(id);
+                    }
+                };
                 frames.set(frames.get() + 1);
                 let pane = window.folder_pane();
-                if window.imp().input_generation.get() != generation {
-                    return glib::ControlFlow::Break;
-                }
-                let Some(selected) = pane.model().first_selected() else {
-                    return glib::ControlFlow::Break;
+                let selected = pane.model().first_selected();
+                let Some(selected) = selected.filter(|_| window.imp().input_generation.get() == generation)
+                else {
+                    stop();
+                    return;
                 };
                 if !pane.shows_whole_item(selected) && frames.get() < MOST_FRAMES {
                     pane.scroll_into_view(selected);
-                    return glib::ControlFlow::Continue;
+                    clock.request_phase(gtk::gdk::FrameClockPhase::PAINT);
+                    return;
                 }
+                stop();
                 if renames {
                     window.continue_renaming();
                 }
-                glib::ControlFlow::Break
             }
         ));
+        handler.set(Some(painted));
+        clock.request_phase(gtk::gdk::FrameClockPhase::PAINT);
     }
 
     /// Puts the view back where a moved tab (TAB-039) or Back and Forward
