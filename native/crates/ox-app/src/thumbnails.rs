@@ -67,8 +67,16 @@ use writer::{Made, Source};
 
 /// How many previews are decoded at a time.
 const DECODING_AT_ONCE: usize = 4;
-/// How many thumbnails are made at a time.
-const MAKING_AT_ONCE: usize = 2;
+/// How many thumbnails are made at a time, at most: each decodes a picture
+/// or runs a thumbnailer in a process of its own.
+const MAKING_AT_MOST: usize = 3;
+
+/// How many thumbnails are made at a time: one fewer than the computer's
+/// processors, so the app and the desktop keep one, between two and
+/// [`MAKING_AT_MOST`].
+fn making_at_once(processors: usize) -> usize {
+    processors.saturating_sub(1).clamp(2, MAKING_AT_MOST)
+}
 /// How many thumbnails of files on a server or a device are made at a
 /// time, on slots of their own: a share that stops answering holds these,
 /// never the ones of this computer's files.
@@ -278,7 +286,9 @@ impl PreviewRequest {
 
 thread_local! {
     static DECODING: Rc<Slots> = Rc::new(Slots::new(DECODING_AT_ONCE));
-    static MAKING: Rc<Slots> = Rc::new(Slots::new(MAKING_AT_ONCE));
+    static MAKING: Rc<Slots> = Rc::new(Slots::new(making_at_once(
+        std::thread::available_parallelism().map_or(1, std::num::NonZero::get),
+    )));
     static NETWORK_MAKING: Rc<Slots> = Rc::new(Slots::new(NETWORK_MAKING_AT_ONCE));
     /// The previews shown lately, decoded, by item and size.
     static MEMORY: RefCell<Memory> = RefCell::new(Memory::new(MEMORY_BUDGET));
@@ -1660,5 +1670,19 @@ mod tests {
             Ok(false),
             "answered, and a temporary folder is on this computer"
         );
+    }
+
+    /// Thumbnails are made one fewer at a time than the computer has
+    /// processors, two at least and three at most, so a cold folder fills
+    /// in faster where there is room for it, and a computer of two
+    /// processors keeps two.
+    ///
+    /// parity: VIEW-057
+    #[test]
+    fn thumbnails_are_made_on_all_but_one_processor() {
+        assert_eq!(making_at_once(1), 2);
+        assert_eq!(making_at_once(2), 2);
+        assert_eq!(making_at_once(4), 3);
+        assert_eq!(making_at_once(64), 3);
     }
 }
