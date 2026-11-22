@@ -1,0 +1,4 @@
+STATUS: DONE
+HEAD: 3ef87f79
+QUESTION: none
+NOTE: 144 AKolenda PRs audited (141 merged since 2.0.0 incl. #386 merged after 3ef87f79, 3 open: #384 #385 #387). 75 user-visible; Windows 11 verdicts 19 yes, 39 no, 17 needs VM. Live checks on a release build of 3ef87f79 (private Xvfb, user tester, throwaway HOME): confirmed #374 blue underlined non-default sort header, #209 Delete without prompt and Shift+Delete Yes/No, #212 refused ":" in rename, #162 and #214 fresh-profile defaults. Found a crash: with GTK_A11Y=none the app segfaults in announcement::announce when a file drag starts (#29) or when ":" is typed while renaming (#212); not with GTK_A11Y unset. Top non-Windows risks: #229 recursive Read-only with no question, #225 uncapped subfolder menu built on the main thread, #298 passwordless root updates by default. No app code changed; check.py and parity/check.py not run (report only).

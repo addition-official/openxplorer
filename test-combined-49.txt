@@ -38,4 +38,18 @@ QUICK CHECKS (before pushing):
    9 pass-9-scaling:      "OxSettingsWrapLayout"
   10 user-icon-files:     "Windows symbol font"
 
-LONG CHECKS: running (3 full ox_app runs, the other test binaries, failures compared with main by name, gallery sharpness test, 300-file smoke run, input sweep). Results will be appended below.
+LONG CHECKS: test runs in progress (3 full ox_app runs, the other test binaries, failures compared with main by name, gallery sharpness test); smoke run and input sweep done, below.
+
+SMOKE RUN (installed deb, Xvfb, non-root user with a throwaway HOME under /var/tmp, own D-Bus session and display, driven by the snapshot hook):
+- 300 files (the same generated set as debs 45-48), Details view: Details pane on and Down through all 300, then Preview pane on, Home and Down through all 300 again. Exit 0 after 385 s, ended on the last file (song-100) with the Preview pane's player shown. 0 "Bail out", 0 CRITICAL, 0 panic, 0 SIGSEGV/abort/core lines; no child process left after exit. Main process sampled every second (366 samples): fds max 32, 28 at the end; threads max 33, 24 at the end; at most 4 child processes at once; RSS about 333 MB, steady.
+
+INPUT SWEEP (installed deb, same isolation; keys go through the window's real key handlers via the scene hook's key= step, text through type=, the pointer through hover=; each run on fresh fictional files; results read from disk and from the window picture; every run exit 0 with no error lines):
+- Rename: F2 on Notes.txt, typed "Meeting notes", Enter -> Meeting notes.txt. F2, typed text, Escape -> name unchanged.
+- Rename, Down while editing: F2 on Notes.txt, Down, typed " v2", Enter -> v2.txt. The field stayed open through Down and the rename went through; Down left the name part ("Notes") selected, so the typed text replaced it (leading space trimmed).
+- Rename onto an existing folder: F2 on Archive, typed "Projects", Enter -> nothing renamed or merged on disk, the field still open with "Projects". The merge question is its own window, which the window picture does not show and key= cannot answer, so the merge itself is NOT confirmed by this sweep (the test suite's rename tests cover it; see below).
+- Undo/redo: rename then Ctrl+Z -> Notes.txt again; then Ctrl+Y -> Meeting notes.txt.
+- Copy: Ctrl+C, Ctrl+V -> "Notes - Copy.txt"; then Ctrl+Z -> the copy is gone.
+- Address bar: from Documents/Projects, Ctrl+L, typed "Documents", Enter -> the window shows Documents (breadcrumb "Documents", Back enabled).
+- Right-click menu submenu: Shift+F10 on a file, pointer rested on Compress to (its submenu opened: ZIP File, 7z File, TAR File, Additional options), then moved onto the submenu's 7z File row -> the submenu stayed open after the pointer left the Compress to row. The hook cannot move the pointer outside every menu, so that case is not covered.
+- Small icons: a folder of 37 files in Small icons -> three columns filled row by row, left to right (Plan, Report 01, Report 02 / Report 03, ...).
+- Network page: opened from network:/// -> the Network page with its sidebar row selected and "This folder is empty." (no network devices in this isolated container, so no tiles to check).
