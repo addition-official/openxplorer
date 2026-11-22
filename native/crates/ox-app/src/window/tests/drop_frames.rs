@@ -87,6 +87,28 @@ fn a_drag_over_the_navigation_pane_or_the_address_bar_draws_no_frame_round_it() 
     }
 }
 
+/// While files are dragged over the tab strip, the strip is not framed in
+/// green: Windows 11 File Explorer outlines only the tab a drop would go
+/// into, as this app's own highlight does (`file-drop-active`).
+///
+/// parity: DND-011, TAB-018
+#[gtk::test]
+fn a_drag_over_the_tab_strip_draws_no_frame_round_it() {
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    test.window
+        .add_tab(&fixture.uri_of("Documents"))
+        .expect("a folder");
+    test.wait_for_listing("the second tab");
+    let strip: gtk::Widget = test.window.tab_strip().clone().upcast();
+
+    strip.set_state_flags(gtk::StateFlags::DROP_ACTIVE, false);
+    let green = green_on_left_edge(&test, &strip);
+    strip.unset_state_flags(gtk::StateFlags::DROP_ACTIVE);
+
+    assert_eq!(green, 0, "the tab strip has no green frame under a drag");
+}
+
 /// With `OX_NATIVE_CAPTURE_DIR` set, saves the window while a drag is
 /// over the navigation pane and the address bar, with the folder tree
 /// shown, in both themes; without it, proves neither is framed in green.
