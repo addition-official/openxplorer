@@ -45,7 +45,7 @@ const GONE_DEVICE_ERRORS: [i32; 5] = [
 /// [`TransferError::NotMounted`]: the whole item fails at once, not entry
 /// by entry, as for a share that went away.
 pub(crate) fn device_not_ready() -> TransferError {
-    TransferError::NotMounted(crate::i18n::gettext("The device is not ready."))
+    TransferError::NotMounted(crate::system_error::NOT_READY.message())
 }
 
 /// The drive of a run's destination folder, as found when the run started.

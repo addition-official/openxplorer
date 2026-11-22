@@ -28,13 +28,14 @@ fn lock(folder: &Path) -> Option<RestoreOwnerAccess> {
     Some(access)
 }
 
-/// Asserts `error` names `real` and the system's reason, and nothing of
+/// Asserts `error` names `real` and the system's reason in Windows'
+/// words, and nothing of
 /// the staging.
 fn assert_names(error: &str, real: &Path) {
     assert!(!error.contains(".winspace-transfer"), "{error}");
     assert!(!error.contains("payload"), "{error}");
     assert!(error.contains(&real.display().to_string()), "{error}");
-    assert!(error.contains("Permission denied"), "{error}");
+    assert!(error.contains("Access is denied."), "{error}");
 }
 
 /// The case seen on a test build: pasting `one.txt` into a `chmod 555`
