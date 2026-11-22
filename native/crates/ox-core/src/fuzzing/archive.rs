@@ -50,8 +50,11 @@ struct Input<'a> {
 
 fn input(data: &[u8]) -> Option<Input<'_>> {
     let (&options, archive) = data.split_first()?;
+    // Each input is a file of its own: the 7z reader keeps the headers of
+    // the archives it read last by their location, length and start.
+    let file = crc32fast::hash(archive);
     Some(Input {
-        uri: format!("file:///home/alex/Downloads/{}", NAMES[usize::from(options & 7)]),
+        uri: format!("file:///home/alex/Downloads/{file:08x}/{}", NAMES[usize::from(options & 7)]),
         archive,
         password: options & 0x08 != 0,
         selection: options & 0x10 != 0,
@@ -130,9 +133,10 @@ pub fn list_inspect_preview(data: &[u8]) {
                 ArchiveEntryKind::Folder if visited + folders.len() < MAX_VISITS => {
                     folders.push(entry.member.clone());
                 }
-                ArchiveEntryKind::File { .. } if entry.can_open && previewed < MAX_VISITS => {
+                ArchiveEntryKind::File { size, .. } if entry.can_open && previewed < MAX_VISITS => {
                     previewed += 1;
                     if let Ok(copy) = browser.preview_member(&input.uri, &entry.member, &cancel) {
+                        check_preview(&copy.path, size);
                         remove_preview_copy(&copy.path);
                     }
                 }
@@ -147,6 +151,17 @@ pub fn list_inspect_preview(data: &[u8]) {
     )
     .with_limits(fuzz_limits());
     let _ = extractor.inspect(&input.uri, &cancel);
+}
+
+/// Checks that a member's copy is a plain file in a folder of its own in
+/// the preview folder, as long as the listing said.
+fn check_preview(path: &Path, size: u64) {
+    let previews = scratch().join("previews");
+    let folder = path.parent().expect("a copy's folder");
+    assert_eq!(folder.parent(), Some(previews.as_path()), "a copy at {}", path.display());
+    let metadata = fs::symlink_metadata(path).expect("the copy");
+    assert!(metadata.is_file(), "a copy that is no plain file: {}", path.display());
+    assert_eq!(metadata.len(), size, "the copy of {} is not as long as listed", path.display());
 }
 
 /// Extracts the archive into a new folder in an empty folder, as Extract
@@ -206,6 +221,161 @@ pub fn extract(data: &[u8]) {
             assert!(left.is_empty(), "a failed extraction left {left:?} behind");
         }
     }
+}
+
+/// Reads the bytes of a generator input in turn; zeros once they run out.
+struct Choices<'a>(&'a [u8]);
+
+impl Choices<'_> {
+    fn byte(&mut self) -> u8 {
+        let (&first, rest) = self.0.split_first().unwrap_or((&0, &[]));
+        self.0 = rest;
+        first
+    }
+
+    fn bytes(&mut self, most: u8) -> Vec<u8> {
+        let count = usize::from(self.byte() % most.max(1));
+        let (taken, rest) = self.0.split_at(count.min(self.0.len()));
+        self.0 = rest;
+        taken.to_vec()
+    }
+}
+
+/// A ZIP written from `data`, every offset, length and checksum right but
+/// what the choices ask to be wrong: names that leave the folder, links,
+/// special files, Unicode path fields whose checksum matches the recorded
+/// name, ZIP64 fields, data descriptors, encryption flags, a local name
+/// that differs and members claiming methods their data is not. It is then
+/// listed, previewed and extracted as [`list_inspect_preview`] and
+/// [`extract`] do.
+pub fn zip_generated(data: &[u8]) {
+    let archive = generated_zip(&mut Choices(data));
+    let mut input = vec![archive.0 & !7];
+    input.extend_from_slice(&archive.1);
+    list_inspect_preview(&input);
+    extract(&input);
+}
+
+/// The options byte and the ZIP the choices describe.
+fn generated_zip(choices: &mut Choices<'_>) -> (u8, Vec<u8>) {
+    use std::io::Write;
+    const NAMES: [&str; 8] = ["Docs/", "Docs/a.txt", "../up.txt", "/root.txt", "b\\c.txt", "link", "Docs/..", "x/./y"];
+    let options = choices.byte();
+    let count = choices.byte() % 8 + 1;
+    let mut zip = Vec::new();
+    let mut directory = Vec::new();
+    for _ in 0..count {
+        let flags = choices.byte();
+        let more = choices.byte();
+        let name = if flags & 1 == 0 {
+            NAMES[usize::from(more % 8)].as_bytes().to_vec()
+        } else {
+            choices.bytes(48)
+        };
+        let content = choices.bytes(96);
+        let (method, packed) = match more >> 3 & 3 {
+            0 => (0_u16, content.clone()),
+            1 => {
+                let mut encoder = flate2::write::DeflateEncoder::new(Vec::new(), flate2::Compression::fast());
+                let _ = encoder.write_all(&content);
+                (8, encoder.finish().unwrap_or_default())
+            }
+            // A method claimed for data that is not in it.
+            2 => (8, content.clone()),
+            _ => (u16::from(choices.byte() % 100), content.clone()),
+        };
+        let crc = if flags & 2 == 0 { crc32fast::hash(&content) } else { 0x1234_5678 };
+        let mut general = 0_u16;
+        if flags & 4 != 0 {
+            general |= 1; // encrypted
+        }
+        if flags & 8 != 0 {
+            general |= 8; // data descriptor
+        }
+        if more & 0x20 != 0 {
+            general |= 0x800; // UTF-8 names
+        }
+        let (made_by, attributes) = match more >> 6 {
+            0 => (0x0314_u16, 0o100_644_u32 << 16),
+            1 => (0x0314, 0o120_777 << 16),
+            2 => (0x0314, (0o010_644 << 16) | u32::from(choices.byte())),
+            _ => (0x0014, 0x10),
+        };
+        let mut extra = Vec::new();
+        let zip64 = flags & 0x10 != 0;
+        if zip64 {
+            let mut field = Vec::new();
+            for value in [content.len() as u64, packed.len() as u64, zip.len() as u64] {
+                field.extend_from_slice(&value.to_le_bytes());
+            }
+            field.truncate(usize::from(choices.byte() % 25));
+            extra.extend_from_slice(&0x0001_u16.to_le_bytes());
+            extra.extend_from_slice(&u16::try_from(field.len()).unwrap_or(0).to_le_bytes());
+            extra.extend_from_slice(&field);
+        }
+        if flags & 0x20 != 0 {
+            let unicode = if flags & 0x40 == 0 {
+                NAMES[usize::from(choices.byte() % 8)].as_bytes().to_vec()
+            } else {
+                choices.bytes(48)
+            };
+            let checksum = if choices.byte() & 1 == 0 { crc32fast::hash(&name) } else { 7 };
+            let mut field = vec![1];
+            field.extend_from_slice(&checksum.to_le_bytes());
+            field.extend_from_slice(&unicode);
+            extra.extend_from_slice(&0x7075_u16.to_le_bytes());
+            extra.extend_from_slice(&u16::try_from(field.len()).unwrap_or(0).to_le_bytes());
+            extra.extend_from_slice(&field);
+        }
+        let local_name = if flags & 0x80 != 0 { b"other.txt".to_vec() } else { name.clone() };
+        let small = |value: usize| if zip64 { u32::MAX } else { u32::try_from(value).unwrap_or(u32::MAX) };
+        let offset = zip.len();
+        let word = |bytes: &mut Vec<u8>, value: u32| bytes.extend_from_slice(&value.to_le_bytes());
+        let half = |bytes: &mut Vec<u8>, value: u16| bytes.extend_from_slice(&value.to_le_bytes());
+        word(&mut zip, 0x0403_4b50);
+        for value in [20, general, method, 0, 0x5821] {
+            half(&mut zip, value);
+        }
+        for value in [crc, small(packed.len()), small(content.len())] {
+            word(&mut zip, value);
+        }
+        half(&mut zip, u16::try_from(local_name.len()).unwrap_or(0));
+        half(&mut zip, 0);
+        zip.extend_from_slice(&local_name);
+        zip.extend_from_slice(&packed);
+        if general & 8 != 0 {
+            for value in [0x0807_4b50, crc, small(packed.len()), small(content.len())] {
+                word(&mut zip, value);
+            }
+        }
+        word(&mut directory, 0x0201_4b50);
+        for value in [made_by, 20, general, method, 0, 0x5821] {
+            half(&mut directory, value);
+        }
+        for value in [crc, small(packed.len()), small(content.len())] {
+            word(&mut directory, value);
+        }
+        for value in [u16::try_from(name.len()).unwrap_or(0), u16::try_from(extra.len()).unwrap_or(0), 0, 0, 0] {
+            half(&mut directory, value);
+        }
+        word(&mut directory, attributes);
+        word(&mut directory, small(offset));
+        directory.extend_from_slice(&name);
+        directory.extend_from_slice(&extra);
+    }
+    let start = u32::try_from(zip.len()).unwrap_or(u32::MAX);
+    let length = u32::try_from(directory.len()).unwrap_or(u32::MAX);
+    zip.extend_from_slice(&directory);
+    zip.extend_from_slice(&0x0605_4b50_u32.to_le_bytes());
+    for value in [0_u16, 0, u16::from(count), u16::from(count)] {
+        zip.extend_from_slice(&value.to_le_bytes());
+    }
+    zip.extend_from_slice(&length.to_le_bytes());
+    zip.extend_from_slice(&start.to_le_bytes());
+    let comment = choices.bytes(16);
+    zip.extend_from_slice(&u16::try_from(comment.len()).unwrap_or(0).to_le_bytes());
+    zip.extend_from_slice(&comment);
+    (options, zip)
 }
 
 /// The second byte of a fix-up input: which compression wraps the TAR.

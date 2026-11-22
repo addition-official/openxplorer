@@ -101,3 +101,10 @@ path = "fuzz_targets/archive_fixup.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "archive_zipgen"
+path = "fuzz_targets/archive_zipgen.rs"
+test = false
+doc = false
+bench = false
