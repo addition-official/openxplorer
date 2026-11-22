@@ -81,6 +81,16 @@ pub(super) enum PlaceMenu {
         /// Whether Edit… can change it.
         editable: bool,
     },
+    /// A row of Home's Recent or Favorites list: the file at `uri`
+    /// (HOME-036).
+    HomeFile {
+        /// The file it stands for.
+        uri: String,
+        /// Whether it is among the Favorites.
+        favorite: bool,
+        /// Whether it is a row of Recent, which offers Remove from Recent.
+        recent: bool,
+    },
 }
 
 /// An item that runs `action` with the place `target`.
@@ -559,6 +569,11 @@ impl PlaceMenu {
             PlaceMenu::QuickAccessPin { uri, editable } => {
                 quick_access_pin_menu(uri, *editable, facts, style)
             }
+            PlaceMenu::HomeFile {
+                uri,
+                favorite,
+                recent,
+            } => super::home_page::file_menu(uri, *favorite, *recent, style),
             PlaceMenu::Network(location) => {
                 (network_entries(location, facts.caching, facts.pinned), Vec::new())
             }
@@ -576,7 +591,8 @@ impl PlaceMenu {
             PlaceMenu::Volume { .. }
             | PlaceMenu::RecycleBin { .. }
             | PlaceMenu::RecentFiles
-            | PlaceMenu::RecentLocations => None,
+            | PlaceMenu::RecentLocations
+            | PlaceMenu::HomeFile { .. } => None,
         }
     }
 
@@ -602,6 +618,11 @@ impl PlaceMenu {
             PlaceMenu::RecentFiles => recent_files_entries(),
             PlaceMenu::RecentLocations => recent_locations_entries(),
             PlaceMenu::QuickAccessPin { uri, editable } => pin_menu(uri, caching, *editable),
+            PlaceMenu::HomeFile {
+                uri,
+                favorite,
+                recent,
+            } => super::home_page::file_menu(uri, *favorite, *recent, MenuStyle::Classic).0,
             PlaceMenu::SavedShare { uri } => {
                 let mut entries = vec![
                     item(
@@ -700,21 +721,22 @@ pub(super) fn popup_place_menu_in(
     if let Some(window) = owner.root().and_downcast::<BrowserWindow>() {
         window.remember_place_menu(menu.clone(), owner, point, opener);
     }
-    let popover = MenuPopover::new(entries);
+    // The pane keeps one place menu and shows it again each time
+    // ([`MenuPopover::kept_by`]).
+    let popover = MenuPopover::kept_by(owner, PLACE_MENU);
+    popover.set_entries(entries);
     popover.set_style_and_strip(style, strip);
     popover.set_offset(0, 0);
     popover.set_position(gtk::PositionType::Bottom);
-    popover.set_parent(owner);
     #[expect(clippy::cast_possible_truncation, reason = "pointer positions are small")]
     let pointing_to = gdk::Rectangle::new(point.x() as i32, point.y() as i32, 1, 1);
     popover.set_pointing_to(Some(&pointing_to));
-    // A menu belongs to one right-click; it lets go of the pane once it
-    // closes and its item has run.
     let opener = opener.map(ObjectExt::downgrade);
-    popover.connect_closed(move |popover| {
-        let closed = popover.clone();
-        glib::idle_add_local_once(move || closed.unparent());
+    popover.after_close(move |_| {
         if let Some(opener) = opener.as_ref().and_then(glib::WeakRef::upgrade) {
+            // On Wayland the menu's grab takes the button's release, so a
+            // tile or row would stay drawn as pressed.
+            opener.unset_state_flags(gtk::StateFlags::ACTIVE);
             if opener.is_drawable() {
                 opener.grab_focus();
             }
@@ -751,6 +773,9 @@ pub(super) fn classic_or_compact(entries: Vec<MenuEntry>, style: MenuStyle) -> V
         MenuStyle::Classic => classic_look(entries),
     }
 }
+
+/// The name of the place menu a folder pane keeps.
+const PLACE_MENU: &str = "place-menu";
 
 /// A place menu as it was opened, for "Show more options".
 #[derive(Debug)]

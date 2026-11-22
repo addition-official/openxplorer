@@ -22,6 +22,8 @@ fn the_folder_tree_opens_down_to_the_folder_shown_and_opens_the_folder_clicked()
     test.window.imp().locations.borrow_mut().home = fixture.root().parent().map(Into::into);
 
     test.activate("folder-tree", None);
+    // The tree follows the folder shown (Windows' "Expand to current folder").
+    test.activate("folder-tree-option", Some("expand-to-current"));
     let tree = test.window.folder_tree();
     let reports = file_uri(&reports);
     wait_until("the tree selects the folder shown", || {
@@ -100,6 +102,8 @@ fn a_real_drag_onto_a_folder_of_the_folder_tree_goes_into_it() {
     let test = TestWindow::open(&file_uri(&reports));
     test.window.imp().locations.borrow_mut().home = fixture.root().parent().map(Into::into);
     test.activate("folder-tree", None);
+    // The tree follows the folder shown (Windows' "Expand to current folder").
+    test.activate("folder-tree-option", Some("expand-to-current"));
     let tree = test.window.folder_tree();
     let shown = file_uri(&reports);
     wait_until("the tree selects the folder shown", || {
@@ -148,6 +152,8 @@ fn a_real_double_click_on_a_folder_of_the_tree_opens_and_closes_it() {
     let test = TestWindow::open(&fixture.uri());
     test.window.imp().locations.borrow_mut().home = fixture.root().parent().map(Into::into);
     test.activate("folder-tree", None);
+    // The tree follows the folder shown (Windows' "Expand to current folder").
+    test.activate("folder-tree-option", Some("expand-to-current"));
     let tree = test.window.folder_tree();
     let shown = fixture.uri();
     wait_until("the tree selects the folder shown", || {
