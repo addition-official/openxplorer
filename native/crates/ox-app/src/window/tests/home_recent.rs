@@ -324,7 +324,7 @@ fn clearing_history_empties_recent_and_keeps_favorites() {
 }
 
 /// A right-click on Home's blank space, with a Recent row selected,
-/// clears the selection, so the command bar's Copy is greyed out again,
+/// clears the selection, so the command bar's Copy is grayed out again,
 /// and opens the menu of Home's blank space (View first), not the row's.
 ///
 /// parity: HOME-036
@@ -460,7 +460,7 @@ fn command_button(test: &TestWindow, action: &str) -> gtk::Button {
 
 /// With a Recent row selected, the command bar's Cut, Copy, Rename and
 /// Delete act on its file, as in Windows 11's Home; with nothing
-/// selected they are greyed out. A click on blank space selects nothing
+/// selected they are grayed out. A click on blank space selects nothing
 /// again.
 ///
 /// parity: HOME-036
@@ -470,7 +470,7 @@ fn the_command_bar_acts_on_the_selected_row() {
     let edit = ["win.cut", "win.copy", "win.rename", "win.trash"];
     let enabled = |action: &str| command_button(&test, action).is_sensitive();
     for action in edit {
-        assert!(!enabled(action), "{action} is greyed out with nothing selected");
+        assert!(!enabled(action), "{action} is grayed out with nothing selected");
     }
     let mut pointer = Pointer::connect();
     click_row(&mut pointer, &test, "plan");
