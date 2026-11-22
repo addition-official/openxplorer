@@ -12,6 +12,7 @@ use gtk::prelude::*;
 use ox_core::entry::EntryError;
 use ox_core::i18n::{format_message, gettext};
 use ox_core::location::{is_server_location, is_smb_location, is_smb_server, split_location};
+use ox_core::system_error::SystemError;
 
 use crate::icons::{self, Icon};
 
@@ -125,10 +126,10 @@ impl EmptyState {
 /// words. A message that is not one of the system's errors is shown as it
 /// is.
 fn network_details(message: &str) -> String {
-    match ox_core::system_error::SystemError::from_sentence(message) {
+    match SystemError::from_sentence(message).map(SystemError::on_network) {
         Some(error) => format_message(
             "Error code: {code}\n{message}",
-            &[("code", &format!("0x{:08X}", error.hresult())), ("message", message)],
+            &[("code", &format!("0x{:08X}", error.hresult())), ("message", &error.message())],
         ),
         None => message.to_owned(),
     }
@@ -386,7 +387,8 @@ mod tests {
     }
     /// A share that stopped answering is named as Windows names it, and
     /// Details holds Windows' error code and its words, never GIO's or
-    /// Samba's message.
+    /// Samba's message: a server that does not answer or refuses is "The
+    /// network path was not found.", as Windows says it.
     ///
     /// parity: VIEW-047
     #[test]
@@ -402,7 +404,18 @@ mod tests {
         assert!(message.contains("is unavailable. Make sure you are connected"), "{message}");
         assert_eq!(
             details.as_deref(),
-            Some("Error code: 0x80070079\nThe semaphore timeout period has expired.")
+            Some("Error code: 0x80070035\nThe network path was not found.")
+        );
+        let refused = EntryError::from(gtk::glib::Error::new(
+            gtk::gio::IOErrorEnum::Failed,
+            "Failed to mount Windows share: Connection refused",
+        ));
+        let EmptyState::Unavailable { details, .. } = EmptyState::unavailable("smb://nas/Team", &refused) else {
+            panic!("the unavailable page");
+        };
+        assert_eq!(
+            details.as_deref(),
+            Some("Error code: 0x80070035\nThe network path was not found.")
         );
     }
 }

@@ -232,11 +232,21 @@ impl SystemError {
     }
 
     /// The error Windows reports for `error` from mounting or reaching a
-    /// share: a missing share is "The network name cannot be found.", not
-    /// a missing file.
+    /// share: a share the server does not have is "The network name
+    /// cannot be found.", not a missing file, and a server that refuses,
+    /// cannot be reached or does not answer is "The network path was not
+    /// found.", as Windows says both.
     pub fn from_network(error: &glib::Error) -> Self {
-        match Self::from_glib(error) {
+        Self::from_glib(error).on_network()
+    }
+
+    /// This error as Windows reports it for a share it mounts or reaches,
+    /// as [`SystemError::from_network`] says.
+    #[must_use]
+    pub fn on_network(self) -> Self {
+        match self {
             FILE_NOT_FOUND | PATH_NOT_FOUND => BAD_NET_NAME,
+            CONNECTION_REFUSED | HOST_UNREACHABLE | NETWORK_UNREACHABLE | SEM_TIMEOUT | TIMEOUT => BAD_NETPATH,
             found => found,
         }
     }
