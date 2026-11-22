@@ -26,6 +26,7 @@ mod collapsing;
 mod drop_spots;
 pub(super) mod entries;
 pub(super) mod menu;
+pub(super) mod network_tree;
 mod row;
 
 use std::cell::RefCell;
@@ -43,8 +44,8 @@ use super::window_action::WindowAction;
 use super::{gestures, preferences};
 
 pub(super) use drop_spots::SidebarDropSpot;
-pub(super) use entries::{computer_entries, recent_and_bin_entries, sidebar_entries, Section};
-use entries::{RowLevel, RowTarget, SidebarEntry};
+pub(super) use entries::{recent_and_bin_entries, sidebar_entries};
+use entries::{RowLevel, RowTarget, Section, SidebarEntry};
 
 /// Whether a row shows something hidden, listed while "Show all
 /// entries" is on (SIDE-010).
@@ -98,7 +99,8 @@ mod imp {
         /// Whether anything is hidden, which "Show all entries" lists.
         pub(super) anything_hidden: Cell<bool>,
         /// The sections collapsed with their chevron or the arrow keys
-        /// (SIDE-033).
+        /// (SIDE-033). Network starts collapsed, as in Windows 11, where
+        /// expanding it looks for the computers on the network.
         pub(super) collapsed: RefCell<Vec<Section>>,
         /// The collapsed section a drag is held over, and the wait before
         /// it expands (DND-027).
@@ -118,6 +120,7 @@ mod imp {
     impl ObjectImpl for Sidebar {
         fn constructed(&self) {
             self.parent_constructed();
+            self.collapsed.replace(vec![Section::Network]);
             self.obj().build_pane();
         }
 
@@ -746,6 +749,7 @@ mod tests {
             pinned: false,
             menu: None,
             eject: None,
+            expander: None,
         }
     }
 

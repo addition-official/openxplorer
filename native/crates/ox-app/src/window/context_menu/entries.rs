@@ -1028,9 +1028,20 @@ fn compact_item_menu(facts: &ItemFacts) -> ContextMenu {
     // A network computer, as Windows 11 lists it (build 26200): Open, Open
     // in new tab, Open in new window, Pin to Quick access, then "Show more
     // options"; its share list has nothing to cut, compress or describe.
+    // Create shortcut puts the shortcut on the Desktop, as Windows offers
+    // when it cannot make one in Network. A computer has no Properties
+    // (B4).
     if facts.location == ItemLocation::SmbServer {
         let mut entries = vec![open_item(facts)];
         entries.extend(folder_open_items(facts));
+        entries.push(
+            item(
+                ox_core::i18n::gettext_static("Create shortcut"),
+                Icon::Link,
+                WindowAction::SendToDesktop,
+            )
+            .into(),
+        );
         entries.extend([MenuEntry::Divider, show_more_options_item()]);
         return ContextMenu {
             entries,
@@ -1463,7 +1474,10 @@ pub(crate) fn page_background_menu(
             };
             vec![vec![view, gray(sort), gray(group)], steps.rows()]
         }
-        Page::Network | Page::Settings => vec![vec![view, sort, group, refresh_item()]],
+        // Network's: View, Sort by and Group by, as Windows 11 lists them
+        // there (build 26200).
+        Page::Network => vec![vec![view, sort, group]],
+        Page::Settings => vec![vec![view, sort, group, refresh_item()]],
     };
     let mut groups = groups;
     if style == MenuStyle::Compact {
@@ -2433,6 +2447,7 @@ mod tests {
                 "Open in new tab",
                 "Open in new window",
                 "Pin to Quick access",
+                "Create shortcut",
                 "-",
                 "Show more options"
             ]

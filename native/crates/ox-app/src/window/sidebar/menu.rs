@@ -180,6 +180,7 @@ fn open_elsewhere_items(uri: &str) -> Vec<MenuEntry> {
     ]
 }
 
+/// "Open in new tab" and "Open in new window" for `uri`.
 /// The menu of This PC's or Network's row, which opens `uri`, laid out as
 /// Windows 11's navigation pane lays it out. Windows' Pin to Quick access
 /// and Pin to Start are left out: the app cannot pin a page and has no
@@ -469,12 +470,9 @@ impl Sidebar {
                 ));
             }
         }
-        // Home, Gallery and the computers under Network with their
-        // shared folders open in a new tab or window, as every node of
+        // Home and Gallery open in a new tab or window, as every node of
         // Windows 11's navigation pane does.
-        let opens_elsewhere = entry.section == Section::Home
-            || matches!(entry.level, RowLevel::Computer { .. } | RowLevel::Share);
-        if opens_elsewhere && entry.menu.is_none() {
+        if entry.section == Section::Home && entry.menu.is_none() {
             if let RowTarget::Location(uri) = &entry.target {
                 let mut entries = open_elsewhere_items(uri);
                 // Home also pins the folder shown, as Windows 11's "Pin
