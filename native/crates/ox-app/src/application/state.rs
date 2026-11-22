@@ -724,7 +724,7 @@ mod tests {
 
         app.state.activate(&application());
 
-        let mut opened: Vec<Vec<String>> = browser_windows().iter().map(|window| window.tab_uris()).collect();
+        let mut opened: Vec<Vec<String>> = browser_windows().iter().map(BrowserWindow::tab_uris).collect();
         opened.sort();
         let mut expected = vec![
             vec![fixture.uri(), fixture.uri_of("Documents")],
