@@ -5681,6 +5681,11 @@ msgstr ""
 msgid "Recycle Bin"
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/crumb_menus.rs
+msgid "Show all {count} folders"
+msgstr ""
+
 #: crates/ox-app/src/window/crumb_menus.rs
 msgid "Show subfolders"
 msgstr ""
