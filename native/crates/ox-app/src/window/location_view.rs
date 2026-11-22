@@ -19,6 +19,7 @@ use ox_core::places::{KnownFolder, NetworkLocation, Place};
 
 use crate::icons::{Art, Icon, Storage, Tint};
 use crate::locations::Page;
+use crate::volumes::VolumeKind;
 
 use super::address_bar::CrumbButton;
 use super::command_bar::{FolderPin, MoreMenuState, MorePlace, NetworkDrive};
@@ -50,6 +51,8 @@ pub(super) fn address_icon(uri: &str, home_uri: &str) -> Icon {
     }
     if location::same_location(uri, home_uri) {
         Icon::Home
+    } else if is_drive_root(uri) {
+        Icon::HardDrive
     } else if is_archive_location(uri) {
         Icon::FolderZip
     } else if is_server_location(uri) {
@@ -106,17 +109,88 @@ pub(super) fn step_icon(uri: &str, home_uri: &str, is_search: bool) -> Icon {
 /// `renderNavigation` divides them. Inside the home folder they start at
 /// it, as "Home › Documents" in Dolphin and Explorer, unless `full_path`
 /// asks for the path from `/` (NAV-024).
-pub(super) fn crumb_buttons(locations: &LocationContext, uri: &str, full_path: bool) -> Vec<CrumbButton> {
+/// A mounted drive the address bar names in its crumbs, as This PC names
+/// it: its root, and its name.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct DriveCrumb {
+    /// The drive's canonical root.
+    pub(super) root: String,
+    /// Its name, as This PC and the navigation pane show it.
+    pub(super) label: String,
+}
+
+impl DriveCrumb {
+    /// The drives among `volumes` whose crumbs start at them: mounted
+    /// drives on this computer other than Local Disk, which a path below
+    /// shows from `/`.
+    pub(super) fn of_volumes(volumes: &[crate::volumes::VolumeRow]) -> Vec<DriveCrumb> {
+        volumes
+            .iter()
+            .filter(|row| row.kind == crate::volumes::VolumeKind::Drive && !row.is_network())
+            .filter_map(|row| {
+                let root = row.uri()?;
+                (root.starts_with("file:") && !location::same_location(root, "file:///")).then(|| {
+                    DriveCrumb {
+                        root: root.to_owned(),
+                        label: row.label.clone(),
+                    }
+                })
+            })
+            .collect()
+    }
+}
+
+pub(super) fn crumb_buttons(
+    locations: &LocationContext,
+    uri: &str,
+    full_path: bool,
+    known_folders: &[Place],
+    drives: &[DriveCrumb],
+) -> Vec<CrumbButton> {
     let mut breadcrumbs = locations.breadcrumbs(uri);
     let home = locations.home_uri();
+    // A standard folder and what is inside it start at the standard
+    // folder, as Windows 11 File Explorer shows "Documents > Letters"
+    // (NAV-024); other folders below the home folder start at Home.
+    let standard_at = breadcrumbs.iter().enumerate().rev().find_map(|(index, crumb)| {
+        let place = known_folders.iter().find(|place| {
+            place
+                .known_folder
+                .is_some_and(|folder| KnownFolder::QUICK_ACCESS.contains(&folder))
+                && !location::same_location(&place.uri, &home)
+                && location::same_location(&place.uri, &crumb.uri)
+        })?;
+        Some((index, place.label.clone()))
+    });
     let home_at = breadcrumbs
         .iter()
         .position(|crumb| location::same_location(&crumb.uri, &home))
-        .filter(|&index| !full_path && index > 0);
-    let skipped = home_at.unwrap_or(0);
-    if let Some(index) = home_at {
+        .map(|index| (index, locations.title_for(&home)));
+    // A drive mounted on this computer, a USB stick most often, and what
+    // is inside it start at This PC and the drive, as Windows 11 File
+    // Explorer shows "This PC > USB Drive (E:) > Photos": the drive is
+    // the closest place, unless a standard folder or Home is inside it.
+    let drive_at = breadcrumbs.iter().enumerate().rev().find_map(|(index, crumb)| {
+        let drive = drives
+            .iter()
+            .find(|drive| location::same_location(&drive.root, &crumb.uri))?;
+        Some((index, drive.label.clone()))
+    });
+    let place_at = standard_at.or(home_at);
+    let is_drive_closest = drive_at
+        .as_ref()
+        .is_some_and(|(drive, _)| place_at.as_ref().is_none_or(|(place, _)| drive > place));
+    let start =
+        if is_drive_closest { drive_at } else { place_at }.filter(|&(index, _)| !full_path && index > 0);
+    let mut skipped = start.as_ref().map_or(0, |(index, _)| *index);
+    if let Some((index, label)) = start {
         breadcrumbs.drain(..index);
-        breadcrumbs[0].label = locations.title_for(&home);
+        breadcrumbs[0].label = label;
+        if is_drive_closest {
+            let this_pc = Page::ThisPc;
+            breadcrumbs.insert(0, ox_core::location::Crumb::new(this_pc.title(), this_pc.uri()));
+            skipped -= 1;
+        }
     }
     breadcrumbs
         .into_iter()
@@ -158,6 +232,17 @@ fn listed_place_glyph(uri: &str) -> Option<Icon> {
     }
 }
 
+/// What a tab's icon depends on besides its location: the network
+/// locations of the navigation pane, the standard folders of Quick access
+/// and the roots of the mounted drives.
+pub(in crate::window) type TabPlaces<'a> = (&'a [NetworkLocation], &'a [Place], &'a [String]);
+
+/// Whether `uri` is the root of the file system, which the navigation pane
+/// and This PC show as the Local Disk.
+fn is_drive_root(uri: &str) -> bool {
+    location::same_location(uri, "file:///")
+}
+
 /// The standard folder with a navigation pane glyph of its own (Desktop,
 /// Downloads, Documents, Pictures, Music, Videos) that `known_folders`,
 /// the Quick access rows of the standard folders, place at `uri`.
@@ -181,12 +266,11 @@ fn standard_folder_at(uri: &str, known_folders: &[Place]) -> Option<KnownFolder>
 /// devices, the colour folder everywhere else, and for a network location
 /// (SMB, or a folder under a kernel CIFS/SMB3 mount, NET-006) the location
 /// on the network bar as its row of `network` shows it in the sidebar.
-fn tab_icon(
-    uri: &str,
-    locations: &LocationContext,
-    network: &[NetworkLocation],
-    known_folders: &[Place],
-) -> Art {
+/// The root of the file system, the Local Disk, and the root of a mounted
+/// drive of `drives` show the drive, as their navigation pane rows do and
+/// Windows 11's tab of a drive does.
+pub(in crate::window) fn tab_icon(uri: &str, locations: &LocationContext, places: TabPlaces<'_>) -> Art {
+    let (network, known_folders, drives) = places;
     match Page::from_uri(uri) {
         Some(page @ (Page::Home | Page::Network | Page::Settings)) => return Art::Glyph(page.icon()),
         Some(Page::ThisPc) => return Art::TintedGlyph(Page::ThisPc.icon(), Tint::ThisPc),
@@ -214,6 +298,8 @@ fn tab_icon(
     }
     if is_device_location(uri) {
         Art::Glyph(Icon::Phone)
+    } else if is_drive_root(uri) || drives.iter().any(|drive| location::same_location(drive, uri)) {
+        Art::Glyph(Icon::HardDrive)
     } else if is_archive_location(uri) {
         Art::ZipFolder
     } else if locations.is_network_location(uri) {
@@ -231,11 +317,10 @@ fn tab_view(
     tab: &Tab,
     session: &Session,
     locations: &LocationContext,
-    places: (&[NetworkLocation], &[Place]),
+    places: TabPlaces<'_>,
     names_query: bool,
     busy: bool,
 ) -> TabView {
-    let (network, known_folders) = places;
     let uri = tab.uri();
     let is_search = tab.history.current_search().is_some();
     let mut tooltip = locations.display_location(uri);
@@ -250,7 +335,7 @@ fn tab_view(
         icon: if is_search {
             Art::Glyph(Icon::Search)
         } else {
-            tab_icon(uri, locations, network, known_folders)
+            tab_icon(uri, locations, places)
         },
         active: session.is_active(tab.id),
         previous_version: None,
@@ -302,7 +387,8 @@ impl BrowserWindow {
         self.set_action_enabled(WindowAction::PinFolder, !on_page && !in_zip);
         self.render_address(uri);
         let search = self.search_box();
-        search.set_folder_title(&title);
+        // "Search PC" for a computer, whose tab says "\\\\PC".
+        search.set_folder_title(title.trim_start_matches('\\'));
         // Windows 11's Home searches the home folder (HOME-035); the other
         // pages search nothing.
         let searches_home = Page::from_uri(uri) == Some(Page::Home);
@@ -464,7 +550,9 @@ impl BrowserWindow {
         let full_path = self.shows_full_path();
         let is_search = self.current_uri().as_deref() == Some(uri) && self.shows_search_step();
         let locations = self.imp().locations.borrow();
-        let mut crumbs = crumb_buttons(&locations, uri, full_path);
+        let known_folders = self.context().known_folders();
+        let drives = DriveCrumb::of_volumes(&self.imp().volumes.borrow());
+        let mut crumbs = crumb_buttons(&locations, uri, full_path, &known_folders, &drives);
         if is_search {
             crumbs.push(search_crumb(&locations, uri));
         }
@@ -477,6 +565,15 @@ impl BrowserWindow {
     pub(super) fn render_tabs(&self) {
         let network = self.network_locations();
         let known_folders = self.context().known_folders();
+        // The mounted drives' roots, whose tabs show the drive.
+        let drives: Vec<String> = self
+            .imp()
+            .volumes
+            .borrow()
+            .iter()
+            .filter(|row| row.kind == VolumeKind::Drive && !row.is_network())
+            .filter_map(|row| row.uri().map(str::to_owned))
+            .collect();
         let names_query = !self.shows_search_filter_bar();
         let searching = self.is_searching() && self.imp().search.borrow().is_running();
         let mut views: Vec<TabView> = {
@@ -489,7 +586,7 @@ impl BrowserWindow {
                     tab,
                     &session,
                     &locations,
-                    (&network, &known_folders),
+                    (&network, &known_folders, &drives),
                     names_query,
                     busy,
                 )
@@ -548,7 +645,7 @@ mod tests {
     fn crumbs_start_at_home_unless_the_full_path_is_asked_for() {
         let locations = crate::locations::location_context("/home/demo".into(), &[]);
         let shown = |uri: &str, full_path: bool| -> Vec<(String, Option<&str>)> {
-            let crumbs = crumb_buttons(&locations, uri, full_path);
+            let crumbs = crumb_buttons(&locations, uri, full_path, &[], &[]);
             crumbs
                 .into_iter()
                 .map(|button| (button.crumb.label, button.divider_before))
@@ -570,6 +667,82 @@ mod tests {
         assert_eq!(
             outside,
             [crumb("/", None), crumb("srv", None), crumb("media", Some("/"))]
+        );
+    }
+
+    /// Inside a USB stick or another drive mounted on this computer, the
+    /// crumbs start at This PC and the drive's name, as Windows 11 File
+    /// Explorer shows "This PC > USB Drive (E:) > Photos" (NAV-024: the
+    /// closest place); the full path still shows from `/` when asked for,
+    /// and Local Disk's folders still start at `/`.
+    ///
+    /// parity: NAV-024, DEV-004
+    #[test]
+    fn crumbs_inside_a_drive_start_at_this_pc_and_the_drive() {
+        let locations = crate::locations::location_context("/home/demo".into(), &[]);
+        let drives = [DriveCrumb {
+            root: "file:///media/demo/1A2B-3C4D".to_owned(),
+            label: "Holiday stick".to_owned(),
+        }];
+        let shown = |uri: &str, full_path: bool| -> Vec<(String, String)> {
+            crumb_buttons(&locations, uri, full_path, &[], &drives)
+                .into_iter()
+                .map(|button| (button.crumb.label, button.crumb.uri))
+                .collect()
+        };
+        let crumb = |label: &str, uri: &str| (label.to_owned(), uri.to_owned());
+
+        assert_eq!(
+            shown("file:///media/demo/1A2B-3C4D/Photos/2026", false),
+            [
+                crumb("This PC", ox_core::location::PC_URI),
+                crumb("Holiday stick", "file:///media/demo/1A2B-3C4D"),
+                crumb("Photos", "file:///media/demo/1A2B-3C4D/Photos"),
+                crumb("2026", "file:///media/demo/1A2B-3C4D/Photos/2026"),
+            ]
+        );
+        assert_eq!(
+            shown("file:///media/demo/1A2B-3C4D", false),
+            [
+                crumb("This PC", ox_core::location::PC_URI),
+                crumb("Holiday stick", "file:///media/demo/1A2B-3C4D"),
+            ]
+        );
+        assert_eq!(
+            shown("file:///media/demo/1A2B-3C4D/Photos", true)[0],
+            crumb("/", "file:///")
+        );
+        assert_eq!(shown("file:///media/demo", false)[0], crumb("/", "file:///"));
+    }
+
+    /// Up from the root of a USB stick opens This PC, where its crumbs
+    /// start, as in Windows 11 File Explorer; inside it, it opens the
+    /// parent folder, and with the full path shown it goes up the path.
+    ///
+    /// parity: NAV-024, DEV-004
+    #[test]
+    fn up_from_a_drives_root_opens_this_pc() {
+        let up_from = super::super::navigation::up_from;
+        let drives = [DriveCrumb {
+            root: "file:///media/demo/1A2B-3C4D".to_owned(),
+            label: "Holiday stick".to_owned(),
+        }];
+
+        assert_eq!(
+            up_from("file:///media/demo/1A2B-3C4D", &drives, false).as_deref(),
+            Some(ox_core::location::PC_URI)
+        );
+        assert_eq!(
+            up_from("file:///media/demo/1A2B-3C4D/Photos", &drives, false).as_deref(),
+            Some("file:///media/demo/1A2B-3C4D")
+        );
+        assert_eq!(
+            up_from("file:///media/demo/1A2B-3C4D", &drives, true).as_deref(),
+            Some("file:///media/demo")
+        );
+        assert_eq!(
+            up_from("file:///media/demo", &drives, false).as_deref(),
+            Some("file:///media")
         );
     }
 
@@ -598,6 +771,14 @@ mod tests {
                 uri: "smb://nas/media",
                 tab: Art::SHARE,
                 address: Icon::Organization,
+            },
+            // The root of the file system is the Local Disk of the
+            // navigation pane and This PC, whose drive it shows, as
+            // Windows 11 File Explorer's tab of a drive does.
+            IconCase {
+                uri: "file:///",
+                tab: Art::Glyph(Icon::HardDrive),
+                address: Icon::HardDrive,
             },
             IconCase {
                 uri: "mtp://%5Busb%3A001%2C010%5D/",
@@ -648,10 +829,37 @@ mod tests {
         ];
         let locations = LocationContext::default();
         for case in cases {
-            assert_eq!(tab_icon(case.uri, &locations, &[], &[]), case.tab, "{}", case.uri);
+            assert_eq!(
+                tab_icon(case.uri, &locations, (&[], &[], &[])),
+                case.tab,
+                "{}",
+                case.uri
+            );
             let address = address_icon(case.uri, "file:///home/demo");
             assert_eq!(address, case.address, "{}", case.uri);
         }
+    }
+
+    /// The tab of a mounted drive's root shows the drive, as its row in
+    /// the navigation pane and its tile on This PC do; a folder on the
+    /// drive keeps the folder.
+    ///
+    /// parity: TAB-010, DEV-004
+    #[test]
+    fn the_tab_of_a_drive_shows_the_drive() {
+        let locations = LocationContext::default();
+        let drives = ["file:///media/demo/Backup%20Drive".to_owned()];
+        let tab_on = |uri: &str| tab_icon(uri, &locations, (&[], &[], &drives));
+        assert_eq!(
+            tab_on("file:///media/demo/Backup%20Drive"),
+            Art::Glyph(Icon::HardDrive)
+        );
+        assert_eq!(
+            tab_on("file:///media/demo/Backup%20Drive/"),
+            Art::Glyph(Icon::HardDrive)
+        );
+        assert_eq!(tab_on("file:///media/demo/Backup%20Drive/Photos"), Art::Folder);
+        assert_eq!(tab_on("file:///"), Art::Glyph(Icon::HardDrive));
     }
 
     /// The tab of a standard folder shows its navigation pane glyph, on
@@ -679,7 +887,7 @@ mod tests {
             network_mounts: vec!["/mnt/nas".into()],
             ..LocationContext::default()
         };
-        let tab_on = |uri: &str| tab_icon(uri, &locations, &[], &known_folders);
+        let tab_on = |uri: &str| tab_icon(uri, &locations, (&[], &known_folders, &[]));
         assert_eq!(
             tab_on("file:///home/demo/Downloads/"),
             Art::for_known_folder(KnownFolder::Downloads)
@@ -712,7 +920,7 @@ mod tests {
             ..LocationContext::default()
         };
         assert_eq!(
-            tab_icon("file:///home/demo/", &locations, &[], &known_folders),
+            tab_icon("file:///home/demo/", &locations, (&[], &known_folders, &[])),
             Art::Glyph(Page::Home.icon())
         );
     }
@@ -763,7 +971,7 @@ mod tests {
             let mut session = Session::default();
             let id = session.add(case.uri, super::super::session::TabPlacement::Foreground);
             let tab = session.tab(id).expect("the tab was added");
-            let view = tab_view(tab, &session, &locations, (&[], &[]), true, false);
+            let view = tab_view(tab, &session, &locations, (&[], &[], &[]), true, false);
             assert_eq!(view.title, case.title, "{}", case.uri);
             assert_eq!(view.tooltip, case.tooltip, "{}", case.uri);
             assert!(view.active);
@@ -781,7 +989,7 @@ mod tests {
         let mapped_drive = studio_nas_mapped_drive();
         let network = [server.clone(), mapped_drive.clone()];
         let locations = LocationContext::default();
-        let tab_on = |uri: &str| tab_icon(uri, &locations, &network, &[]);
+        let tab_on = |uri: &str| tab_icon(uri, &locations, (&network, &[], &[]));
         assert_eq!(tab_on(&server.uri), Art::for_network_row(&server));
         assert_eq!(tab_on(&mapped_drive.uri), Art::for_network_row(&mapped_drive));
         assert_eq!(tab_on("smb://studio-nas/projects/2024"), Art::SHARE);
@@ -800,7 +1008,7 @@ mod tests {
             network_mounts: vec!["/mnt/nas".into()],
             ..LocationContext::default()
         };
-        let tab_on = |uri: &str| tab_icon(uri, &locations, &[], &[]);
+        let tab_on = |uri: &str| tab_icon(uri, &locations, (&[], &[], &[]));
         assert_eq!(tab_on("file:///mnt/nas"), Art::SHARE);
         assert_eq!(tab_on("file:///mnt/nas/Projects"), Art::SHARE);
         assert_eq!(tab_on("file:///mnt/nas-other"), Art::Folder);

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! A folder the user went to that may not be read: as Windows 11 does, the
 //! tab stays where it was and "Location is not available" says
-//! "<path> is not accessible. Access is denied.", with the system's own
-//! error under Details. app.js showed the "This location is unavailable"
+//! "<path> is not accessible. Access is denied." in a message box with the
+//! error icon and one OK, as Windows' says it, with nothing under it.
+//! app.js showed the "This location is unavailable"
 //! page with the raw error, which a tab with nowhere to stay (a new tab or
 //! window, Back or Forward to the folder, a reload) and a network location
 //! still show.
@@ -86,26 +87,18 @@ impl BrowserWindow {
         // A search the tab came from shows again, as Back shows it.
         self.show_step_search();
         let path = self.imp().locations.borrow().display_location(&run.uri);
-        let details = error.to_string();
+        glib::g_debug!(ox_core::LOG_DOMAIN, "{path} is not accessible: {error}");
         glib::spawn_future_local(glib::clone!(
             #[weak(rename_to = window)]
             self,
-            async move { window.say_location_is_not_available(&path, &details).await }
+            async move { window.say_location_is_not_available(&path).await }
         ));
     }
 
-    /// "Location is not available" for `path`, with `details`, the
-    /// system's error, under Details for diagnosis.
-    async fn say_location_is_not_available(&self, path: &str, details: &str) {
-        let dialog = Dialog::new(self, ox_core::i18n::gettext_static(TITLE), &denied_message(path));
-        let text = gtk::Label::new(Some(details));
-        text.set_xalign(0.0);
-        text.set_wrap(true);
-        text.set_wrap_mode(gtk::pango::WrapMode::WordChar);
-        text.set_selectable(true);
-        let expander = gtk::Expander::new(Some(&gettext("Details")));
-        expander.set_child(Some(&text));
-        dialog.add_field(&expander);
+    /// "Location is not available" for `path`, in Windows' message box:
+    /// the error icon, the message and OK.
+    async fn say_location_is_not_available(&self, path: &str) {
+        let dialog = Dialog::error_box(self, ox_core::i18n::gettext_static(TITLE), &denied_message(path));
         dialog.add_button(&gettext("OK"), ButtonStyle::Accent);
         dialog.open();
         dialog.next_response().await;

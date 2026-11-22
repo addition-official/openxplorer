@@ -20,6 +20,7 @@
 //! being formatted and the quick writes, which wait for each other in
 //! every window ([`write_holds`]).
 
+mod clipboard_keeper;
 mod default_open;
 mod desktop_bookmarks;
 mod external_open;
@@ -163,9 +164,20 @@ mod imp {
         /// The progress window of the running file operations, while one
         /// is open.
         pub(super) progress_window: RefCell<Option<crate::window::ProgressWindow>>,
+        /// Keeps the application running while it owns the desktop's
+        /// clipboard, so what Copy and Cut put there outlives the last
+        /// window (CLIP-010).
+        pub(super) clipboard_keeper: RefCell<Option<super::clipboard_keeper::Keeper>>,
+        /// The items pastes of the latest cut moved, and that cut's token:
+        /// a clipboard manager that puts the cut back offers no cut
+        /// (CLIP-008).
+        pub(super) moved_cut: RefCell<super::clipboard_keeper::MovedCut>,
         /// GNOME's privacy settings, which say what may be remembered of
         /// the files opened, when the desktop has them.
         pub(super) privacy: RefCell<Option<gtk::gio::Settings>>,
+        /// The addresses typed into every window's address bar, read from
+        /// the settings folder when first asked for (NAV-043).
+        pub(super) typed_addresses: RefCell<Option<ox_core::typed_addresses::TypedAddresses>>,
         /// In tests, the files that would have been opened.
         #[cfg(test)]
         pub(super) recorded_launches: RefCell<Option<Vec<String>>>,
@@ -566,6 +578,40 @@ impl AppContext {
             callback();
             None
         })
+    }
+
+    /// The addresses typed into the address bar of any window, most
+    /// recent first, as Windows keeps them for the user (NAV-043).
+    pub(crate) fn typed_addresses(&self) -> Vec<String> {
+        self.with_typed_addresses(|history| history.addresses().to_vec())
+    }
+
+    /// Puts `address`, typed and accepted in some window, at the top of
+    /// the typed addresses, and saves them. Saving is best effort: the
+    /// address already opened.
+    pub(crate) fn remember_typed_address(&self, address: &str) {
+        self.with_typed_addresses(|history| {
+            let _ = history.remember(address);
+        });
+    }
+
+    /// Forgets the typed addresses, on disk too (Clear history).
+    pub(crate) fn forget_typed_addresses(&self) {
+        self.with_typed_addresses(|history| {
+            let _ = history.clear();
+        });
+    }
+
+    /// Runs `use_history` on the typed addresses, reading them first.
+    fn with_typed_addresses<T>(
+        &self,
+        use_history: impl FnOnce(&mut ox_core::typed_addresses::TypedAddresses) -> T,
+    ) -> T {
+        let mut slot = self.imp().typed_addresses.borrow_mut();
+        let history = slot.get_or_insert_with(|| {
+            ox_core::typed_addresses::TypedAddresses::open(&self.settings_directory())
+        });
+        use_history(history)
     }
 
     /// Records `recent` at the top of the recently opened files.

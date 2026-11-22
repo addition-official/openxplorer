@@ -146,7 +146,13 @@ impl ChoiceList {
     /// A bordered button with the chosen option's label and a chevron,
     /// which opens the list.
     fn new_button(&self) -> gtk::MenuButton {
-        let label = gtk::Label::builder().xalign(0.0).hexpand(true).build();
+        // A choice longer than the row has room for ends in "…" rather
+        // than widening the page; the list shows it whole.
+        let label = gtk::Label::builder()
+            .xalign(0.0)
+            .hexpand(true)
+            .ellipsize(gtk::pango::EllipsizeMode::End)
+            .build();
         let content = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         content.append(&label);
         content.append(&icons::image(Icon::ChevronDown16, CHEVRON_GLYPH));
@@ -160,6 +166,7 @@ impl ChoiceList {
             .valign(gtk::Align::Center)
             .css_classes(["choice-button"])
             .build();
+        crate::accessible_names::describe_menu_button(&button, None);
         self.imp().button.set(Some(&button));
         button
     }
@@ -201,7 +208,18 @@ impl ChoiceList {
             label.set_text(&chosen);
         }
         if let Some(button) = self.imp().button.upgrade() {
-            button.update_property(&[gtk::accessible::Property::Description(&chosen)]);
+            // The toggle inside takes the keyboard, so it says the choice
+            // too. Named after the choice unless a row's title names it,
+            // never after the open list inside the button.
+            let toggle = crate::accessible_names::menu_button_toggle(&button);
+            let named = [Some(button.upcast()), toggle.map(Cast::upcast)];
+            for widget in named.iter().flatten() {
+                let widget: &gtk::Widget = widget;
+                widget.update_property(&[
+                    gtk::accessible::Property::Label(&chosen),
+                    gtk::accessible::Property::Description(&chosen),
+                ]);
+            }
         }
         let selected = self.selected();
         let mut position = 0;

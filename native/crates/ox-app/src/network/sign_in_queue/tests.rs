@@ -244,10 +244,7 @@ fn a_retry_says_why_and_a_server_that_cannot_save_offers_no_remember() {
 
     let retry = fixture.ask_password(&operation, flags);
 
-    assert_shows(
-        &retry,
-        &["The previous sign-in was not accepted. Check your username and password."],
-    );
+    assert_shows(&retry, &["The user name or password is incorrect."]);
     let remember = descendants::<gtk::CheckButton>(&retry);
     assert!(!remember[0].is_active() && !remember[0].is_sensitive());
     fixture.prompts.finish(&operation, MountOutcome::Failed);
@@ -279,6 +276,53 @@ fn a_question_offers_its_answers_and_cancel() {
 
     assert_eq!(*replies.borrow(), [gio::MountOperationResult::Handled]);
     assert_eq!(operation.choice(), 1);
+    fixture.prompts.finish(&operation, MountOutcome::Failed);
+}
+
+/// An SSH host key's long question keeps every answer on screen: the
+/// message scrolls, and the buttons stay inside the dialog (B2).
+///
+/// parity: NET-013
+#[gtk::test]
+fn a_long_question_keeps_its_answers_visible() {
+    let fixture = PromptsFixture::new();
+    let (operation, _replies) = fixture.mount();
+    let choices = glib::StrV::from(vec!["Log In Anyway", "Cancel Login"]);
+    let message = "The identity of the remote computer (harbornas.local) is unknown.\n\
+        This happens when you log in to a computer the first time.\n\n"
+        .to_owned()
+        + &"The identity sent by the remote computer is SHA256:AAAABBBBCCCCDDDDEEEEFFFF.\n".repeat(30);
+
+    operation.emit_by_name::<()>("ask-question", &[&message, &choices]);
+    let dialog = fixture.shown();
+    dialog.present();
+    settle();
+
+    let height = f64::from(dialog.height());
+    // The answers row; the footer's own Cancel is hidden for a question.
+    let buttons: Vec<gtk::Button> = descendants::<gtk::Button>(&dialog)
+        .into_iter()
+        .filter(|button| {
+            button
+                .parent()
+                .is_some_and(|row| row.has_css_class("sign-in-choices"))
+        })
+        .collect();
+    let labels: Vec<String> = buttons
+        .iter()
+        .filter_map(|button| button.label().map(Into::into))
+        .collect();
+    assert_eq!(labels, ["Log In Anyway", "Cancel Login", "Cancel"]);
+    for button in buttons {
+        let bounds = button.compute_bounds(&dialog).expect("the button is drawn");
+        assert!(
+            bounds.y() >= 0.0 && f64::from(bounds.y() + bounds.height()) <= height,
+            "{:?} at {:?} is outside the {height}-pixel dialog",
+            button.label(),
+            bounds
+        );
+    }
+    dialog.press_choice(2);
     fixture.prompts.finish(&operation, MountOutcome::Failed);
 }
 

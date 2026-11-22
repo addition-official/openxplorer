@@ -54,7 +54,7 @@ pub(crate) enum Button {
 
 /// The tests' pointer, on the private X display. Dropping it releases
 /// the buttons it holds, so a test that fails mid-drag leaves none pressed
-/// for the next one.
+/// for the next one, and moves it off every window.
 #[derive(Debug)]
 pub(crate) struct Pointer {
     connection: UnixStream,
@@ -117,6 +117,18 @@ impl Pointer {
     pub(crate) fn release(&mut self, button: Button) {
         self.held.retain(|held| *held != button);
         self.fake(BUTTON_RELEASE, button as u8, 0, 0);
+    }
+
+    /// Presses and releases `button` where the pointer is in one go, as a
+    /// touchpad's tap or a quick click does: the X server has the release
+    /// before the window handles the press, so nothing the window does
+    /// after the press, such as an idle callback, comes before the release.
+    pub(crate) fn tap(&mut self, button: Button) {
+        let mut requests = self.fake_request(BUTTON_PRESS, button as u8, 0, 0);
+        requests.extend(self.fake_request(BUTTON_RELEASE, button as u8, 0, 0));
+        self.send(&requests);
+        self.sync();
+        wait_for(STEP_SETTLE);
     }
 
     /// Presses and releases `key` on the private display's keyboard.
@@ -292,6 +304,13 @@ impl Drop for Pointer {
             if self.connection.write_all(&request).is_err() {
                 return;
             }
+        }
+        // The pointer goes to the screen's far corner, off every window:
+        // left over a later test's window, it showed that window's
+        // tooltips, whose labels a test reads too.
+        let corner = self.fake_request(MOTION_NOTIFY, 0, self.screen.0 - 1, self.screen.1 - 1);
+        if self.connection.write_all(&corner).is_err() {
+            return;
         }
         let _ = self.connection.write_all(&[GET_INPUT_FOCUS, 0, 1, 0]);
         let mut reply = [0; 32];

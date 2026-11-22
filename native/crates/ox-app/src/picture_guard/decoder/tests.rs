@@ -340,6 +340,38 @@ fn the_pool_reuses_its_decoders_and_replaces_one_that_crashed() {
     assert_eq!(pid().map(|(pid, _)| pid), Some(second));
 }
 
+/// A decoder waiting for a picture is stopped once it has waited the
+/// limit; until then the pool says how long it still has, so the next
+/// check comes when it is due rather than a whole limit later.
+#[test]
+fn an_unused_decoder_is_stopped_when_its_time_is_up() {
+    let folder = tempfile::tempdir().expect("a temporary folder");
+    let path = saved_png(folder.path(), "Harbor.png", 120, 80);
+    let pool = Pool::new(child_words());
+    let file = std::fs::File::open(&path).expect("opened");
+    pool.decode(Source::Reader(Box::new(file)), 60, 60, Limits::DISPLAY, None)
+        .expect("decoded");
+    let waiting = pool.idle.lock().expect("the pool")[0].child.0.id();
+
+    std::thread::sleep(Duration::from_millis(1500));
+
+    let due = pool
+        .stop_unused(Duration::from_secs(10))
+        .expect("a decoder still waits");
+    assert!(
+        due <= Duration::from_millis(8600) && due > Duration::from_secs(7),
+        "the decoder that waited 1.5 s of 10 is due in {due:?}"
+    );
+    assert_eq!(pool.idle.lock().expect("the pool").len(), 1);
+
+    assert_eq!(pool.stop_unused(Duration::ZERO), None);
+    assert!(pool.idle.lock().expect("the pool").is_empty());
+    assert!(
+        !Path::new(&format!("/proc/{waiting}")).exists(),
+        "the decoder was stopped"
+    );
+}
+
 /// The answers' frames are found after other output, and one larger than
 /// its limit, cut short or missing is no answer.
 #[test]

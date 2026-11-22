@@ -17,6 +17,8 @@ use ox_core::location::{
     self, normalise_navigation, parent_location, ArchiveLocation, LocationError, VirtualPlace,
 };
 
+use ox_core::places::KnownFolder;
+
 use crate::history::{LeftView, SearchStep};
 use crate::locations::{self, Page};
 
@@ -96,6 +98,11 @@ impl BrowserWindow {
         if let Some(place) = self.place_titled(typed) {
             return Ok(place);
         }
+        // A mapped drive letter, `Z:\Plans`, is the share mapped to it, as
+        // in Windows (B1).
+        if let Some(mapped) = ox_core::location::mapped_drive_location(typed, &self.mapped_drives()) {
+            return Ok(mapped);
+        }
         if let Some(listed) = gio_folder_location(typed)? {
             return Ok(listed);
         }
@@ -119,6 +126,19 @@ impl BrowserWindow {
         }
     }
 
+    /// The letter and location of each share mapped to a drive letter
+    /// ("Projects (Z:)"), saved or for this session.
+    pub(super) fn mapped_drives(&self) -> Vec<(char, String)> {
+        self.places()
+            .network
+            .iter()
+            .filter_map(|location| {
+                let letter = crate::dialogs::drive_letter(&location.label)?.chars().next()?;
+                Some((letter, location.uri.clone()))
+            })
+            .collect()
+    }
+
     /// The place whose title is `typed` ("Home", "This PC", "Network",
     /// "Recycle Bin", "Recent", "Recent locations"), as the address bar
     /// shows them: "Home" leads where the navigation pane's Home does, the
@@ -134,6 +154,36 @@ impl BrowserWindow {
         Page::from_title(typed)
             .map(|page| page.uri().to_owned())
             .or_else(|| listed_place(VirtualPlace::from_title(typed)))
+    }
+
+    /// The standard folder (Desktop, Documents, Downloads, Music, Pictures
+    /// or Videos) that `typed` names, in English or as the navigation pane
+    /// names it, ignoring case and surrounding spaces, as Windows 11 File
+    /// Explorer opens the user's Documents when "Documents" is typed in any
+    /// folder; `None` for other text, and for a standard folder that is
+    /// the home folder itself.
+    pub(super) fn standard_folder_titled(&self, typed: &str) -> Option<String> {
+        let wanted = typed.trim().to_lowercase();
+        if wanted.is_empty() {
+            return None;
+        }
+        let home = self.home_location();
+        self.context()
+            .known_folders()
+            .into_iter()
+            .filter(|place| !location::same_location(&place.uri, &home))
+            .find(|place| {
+                let Some(folder) = place
+                    .known_folder
+                    .filter(|folder| KnownFolder::QUICK_ACCESS.contains(folder))
+                else {
+                    return false;
+                };
+                [folder.english_name(), folder.label(), place.label.as_str()]
+                    .iter()
+                    .any(|name| name.to_lowercase() == wanted)
+            })
+            .map(|place| place.uri)
     }
 
     /// `address` as a location, relative to the current folder, or to the
@@ -239,6 +289,10 @@ impl BrowserWindow {
         }
         if self.imp().session.borrow().is_active(id) {
             self.show_tab(id);
+            // As any other way of opening a folder does, a tab opened in
+            // front takes the keyboard into its list, also from the "+"
+            // button or for another application (SEL-020).
+            self.focus_files_after_navigation();
         } else {
             self.render_tabs();
         }
@@ -553,6 +607,14 @@ impl BrowserWindow {
         }
         self.context().reload_settings();
         self.save_selection();
+        // Refresh on Network or a computer reads the computers expanded in
+        // the navigation pane again too.
+        let on_network = self.current_uri().is_some_and(|uri| {
+            Page::from_uri(&uri) == Some(Page::Network) || ox_core::location::is_smb_server(&uri)
+        });
+        if on_network {
+            self.relist_expanded_computers();
+        }
         let active = self.imp().session.borrow().active_id();
         if let Some(id) = active {
             // The user asks for it: a share another application asked to
@@ -643,9 +705,15 @@ impl BrowserWindow {
         Some(tab.id)
     }
 
-    /// Opens the folder that contains the current one.
+    /// Opens the folder that contains the current one, or This PC from
+    /// the root of a drive (see [`up_from`]).
     pub(super) fn go_up(&self) {
-        let parent = self.current_uri().as_deref().and_then(parent_location);
+        let drives = super::location_view::DriveCrumb::of_volumes(&self.imp().volumes.borrow());
+        let full_path = self.shows_full_path();
+        let parent = self
+            .current_uri()
+            .as_deref()
+            .and_then(|uri| up_from(uri, &drives, full_path));
         if let Some(parent) = parent {
             self.navigate_or_report(&parent);
         }
@@ -667,6 +735,24 @@ impl BrowserWindow {
         }
         self.imp().locations.borrow().home_uri()
     }
+}
+
+/// Where Up leads from `uri`: the folder that contains it, but This PC
+/// from the root of one of `drives`, as Windows 11 File Explorer goes up
+/// from a USB drive to This PC, which the crumbs start at too, unless the
+/// address bar shows the `full_path`.
+pub(super) fn up_from(
+    uri: &str,
+    drives: &[super::location_view::DriveCrumb],
+    full_path: bool,
+) -> Option<String> {
+    let is_drive_root = drives
+        .iter()
+        .any(|drive| location::same_location(&drive.root, uri));
+    if is_drive_root && !full_path {
+        return Some(Page::ThisPc.uri().to_owned());
+    }
+    parent_location(uri)
 }
 
 /// The child of `ancestor` on the way down to `descendant`, as Up and the
