@@ -84,8 +84,8 @@ def make_photos(folder: Path, count: int, seed: int) -> None:
         for _ in range(30):
             x, y = rng.randrange(width), rng.randrange(height)
             radius = rng.randrange(40, 400)
-            colour = tuple(rng.randrange(256) for _ in range(3))
-            draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=colour)
+            color = tuple(rng.randrange(256) for _ in range(3))
+            draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=color)
         picture = picture.filter(ImageFilter.GaussianBlur(2))
         buffer = io.BytesIO()
         picture.save(buffer, 'JPEG', quality=88)

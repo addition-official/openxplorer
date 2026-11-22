@@ -1432,7 +1432,7 @@ mod tests {
         assert!(!started.exists(), "and no program is started for one");
     }
 
-    /// The colour of a texture's first pixel, as red, green and blue.
+    /// The color of a texture's first pixel, as red, green and blue.
     fn first_pixel(texture: &gdk::Texture) -> (u8, u8, u8) {
         let mut bytes = vec![0_u8; usize::try_from(texture.width() * texture.height() * 4).expect("small")];
         texture.download(&mut bytes, usize::try_from(texture.width() * 4).expect("small"));
@@ -1440,11 +1440,11 @@ mod tests {
         (bytes[2], bytes[1], bytes[0])
     }
 
-    /// A picture of 400 × 200 pixels of `colour`, at `name` in `folder`.
-    fn picture_at(folder: &Path, name: &str, colour: u32) -> PathBuf {
+    /// A picture of 400 × 200 pixels of `color`, at `name` in `folder`.
+    fn picture_at(folder: &Path, name: &str, color: u32) -> PathBuf {
         let path = folder.join(name);
         let pixels = Pixbuf::new(Colorspace::Rgb, false, 8, 400, 200).expect("a picture");
-        pixels.fill(colour);
+        pixels.fill(color);
         pixels.savev(&path, "png", &[]).expect("the picture");
         path
     }

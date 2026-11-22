@@ -503,7 +503,7 @@ fn a_batch_of_thumbnails_is_decoded_by_one_decoder() {
         }
     }
 
-    // A cancelled batch answers every picture as cancelled at once.
+    // A canceled batch answers every picture as canceled at once.
     let cancelled = gio::Cancellable::new();
     cancelled.cancel();
     let mut answers = Vec::new();
