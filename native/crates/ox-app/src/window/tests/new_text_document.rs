@@ -1013,3 +1013,59 @@ fn a_slow_creates_progress_window_shows_with_its_action() {
 
     assert!(shown, "the window shows with the action, not a second after it");
 }
+
+/// The labels of the template items `test`'s window lists in its New
+/// menus now.
+fn listed_templates(test: &TestWindow) -> Vec<String> {
+    test.window
+        .template_menu_entries()
+        .into_iter()
+        .filter_map(|entry| match entry {
+            crate::window::menu_popover::MenuEntry::Item(item) => Some(item.label),
+            crate::window::menu_popover::MenuEntry::Divider => None,
+        })
+        .collect()
+}
+
+/// A template put in the Templates folder while the window is open is in
+/// the folder menu's New the first time that menu opens, in both menu
+/// styles, as in the command bar's New: the menu that is open when the
+/// folder has been read again shows it. Before, the right-click menu
+/// kept the list it had when it opened, so the new template was missing
+/// until the menu opened again.
+///
+/// parity: OPS-003
+#[gtk::test]
+fn a_template_added_while_the_window_is_open_is_in_the_folder_menus_new_at_once() {
+    let _letter = UserTemplate::add("Letter.odt", b"letter");
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    wait_until("the templates to be read", || {
+        listed_templates(&test) == ["Letter"]
+    });
+
+    let styles = [
+        (ox_core::settings::ContextMenu::Win11, "Invoice.ods", "Invoice"),
+        (ox_core::settings::ContextMenu::Win10, "Memo.txt", "Memo"),
+    ];
+    let mut added = Vec::new();
+    for (style, file_name, label) in styles {
+        super::context_menus::choose_menu_style(&test, style);
+        added.push(UserTemplate::add(file_name, b"new template"));
+        test.window.right_click(None);
+        let menu = test.window.context_menu();
+        wait_until("the templates to be read again", || {
+            listed_templates(&test).iter().any(|listed| listed == label)
+        });
+        settle();
+
+        let new = menu.open_submenu_of("New");
+        assert!(
+            new.items_labels().iter().any(|listed| listed == label),
+            "{style:?}: {:?}",
+            new.items_labels()
+        );
+        menu.popdown();
+        settle();
+    }
+}

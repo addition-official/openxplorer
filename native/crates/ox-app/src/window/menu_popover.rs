@@ -582,6 +582,16 @@ impl MenuPopover {
         menu
     }
 
+    /// The menu's entries, dividers and submenus included.
+    pub(super) fn entries(&self) -> Vec<MenuEntry> {
+        self.imp().entries.borrow().clone()
+    }
+
+    /// Whether the menu has the classic look.
+    pub(super) fn is_classic(&self) -> bool {
+        self.imp().style.get() == MenuStyle::Classic
+    }
+
     /// Replaces the menu's entries.
     pub(super) fn set_entries(&self, entries: Vec<MenuEntry>) {
         self.imp().entries.replace(entries);
