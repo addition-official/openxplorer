@@ -1,0 +1,8 @@
+STATUS: RUNNING
+
+Long job B: overnight real-use soak of upstream main 5d21fd3e (release build).
+Started 2026-11-21 23:00:50 CST; runs until 06:30 CST, crossing midnight in
+America/Chicago. Isolated: unprivileged user, throwaway HOME, private Xvfb,
+D-Bus session, gnome-keyring, GVfs, AT-SPI bus, openbox, local Samba share.
+Driven with xdotool; metrics every minute (fine log) and every 15 minutes
+(the required CSV). Results, graphs and fixes follow at 06:30.
