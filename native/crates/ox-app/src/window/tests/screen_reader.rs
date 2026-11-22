@@ -387,3 +387,29 @@ fn a_new_tab_or_address_puts_the_keyboard_on_an_item_once_listed() {
     // The folder it came from is selected, as in Windows.
     check("the typed address", &["Documents"]);
 }
+
+/// A tile of the icon views is heard with its type and, for a file, its
+/// size and date, as its infotip shows them: Orca heard only "Notes 2".
+///
+/// parity: ACC-002
+#[gtk::test]
+fn a_tile_is_heard_with_its_type() {
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    test.activate("view", Some("large"));
+    let Some(bus) = AtSpi::connect(&test.window) else {
+        return;
+    };
+    let tile = |name: &str| {
+        let heard = bus.find("table cell", name);
+        assert_eq!(heard.len(), 1, "{name} is one tile: {heard:?}");
+        heard[0].description.replace('\u{a0}', " ")
+    };
+    let file = tile("Notes 2");
+    assert!(
+        file.starts_with("Type: Text Document, Size: 20 bytes, Date modified: "),
+        "{file}"
+    );
+    let folder = tile("Documents");
+    assert!(folder.starts_with("Type: File folder"), "{folder}");
+}
