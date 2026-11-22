@@ -25,7 +25,7 @@ fn selected_row(test: &TestWindow) -> gtk::Widget {
         .expect("a selected row is drawn")
 }
 
-/// With higher contrast, a selected item is ringed in the text colour, in
+/// With higher contrast, a selected item is ringed in the text color, in
 /// the light and the dark appearance, apart from the keyboard's ring:
 /// Windows 11's selection fill alone is #3d3d3d on #202020 in dark (1.5 to
 /// 1) and #cce8ff on white in light (1.2 to 1), and the item under the
@@ -34,7 +34,7 @@ fn selected_row(test: &TestWindow) -> gtk::Widget {
 ///
 /// parity: ACC-011
 #[gtk::test]
-fn high_contrast_rings_the_selection_in_the_text_colour() {
+fn high_contrast_rings_the_selection_in_the_text_color() {
     let fixture = Fixture::standard();
     let test = TestWindow::open(&fixture.uri());
     test.activate("view", Some("details"));
