@@ -413,7 +413,8 @@ fn running_offices() -> usize {
 
 /// Real keys (the X server's XTEST) move the selection through fifty
 /// mixed documents, quickly and then slowly, first with the Preview pane
-/// open and then with the Details pane: the window never freezes, the
+/// open, then with the Details pane, then in Large icons while every
+/// document's thumbnail is made: the window never freezes, the
 /// conversion of a document passed is stopped, the one stopped on shows
 /// its pages (or "No preview available." for a bad one), no `LibreOffice`
 /// is left running, and nothing is written beside the documents.
@@ -485,6 +486,24 @@ fn arrowing_through_fifty_documents_never_freezes_the_window() {
     }
     assert_eq!(position(), vec![0]);
     eprintln!("Details pane: the longest step was {longest:?}");
+    assert!(longest < LONGEST_STEP, "the window froze for {longest:?}");
+
+    // Large icons, where every document's thumbnail is made, while the
+    // keys move the selection on with the Preview pane open again.
+    test.activate("preview-pane", None);
+    test.activate("view", Some("large"));
+    test.window.folder_pane().focus_view();
+    let mut longest = Duration::ZERO;
+    for step in 0..30 {
+        pointer.tap_key(gdk::Key::Right);
+        let wait = if step % 3 == 0 { 600 } else { 60 };
+        longest = longest.max(run_and_time(Duration::from_millis(wait)));
+    }
+    // The first key after the view changes may only bring the selection
+    // into view.
+    assert!(position().first().is_some_and(|&at| at >= 25), "{:?}", position());
+    longest = longest.max(run_and_time(Duration::from_secs(3)));
+    eprintln!("Large icons while thumbnails are made: the longest step was {longest:?}");
     assert!(longest < LONGEST_STEP, "the window froze for {longest:?}");
     pointer.move_to(720, 500);
 
