@@ -71,10 +71,10 @@ fn drawn(title: &gtk::Widget) -> Vec<Vec<Pixel>> {
 }
 
 /// Whether two pixels differ visibly.
-fn differ(one: &Pixel, other: &Pixel) -> bool {
+fn differ(one: Pixel, other: Pixel) -> bool {
     one.iter()
         .zip(other)
-        .any(|(channel, background)| channel.abs_diff(*background) > 40)
+        .any(|(channel, background)| channel.abs_diff(background) > 40)
 }
 
 /// The inked pixels of `rows`, those that differ from the top-left
@@ -84,7 +84,7 @@ fn ink(rows: &[Vec<Pixel>], limit: usize) -> Vec<(usize, usize)> {
     let mut inked = Vec::new();
     for (y, row) in rows.iter().take(limit).enumerate() {
         for (x, pixel) in row.iter().enumerate() {
-            if differ(pixel, &background) {
+            if differ(*pixel, background) {
                 inked.push((x, y));
             }
         }
@@ -106,7 +106,9 @@ fn rows_above_text(title: &gtk::Widget) -> usize {
     let place = label.compute_bounds(title).expect("the label is laid out");
     // A 12-pixel label is centered in its box; its text starts below it.
     let text_top = place.y() + (place.height() - 16.0) / 2.0;
-    usize::try_from(text_top.floor() as i64).expect("the text is inside the title")
+    (0_u16..=u16::MAX)
+        .take_while(|row| f32::from(*row) + 1.0 <= text_top)
+        .count()
 }
 
 /// Each column's title, with the window sorted by Date modified, which is
@@ -154,7 +156,7 @@ fn windows_style_draws_no_accent_or_line_on_the_sorted_title() {
         for (y, (row, before)) in sorted.iter().zip(&unsorted).enumerate().skip(chevron_rows) {
             for (x, (pixel, was)) in row.iter().zip(before).enumerate() {
                 assert!(
-                    !differ(pixel, was),
+                    !differ(*pixel, *was),
                     "{direction}: the sorted title changed at ({x}, {y}): {pixel:?} for {was:?}"
                 );
             }
@@ -203,7 +205,7 @@ fn windows_style_shows_one_small_chevron_over_the_sorted_column() {
             assert!((6..=8).contains(&width), "{direction}: {width} wide");
             assert!((3..=5).contains(&height), "{direction}: {height} high");
             assert!(top <= 2, "{direction}: at the title's top edge, from row {top}");
-            let middle = (left + right) as f64 / 2.0;
+            let middle = f64::from(u32::try_from(left + right).expect("a narrow title")) / 2.0;
             // The title's whole width, its padding too; the divider's 1px
             // is at its right.
             let place = title.compute_bounds(&title).expect("the title is laid out");
@@ -249,6 +251,6 @@ fn the_apps_own_style_comes_back_with_its_accent() {
         .iter()
         .zip(&unsorted)
         .skip(chevron_rows)
-        .any(|(row, before)| row.iter().zip(before).any(|(pixel, was)| differ(pixel, was)));
+        .any(|(row, before)| row.iter().zip(before).any(|(pixel, was)| differ(*pixel, *was)));
     assert!(changed, "the app's own style marks a sort other than the default");
 }
