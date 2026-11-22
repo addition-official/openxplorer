@@ -445,7 +445,7 @@ mod tests {
     /// A share that stopped answering is named as Windows names it, and
     /// Details holds Windows' error code and its words, never GIO's or
     /// Samba's message: a server that does not answer or refuses is "The
-    /// network path was not found.", as Windows says it.
+    /// network name cannot be found.", as Windows 11 says it.
     ///
     /// parity: VIEW-047
     #[test]
@@ -464,7 +464,7 @@ mod tests {
         );
         assert_eq!(
             details.as_deref(),
-            Some("Error code: 0x80070035\nThe network path was not found.")
+            Some("Error code: 0x80070043\nThe network name cannot be found.")
         );
         let refused = EntryError::from(gtk::glib::Error::new(
             gtk::gio::IOErrorEnum::Failed,
@@ -476,7 +476,7 @@ mod tests {
         };
         assert_eq!(
             details.as_deref(),
-            Some("Error code: 0x80070035\nThe network path was not found.")
+            Some("Error code: 0x80070043\nThe network name cannot be found.")
         );
     }
 }

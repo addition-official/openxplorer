@@ -108,7 +108,7 @@ pub enum BraveError {
     )]
     Sandboxed,
     /// Reading or writing a file failed.
-    #[error("{}", crate::system_error::describe_io(error))]
+    #[error("{}: {}", path.display(), crate::system_error::describe_io(error))]
     Io {
         /// The file the operation was on.
         path: PathBuf,
