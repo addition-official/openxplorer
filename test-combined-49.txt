@@ -38,7 +38,7 @@ QUICK CHECKS (before pushing):
    9 pass-9-scaling:      "OxSettingsWrapLayout"
   10 user-icon-files:     "Windows symbol font"
 
-LONG CHECKS: test runs in progress (3 full ox_app runs, the other test binaries, failures compared with main by name, gallery sharpness test); smoke run and input sweep done, below.
+LONG CHECKS: done, results below.
 
 SMOKE RUN (installed deb, Xvfb, non-root user with a throwaway HOME under /var/tmp, own D-Bus session and display, driven by the snapshot hook):
 - 300 files (the same generated set as debs 45-48), Details view: Details pane on and Down through all 300, then Preview pane on, Home and Down through all 300 again. Exit 0 after 385 s, ended on the last file (song-100) with the Preview pane's player shown. 0 "Bail out", 0 CRITICAL, 0 panic, 0 SIGSEGV/abort/core lines; no child process left after exit. Main process sampled every second (366 samples): fds max 32, 28 at the end; threads max 33, 24 at the end; at most 4 child processes at once; RSS about 333 MB, steady.
@@ -53,3 +53,23 @@ INPUT SWEEP (installed deb, same isolation; keys go through the window's real ke
 - Right-click menu submenu: Shift+F10 on a file, pointer rested on Compress to (its submenu opened: ZIP File, 7z File, TAR File, Additional options), then moved onto the submenu's 7z File row -> the submenu stayed open after the pointer left the Compress to row. The hook cannot move the pointer outside every menu, so that case is not covered.
 - Small icons: a folder of 37 files in Small icons -> three columns filled row by row, left to right (Plan, Report 01, Report 02 / Report 03, ...).
 - Network page: opened from network:/// -> the Network page with its sidebar row selected and "This folder is empty." (no network devices in this isolated container, so no tiles to check).
+
+TEST RUNS on e0ce5c82 (every test binary isolated with OX_PYTHON_APP set, as check.py runs them; check.py itself stops at clippy on duration_suboptimal_units in ox-core files no branch touches, same on main):
+- rustfmt clean; clippy clean with only the three lints allowed in earlier debs (duration_suboptimal_units, map_unwrap_or, decimal_bitwise_operands, same on main). The pass-6 warnings reported in deb 48 are gone.
+- Run 1, every binary plus doctests: 5109 passed, 24 failed.
+- ox_app binary, three complete full runs (2749 tests each):
+    run 1: 2734 passed, 15 failed
+    run 2: 2733 passed, 16 failed
+    run 3: 2733 passed, 16 failed
+  NO SIGSEGV in any run. window::tests::menu_sweep: all 8 tests ran and passed in each of the three runs, including every_page_menu_runs_actions_the_window_has, which crashed deb 48's runs.
+  One other attempt is not counted among the three: it stopped after about 1100 tests with exit status 133 (SIGTRAP), on "GLib-GObject-CRITICAL: instance with invalid (NULL) class pointer" in window::picker::tests::after_confirm_save_as_the_keyboard_is_back_in_file_name. That test is on main unchanged (no branch touches the picker), passed in all three complete runs, and passed 10 of 10 alone. So it is an intermittent crash seen once; not yet checked whether main shows it too. (An earlier attempt also ran out of disk space before testing; it is void and not counted.)
+- Gallery sharpness: window::tests::gallery_view::small_print_is_drawn_as_sharp_as_the_original_shrunk_to_the_tile passed in all three runs (pass-9's fix works).
+- Failures compared with main 3ef87f79 by name (26 names failed in at least one run; each run on main):
+  * 23 fail on main too: the same environment-only set as debs 43-48 (root permissions, thumbnailer setup, Python fixtures, display scale). These failed in every run here.
+  * 3 failed in some runs only, all intermittent:
+    - window::tests::renaming_by_pointer::a_click_on_another_item_keeps_the_typed_name_and_selects_that_item, from pass-3 (5e654ba1; not on main). Failed in runs 2 and 3 and in 1 of 5 runs alone, each time on "the clicked item stays selected" (renaming_by_pointer.rs:169: the selection is still the renamed item, not the clicked one). Flaky; worth a look on pass-3.
+    - window::tests::empty_folder_look::a_long_note_wraps_inside_the_pane: failed in 1 of 3 runs; passes on main; flaky as in deb 48.
+    - window::tests::home_page::home_has_no_band_under_the_titles_and_its_tiles_do_not_touch: failed in 1 of 3 runs; passes on main; passed 5 of 5 alone; flaky as in debs 46-47.
+- RENAME TESTS: all tests in window::tests::new_text_document, new_folder, renaming and renaming_by_pointer ran; none failed except the flaky renaming_by_pointer test above.
+
+LONG TESTS: DONE
