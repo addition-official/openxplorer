@@ -603,3 +603,69 @@ fn an_answered_question_does_not_keep_the_keyboard() {
     }
     test.window.end_operation();
 }
+
+/// After Skip on an item whose drive was pulled out, the copy says, as
+/// Windows 11 does (VM check of 2026-11-22), "Location is not available"
+/// in a message box over the progress window, with the red error icon,
+/// the destination folder and Windows' words, and OK alone, which ends
+/// the copy.
+///
+/// parity: OPS-047
+#[gtk::test]
+fn a_destination_that_went_away_is_said_to_be_unavailable() {
+    use crate::dialog::Dialog;
+
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    let cancel = start_operation(&test);
+    let item = FailedItem {
+        mode: TransferMode::Copy,
+        name: String::new(),
+        error: "A device which does not exist was specified.".into(),
+        more_items: false,
+        cause: FailureCause::LocationUnavailable,
+        uri: "file:///media/demo/STICK/Many".into(),
+        destination_folder: Some("file:///media/demo/STICK/Many".into()),
+        needed: None,
+        administrator: false,
+    };
+    let asker = test.window.failure_asker(&cancel);
+    let worker = thread::spawn(move || asker.ask(&item));
+    let message_box = || {
+        gtk::Window::list_toplevels()
+            .into_iter()
+            .filter_map(|window| window.downcast::<Dialog>().ok())
+            .find(|dialog| {
+                dialog.is_visible() && dialog.title().as_deref() == Some("Location is not available")
+            })
+    };
+    wait_until("the message box", || message_box().is_some());
+    let dialog = message_box().expect("the message box");
+
+    assert_eq!(
+        dialog.message_text(),
+        "/media/demo/STICK/Many/ is unavailable. If the location is on this PC, make sure the device or drive \
+         is connected or the disc is inserted, and then try again. If the location is on a network, make sure \
+         you're connected to the network or Internet, and then try again. If the location still can't be \
+         found, it might have been moved or deleted."
+    );
+    assert_eq!(dialog.button_labels(), ["OK"]);
+    let error_icon = crate::test_support::harness::descendants::<gtk::Image>(&dialog)
+        .into_iter()
+        .any(|image| {
+            image.icon_name().as_deref() == Some("ox-dismiss-circle-32-color") && image.is_visible()
+        });
+    assert!(error_icon, "the red error icon");
+    assert_eq!(
+        dialog.transient_for().as_ref(),
+        Some(ProgressWindow::of(&test.context).upcast_ref::<gtk::Window>()),
+        "over the progress window"
+    );
+    dialog.press("OK");
+    // The box goes with its answer; holding it past its window would
+    // dispose it after that window.
+    drop(dialog);
+    wait_until("the worker to get its answer", || worker.is_finished());
+    worker.join().expect("the worker finishes");
+    test.window.end_operation();
+}

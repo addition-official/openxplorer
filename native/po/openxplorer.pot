@@ -6293,6 +6293,10 @@ msgstr ""
 msgid "Interrupted Action"
 msgstr ""
 
+#: crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/loading/denied_folder.rs
+msgid "Location is not available"
+msgstr ""
+
 #: crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/file_ops/unstorable_dialog.rs
 msgid "Skip"
 msgstr ""
@@ -6358,6 +6362,11 @@ msgstr ""
 
 #: crates/ox-app/src/window/file_ops/failure_dialog.rs
 msgid "You'll need to provide administrator permission to move to this folder"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/file_ops/failure_dialog.rs
+msgid "{location} is unavailable. If the location is on this PC, make sure the device or drive is connected or the disc is inserted, and then try again. If the location is on a network, make sure you're connected to the network or Internet, and then try again. If the location still can't be found, it might have been moved or deleted."
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -7042,10 +7051,6 @@ msgstr ""
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/link_target.rs
 msgid "“{name}” is not a link."
-msgstr ""
-
-#: crates/ox-app/src/window/loading/denied_folder.rs
-msgid "Location is not available"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -10486,6 +10491,10 @@ msgstr ""
 
 #: crates/ox-core/src/sizes/result.rs
 msgid "Time limit reached"
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "A device which does not exist was specified."
 msgstr ""
 
 #: crates/ox-core/src/system_error.rs

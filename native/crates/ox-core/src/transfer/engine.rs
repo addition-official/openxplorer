@@ -516,9 +516,20 @@ impl TransferEngine {
         // The destination under `admin://` once the user answered Continue
         // for all current items (OPS-047).
         let mut elevated: Option<Box<dyn Node>> = None;
+        let destination = batch.destination_uri();
         for (index, uri) in uris.iter().enumerate() {
             self.run_item(&batch, index, uri, &mut state, &mut elevated);
             if state.result.cancelled {
+                break;
+            }
+            // Skipped because the drive written to went away: Windows'
+            // "Location is not available", and the run ends.
+            let more_items = index + 1 < batch.total;
+            if self
+                .failures
+                .stops_for_gone_drive(batch.mode(), destination.as_deref(), more_items)
+            {
+                state.result.cancelled = true;
                 break;
             }
         }

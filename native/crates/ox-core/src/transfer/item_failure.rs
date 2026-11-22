@@ -51,6 +51,10 @@ pub enum FailureCause {
     InsideSource,
     /// Anything else; the question shows the system's error.
     Other,
+    /// The destination folder's drive is gone and the user skipped the
+    /// item it failed: Windows' "Location is not available", whose OK
+    /// ends the run.
+    LocationUnavailable,
     /// Something the user must sort out by hand, such as a backup kept
     /// after a replacement or staging left behind: the question says what
     /// and where, and only lets the run go on (OPS-023).
@@ -168,6 +172,8 @@ pub(crate) struct ItemFailures {
     elevation: Option<FailureAnswer>,
     /// The drive the run writes to, which may go away while it runs.
     destination: DestinationDrive,
+    /// The user skipped an item that failed because that drive went away.
+    skipped_gone_drive: bool,
 }
 
 /// The top-level item of a run that is running.
@@ -222,6 +228,35 @@ impl ItemFailures {
         self.left_out.clear();
         self.left_out_sources.clear();
         self.elevation = None;
+    }
+
+    /// After Skip on an item whose drive went away: whether the run ends
+    /// now, the user told once that the destination folder `destination`
+    /// is not available. True only while `more_items` remain and the
+    /// drive is still gone; a run of `mode`.
+    pub(crate) fn stops_for_gone_drive(
+        &mut self,
+        mode: TransferMode,
+        destination: Option<&str>,
+        more_items: bool,
+    ) -> bool {
+        if !std::mem::take(&mut self.skipped_gone_drive) || !more_items || !self.destination.is_gone() {
+            return false;
+        }
+        let uri = destination.unwrap_or_default();
+        let item = FailedItem {
+            more_items: false,
+            cause: FailureCause::LocationUnavailable,
+            ..FailedItem::new(
+                mode,
+                String::new(),
+                uri,
+                destination,
+                &super::gone_drive::device_not_ready(),
+            )
+        };
+        self.tell(&item);
+        true
     }
 
     /// Watches `destination`, the drive the run that starts writes to.
@@ -341,6 +376,8 @@ impl ItemFailures {
     pub(crate) fn answer(&mut self, item: &FailedItem) -> Option<FailureAnswer> {
         let answer = (self.question.as_mut()?)(item);
         self.skip_all = answer == FailureAnswer::SkipAll;
+        let skipped = matches!(answer, FailureAnswer::Skip | FailureAnswer::SkipAll);
+        self.skipped_gone_drive = skipped && super::gone_drive::is_device_gone_message(&item.error);
         Some(answer)
     }
 
@@ -431,8 +468,9 @@ mod tests {
     }
 
     /// The item itself, failing on a stick that was pulled out, is asked
-    /// about in Windows' words: "The device is not ready." as an
-    /// "Interrupted Action", never "Item Not Found".
+    /// about in Windows' words, as Windows 11 asked it in the VM check of
+    /// 2026-11-22: "Interrupted Action" with "Error 0x800701B1: A device
+    /// which does not exist was specified.", never "Item Not Found".
     ///
     /// parity: OPS-047
     #[test]
@@ -445,9 +483,76 @@ mod tests {
 
         let error = failures.explain(TransferError::NotFound("No such file or directory".into()));
 
-        assert_eq!(error.to_string(), "The device is not ready.");
+        assert_eq!(error.to_string(), "A device which does not exist was specified.");
         assert_eq!(FailureCause::of(&error), FailureCause::Other);
         let kept = failures.explain(TransferError::Exists("Photos".into()));
         assert_eq!(kept, TransferError::Exists("Photos".into()));
+    }
+
+    /// After Skip on an item whose drive was pulled out, the run asks
+    /// nothing more: as Windows 11 does (VM check of 2026-11-22), it says
+    /// once that the destination is not available, and OK ends the run.
+    /// Without Skip on such an item, or with nothing left to do, it goes
+    /// on as before.
+    ///
+    /// parity: OPS-047
+    #[test]
+    fn after_skip_on_a_drive_that_went_away_the_run_ends_with_location_unavailable() {
+        let stick = "file:///media/demo/STICK";
+        let gone = || DestinationDrive::fixed(stick, WITH_STICK, None).now(WITHOUT_STICK, Some(ENOENT));
+        let (mut failures, asked) = skipping_with_causes();
+        failures.watch_destination(gone());
+        let error = failures.explain(TransferError::NotFound("No such file or directory".into()));
+        let photo = FailedItem::new(
+            TransferMode::Copy,
+            "photo_1.jpg".into(),
+            "file:///home/demo/Many/photo_1.jpg",
+            Some(stick),
+            &error,
+        );
+
+        assert_eq!(failures.answer(&photo), Some(FailureAnswer::Skip));
+        assert!(failures.stops_for_gone_drive(TransferMode::Copy, Some(stick), true));
+
+        let asked = asked.lock().expect("the questions");
+        assert_eq!(asked.len(), 2, "{asked:?}");
+        assert_eq!(asked[1].0, FailureCause::LocationUnavailable);
+        assert_eq!(asked[1].1, stick);
+        drop(asked);
+        assert!(
+            !failures.stops_for_gone_drive(TransferMode::Copy, Some(stick), true),
+            "said once"
+        );
+
+        // Nothing left to copy, or no Skip on a gone drive: the run goes on.
+        let (mut last, _) = skipping_with_causes();
+        last.watch_destination(gone());
+        assert_eq!(last.answer(&photo), Some(FailureAnswer::Skip));
+        assert!(!last.stops_for_gone_drive(TransferMode::Copy, Some(stick), false));
+        let (mut other, _) = skipping_with_causes();
+        other.watch_destination(gone());
+        let denied = FailedItem::new(
+            TransferMode::Copy,
+            "photo_2.jpg".into(),
+            "file:///home/demo/Many/photo_2.jpg",
+            Some(stick),
+            &TransferError::PermissionDenied("Access is denied.".into()),
+        );
+        assert_eq!(other.answer(&denied), Some(FailureAnswer::Skip));
+        assert!(!other.stops_for_gone_drive(TransferMode::Copy, Some(stick), true));
+    }
+
+    /// Failures answered with Skip, and each question's cause and URI.
+    fn skipping_with_causes() -> (ItemFailures, Arc<Mutex<Vec<(FailureCause, String)>>>) {
+        let asked = Arc::new(Mutex::new(Vec::new()));
+        let heard = Arc::clone(&asked);
+        let failures = ItemFailures::with_question(Box::new(move |item: &FailedItem| {
+            heard
+                .lock()
+                .expect("the questions")
+                .push((item.cause, item.uri.clone()));
+            FailureAnswer::Skip
+        }));
+        (failures, asked)
     }
 }
