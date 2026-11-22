@@ -19,6 +19,14 @@ Pass 12 tested the Details pane (Alt+Shift+P) and the status bar against Windows
 - **A measured folder kept an empty Size.** After Calculate folder size, the folder's row kept an empty Size cell until the list was drawn again for another reason, such as dismissing the bar: GTK keeps a row's cells bound when its item is reported changed but is the same object. The Size cells on screen are now bound again as each size arrives.
 - **Properties touched the hint box** when several items were selected; it now stands as clear of it as of a file's rows.
 
+After a Windows 11 VM check of these screens, the pane and status bar also match it in detail:
+
+- **The status bar's dividers.** The count ends with a divider even with nothing selected ("3 items |"), and the selection with another ("3 items | 1 item selected |").
+- **The hint, word for word:** "Select a single file to get more information and share your cloud content."
+- **No Date created.** A file lists Type, Size, File location and Date modified; a folder the same without Size.
+- **A drive's rows.** A drive selected on This PC lists Type, Space used (a percentage), Space free, Total size and File system, read on a worker thread and worded as the drive's Properties words them ("Local Disk", "NTFS", or Linux's own name such as "ext4"). Windows' BitLocker status has no source here.
+- **A recycled file** is headed by the full path it was deleted from, located in the trash folder that holds it (the file GVfs names in `standard::target-uri`, kept as `EntryMeta::trash_file`), with no Original location or Date deleted rows, and Share attaches that file, as Windows offers Share there.
+
 The status bar's trailing divider ("6 items | 1 item selected 19.0 KB |") was added independently by pass-7-views; this branch merges that and keeps its version.
 
 ## Tests
@@ -32,14 +40,18 @@ Each fix has a test that failed on the code before it (run and seen failing):
 - `search::report::tests::the_status_bar_counts_results` and the search window tests
 - `window::tests::item_dialogs::a_measured_folder_shows_its_size_in_its_row_at_once` (also checks that keyboard focus stays on its row)
 - `window::tests::panes_layout::the_properties_button_stands_clear_of_the_hint`
+- From the VM check: `window::tests::environment::the_status_bar_counts_this_pc_and_a_folder` and `this_pc_opens_with_the_first_tile_focused_and_nothing_selected` (dividers), `window::tests::details_pane::nothing_selected_shows_windows_hint_alone` (hint), `window::tests::landing_pages::this_pc_counts_its_tiles_in_the_status_bar_and_the_details_pane` (a drive's rows), `window::details_pane::content::tests::a_file_shows_its_type_size_location_and_date_modified`, `a_recycled_file_is_headed_by_where_it_was_and_located_in_the_trash`, `a_drives_space_rows_read_as_windows_lists_them`, `ox_core` `entry::info::tests::a_recycled_item_keeps_its_file_in_the_trash` and the recycled cases of `window::share::tests::share_needs_files_and_none_in_zips`
 
 Real input with xdotool under a private Xvfb, as an unprivileged user with a throwaway home: arrowing through 60 photos of 24 megapixels (processor time 641–669 ticks before, 87–132 after, 110 with the pane closed) and through 1,040 files (1,089 ticks with the pane open, 1,008 closed; the pane kept up with 1,000 key presses at 10 ms); a drive's Properties opened from the pane's button; renaming, replacing and deleting files from outside while selected; captures of every changed screen in the light and dark themes. No "Bail out", CRITICAL, panic or signal from the app.
+
+After the VM changes, every test executable was run again: 5,135 passed and 3 failed, the 2 that fail on main and the animations test that pass-11-new-menu's latest commit fixes; after merging that commit and pass-10's latest, the tests of these areas, accessibility, new items, context menus and search (757), `ox_core` (1,339) and `ops_create` (18) pass, and Clippy `-D warnings` is clean with only the three new-toolchain lints allowed.
 
 `native/tools/check.py` in this container (Rust 1.97): rustfmt, the parity unit tests and parity check, the i18n check, the tools unit tests and the icon guard pass. Clippy `-D warnings` stops on three lints new in Rust 1.97 (`duration_suboptimal_units`, `map_unwrap_or`, `decimal_bitwise_operands`) in files this branch does not touch, as it does on unchanged main; with only those allowed it passes on both. Every test executable was run as an unprivileged user in check.py's isolation, with the retired Python app extracted from tag v2.0.0: main 5d21fd3e has 4,979 passed and 2 failed, both this container's Python (`location_fixture_drift::python_fixture_matches_desktop_core_py`, `network_python::fuse_export_paths_match_native_opening_py`); this branch, with the lower passes merged, has 5,131 passed and 4 failed: those 2, `accessibility::animations_stay_off_when_the_desktop_turns_them_off`, which pass-11-new-menu's own tick callback in `window/loading.rs` trips, and `context_menus::a_pinned_folder_menu_copies_compresses_and_creates_in_that_folder`, which timed out once under load and passes three times out of three alone. `native/parity/check.py` passes.
 
 ## Not covered
 
-- Windows 11's exact rows for each file type, a recycled item, an archive member and a drive in the new Details pane were not confirmed from a Microsoft source; they are on the VM checklist and were not changed.
+- Windows 11's rows for media files, archive members, removable and network drives, several selected items and search results were not checked on Windows; they are on the VM checklist.
+- This PC and Network keep the app's own pictures (a laptop, its Network glyph), as their tabs and navigation pane rows do; Windows shows a monitor and a globe on a monitor.
 - Windows 11's pane is read-only (Microsoft Q&A, 2025); the app's has no editable fields either, so rating, tags and title editing were not added.
 - Sharing from the pane needs the desktop's Email portal, which this container does not have; it was covered by the existing tests only.
 - The branch merges pass-7-views, pass-9-scaling, pass-10-home-recent and pass-11-new-menu (and through them every lower pass and network-like-windows), as the jobs' rules ask; the merges are not part of this change.
