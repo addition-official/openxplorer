@@ -36,6 +36,10 @@ pub(super) struct Source {
     pub size: Option<u64>,
     /// Its content type, written with the thumbnail.
     pub mime_type: Option<String>,
+    /// The edge, in device pixels, the thumbnail is shown at: the picture
+    /// handed back ([`Made::picture`]) is no larger, so the memory of the
+    /// previews shown keeps no more pixels than the screen shows.
+    pub shown: i32,
 }
 
 impl Source {
@@ -56,7 +60,7 @@ pub(super) struct Made {
     /// Where it was written.
     #[cfg_attr(not(test), expect(dead_code, reason = "the tests look where it went"))]
     pub path: PathBuf,
-    /// Its picture, no larger than its flavor.
+    /// Its picture, no larger than it is shown ([`Source::shown`]).
     pub picture: gtk::gdk::Texture,
 }
 
@@ -162,8 +166,33 @@ pub(super) fn save_thumbnail(
     super::trace::event("written", &source.uri);
     Ok(Made {
         path: target,
-        picture: gtk::gdk::Texture::for_pixbuf(pixbuf),
+        picture: texture_to_fit(pixbuf, source.shown),
     })
+}
+
+/// `picture` as a texture no larger than `edge` pixels square, shrunk with
+/// gdk-pixbuf's bilinear filter when larger: a picture the app decoded
+/// itself, so no untrusted bytes are read here.
+fn texture_to_fit(picture: &Pixbuf, edge: i32) -> gtk::gdk::Texture {
+    let longest = picture.width().max(picture.height());
+    if edge <= 0 || longest <= edge {
+        return gtk::gdk::Texture::for_pixbuf(picture);
+    }
+    let side = |side: i32| {
+        i32::try_from(i64::from(side) * i64::from(edge) / i64::from(longest))
+            .unwrap_or(1)
+            .max(1)
+    };
+    picture
+        .scale_simple(
+            side(picture.width()),
+            side(picture.height()),
+            gtk::gdk_pixbuf::InterpType::Bilinear,
+        )
+        .map_or_else(
+            || gtk::gdk::Texture::for_pixbuf(picture),
+            |shrunk| gtk::gdk::Texture::for_pixbuf(&shrunk),
+        )
 }
 
 /// Whether `uri` names an item of the thumbnail cache under `cache_dir`: a
@@ -221,12 +250,15 @@ mod tests {
             modified: 1_700_000_000,
             size: Some(4096),
             mime_type: Some("image/png".to_owned()),
+            shown: 96,
         };
 
         let made = write_thumbnail(&cache, &source, ThumbnailFlavor::Normal, &gio::Cancellable::new())
             .expect("a thumbnail");
         let written = made.path;
-        assert_eq!((made.picture.width(), made.picture.height()), (128, 64));
+        // The file is as large as its flavor; the picture handed back is
+        // as large as it is shown.
+        assert_eq!((made.picture.width(), made.picture.height()), (96, 48));
 
         assert_eq!(
             written,
@@ -268,6 +300,7 @@ mod tests {
             modified: 1_700_000_000,
             size: None,
             mime_type: None,
+            shown: 128,
         };
         assert_eq!(
             save_thumbnail(&cache, &inside, ThumbnailFlavor::Normal, &thumbnail).map(|made| made.path),

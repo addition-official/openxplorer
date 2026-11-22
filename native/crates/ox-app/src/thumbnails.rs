@@ -81,10 +81,10 @@ fn making_at_once(processors: usize) -> usize {
 /// time, on slots of their own: a share that stops answering holds these,
 /// never the ones of this computer's files.
 const NETWORK_MAKING_AT_ONCE: usize = 2;
-/// How much the previews kept decoded may take: 96 MB, a few thousand
-/// tiles of Large icons, or a hundred of Extra large icons at twice the
-/// pixels.
-const MEMORY_BUDGET: usize = 96 * 1024 * 1024;
+/// How much the previews kept decoded may take: 64 MB, about 2,700 photos
+/// at Large icons, or 90 at Extra large icons on a screen of twice the
+/// pixels, each kept at the size it is shown.
+const MEMORY_BUDGET: usize = 64 * 1024 * 1024;
 /// How long whether a folder is on the network is remembered.
 const NETWORK_ANSWER_LIFE: Duration = Duration::from_secs(30);
 
@@ -931,6 +931,7 @@ async fn by_decoding(
         modified,
         size: request.size,
         mime_type: Some(request.content_type.clone()),
+        shown: request.pixels,
     };
     let cache_dir = cache_dir.to_path_buf();
     let decoded = making(request)
@@ -962,6 +963,7 @@ async fn by_thumbnailer(
         modified,
         flavor,
         size: request.size,
+        shown: request.pixels,
     };
     making(request)
         .blocking_in_turn(&|| request.on_screen.get(), move |cancel| {
@@ -1279,6 +1281,7 @@ mod tests {
                     modified: 1_700_000_000,
                     size: None,
                     mime_type: None,
+                    shown: 128,
                 },
                 ThumbnailFlavor::Normal,
                 &gio::Cancellable::new(),
@@ -1403,6 +1406,7 @@ mod tests {
                     modified: 1_700_000_000,
                     size: None,
                     mime_type: None,
+                    shown: 128,
                 },
                 ThumbnailFlavor::Normal,
                 &gio::Cancellable::new(),

@@ -186,6 +186,8 @@ pub(super) struct Job {
     pub flavor: ThumbnailFlavor,
     /// Its size in bytes, when known, which keeps the thumbnail valid too.
     pub size: Option<u64>,
+    /// The edge it is shown at, in device pixels ([`Source::shown`]).
+    pub shown: i32,
 }
 
 /// Why a thumbnailer made no thumbnail.
@@ -561,6 +563,7 @@ pub(super) fn make_thumbnail(
         modified: job.modified,
         size: job.size,
         mime_type: Some(job.content_type.clone()),
+        shown: job.shown,
     };
     // Nothing follows this program, so why the cache refused the picture is
     // of no use here: no thumbnail was made.
@@ -1742,6 +1745,7 @@ mod tests {
             modified: 1_700_000_000,
             flavor: ThumbnailFlavor::Normal,
             size: None,
+            shown: 128,
         };
         let catalogue = Catalogue::of(&dirs, || Some(Sandbox::Off));
         // Without a sandbox that works here no program is kept at all, and
@@ -1813,6 +1817,7 @@ mod tests {
             modified: 1_700_000_000,
             flavor: ThumbnailFlavor::Normal,
             size: None,
+            shown: 128,
         };
         let slow = Catalogue::for_test(vec![Thumbnailer::for_test(
             &[script.to_str().expect("a path"), "%i", "%o", "%s"],
@@ -1858,6 +1863,7 @@ mod tests {
             modified: 1_700_000_000,
             flavor: ThumbnailFlavor::Normal,
             size: None,
+            shown: 128,
         };
         let cancellation = gio::Cancellable::new();
 
@@ -1899,6 +1905,7 @@ mod tests {
             modified: 1_700_000_000,
             flavor: ThumbnailFlavor::Normal,
             size: None,
+            shown: 128,
         };
 
         assert!(write_thumbnail(&job_of(&png, "image/png"), &catalogue, &gio::Cancellable::new()).is_none());
@@ -1932,6 +1939,7 @@ mod tests {
             modified: 1_700_000_000,
             flavor: ThumbnailFlavor::Normal,
             size: None,
+            shown: 128,
         };
         let on = Catalogue::of(&dirs, || Some(Sandbox::Off));
         let off = on.with_disabled(Disabled {
@@ -1974,6 +1982,7 @@ mod tests {
                 modified: 1_700_000_000,
                 flavor: ThumbnailFlavor::Normal,
                 size: None,
+                shown: 128,
             };
 
             let written = write_thumbnail(&job, &Catalogue::for_test(vec![entry]), &gio::Cancellable::new())
@@ -2114,6 +2123,7 @@ mod tests {
             modified: 1_700_000_000,
             flavor: ThumbnailFlavor::Normal,
             size: None,
+            shown: 128,
         };
 
         let written = write_thumbnail(&job, &catalogue, &gio::Cancellable::new())
@@ -2352,6 +2362,7 @@ mod tests {
             modified: 1_700_000_000,
             flavor: ThumbnailFlavor::Normal,
             size: None,
+            shown: 128,
         };
 
         assert!(
