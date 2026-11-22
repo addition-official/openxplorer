@@ -556,6 +556,9 @@ enum Declared {
     },
     /// The bytes may be a picture whose header is not yet whole.
     Incomplete,
+    /// The header is one no loader may be given: it would make the loader
+    /// reserve far more memory than any picture's header needs.
+    Damaged,
     /// The bytes are no PNG, JPEG, GIF, WebP or BMP whose header can be
     /// read: gdk-pixbuf reads their size itself.
     Unknown,
@@ -613,7 +616,7 @@ fn starts_with(bytes: &[u8], signature: &[u8]) -> Option<bool> {
 /// `limits` allow, with the header's size.
 fn refusal_by_header(declared: Declared, limits: Limits) -> Option<Refusal> {
     let Declared::Size { jpeg, width, height } = declared else {
-        return None;
+        return (declared == Declared::Damaged).then_some(Refusal::Damaged);
     };
     let pixels = u64::from(width) * u64::from(height);
     let side = |side: u32| i32::try_from(side).unwrap_or(i32::MAX);
@@ -711,11 +714,16 @@ fn gif_size(bytes: &[u8]) -> Declared {
 
 /// The size in a BMP's information header: an OS/2 core header's two
 /// 16-bit sides, or a Windows header's 32-bit ones, whose height is
-/// negative for rows stored from the top.
+/// negative for rows stored from the top. gdk-pixbuf reserves room for
+/// the whole information header as its length says before it looks at
+/// it, so a length past the longest header (`BITMAPV5HEADER`) is refused.
 fn bmp_size(bytes: &[u8]) -> Declared {
     let Some(header) = field(bytes, 14).map(u32::from_le_bytes) else {
         return Declared::Incomplete;
     };
+    if header > MAX_BMP_INFO_HEADER {
+        return Declared::Damaged;
+    }
     let size = if header == 12 {
         field(bytes, 18).zip(field(bytes, 20)).map(|(width, height)| {
             (
@@ -741,6 +749,9 @@ fn bmp_size(bytes: &[u8]) -> Declared {
         height,
     })
 }
+
+/// The length of the longest BMP information header, `BITMAPV5HEADER`.
+const MAX_BMP_INFO_HEADER: u32 = 124;
 
 /// The size in a WebP's first chunk: a lossy (VP8) frame's, a lossless
 /// (VP8L) picture's, or an extended file's (VP8X) canvas.
@@ -1312,6 +1323,29 @@ mod tests {
         webp.extend_from_slice(&(width - 1).to_le_bytes()[..3]);
         webp.extend_from_slice(&(height - 1).to_le_bytes()[..3]);
         webp
+    }
+
+    /// A BMP whose information header claims to be gigabytes long is
+    /// refused before a loader reserves room for that header, whatever
+    /// size it gives (found by fuzzing).
+    #[test]
+    fn a_bmp_header_of_gigabytes_is_refused_before_it_is_read() {
+        for (width, height) in [(-741_092_397_i32, -741_092_397_i32), (1, 1), (640, -480)] {
+            let mut bmp = bmp_header(width, height);
+            bmp[14..18].copy_from_slice(&0xD3D3_D328_u32.to_le_bytes());
+            assert_eq!(declared_size(&bmp), Declared::Damaged, "{width} x {height}");
+            assert_eq!(refusal_by_header(declared_size(&bmp), Limits::DISPLAY), Some(Refusal::Damaged));
+            let mut reader = std::io::Cursor::new(bmp);
+            let decoded = decode_reader_here_to_fit(&mut reader, 64, 64, Limits::DISPLAY, None);
+            assert_eq!(decoded.err(), Some(Refusal::Damaged));
+        }
+        // Every header gdk-pixbuf reads is still read for its size.
+        for header in [40_u32, 52, 56, 64, 108, 124] {
+            let mut bmp = bmp_header(32, 16);
+            bmp[14..18].copy_from_slice(&header.to_le_bytes());
+            bmp.resize(14 + 124 + 16, 0);
+            assert!(matches!(declared_size(&bmp), Declared::Size { width: 32, height: 16, .. }));
+        }
     }
 
     /// Each format's size is read from its own header, however few of
