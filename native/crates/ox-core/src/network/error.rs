@@ -158,6 +158,7 @@ mod tests {
             (gio::IOErrorEnum::Failed, "Failed to mount Windows share: Connection refused", "The network path was not found."),
             (gio::IOErrorEnum::HostNotFound, "Error resolving “nas”: Name or service not known", "The network path was not found."),
             (gio::IOErrorEnum::NotFound, "Failed to mount Windows share: No such file or directory", "The network name cannot be found."),
+            (gio::IOErrorEnum::Failed, "Software caused connection abort", "The specified network name is no longer available."),
         ];
         for (kind, gio_message, expected) in cases {
             let error = NetworkError::from(glib::Error::new(kind, gio_message));

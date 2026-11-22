@@ -233,9 +233,10 @@ impl SystemError {
 
     /// The error Windows reports for `error` from mounting or reaching a
     /// share: a share the server does not have is "The network name
-    /// cannot be found.", not a missing file, and a server that refuses,
+    /// cannot be found.", not a missing file, a server that refuses,
     /// cannot be reached or does not answer is "The network path was not
-    /// found.", as Windows says both.
+    /// found.", and one that went away "The specified network name is no
+    /// longer available.", as Windows says them.
     pub fn from_network(error: &glib::Error) -> Self {
         Self::from_glib(error).on_network()
     }
@@ -247,6 +248,8 @@ impl SystemError {
         match self {
             FILE_NOT_FOUND | PATH_NOT_FOUND => BAD_NET_NAME,
             CONNECTION_REFUSED | HOST_UNREACHABLE | NETWORK_UNREACHABLE | SEM_TIMEOUT | TIMEOUT => BAD_NETPATH,
+            // Samba's word for a server that went away.
+            CONNECTION_ABORTED => NETNAME_DELETED,
             found => found,
         }
     }
