@@ -1253,13 +1253,20 @@ fn undo_after_new_and_rename_gives_back_the_name_then_the_file_goes_without_a_qu
     assert_eq!(field.text(), "New Text Document (2).txt");
     field.set_text("Garden plan.txt");
     field.emit_activate();
-    wait_until("the rename", || fixture.path("Garden plan.txt").exists());
+    // The rename has ended, been recorded and listed once the renamed
+    // file is selected and Undo can run.
+    wait_until("the rename", || {
+        test.selected_names() == ["Garden plan.txt"]
+            && !is_renaming_in_place(&test)
+            && is_enabled(&test, "undo")
+    });
 
     test.activate("undo", None);
     wait_until("the name to come back", || {
         fixture.path("New Text Document (2).txt").exists()
     });
     assert!(!fixture.path("Garden plan.txt").exists());
+    wait_until("the next Undo", || is_enabled(&test, "undo"));
     test.activate("undo", None);
     wait_until("the file to go", || {
         !fixture.path("New Text Document (2).txt").exists()
