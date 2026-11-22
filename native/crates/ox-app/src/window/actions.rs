@@ -234,6 +234,15 @@ impl BrowserWindow {
             ),
             plain_action(WindowAction::CopyAddress, BrowserWindow::copy_address),
             plain_action(WindowAction::PasteAddress, BrowserWindow::paste_address),
+            text_action(WindowAction::CopyAddressOf, BrowserWindow::copy_address_of),
+            text_action(
+                WindowAction::CopyAddressAsText,
+                BrowserWindow::copy_address_as_text,
+            ),
+            plain_action(
+                WindowAction::DeleteAddressHistory,
+                BrowserWindow::delete_address_history,
+            ),
             plain_action(WindowAction::Search, BrowserWindow::focus_search),
             text_action(WindowAction::GoTo, BrowserWindow::navigate_or_report),
             text_action(WindowAction::MountVolume, BrowserWindow::mount_volume),
@@ -268,6 +277,14 @@ impl BrowserWindow {
             plain_action(WindowAction::Share, BrowserWindow::share),
             plain_action(WindowAction::About, BrowserWindow::show_about),
             plain_action(WindowAction::Help, BrowserWindow::show_help),
+            plain_action(
+                WindowAction::NetworkDiscoveryHelp,
+                BrowserWindow::show_network_discovery_help,
+            ),
+            plain_action(
+                WindowAction::DismissNetworkInfoBar,
+                BrowserWindow::dismiss_network_info_bar,
+            ),
             plain_action(
                 WindowAction::KeyboardShortcuts,
                 BrowserWindow::show_keyboard_shortcuts,

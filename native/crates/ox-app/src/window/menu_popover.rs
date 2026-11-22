@@ -582,11 +582,6 @@ impl MenuPopover {
         menu
     }
 
-    /// The menu's entries, dividers and submenus included.
-    pub(super) fn entries(&self) -> Vec<MenuEntry> {
-        self.imp().entries.borrow().clone()
-    }
-
     /// Whether the menu has the classic look.
     pub(super) fn is_classic(&self) -> bool {
         self.imp().style.get() == MenuStyle::Classic
@@ -726,6 +721,11 @@ impl MenuPopover {
                 row.remove_css_class(css_class);
             }
         }
+    }
+
+    /// The entries, dividers included, as the menu shows them now.
+    pub(in crate::window) fn entries(&self) -> Vec<MenuEntry> {
+        self.imp().entries.borrow().clone()
     }
 
     /// The items, one per row, without the dividers.
@@ -1261,7 +1261,7 @@ impl MenuPopover {
     /// The pointer rests on the row at `index`, or on none: after
     /// [`SUBMENU_DELAY`], that row's submenu opens, or the open one closes
     /// when the pointer rests on another row. Leaving the rows keeps an
-    /// open submenu open, as Windows does.
+    /// open submenu open, as Windows 11 does (checked on build 26200).
     fn rest_on(&self, index: Option<usize>) {
         if self.imp().hover.borrow().0 == index {
             return;
