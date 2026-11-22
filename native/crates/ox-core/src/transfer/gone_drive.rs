@@ -89,7 +89,8 @@ impl DestinationDrive {
             folder: Some(folder),
             mount_point,
             is_network,
-            ..Self::default()
+            #[cfg(test)]
+            now: None,
         }
     }
 
