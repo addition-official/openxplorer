@@ -22,9 +22,9 @@ use crate::window::BrowserWindow;
 const SHOW_HIDDEN: &str = "show-hidden";
 const LIMIT_TO_HOME: &str = "limit-to-home";
 const AUTO_SCROLL: &str = "auto-scroll";
-/// Windows' "Expand to open folder", which the navigation pane's own
+/// Windows' "Expand to current folder", which the navigation pane's own
 /// menu offers too.
-pub(in crate::window) const EXPAND_TO_OPEN: &str = "expand-to-open";
+pub(in crate::window) const EXPAND_TO_CURRENT: &str = "expand-to-current";
 
 /// What the menu of a folder may offer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -45,7 +45,7 @@ pub(super) fn toggled(mut options: FolderTreeOptions, name: &str) -> Option<Fold
         SHOW_HIDDEN => options.show_hidden = !options.show_hidden,
         LIMIT_TO_HOME => options.limit_to_home = !options.limit_to_home,
         AUTO_SCROLL => options.auto_scroll = !options.auto_scroll,
-        EXPAND_TO_OPEN => options.expand_to_open = !options.expand_to_open,
+        EXPAND_TO_CURRENT => options.expand_to_current = !options.expand_to_current,
         _ => return None,
     }
     Some(options)
@@ -156,18 +156,18 @@ fn entries(uri: &str, facts: FolderFacts, options: FolderTreeOptions) -> Vec<Men
             AUTO_SCROLL,
             options.auto_scroll,
         ),
-        expand_to_open_item(options),
+        expand_to_current_item(options),
     ]
 }
 
-/// Windows' "Expand to open folder", checked while the tree opens down to
+/// Windows' "Expand to current folder", checked while the tree opens down to
 /// the folder shown.
-pub(in crate::window) fn expand_to_open_item(options: FolderTreeOptions) -> MenuEntry {
+pub(in crate::window) fn expand_to_current_item(options: FolderTreeOptions) -> MenuEntry {
     option_item(
-        &gettext("Expand to open folder"),
+        &gettext("Expand to current folder"),
         Icon::ChevronDown16,
-        EXPAND_TO_OPEN,
-        options.expand_to_open,
+        EXPAND_TO_CURRENT,
+        options.expand_to_current,
     )
 }
 

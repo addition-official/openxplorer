@@ -494,6 +494,7 @@ impl BrowserWindow {
     /// "Open windows…" and a group heading's collapse and expand commands.
     pub(super) fn install_context_menu_actions(&self) {
         self.install_sidebar_hiding();
+        self.install_network_computers();
         self.install_place_commands();
         self.add_action_entries([
             plain_action(WindowAction::ShowMoreOptions, BrowserWindow::show_more_options),
