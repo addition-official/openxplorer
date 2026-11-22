@@ -224,3 +224,20 @@ picture_headers        17,656,226
 text_preview           15,869,547
 Found since last update: a second input for the open Matroska item (same place inside GStreamer, media reader child only); nothing in the app's code. Every earlier failing input was rerun against the current fuzz binaries: all run clean.
 Rotation: media_details and picture_headers paused (no new coverage); core_text, core_formats and media_streams back.
+
+== 2026-11-22 04:54 CST ==
+Executions so far (all runs):
+app_protocols             421,336
+archive_extract         3,441,734
+archive_fixup           1,164,053
+archive_list-vp         2,092,161
+archive_list           11,927,352
+archive_zipgen          1,818,443
+core_formats            9,766,901
+core_text              16,433,787
+media_details          83,567,796
+media_streams              11,193
+picture_decode         10,371,115
+picture_headers        17,656,226
+text_preview           15,869,547
+Found since last update: 0. The open Matroska item did not repeat in 300 fresh processes running GStreamer's discoverer and parsebin as the reader does (Python 3.12 GStreamer bindings, no app code); it appears only in a long-lived fuzzing process after hundreds of media files, while the app reads each file in a new child. media_streams paused: in one long-lived process GStreamer also stalls on inputs that take 44 ms alone.
