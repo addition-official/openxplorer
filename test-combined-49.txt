@@ -1,0 +1,27 @@
+STATUS: BLOCKED - needs a decision on network-like-windows (no deb yet)
+BRANCH: test-combined-49 e614b4b4 (steps 1-9 merged on upstream main 3ef87f79, 2.0.23; pushed for inspection, not built)
+
+MERGED SO FAR, in the requested order (each the branch tip):
+   1 pass-1-copy-move    ac63a204 -> 69ea3725: transfer.rs, main's open_local_staging and pass-1's keep_without_modes on the same `use modes::{...}` line; kept both, wrapped as rustfmt does.
+   2 pass-2-undo-redo    813aab9d -> d20f221f (clean)
+   3 pass-3-rename       ac5a340a -> 2a7c214d (clean)
+   4 pass-4-nav-pane     d17c3b4c -> bb8dd9e8 (clean)
+   5 pass-5-address-bar  a3c6c481 -> d84af361 (clean)
+   6 pass-6-context-menu e2c7dafe -> e477ca47 (contains 1603b85c): status_bar.rs module comment as in debs 44-48; markdown.json regenerated. The deb 48 sidebar/menu.rs conflict no longer occurs.
+   7 pass-7-views        47f23ab9 -> c1e4c50e: sidebar/menu.rs, comment only. Kept pass-6's code and its comment ("Home, Gallery and the computers under Network with their shared folders open in a new tab or window"), which describes the code; pass-7's comment named only Home and Gallery. markdown.json regenerated.
+   8 pass-8-open-with    7d90128a -> 87ba1ec3: openxplorer.pot and markdown.json, regenerated.
+   9 pass-9-scaling      c60ab4ab -> e614b4b4: markdown.json, regenerated.
+
+BLOCKED AT 10, network-like-windows 4790c970 (merge aborted; nothing of it is in the branch):
+Two separate implementations of the same feature, "Network in the navigation pane expands to the computers found, each with its own chevron to its shares":
+- pass-4 5cb3a27c "feat(sidebar): List the computers Network discovered under it, each with its own chevron" (in pass-4 d17c3b4c and so in pass-6 to pass-9): new window/network_computers.rs (226 lines), sidebar/collapsing.rs +150, entries.rs +70, row.rs +40, tests/nav_pane.rs +278.
+- network-like-windows 2af9384b "feat(network): Expand Network to computers in the navigation pane, and fix mapped drives, SFTP and sign-in": new window/sidebar/network_tree.rs (387 lines) and window/network_pane.rs (219), entries.rs +112, collapsing.rs +52, row.rs +41, tests/network.rs +195; also moves saved and drive-letter-mapped shares under This PC, and the review 5 B1/B2/B6 fixes. It contains the older pass-4 b60a3e28, not 5cb3a27c.
+The merge conflicts in 8 files: sidebar/collapsing.rs (3 blocks, 96 lines), sidebar/entries.rs (94 lines), sidebar/row.rs (5 blocks), sidebar/menu.rs, network/services.rs, skin/sidebar.css, window_action.rs, tests/context_menus.rs (plus markdown.json). Keeping both would list Network's computers through two code paths. Resolving it means removing one branch's implementation and tests, which is a change to the branches rather than a merge resolution, so I have not done it.
+
+OPTIONS (reply with one; the other session could not be messaged from here):
+ A) Keep network-like-windows' tree (network_tree.rs) and remove pass-4's 5cb3a27c code and its nav_pane tests in the merge.
+ B) Keep pass-4's network_computers.rs and take only network-like-windows' other parts (Network page tiles, mapped drives, SFTP, sign-in).
+ C) Merge pass-9 c60ab4ab (or pass-4 d17c3b4c) into network-like-windows on its own branch, resolved there, and give me the new head.
+ D) Build deb 49 without network-like-windows (steps 1-9 then user-icon-files 1c37a0bc), network in a later deb.
+
+IDENTITY so far: 136 commits on top of main, all by addition-official <239187859+addition-official@users.noreply.github.com> (branch commits and 9 merges); no trailers, no other author or committer.
