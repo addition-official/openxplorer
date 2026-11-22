@@ -1,20 +1,29 @@
-STATUS: RUNNING
+STATUS: DONE
 HEAD: claude/owner-audit-fixes 34560d50
 QUESTION: none
 NOTE:
-- 13 commits on upstream 5d21fd3e cover every item in the task list. Skipped
-  as asked: rows marked None, #133, #231, #232, #387, #374.
-- PASS: xdotool real input, release build of the branch HEAD, private Xvfb,
-  throwaway HOME, generated files, GTK_A11Y=none and unset (2 runs each):
-  file drag, ":" while renaming, type-to-select, MP3 playing in the Preview
-  pane then renamed and deleted, MP4 selected in the pane then renamed and
-  deleted. The app stayed up after every step; both files went to Trash.
-- NOTE: the MP4 showed only its type icon in the Preview pane in this
-  container, so no video actually played.
-- PASS: targeted test runs as tester (Rust 1.92.0) for every fix; workspace
-  clippy -D warnings clean; i18n template check clean; parity check exit 0.
-- RUNNING: full native/tools/check.py (run 4; run 3 ran out of disk, run 2
-  stopped at clippy, both fixed).
+- 13 commits on upstream 5d21fd3e, one per fix: GTK_A11Y=none crash; #229
+  Confirm Attribute Changes; #225 crumb menu; #226/#223 drag facts; #322
+  resize band; #132/#143 Restore previous; #373 SMB lookup threads; #373
+  Restore over the original (setting, off by default); #183 infotip; #230
+  Browse...; #216 drive label; #164 search dot; #327 remotePreviews.
+  Skipped as asked: rows marked None, #133, #231, #232, #387, #374.
+- PASS: native/parity/check.py (exit 0).
+- PASS: check.py stages before the tests: inventories, driver tests, icon
+  guard, rustfmt, clippy -D warnings, i18n template check.
+- PASS: ox-app test program in full; 4,971 tests passed over all 88 test
+  programs and doctests (run with check.py's isolation, continuing past
+  failures, because check.py stops at the first failing program).
+- FAIL (files not changed by this branch, not re-run on upstream):
+  location_fixture_drift python fixture (Python 3.13 urlparse),
+  network_python fuse_export_paths (system gi does not import under 3.13),
+  9 admin_copy tests (isolated run puts their folders in world-writable /tmp).
+- PASS: xdotool real input on the release build, private Xvfb, throwaway
+  HOME, GTK_A11Y=none and unset: drag, ":" while renaming, type-to-select,
+  MP3 playing in the Preview pane then renamed and deleted, MP4 renamed and
+  deleted. App stayed up after every step.
+- NOT TESTED: MP4 video playback (only its icon showed in the pane here);
+  SMB, UDisks on a real drive, polkit, Wayland; anything on Windows.
 
 VM CHECK
 Windows 11 23H2 or 24H2, a test account, sample files only. Steps for the

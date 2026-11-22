@@ -37,7 +37,12 @@ The message template (`native/po/openxplorer.pot`) is regenerated in each commit
 - New or updated tests for every fix (named in `native/parity/features.toml`).
 - Real input with xdotool on a private Xvfb with a throwaway HOME and generated sample files, with `GTK_A11Y=none` and with it unset: file drag, `:` while renaming, type-to-select, and an MP3 and an MP4 shown in the Preview pane, then renamed and deleted.
 
-RESULTS_PLACEHOLDER
+## Results
+
+- `python3 native/parity/check.py`: PASS (exit 0).
+- `python3 native/tools/check.py`: inventories, driver tests, drawn-icon guard, rustfmt, workspace Clippy with `-D warnings` and the message template check all PASS. It stops at the first failing test program, so all 88 test programs and the doctests were then run with check.py's own isolation helpers, carrying on past failures: 4,971 tests passed, 1 ignored. The ox-app program (every GTK test) passed in full.
+- FAIL, in files this branch does not change: `location_fixture_drift::python_fixture_matches_desktop_core_py` (the installed Python 3.13 `urlparse` accepts `[V1.x]`, which the committed fixture expects to be rejected); `network_python::fuse_export_paths_match_native_opening_py` (the system `gi` module does not import under Python 3.13); nine `admin_copy` tests (the isolated run puts their folders under the world-writable `/tmp`). Not re-run on upstream main.
+- Real input (xdotool, release build, private Xvfb, throwaway HOME, generated files), with `GTK_A11Y=none` and with it unset, two runs each: file drag, `:` while renaming, type-to-select, an MP3 playing in the Preview pane then renamed and deleted, an MP4 selected then renamed and deleted. The app stayed up after every step. The MP4 showed only its icon in the pane in this environment, so no video played.
 
 ## Needs a Windows 11 check
 
