@@ -17,7 +17,7 @@ Windows keeps its thumbnails in `thumbcache_*.db`, so a folder of photos opened 
 - **Recently shown thumbnails stay in memory** (96 MB, least recently shown first out), checked against the file's time and size. A folder visited again in the same run, or a row scrolled back, draws its thumbnails on the frame it binds them. With network thumbnails off, as by default, this works however long ago its folder was found to be on this computer.
 - **No icon flash.** The names of the cache's entries are listed once in the background, as soon as a view with thumbnails is set up. A tile whose thumbnail the cache holds then waits for it without its type icon (250 ms at most), instead of showing the icon and replacing it a moment later. Decoders are started in the background at the same time.
 - **A thumbnail shows as soon as it is read.** It no longer waits for the custom-icon metadata query, which runs at low priority behind the layout. A custom icon found later takes the thumbnail's place.
-- **New thumbnails never block the UI, and the visible ones come first.** They are made off the main thread on the same few slots as before. A request for a tile off the screen waits outside the queue while tiles on the screen wait. GTK binds about 190 tiles of Large icons for the 30 a window shows, and before, it made them in bind order. A thumbnail the app makes is shown from the picture it decoded, instead of being read back from disk. It costs one decode instead of three.
+- **New thumbnails never block the UI, and the visible ones come first.** They are made off the main thread, one fewer at a time than the processors (2 or 3; 2 before). A request for a tile off the screen waits outside the queue while tiles on the screen wait. GTK binds about 190 tiles of Large icons for the 30 a window shows, and before, it made them in bind order. A thumbnail the app makes is shown from the picture it decoded, instead of being read back from disk. It costs one decode instead of three.
 - **Writes follow the standard.** A new entry is encoded in the app, written to a temporary file created 0600 (exclusive, no symlink following) in a 0700 folder, then renamed into place. Entries now carry `Thumb::Size` and `Thumb::Mimetype` too.
 - **Failures are recorded.** Damaged pictures, and files a desktop thumbnailer ran on and gave up on, are recorded in `thumbnails/fail/openxplorer/`. Together with GNOME's `fail/gnome-thumbnail-factory/`, they are not tried again until the file changes. A missing thumbnailer, a timeout or a cancelled request is not recorded.
 - **Cache hygiene.**
@@ -37,20 +37,22 @@ Run by `native/tools/thumbnail-bench.py` (added here) on a private Xvfb display,
 
 | Folder | Visit | All visible, from launch (ms) | All visible, after the first tile (ms) | Tile bound → its thumbnail, median (ms) | Visible tiles drawn with their thumbnail on their first frame | Visible tiles that never showed their type icon first | Pictures decoded | Thumbnailers started |
 |---|---|---|---|---|---|---|---|---|
-| Photos | Cold | 2,294 → 1,681 | 1,084 → 512 | 747 → 386 | 0 → 0 of 30 | 0 → 0 of 30 | 579 → 193 | 0 → 0 |
-| Photos | Same-session revisit | 163 → 74 | 89 → 3 | 88 → 0 | 0 → 30 of 30 | 0 → 30 of 30 | 0 → 0 | 0 → 0 |
-| Photos | Restart | 688 → 432 | 278 → 58 | 204 → 35 | 0 → 0 of 30 | 0 → 30 of 30 | 193 → 195 (18 batches) | 0 → 0 |
-| Photos | Cache drop | 747 → 446 | 263 → 60 | 206 → 35 | 0 → 0 of 30 | 0 → 30 of 30 | 193 → 195 (18 batches) | 0 → 0 |
-| Mixed | Cold | 2,928 → 1,162 | 2,510 → 796 | 1,444 → 483 | 0 → 0 of 30 | 0 → 0 of 30 | 360 → 120 | 80 → 80 |
+| Photos | Cold | 2,294 → 1,577 | 1,084 → 464 | 747 → 324 | 0 → 0 of 30 | 0 → 0 of 30 | 579 → 193 | 0 → 0 |
+| Photos | Same-session revisit | 163 → 86 | 89 → 3 | 88 → 0 | 0 → 30 of 30 | 0 → 30 of 30 | 0 → 0 | 0 → 0 |
+| Photos | Restart | 688 → 453 | 278 → 58 | 204 → 37 | 0 → 0 of 30 | 0 → 30 of 30 | 193 → 195 (18 batches) | 0 → 0 |
+| Photos | Cache drop | 747 → 445 | 263 → 58 | 206 → 39 | 0 → 0 of 30 | 0 → 30 of 30 | 193 → 195 (18 batches) | 0 → 0 |
+| Mixed | Cold | 2,928 → 931 | 2,510 → 555 | 1,444 → 382 | 0 → 0 of 30 | 0 → 0 of 30 | 360 → 120 | 80 → 80 |
 | Mixed | Same-session revisit | 113 → 52 | 63 → 2 | 62 → 0 | 0 → 30 of 30 | 0 → 30 of 30 | 0 → 0 | 0 → 0 |
-| Mixed | Restart | 632 → 397 | 218 → 39 | 168 → 34 | 0 → 0 of 30 | 0 → 30 of 30 | 120 → 120 (11 batches) | 0 → 0 |
-| Mixed | Cache drop | 625 → 394 | 283 → 37 | 209 → 33 | 0 → 0 of 30 | 0 → 30 of 30 | 120 → 120 (11 batches) | 0 → 0 |
+| Mixed | Restart | 632 → 407 | 218 → 33 | 168 → 32 | 0 → 0 of 30 | 0 → 30 of 30 | 120 → 120 (11 batches) | 0 → 0 |
+| Mixed | Cache drop | 625 → 436 | 283 → 36 | 209 → 36 | 0 → 0 of 30 | 0 → 30 of 30 | 120 → 120 (11 batches) | 0 → 0 |
 
 - **Restarts and cache drops:** the cache is now read in batches of up to 12 per decoder request. Before, each tile cost one GIO query and one decoder request.
 - **Cold visits:**
   - Each new photo costs one decode instead of three. Before, there was a look for an earlier thumbnail that decoded a missing file, then the decode, then a read-back of the written PNG.
-  - Visible tiles are made first. Over all 193 bound tiles, the cold photo folder takes as long as before (about 2.2 s).
-- **Paging down through a new folder** of 2,000 photos for 4.7 s while its thumbnails are made: the main loop missed its 5 ms timer for 34 ms or more 0, 1 and 3 times (longest 37 ms), against 1, 0 and 0 (35 ms) before. About 577 thumbnails were made meanwhile in both.
+  - Visible tiles are made first.
+  - Thumbnails are made one fewer at a time than the processors, between 2 and 3: 3 on this 4-processor machine, where 2 slots gave 512 ms (photos) and 796 ms (mixed) after the first tile. A 2-processor computer keeps 2.
+  - All 193 bound tiles of the cold photo folder are done in about 1.9 s, against 2.3 s before.
+- **Paging down through a new folder** of 2,000 photos for 4.7 s while its thumbnails are made, 8 runs each: the main loop missed its 5 ms timer for 34 ms or more 16 times in all here (longest 39 ms), against 14 times before (longest 52 ms). That is no measurable difference.
 - **First frame after a restart:** after a restart, a tile still cannot show its thumbnail on its very first frame. The read takes 35 ms or so, and holding the window's first frame back for it would be slower overall. The tile shows nothing in the icon's place until then, so there is no icon flash.
 
 ## NOT CONFIRMED
@@ -74,11 +76,12 @@ Thumbnails of files that were deleted or sent to the Recycle Bin stay in the cac
 - **Every test binary** was run through `check.py`'s own isolation (`run_isolated`) as an unprivileged user, because the app refuses to run as root and `check.py` stops there in this container. 4,995 tests passed and 4 failed.
   - The two sandboxed-thumbnailer tests fail identically on unchanged upstream as the same user, because bubblewrap cannot run in this container.
   - The two Python-app comparison tests, `location_fixture_drift` and `network_python`, touch nothing changed here; the first is already noted as failing on main in this environment.
-  - These are the results at 9e992f6a. The ox-app suite was run again at the last commit, which changed only ox-app: 2,647 passed, 2 failed (the same sandbox tests).
+  - These are the results at 9e992f6a. The ox-app suite was run again after each later commit (which changed only ox-app); at 1e736cf3, 2,648 passed and 2 failed (the same sandbox tests).
   - The doctests pass.
 - **Other checks:** `check.py` up to the Rust tests (the parity tests and `parity/check.py`, i18n, the driver tests, the drawn-icon guard, rustfmt and Clippy with `-D warnings` on Rust 1.92.0) passes, and `parity/check.py` passes alone. `tools/sync-docs.py --check` passes after regenerating the guides from `docs.json`.
 - **Benchmark:** the table above (`thumbnail-bench.py --scroll`).
 - **Interop:** the release build was run by hand on a private Xvfb display as an unprivileged user with a throwaway HOME, then `gio info` was checked on its entries (0600 files in 0700 folders, with all four keys).
+- **2x scale by hand** (`GDK_SCALE=2`): Large icons write `large` entries, and Extra large icons write 512 × 341 `x-large` entries.
 - The website's pictures of the app were not changed, and no website build was run.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
