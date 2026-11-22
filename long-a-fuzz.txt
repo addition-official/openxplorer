@@ -82,3 +82,23 @@ Found and fixed since last update: 2
 - Don't open archive members whose data ends early (a ZIP or 7z member shorter than its recorded size, with a matching checksum, previewed as a silently shorter copy; Extract All already refused it) - fixed cee1d612
 Open (not in the app's code): Don't crash on malformed Matroska files in the media reader (inside GStreamer, which runs only in the reader child; not reproducible on every run).
 Notes: the fuzz harness now gives each archive input its own location (the 7z header cache is keyed by location, length and start header, so one input's headers could be reused for the next).
+
+== 2026-11-22 01:45 CST ==
+Executions so far (all runs):
+app_protocols             421,336
+archive_extract         2,161,273
+archive_fixup             319,309
+archive_list            7,930,932
+archive_zipgen            175,306
+core_formats            6,005,516
+core_text              13,615,244
+media_details          37,486,232
+media_streams               8,627
+picture_decode          2,008,613
+picture_headers        11,058,616
+text_preview            8,338,769
+Found and fixed since last update: 1
+- Don't crash on malformed icon images (an icon entry inside the directory, or a bitmap header millions of pixels wide: the loader reserved 1.6 GB) - fixed 5ca3cfa6
+Also: clippy with Rust 1.92.0 (the CI version) is clean for ox-core and ox-app, all targets, with and without the fuzzing feature; rustfmt applied. (Stable 1.97's clippy flags duration_suboptimal_units in 5 untouched upstream files; CI uses 1.92.0.)
+Rotation: app_protocols, text_preview, picture_headers, core_text and pe_icons/truetype paused after their coverage stopped growing; archive_extract restarted with archive_list's corpus; archive_zipgen running without length control.
+Open: as before (Matroska in the media reader, inside GStreamer).
