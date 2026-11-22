@@ -177,6 +177,14 @@ mod imp {
         /// The content preview shown, which a redraw for the same item
         /// keeps (PROP-011).
         pub(super) shown_media: RefCell<Option<super::content::MediaPreview>>,
+        /// The wait for the selection to rest before its content preview
+        /// is read.
+        pub(super) media_timer: RefCell<Option<glib::SourceId>>,
+        /// Cancels the read of the content preview shown.
+        pub(super) media_cancellation: RefCell<Option<gtk::gio::Cancellable>>,
+        /// How many content previews were read, for tests.
+        #[cfg(test)]
+        pub(super) media_reads: Cell<u32>,
         /// The player of the recording shown, in its own process.
         pub(super) player: RefCell<Option<crate::media_player::PlayerStream>>,
         /// The app stopped the last player before changing its file: the
@@ -261,6 +269,7 @@ mod imp {
 
         fn dispose(&self) {
             self.obj().stop_reading();
+            self.obj().stop_media_reading();
             self.dispose_template();
         }
     }
