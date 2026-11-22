@@ -187,10 +187,12 @@ mod imp {
                     crate::crash_guard::survived_start();
                 });
             }
+            crate::startup_trace::mark("startup");
             self.parent_startup();
             app.name_for_the_desktop();
             if let Some(state) = AppState::new(app.upcast_ref(), Settings::open_default()) {
                 self.state.set(state).expect("GTK starts an application once");
+                crate::startup_trace::mark("state");
             }
             if let Launch::Interactive = app.launch() {
                 app.report_unfinished_operations();
@@ -533,6 +535,7 @@ fn software_rendering_notice(asks: bool, is_remote: bool, renderer: Option<&str>
 /// with `--ox-draw-vector-picture` it draws one vector picture for the app
 /// (see `picture_guard/vector.rs`).
 pub fn run() -> glib::ExitCode {
+    crate::startup_trace::mark("main");
     raise_open_file_limit();
     let arguments: Vec<String> = std::env::args().collect();
     if let Some(status) = crate::media_details::run_as_reader(&arguments) {
