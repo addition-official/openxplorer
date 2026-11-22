@@ -22,6 +22,7 @@ use super::choice_list::ChoiceButton;
 use super::group::SettingsGroup;
 use super::pages::Category;
 use super::parts;
+use super::radio_cards::RadioCards;
 use super::row::{ControlName, RowLayout, SettingRow};
 use super::search::RowText;
 use super::section::{PageKind, SettingsSection};
@@ -234,8 +235,8 @@ fn language_status(picked: Option<&str>, asked: &[String]) -> String {
 }
 
 /// The three theme cards, in a row that wraps in a narrow window, their
-/// radio buttons one group.
-fn theme_cards() -> gtk::FlowBox {
+/// radio buttons one group and one Tab stop ([`RadioCards`]).
+fn theme_cards() -> RadioCards {
     let cards = gtk::FlowBox::builder()
         .selection_mode(gtk::SelectionMode::None)
         .max_children_per_line(3)
@@ -245,6 +246,7 @@ fn theme_cards() -> gtk::FlowBox {
         .css_classes(["theme-cards"])
         .build();
     let mut first_radio: Option<gtk::CheckButton> = None;
+    let mut radios = Vec::new();
     for card in THEME_CARDS {
         let radio = theme_radio(&card, first_radio.as_ref());
         let child = gtk::FlowBoxChild::builder()
@@ -252,9 +254,10 @@ fn theme_cards() -> gtk::FlowBox {
             .focusable(false)
             .build();
         cards.append(&child);
-        first_radio.get_or_insert(radio);
+        first_radio.get_or_insert_with(|| radio.clone());
+        radios.push(radio);
     }
-    cards
+    RadioCards::new(&cards, radios)
 }
 
 /// The radio button under a card, "System", "Light" or "Dark", in the
