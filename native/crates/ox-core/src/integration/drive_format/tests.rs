@@ -51,6 +51,10 @@ const DRIVE_XML: &str = r#"<node>
       <arg type="a{sv}" name="options" direction="in"/>
       <arg type="s" name="mount_path" direction="out"/>
     </method>
+    <method name="SetLabel">
+      <arg type="s" name="label" direction="in"/>
+      <arg type="a{sv}" name="options" direction="in"/>
+    </method>
   </interface>
 </node>"#;
 
@@ -72,6 +76,8 @@ struct Answers {
     format_error: Option<&'static str>,
     /// The UDisks error `Mount` answers.
     mount_error: Option<&'static str>,
+    /// The UDisks error `SetLabel` answers.
+    label_error: Option<&'static str>,
     /// Another drive is at `/dev/sdb1` once the first was read.
     replaced: bool,
 }
@@ -143,6 +149,7 @@ impl FakeUdisks {
                         "Unmount" => answering.unmount_error,
                         "Format" => answering.format_error,
                         "Mount" => answering.mount_error,
+                        "SetLabel" => answering.label_error,
                         _ => None,
                     };
                     match (error, method) {
@@ -634,4 +641,58 @@ fn a_removed_or_write_protected_drive_is_not_formatted() {
     assert!(matches!(gone, Err(FormatError::NotFound)), "{gone:?}");
     assert!(matches!(protected, Err(FormatError::ReadOnly)), "{protected:?}");
     assert!(calls.is_empty(), "{calls:?}");
+}
+
+/// A drive's label is written through UDisks' `SetLabel` on its file
+/// system, without unmounting or formatting it, and a refusal, a dismissed
+/// prompt or a removed drive is told in the label's words.
+///
+/// parity: PROP-004
+#[test]
+fn a_drive_label_is_set_through_udisks() {
+    let calls = with_udisks(Answers::default(), |connection, fake| async move {
+        let name = fake.name();
+        set_drive_label(&connection, &name, "/dev/sdb1", "Holiday 2026")
+            .await
+            .expect("the label is set");
+        fake.drive_calls()
+    });
+    assert_eq!(calls, ["Filesystem.SetLabel ('Holiday 2026', @a{sv} {})"]);
+
+    let cases = [
+        (
+            Answers {
+                label_error: Some("NotAuthorizedDismissed"),
+                ..Answers::default()
+            },
+            "Renaming the drive was cancelled.",
+        ),
+        (
+            Answers {
+                label_error: Some("NotAuthorized"),
+                ..Answers::default()
+            },
+            "You are not allowed to rename this drive.",
+        ),
+        (
+            Answers {
+                label_error: Some("Failed"),
+                ..Answers::default()
+            },
+            "Could not rename the drive: refused",
+        ),
+        (
+            Answers {
+                unknown_device: true,
+                ..Answers::default()
+            },
+            "The drive is no longer connected.",
+        ),
+    ];
+    for (answers, message) in cases {
+        let refused = with_udisks(answers, |connection, fake| async move {
+            set_drive_label(&connection, &fake.name(), "/dev/sdb1", "Holiday").await
+        });
+        assert_eq!(refused.expect_err("refused").to_string(), message);
+    }
 }

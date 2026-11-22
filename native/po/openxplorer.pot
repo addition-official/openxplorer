@@ -9091,12 +9091,25 @@ msgstr ""
 msgid "Could not format the drive: {error}"
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-core/src/integration/drive_format.rs
+msgid "Could not rename the drive: {error}"
+msgstr ""
+
 #: crates/ox-core/src/integration/drive_format.rs
 msgid "Formatting needs the UDisks service, which is not available."
 msgstr ""
 
 #: crates/ox-core/src/integration/drive_format.rs
 msgid "Formatting was cancelled."
+msgstr ""
+
+#: crates/ox-core/src/integration/drive_format.rs
+msgid "Renaming a drive needs the UDisks service, which is not available."
+msgstr ""
+
+#: crates/ox-core/src/integration/drive_format.rs
+msgid "Renaming the drive was cancelled."
 msgstr ""
 
 #: crates/ox-core/src/integration/drive_format.rs
@@ -9113,6 +9126,10 @@ msgstr ""
 
 #: crates/ox-core/src/integration/drive_format.rs
 msgid "You are not allowed to format this drive."
+msgstr ""
+
+#: crates/ox-core/src/integration/drive_format.rs
+msgid "You are not allowed to rename this drive."
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.

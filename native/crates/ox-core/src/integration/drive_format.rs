@@ -349,6 +349,83 @@ impl FormatError {
     }
 }
 
+/// Why a drive's volume label was not changed. `Display` is the message
+/// the Properties window shows.
+#[derive(Debug, thiserror::Error)]
+pub enum LabelError {
+    /// UDisks cannot be reached; the D-Bus error is the source, kept out
+    /// of the message.
+    #[error(
+        "{}",
+        crate::i18n::gettext("Renaming a drive needs the UDisks service, which is not available.")
+    )]
+    Unavailable(#[source] glib::Error),
+    /// UDisks does not know the drive, which was removed.
+    #[error("{}", crate::i18n::gettext("The drive is no longer connected."))]
+    NotFound,
+    /// The user dismissed the password prompt.
+    #[error("{}", crate::i18n::gettext("Renaming the drive was cancelled."))]
+    Cancelled,
+    /// The system does not allow this user to rename the drive.
+    #[error("{}", crate::i18n::gettext("You are not allowed to rename this drive."))]
+    NotAuthorized,
+    /// The label could not be written, for the reason UDisks names, such
+    /// as a file system that must be unmounted first.
+    #[error(
+        "{}",
+        crate::i18n::format_message("Could not rename the drive: {error}", &[("error", .0.as_str())])
+    )]
+    Failed(String),
+}
+
+impl From<FormatError> for LabelError {
+    fn from(error: FormatError) -> Self {
+        match error {
+            FormatError::Unavailable(error) => Self::Unavailable(error),
+            FormatError::NotFound => Self::NotFound,
+            FormatError::Cancelled => Self::Cancelled,
+            FormatError::NotAuthorized => Self::NotAuthorized,
+            FormatError::ReadOnly => Self::Failed(error.to_string()),
+            FormatError::Busy | FormatError::Failed(_) | FormatError::NotMountedAgain { .. } => {
+                Self::Failed(error.to_string())
+            }
+        }
+    }
+}
+
+/// Gives the block device `device`, such as `/dev/sdb1`, the volume label
+/// `label` through UDisks `service` on `connection`, as Windows' label box
+/// on a drive's General tab does. UDisks checks with polkit, which may ask
+/// for a password.
+///
+/// # Errors
+///
+/// [`LabelError::NotFound`] when UDisks does not know the drive, and what
+/// UDisks answered otherwise.
+pub async fn set_drive_label(
+    connection: &gio::DBusConnection,
+    service: &str,
+    device: &str,
+    label: &str,
+) -> Result<(), LabelError> {
+    let object = resolve_device(connection, service, device).await?;
+    let arguments = (label, glib::VariantDict::new(None)).to_variant();
+    call(
+        connection,
+        service,
+        &object,
+        FILESYSTEM_INTERFACE,
+        "SetLabel",
+        &arguments,
+    )
+    .await
+    .map(drop)
+    .map_err(|error| match FormatError::from_call(error) {
+        FormatError::Failed(reason) => LabelError::Failed(reason),
+        other => other.into(),
+    })
+}
+
 /// Reads what UDisks `service` on `connection` knows about the block
 /// device `device`, such as `/dev/sdb1`.
 ///
