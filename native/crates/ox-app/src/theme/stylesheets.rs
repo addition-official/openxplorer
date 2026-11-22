@@ -243,11 +243,11 @@ mod tests {
         ]
         .map(|item| format!("{item} {item_ring}"));
         let item_outlines = [
-            "columnview.files.keyboard-in > listview > row:focus:not(:focus-visible):not(.file-drop-active):not(.renaming)",
-            "gridview.files.keyboard-in > child:focus:not(:focus-visible):not(.file-drop-active):not(.renaming)",
+            "columnview.files.keyboard-in > listview > row",
+            "gridview.files.keyboard-in > child",
         ]
         .map(|item| {
-            format!("{item} {{ outline: 1px solid @ox_item_focus_outer; outline-offset: -1px; }}")
+            format!("{item}:focus:not(:focus-visible):not(.file-drop-active):not(.renaming) {{ outline: 1px solid @ox_item_focus_outer; outline-offset: -1px; }}")
         });
         let control_rings = [
             "window.ox button:focus-visible { outline: 2px solid @ox_focus_outer; outline-offset: -2px; }",
