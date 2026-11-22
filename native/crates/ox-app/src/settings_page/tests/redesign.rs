@@ -253,6 +253,8 @@ fn every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages() {
         "File name endings",
         // Previous Versions' Restore as Windows', off by default.
         "Restore over the original (Windows)",
+        // Search words from an extension's start, as Windows', off by default.
+        "Match words at the start of file extensions (like Windows)",
     ];
     for title in added_since {
         settings.row(title);

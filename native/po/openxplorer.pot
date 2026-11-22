@@ -4395,6 +4395,10 @@ msgstr ""
 msgid "5 minutes"
 msgstr ""
 
+#: crates/ox-app/src/settings_page/indexing.rs
+msgid "A word also finds names whose extension starts with it, as in Windows: “doc” finds “report.docx”. Off: a word finds an extension only when it is the whole extension."
+msgstr ""
+
 #: crates/ox-app/resources/ui/search-info-strip.ui crates/ox-app/src/settings_page/indexing.rs crates/ox-app/src/window/cache_folder.rs crates/ox-app/src/window/context_menu/entries.rs
 msgid "Cache this folder for search"
 msgstr ""
@@ -4446,6 +4450,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/indexing.rs
 msgid "Manage…"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/indexing.rs
+msgid "Match words at the start of file extensions (like Windows)"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/indexing.rs crates/ox-app/src/window/disabled_reasons.rs
@@ -4506,6 +4514,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/indexing.rs
 msgid "search filter bar strip options scope kind date size cache save search windows layout"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/indexing.rs
+msgid "search word extension suffix type docx pdf partial match windows file name"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/indexing.rs

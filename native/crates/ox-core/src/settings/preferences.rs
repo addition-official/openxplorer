@@ -382,6 +382,13 @@ pub struct Preferences {
     /// `restoreOverOriginal`, only when on.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub restore_over_original: bool,
+    /// A search word also matches from the start of a name's extension,
+    /// as Windows 11's search does: `doc` finds `report.docx`. Off by
+    /// default, the owner's rule: a word reaches into an extension only
+    /// as the whole extension. Stored as `extensionWordStarts`, only when
+    /// on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub extension_word_starts: bool,
     /// Explicitly enabled installed service actions, keyed by definition digest.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub enabled_service_actions: Vec<String>,
@@ -672,6 +679,7 @@ impl Default for Preferences {
             progress_details: false,
             recycle_replaced_files: true,
             restore_over_original: false,
+            extension_word_starts: false,
             enabled_service_actions: Vec::new(),
             desktop_font: false,
             hide_sidebar: false,
@@ -774,6 +782,7 @@ impl Preferences {
         replace_if_some(&mut self.confirm_empty_trash, update.confirm_empty_trash);
         replace_if_some(&mut self.recycle_replaced_files, update.recycle_replaced_files);
         replace_if_some(&mut self.restore_over_original, update.restore_over_original);
+        replace_if_some(&mut self.extension_word_starts, update.extension_word_starts);
         replace_if_some(&mut self.confirm_close_tabs, update.confirm_close_tabs);
         replace_if_some(&mut self.ask_to_run_programs, update.ask_to_run_programs);
     }
@@ -1092,6 +1101,8 @@ pub struct PreferencesUpdate {
     pub recycle_replaced_files: Option<bool>,
     /// See [`Preferences::restore_over_original`].
     pub restore_over_original: Option<bool>,
+    /// See [`Preferences::extension_word_starts`].
+    pub extension_word_starts: Option<bool>,
     /// Ask before closing a window with several tabs.
     pub confirm_close_tabs: Option<bool>,
     /// Ask whether to run a program or script that is opened.
@@ -1249,6 +1260,7 @@ impl PreferencesUpdate {
             confirm_empty_trash: flag("confirmEmptyTrash"),
             recycle_replaced_files: flag("recycleReplacedFiles"),
             restore_over_original: flag("restoreOverOriginal"),
+            extension_word_starts: flag("extensionWordStarts"),
             confirm_close_tabs: flag("confirmCloseTabs"),
             ask_to_run_programs: flag("askToRunPrograms"),
             progress_details: flag("progressDetails"),
