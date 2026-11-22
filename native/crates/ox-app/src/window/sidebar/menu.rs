@@ -29,7 +29,7 @@ use crate::locations::Page;
 use crate::window::cache_folder::cache_item;
 use crate::window::command_bar::{disconnect_network_drive, NetworkDrive};
 use crate::window::menu_popover::{ItemCheck, MenuEntry, MenuItem, MenuStyle};
-use crate::window::place_menus::{caching_in, facts_in, finish_menu, PlaceMenu};
+use crate::window::place_menus::{facts_in, finish_menu, PlaceMenu};
 use crate::window::saved_search::saved_search_menu;
 use crate::window::window_action::WindowAction;
 use crate::window::BrowserWindow;
@@ -476,11 +476,27 @@ impl Sidebar {
             || matches!(entry.level, RowLevel::Computer { .. } | RowLevel::Share);
         if opens_elsewhere && entry.menu.is_none() {
             if let RowTarget::Location(uri) = &entry.target {
-                return Some(open_elsewhere_items(uri));
+                let mut entries = open_elsewhere_items(uri);
+                // Home also pins the folder shown, as Windows 11's "Pin
+                // current folder to Quick access" (checked on build
+                // 26200); grayed on a page, which cannot be pinned.
+                // Gallery's own Pin to Quick access is left out: the app
+                // cannot pin a page.
+                if entry.section == Section::Home && uri != ox_core::location::GALLERY_URI {
+                    entries.push(
+                        MenuItem::new(
+                            &ox_core::i18n::gettext("Pin current folder to Quick access"),
+                            Icon::Pin,
+                            WindowAction::PinFolder,
+                        )
+                        .into(),
+                    );
+                }
+                return Some(entries);
             }
         }
         let place = entry.menu.as_ref()?;
-        let place_menu = place.entries(caching_in(place, self));
+        let place_menu = place.styled(facts_in(place, self), MenuStyle::Classic).0;
         // A drive the system keeps mounted may have nothing to offer.
         (!place_menu.is_empty()).then_some(place_menu)
     }

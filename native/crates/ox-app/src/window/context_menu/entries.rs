@@ -165,6 +165,9 @@ const ONE_ITEM_AT_A_TIME: &str = crate::i18n::message_id("Select only one item f
 /// version.
 const READ_ONLY_VERSION: &str = crate::i18n::message_id("Items in a previous version are read-only.");
 
+/// Why Compress to and Share with are grayed in the Recycle Bin.
+const RESTORE_FIRST: &str = crate::i18n::message_id("Restore the item to compress or share it.");
+
 /// Why Send to ▸ Bluetooth device is disabled for a folder.
 const BLUETOOTH_FILES_ONLY: &str = crate::i18n::message_id("Only files can be sent to a Bluetooth device.");
 
@@ -1014,6 +1017,18 @@ pub(crate) fn item_menu(facts: &ItemFacts, style: MenuStyle) -> ContextMenu {
 /// Gallery does (SRCH-015). The app's other commands are in the classic
 /// menu behind "Show more options".
 fn compact_item_menu(facts: &ItemFacts) -> ContextMenu {
+    // A network computer, as Windows 11 lists it (build 26200): Open, Open
+    // in new tab, Open in new window, Pin to Quick access, then "Show more
+    // options"; its share list has nothing to cut, compress or describe.
+    if facts.location == ItemLocation::SmbServer {
+        let mut entries = vec![open_item(facts)];
+        entries.extend(folder_open_items(facts));
+        entries.extend([MenuEntry::Divider, show_more_options_item()]);
+        return ContextMenu {
+            entries,
+            strip: Vec::new(),
+        };
+    }
     let mut entries = vec![open_item(facts)];
     entries.extend(extraction_items(facts));
     entries.extend(mount_item(facts));
@@ -1260,9 +1275,13 @@ fn open_with_application(application: &ApplicationChoice) -> MenuItem {
         .with_application_icon(application.icon.as_deref())
 }
 
-/// The menu of items inside a ZIP opened like a folder, as Explorer's
-/// inside a "Compressed (zipped) Folder": Open, Copy, Copy as path and
-/// Extract all (ARC-026). The ZIP is read-only, so nothing else applies.
+/// The menu of items inside a ZIP opened like a folder, as Windows 11
+/// lists it inside a "Compressed (zipped) Folder" (checked on build 26200):
+/// a short classic menu, in either style, with no "Show more options":
+/// Open (in bold, from [`classic_look`]); Cut and Copy, with the app's
+/// Copy as path; Delete; the app's Extract all…; Properties. The app
+/// reads a ZIP without changing it, so its Cut and Delete actions are off
+/// there and the rows show grayed (ARC-026).
 pub(crate) fn zip_item_menu() -> Vec<MenuEntry> {
     vec![
         item(
@@ -1273,6 +1292,9 @@ pub(crate) fn zip_item_menu() -> Vec<MenuEntry> {
         .with_shortcut("Enter")
         .into(),
         MenuEntry::Divider,
+        item(ox_core::i18n::gettext_static("Cut"), Icon::Cut, WindowAction::Cut)
+            .with_shortcut("Ctrl+X")
+            .into(),
         item(
             ox_core::i18n::gettext_static("Copy"),
             Icon::Copy,
@@ -1280,12 +1302,14 @@ pub(crate) fn zip_item_menu() -> Vec<MenuEntry> {
         )
         .with_shortcut("Ctrl+C")
         .into(),
+        copy_path_item(),
+        MenuEntry::Divider,
         item(
-            ox_core::i18n::gettext_static("Copy as path"),
-            Icon::Link,
-            WindowAction::CopyPath,
+            ox_core::i18n::gettext_static("Delete"),
+            Icon::Delete,
+            WindowAction::Trash,
         )
-        .with_shortcut("Ctrl+Shift+C")
+        .with_shortcut("Delete")
         .into(),
         MenuEntry::Divider,
         item(
@@ -1294,7 +1318,206 @@ pub(crate) fn zip_item_menu() -> Vec<MenuEntry> {
             WindowAction::ExtractAll,
         )
         .into(),
+        MenuEntry::Divider,
+        properties_item(),
     ]
+}
+
+/// What a page's compact menu lists for Undo and Redo: the label of each
+/// that can run now, as Windows 11 lists them only then.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct UndoRedo {
+    /// "Undo <step>" while there is a step to undo.
+    pub(crate) undo: Option<String>,
+    /// "Redo <step>" while there is a step to redo.
+    pub(crate) redo: Option<String>,
+}
+
+impl UndoRedo {
+    /// The rows of the steps that can run.
+    fn rows(&self) -> Vec<MenuEntry> {
+        let undo = self.undo.as_deref().map(|label| {
+            item(label, Icon::ArrowUndo, WindowAction::Undo)
+                .with_shortcut("Ctrl+Z")
+                .into()
+        });
+        let redo = self.redo.as_deref().map(|label| {
+            item(label, Icon::ArrowRedo, WindowAction::Redo)
+                .with_shortcut("Ctrl+Y")
+                .into()
+        });
+        undo.into_iter().chain(redo).collect()
+    }
+}
+
+/// The app's own Refresh, which the folder menus list after Group by.
+fn refresh_item() -> MenuEntry {
+    item(
+        ox_core::i18n::gettext_static("Refresh"),
+        Icon::ArrowClockwise,
+        WindowAction::Refresh,
+    )
+    .with_shortcut("F5")
+    .into()
+}
+
+/// `groups` joined by dividers, leaving out the empty ones.
+fn grouped(groups: Vec<Vec<MenuEntry>>) -> Vec<MenuEntry> {
+    let mut entries = Vec::new();
+    for group in groups.into_iter().filter(|group| !group.is_empty()) {
+        if !entries.is_empty() {
+            entries.push(MenuEntry::Divider);
+        }
+        entries.extend(group);
+    }
+    entries
+}
+
+/// The compact menu of blank space inside a ZIP opened like a folder, as
+/// Windows 11's (build 26200): View, Sort by, Group by (and the app's
+/// Refresh); Extract all… and Undo while it can run; "Show more options",
+/// which opens [`zip_background_menu`].
+pub(crate) fn compact_zip_background_menu(steps: &UndoRedo, submenus: BackgroundSubmenus) -> Vec<MenuEntry> {
+    let [view, sort, group, _] = background_submenu_items(submenus);
+    let extract = item(
+        ox_core::i18n::gettext_static("Extract all…"),
+        Icon::FolderZip,
+        WindowAction::ExtractAll,
+    )
+    .into();
+    let undo = UndoRedo {
+        redo: None,
+        ..steps.clone()
+    };
+    let mut second = vec![extract];
+    second.extend(undo.rows());
+    grouped(vec![
+        vec![view, sort, group, refresh_item()],
+        second,
+        vec![show_more_options_item()],
+    ])
+}
+
+/// The menu of a page's blank space, as Windows 11 lists it (build
+/// 26200), in `style`: View, Sort by and Group by, then This PC's Add a
+/// network location, Undo and Redo while they can run and Properties
+/// (`properties`, the system information app, where one is installed);
+/// Home's with Sort by and Group by grayed, as its lists are not sorted
+/// or grouped, and Undo and Redo while they can run; Network's with the
+/// app's Refresh. The compact style ends with "Show more options", which
+/// opens the same menu in the classic style.
+pub(crate) fn page_background_menu(
+    page: crate::locations::Page,
+    steps: &UndoRedo,
+    properties: bool,
+    submenus: BackgroundSubmenus,
+    style: MenuStyle,
+) -> Vec<MenuEntry> {
+    use crate::locations::Page;
+    let [view, sort, group, _] = background_submenu_items(submenus);
+    let groups = match page {
+        Page::ThisPc => {
+            let mut second = vec![item(
+                ox_core::i18n::gettext_static("Add a network location"),
+                Icon::AddNetworkLocation24,
+                WindowAction::AddNetworkLocation,
+            )
+            .into()];
+            second.extend(steps.rows());
+            if properties {
+                second.push(
+                    item(
+                        ox_core::i18n::gettext_static("Properties"),
+                        Icon::Info,
+                        WindowAction::SystemProperties,
+                    )
+                    .into(),
+                );
+            }
+            vec![vec![view, sort, group], second]
+        }
+        Page::Home => {
+            let gray = |entry: MenuEntry| match entry {
+                MenuEntry::Item(item) => MenuEntry::Item(item.disabled_when(true)),
+                MenuEntry::Divider => MenuEntry::Divider,
+            };
+            vec![vec![view, gray(sort), gray(group)], steps.rows()]
+        }
+        Page::Network | Page::Settings => vec![vec![view, sort, group, refresh_item()]],
+    };
+    let mut groups = groups;
+    if style == MenuStyle::Compact {
+        groups.push(vec![show_more_options_item()]);
+    }
+    grouped(groups)
+}
+
+/// The Recycle Bin's compact menu of its items, as Windows 11's (build
+/// 26200): Cut and Delete in the strip; then Share with, Restore, Compress
+/// to and Properties; then "Show more options", which opens
+/// [`recycle_bin_item_menu`]. Share with and Compress to are grayed,
+/// saying why: they take files, and the Recycle Bin's entries are not
+/// files the app can read as such until restored.
+pub(crate) fn compact_recycle_bin_item_menu(facts: &ItemFacts) -> ContextMenu {
+    let [cut, ..] = edit_items(facts);
+    // "Delete", as Windows 11 names it there, which deletes for good.
+    let delete = item(
+        ox_core::i18n::gettext_static("Delete"),
+        Icon::Delete,
+        WindowAction::Trash,
+    )
+    .with_shortcut("Delete");
+    // The app compresses and shares files, not the Recycle Bin's entries.
+    let restore_first = |entry: MenuEntry| match entry {
+        MenuEntry::Item(row) => {
+            MenuEntry::Item(row.disabled_because(true, ox_core::i18n::gettext_static(RESTORE_FIRST)))
+        }
+        MenuEntry::Divider => MenuEntry::Divider,
+    };
+    let mut entries: Vec<MenuEntry> = share_with_item(facts).map(restore_first).into_iter().collect();
+    entries.push(
+        item(
+            ox_core::i18n::gettext_static("Restore"),
+            Icon::ArrowCounterclockwise,
+            WindowAction::Restore,
+        )
+        .into(),
+    );
+    entries.push(restore_first(compress_submenu()));
+    entries.push(properties_item());
+    entries.extend([MenuEntry::Divider, show_more_options_item()]);
+    ContextMenu {
+        entries,
+        strip: vec![cut, delete],
+    }
+}
+
+/// The Recycle Bin's compact menu of its blank space, as Windows 11's
+/// (build 26200): View, Sort by, Group by (and the app's Refresh); Empty
+/// Recycle Bin, Undo while it can run, and Properties; then "Show more
+/// options", which opens [`recycle_bin_background_menu`].
+pub(crate) fn compact_recycle_bin_background_menu(
+    steps: &UndoRedo,
+    submenus: BackgroundSubmenus,
+) -> Vec<MenuEntry> {
+    let [view, sort, group, _] = background_submenu_items(submenus);
+    let mut second = vec![item(
+        ox_core::i18n::gettext_static("Empty Recycle Bin"),
+        Icon::DeleteDismiss,
+        WindowAction::EmptyRecycleBin,
+    )
+    .into()];
+    let undo = UndoRedo {
+        redo: None,
+        ..steps.clone()
+    };
+    second.extend(undo.rows());
+    second.push(properties_item());
+    grouped(vec![
+        vec![view, sort, group, refresh_item()],
+        second,
+        vec![show_more_options_item()],
+    ])
 }
 
 /// The menu of blank space inside a ZIP opened like a folder: Extract
@@ -2143,6 +2366,36 @@ mod tests {
         assert!(labels(&item_menu(&two, MenuStyle::Classic).entries).contains(&"Compare files".to_owned()));
         assert!(
             !labels(&item_menu(&file(), MenuStyle::Classic).entries).contains(&"Compare files".to_owned())
+        );
+    }
+
+    /// A network computer listed on the Network page has Windows 11's
+    /// menu (checked on build 26200): Open, Open in new tab, Open in new
+    /// window and Pin to Quick access, then "Show more options"; no strip,
+    /// Compress to, Copy as path, Properties or Open in Terminal, which a
+    /// computer's share list has no use for.
+    ///
+    /// parity: CMD-010, SIDE-020
+    #[test]
+    fn a_network_computer_has_windows_11s_menu() {
+        let facts = ItemFacts {
+            navigation_uri: "smb://nas/".to_owned(),
+            location: ItemLocation::SmbServer,
+            caching: None,
+            ..folder()
+        };
+        let menu = item_menu(&facts, MenuStyle::Compact);
+        assert!(menu.strip.is_empty());
+        assert_eq!(
+            labels(&menu.entries),
+            [
+                "Open",
+                "Open in new tab",
+                "Open in new window",
+                "Pin to Quick access",
+                "-",
+                "Show more options"
+            ]
         );
     }
 

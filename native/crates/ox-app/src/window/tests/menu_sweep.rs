@@ -11,8 +11,7 @@
 //! selection, an MP3, an MP4, a JPEG, an ODT, a ZIP, a 7z archive, a
 //! file with an odd name and a 5 GB disk image; the background of a
 //! folder; Home, its Quick access tiles and its Recent and Favorites
-//! rows; Gallery; This PC and a drive (not yet Home's and This PC's blank
-//! space, which have no menu); Network; the Recycle Bin and an
+//! rows; Gallery; This PC and a drive; Network; the Recycle Bin and an
 //! item in it; an item inside a ZIP and its background; search results;
 //! every navigation pane row; the address bar; the column titles; and a
 //! tab. The log lists each menu's rows, for comparing with Windows 11.
@@ -85,7 +84,7 @@ fn check_item(window: &BrowserWindow, menu: &str, item: &MenuItem, problems: &mu
 }
 
 /// The menu of the window that is open now, once it has drawn.
-fn open_menu(window: &BrowserWindow) -> Option<MenuPopover> {
+pub(super) fn open_menu(window: &BrowserWindow) -> Option<MenuPopover> {
     let shown = || {
         descendants::<MenuPopover>(window)
             .into_iter()
@@ -103,7 +102,7 @@ fn open_menu(window: &BrowserWindow) -> Option<MenuPopover> {
 
 /// The rows of `menu` as one line for the log: dividers as `|`, the
 /// strip's buttons in brackets, grayed rows in parentheses.
-fn summary(menu: &MenuPopover) -> String {
+pub(super) fn summary(menu: &MenuPopover) -> String {
     let mut parts = Vec::new();
     let strip = menu.strip_labels();
     if !strip.is_empty() {
@@ -133,7 +132,7 @@ fn sweep_at(session: &mut Session, name: &str, at: (i32, i32), problems: &mut Pr
     let window = session.test.window.clone();
     let mut menu = None;
     for attempt in 0..2 {
-        session.pointer.move_to(at.0, at.1);
+        glide_to(session, at);
         session.pointer.press(Button::Secondary);
         session.pointer.release(Button::Secondary);
         menu = open_menu(&window);
@@ -150,6 +149,24 @@ fn sweep_at(session: &mut Session, name: &str, at: (i32, i32), problems: &mut Pr
     close(session, &menu);
 }
 
+thread_local! {
+    /// Where the sweep left the real pointer, so it glides on from there.
+    static POINTER_AT: std::cell::Cell<Option<(i32, i32)>> = const { std::cell::Cell::new(None) };
+}
+
+/// Glides the real pointer to `at` from where the sweep left it, as a
+/// hand moves it: jumped there in one step right after a menu's popup
+/// left the screen under it, X11 gives GTK the next press nowhere it can
+/// deliver it (a test artifact, see
+/// `the_right_click_after_choosing_from_a_menu_opens_the_next_menu`).
+fn glide_to(session: &mut Session, at: (i32, i32)) {
+    match POINTER_AT.get() {
+        Some(from) if from != at => session.pointer.glide(from, at, 8),
+        _ => session.pointer.move_to(at.0, at.1),
+    }
+    POINTER_AT.set(Some(at));
+}
+
 /// Checks the rows and strip of the open `menu`, called `name`.
 fn sweep_menu(window: &BrowserWindow, name: &str, menu: &MenuPopover, problems: &mut Problems) {
     eprintln!("MENU {name}: {}", summary(menu));
@@ -159,7 +176,7 @@ fn sweep_menu(window: &BrowserWindow, name: &str, menu: &MenuPopover, problems: 
 }
 
 /// Closes `menu` with a real Escape and waits until it has.
-fn close(session: &mut Session, menu: &MenuPopover) {
+pub(super) fn close(session: &mut Session, menu: &MenuPopover) {
     session.pointer.tap_key(gtk::gdk::Key::Escape);
     if menu.is_mapped() {
         wait_for_frames(menu, 2);
@@ -171,14 +188,14 @@ fn close(session: &mut Session, menu: &MenuPopover) {
 }
 
 /// The screen point on the item called `name` of the file list.
-fn on_item(session: &Session, name: &str) -> (i32, i32) {
+pub(super) fn on_item(session: &Session, name: &str) -> (i32, i32) {
     let position = position_of(&session.test, name);
     let (_, x, y) = session.test.window.right_button_on_item(position);
     session.on_screen(&session.test.window.folder_pane().input_widget(), (x, y))
 }
 
 /// The screen point on blank space at the bottom of the file list.
-fn on_blank(session: &Session) -> (i32, i32) {
+pub(super) fn on_blank(session: &Session) -> (i32, i32) {
     let view = session.test.window.folder_pane().input_widget();
     session.on_screen(&view, (6.0, f64::from(view.height()) - 6.0))
 }
@@ -291,11 +308,6 @@ fn every_page_menu_runs_actions_the_window_has() {
                     &mut problems,
                 );
             }
-            // Home's and This PC's blank space have no menu yet: what
-            // Windows 11 lists there is to be checked on Windows first.
-            if matches!(page, "Home" | "This PC") {
-                continue;
-            }
             let pane = session.test.window.folder_pane().clone();
             let at = session.on_screen(
                 &pane,
@@ -323,7 +335,7 @@ fn page_items(session: &Session) -> Vec<gtk::Widget> {
     let rows = descendants::<gtk::ListBoxRow>(pane)
         .into_iter()
         .filter(WidgetExt::is_drawable)
-        .filter(|row| !row.ancestor(MenuPopover::static_type()).is_some())
+        .filter(|row| row.ancestor(MenuPopover::static_type()).is_none())
         .map(Cast::upcast);
     let mut items: Vec<gtk::Widget> = tiles.chain(rows).collect();
     if items.is_empty() {
@@ -558,7 +570,7 @@ fn the_first_right_click_on_a_ctrl_clicked_selection_opens_its_menu() {
 }
 
 /// The screen point of the middle of the navigation pane's row `label`.
-fn on_sidebar_row(session: &Session, label: &str) -> (i32, i32) {
+pub(super) fn on_sidebar_row(session: &Session, label: &str) -> (i32, i32) {
     let sidebar = session.test.window.sidebar();
     let index = sidebar
         .labels()
@@ -573,7 +585,7 @@ fn on_sidebar_row(session: &Session, label: &str) -> (i32, i32) {
 }
 
 /// The locations of the window's tabs, in order.
-fn tab_locations(session: &Session) -> Vec<String> {
+pub(super) fn tab_locations(session: &Session) -> Vec<String> {
     session
         .test
         .window
@@ -686,17 +698,16 @@ fn the_right_click_after_choosing_from_a_menu_opens_the_next_menu() {
         session.pointer.glide(clicked, at, 8);
         session.pointer.press(Button::Secondary);
         session.pointer.release(Button::Secondary);
-        match open_menu(&window) {
-            Some(menu) => close(&mut session, &menu),
-            None => {
-                eprintln!("MISS round {round}: {from} › {row}, then {next}");
-                misses.push(format!("{from} › {row}, then {next}"));
-                // The second right-click, to go on.
-                session.pointer.press(Button::Secondary);
-                session.pointer.release(Button::Secondary);
-                if let Some(menu) = open_menu(&window) {
-                    close(&mut session, &menu);
-                }
+        if let Some(menu) = open_menu(&window) {
+            close(&mut session, &menu);
+        } else {
+            eprintln!("MISS round {round}: {from} › {row}, then {next}");
+            misses.push(format!("{from} › {row}, then {next}"));
+            // The second right-click, to go on.
+            session.pointer.press(Button::Secondary);
+            session.pointer.release(Button::Secondary);
+            if let Some(menu) = open_menu(&window) {
+                close(&mut session, &menu);
             }
         }
     }

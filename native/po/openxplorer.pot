@@ -598,7 +598,7 @@ msgstr ""
 msgid "Add a network folder to your sidebar: a Windows share, or a folder on an SSH, FTP, WebDAV or NFS server."
 msgstr ""
 
-#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/window/command_bar/menus.rs crates/ox-app/src/window/sidebar/menu.rs
+#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/window/command_bar/menus.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/sidebar/menu.rs
 msgid "Add a network location"
 msgstr ""
 
@@ -5087,7 +5087,7 @@ msgstr ""
 msgid "Cut (Ctrl+X)"
 msgstr ""
 
-#: crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/file_ops/delete_label.rs crates/ox-app/src/window/folder_tree/menu.rs crates/ox-app/src/window/shortcuts_window.rs crates/ox-core/src/ops/undo.rs
+#: crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/file_ops/delete_label.rs crates/ox-app/src/window/folder_tree/menu.rs crates/ox-app/src/window/shortcuts_window.rs crates/ox-core/src/ops/undo.rs
 msgid "Delete"
 msgstr ""
 
@@ -5587,6 +5587,10 @@ msgstr ""
 
 #: crates/ox-app/src/window/context_menu/entries.rs
 msgid "Restore previous versions"
+msgstr ""
+
+#: crates/ox-app/src/window/context_menu/entries.rs
+msgid "Restore the item to compress or share it."
 msgstr ""
 
 #: crates/ox-app/src/window/context_menu/entries.rs
@@ -7587,6 +7591,10 @@ msgstr ""
 
 #: crates/ox-app/src/window/sidebar/menu.rs
 msgid "Map network drive…"
+msgstr ""
+
+#: crates/ox-app/src/window/sidebar/menu.rs
+msgid "Pin current folder to Quick access"
 msgstr ""
 
 #: crates/ox-app/src/window/sidebar/menu.rs
