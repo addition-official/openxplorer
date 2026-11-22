@@ -13278,7 +13278,7 @@ native_note = "native/crates/ox-core/src/ops/shortcut_destination.rs (resolve_sh
 id = "OPEN-028"
 area = "OPEN"
 title = "Problem with Shortcut"
-behaviour = "Opening a shortcut whose item is gone (a symbolic link to nothing, a loop of links, or a .desktop link to a deleted folder of this computer) asks Windows' 'Problem with Shortcut' question: 'The item ‘<name>’ that this shortcut refers to has been changed or moved, so this shortcut will no longer work properly. Do you want to delete this shortcut?' with Yes and No (Alt+Y, Alt+N, or Y and N alone). Yes moves the shortcut, never anything else, to the Recycle Bin as Delete does, with Delete's confirmation where the settings ask for one, and Undo brings it back; No keeps it. A shortcut onto a removable drive or share that is not connected (its folder under /media/<user>, /run/media/<user>, /mnt or GVfs's runtime folder is missing or holds no mounted drive) says instead 'The drive or network connection that the shortcut ‘<name>’ refers to is unavailable. Make sure that the disk is properly inserted or the network resource is available, and then try again.' with OK, and deletes nothing."
+behaviour = "Opening a shortcut whose item is gone (a symbolic link to nothing, a loop of links, or a .desktop link to a deleted folder of this computer) asks Windows' 'Problem with Shortcut' question: 'The item ‘<name>’ that this shortcut refers to has been changed or moved, so this shortcut will no longer work properly. Do you want to delete this shortcut?' with Yes, the default, and No (Alt+Y, Alt+N, or Y and N alone). Yes deletes the shortcut, never anything else, permanently, as Windows 11 deletes it (checked in a Windows 11 VM), never following a link; No keeps it. A shortcut onto a removable drive or share that is not connected (its folder under /media/<user>, /run/media/<user>, /mnt or GVfs's runtime folder is missing or holds no mounted drive) says instead 'The drive or network connection that the shortcut ‘<name>’ refers to is unavailable. Make sure that the disk is properly inserted or the network resource is available, and then try again.' with OK, and deletes nothing."
 origin = ["openxplorer"]
 priority = "should"
 openxplorer = "missing"
@@ -13289,7 +13289,7 @@ sources = [
 python_tests = []
 bridge = []
 native = "done"
-native_note = "native/crates/ox-core/src/ops/shortcut_destination.rs (missing, unavailable and loops; destination_of for .desktop links) and native/crates/ox-app/src/window/activation/broken_shortcut.rs (the dialog; Yes runs trash_shortcut in window/file_ops/delete.rs). Tested in native/crates/ox-app/src/window/tests/shortcuts.rs (a_broken_shortcut_offers_to_delete_it, a_shortcut_onto_a_drive_that_is_not_connected_says_so, a_desktop_link_to_a_deleted_folder_offers_to_delete_it)."
+native_note = "native/crates/ox-core/src/ops/shortcut_destination.rs (missing, unavailable and loops; destination_of for .desktop links) and native/crates/ox-app/src/window/activation/broken_shortcut.rs (the dialog; Yes runs delete_shortcut in window/file_ops/delete.rs). Tested in native/crates/ox-app/src/window/tests/shortcuts.rs (a_broken_shortcut_offers_to_delete_it, a_shortcut_onto_a_drive_that_is_not_connected_says_so, a_desktop_link_to_a_deleted_folder_offers_to_delete_it)."
 
 [[feature]]
 id = "ARC-001"

@@ -13,8 +13,8 @@
 //!
 //! A link to nothing, a loop of links included, or a `.desktop` link to a
 //! deleted folder asks Windows' "Problem with Shortcut" question and
-//! offers to delete the shortcut: Yes moves it to the Recycle Bin as
-//! Delete does, so Undo brings it back. One onto a removable drive or a
+//! offers to delete the shortcut: Yes, the default, deletes the shortcut
+//! permanently, as Windows 11 does. One onto a removable drive or a
 //! share that is not connected says, in Windows' words, that the drive is
 //! unavailable, and offers nothing to delete.
 
@@ -44,7 +44,7 @@ const UNAVAILABLE: &str = crate::i18n::message_id(
 /// A shortcut that leads nowhere, to report.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::window) struct BrokenShortcut {
-    /// The shortcut's own address, which Yes moves to the Recycle Bin.
+    /// The shortcut's own address, which Yes deletes.
     pub(in crate::window) link: String,
     /// The shortcut's own name.
     pub(in crate::window) name: String,
@@ -113,7 +113,7 @@ impl BrowserWindow {
         let answer = dialog.next_response().await;
         dialog.finish();
         if answer == Some(yes) {
-            self.trash_shortcut(broken.link).await;
+            self.delete_shortcut(broken.link).await;
         }
     }
 }
