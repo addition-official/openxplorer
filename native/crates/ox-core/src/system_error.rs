@@ -83,9 +83,13 @@ pub const NOT_SUPPORTED: SystemError = win32(50, message_id("The request is not 
 /// `ERROR_BAD_NETPATH`.
 pub const BAD_NETPATH: SystemError = win32(53, message_id("The network path was not found."));
 /// `ERROR_UNEXP_NET_ERR`.
-pub const UNEXPECTED_NETWORK_ERROR: SystemError = win32(59, message_id("An unexpected network error occurred."));
+pub const UNEXPECTED_NETWORK_ERROR: SystemError =
+    win32(59, message_id("An unexpected network error occurred."));
 /// `ERROR_NETNAME_DELETED`.
-pub const NETNAME_DELETED: SystemError = win32(64, message_id("The specified network name is no longer available."));
+pub const NETNAME_DELETED: SystemError = win32(
+    64,
+    message_id("The specified network name is no longer available."),
+);
 /// `ERROR_BAD_NET_NAME`.
 pub const BAD_NET_NAME: SystemError = win32(67, message_id("The network name cannot be found."));
 /// `ERROR_INVALID_PARAMETER`.
@@ -103,9 +107,13 @@ pub const INVALID_NAME: SystemError = win32(
 /// `ERROR_DIR_NOT_EMPTY`.
 pub const DIR_NOT_EMPTY: SystemError = win32(145, message_id("The directory is not empty."));
 /// `ERROR_ALREADY_EXISTS`.
-pub const ALREADY_EXISTS: SystemError = win32(183, message_id("Cannot create a file when that file already exists."));
+pub const ALREADY_EXISTS: SystemError = win32(
+    183,
+    message_id("Cannot create a file when that file already exists."),
+);
 /// `ERROR_FILENAME_EXCED_RANGE`.
-pub const FILENAME_EXCED_RANGE: SystemError = win32(206, message_id("The filename or extension is too long."));
+pub const FILENAME_EXCED_RANGE: SystemError =
+    win32(206, message_id("The filename or extension is too long."));
 /// `ERROR_FILE_TOO_LARGE`.
 pub const FILE_TOO_LARGE: SystemError = win32(
     223,
@@ -114,7 +122,8 @@ pub const FILE_TOO_LARGE: SystemError = win32(
 /// `ERROR_DIRECTORY`.
 pub const DIRECTORY: SystemError = win32(267, message_id("The directory name is invalid."));
 /// `ERROR_DIRECTORY_NOT_SUPPORTED`.
-pub const DIRECTORY_NOT_SUPPORTED: SystemError = win32(336, message_id("An operation is not supported on a directory."));
+pub const DIRECTORY_NOT_SUPPORTED: SystemError =
+    win32(336, message_id("An operation is not supported on a directory."));
 /// `ERROR_IO_DEVICE`.
 pub const IO_DEVICE: SystemError = win32(
     1117,
@@ -131,14 +140,21 @@ pub const DEVICE_NOT_CONNECTED: SystemError = win32(1167, message_id("The device
 /// `ERROR_CANCELLED`.
 pub const CANCELLED: SystemError = win32(1223, message_id("The operation was canceled by the user."));
 /// `ERROR_CONNECTION_REFUSED`.
-pub const CONNECTION_REFUSED: SystemError = win32(1225, message_id("The remote computer refused the network connection."));
+pub const CONNECTION_REFUSED: SystemError = win32(
+    1225,
+    message_id("The remote computer refused the network connection."),
+);
 /// `ERROR_NETWORK_UNREACHABLE`. Windows goes on "For information about
 /// network troubleshooting, see Windows Help.", which is not here.
-pub const NETWORK_UNREACHABLE: SystemError = win32(1231, message_id("The network location cannot be reached."));
+pub const NETWORK_UNREACHABLE: SystemError =
+    win32(1231, message_id("The network location cannot be reached."));
 /// `ERROR_HOST_UNREACHABLE`.
 pub const HOST_UNREACHABLE: SystemError = win32(1232, message_id("The network location cannot be reached."));
 /// `ERROR_CONNECTION_ABORTED`.
-pub const CONNECTION_ABORTED: SystemError = win32(1236, message_id("The network connection was aborted by the local system."));
+pub const CONNECTION_ABORTED: SystemError = win32(
+    1236,
+    message_id("The network connection was aborted by the local system."),
+);
 /// `ERROR_DISK_QUOTA_EXCEEDED`.
 pub const DISK_QUOTA_EXCEEDED: SystemError = win32(
     1295,
@@ -149,13 +165,23 @@ pub const DISK_QUOTA_EXCEEDED: SystemError = win32(
 /// `ERROR_LOGON_FAILURE`.
 pub const LOGON_FAILURE: SystemError = win32(1326, message_id("The user name or password is incorrect."));
 /// `ERROR_FILE_CORRUPT`.
-pub const FILE_CORRUPT: SystemError = win32(1392, message_id("The file or directory is corrupted and unreadable."));
+pub const FILE_CORRUPT: SystemError = win32(
+    1392,
+    message_id("The file or directory is corrupted and unreadable."),
+);
 /// `ERROR_TIMEOUT`.
-pub const TIMEOUT: SystemError = win32(1460, message_id("This operation returned because the timeout period expired."));
+pub const TIMEOUT: SystemError = win32(
+    1460,
+    message_id("This operation returned because the timeout period expired."),
+);
 /// `ERROR_CANT_RESOLVE_FILENAME`, a link that leads in a loop.
-pub const CANT_RESOLVE_FILENAME: SystemError = win32(1921, message_id("The name of the file cannot be resolved by the system."));
+pub const CANT_RESOLVE_FILENAME: SystemError = win32(
+    1921,
+    message_id("The name of the file cannot be resolved by the system."),
+);
 /// `ERROR_NOT_A_REPARSE_POINT`.
-pub const NOT_A_REPARSE_POINT: SystemError = win32(4390, message_id("The file or directory is not a reparse point."));
+pub const NOT_A_REPARSE_POINT: SystemError =
+    win32(4390, message_id("The file or directory is not a reparse point."));
 /// `E_FAIL`, for anything else.
 pub const UNSPECIFIED: SystemError = SystemError {
     hresult: E_FAIL,
@@ -247,7 +273,9 @@ impl SystemError {
     pub fn on_network(self) -> Self {
         match self {
             FILE_NOT_FOUND | PATH_NOT_FOUND => BAD_NET_NAME,
-            CONNECTION_REFUSED | HOST_UNREACHABLE | NETWORK_UNREACHABLE | SEM_TIMEOUT | TIMEOUT => BAD_NETPATH,
+            CONNECTION_REFUSED | HOST_UNREACHABLE | NETWORK_UNREACHABLE | SEM_TIMEOUT | TIMEOUT => {
+                BAD_NETPATH
+            }
             // Samba's word for a server that went away.
             CONNECTION_ABORTED => NETNAME_DELETED,
             found => found,
@@ -262,7 +290,10 @@ impl SystemError {
         }
         // An error made from one of these sentences, as a GIO error is
         // carried as local I/O, keeps it.
-        if let Some(found) = error.get_ref().and_then(|inner| Self::from_sentence(&inner.to_string())) {
+        if let Some(found) = error
+            .get_ref()
+            .and_then(|inner| Self::from_sentence(&inner.to_string()))
+        {
             return found;
         }
         match error.kind() {
@@ -486,7 +517,10 @@ fn quoted_location(message: &str) -> Option<String> {
         return Some(quoted.to_owned());
     }
     let file = gio::File::for_uri(quoted);
-    Some(file.path().map_or_else(|| file.parse_name().to_string(), |path| path.display().to_string()))
+    Some(file.path().map_or_else(
+        || file.parse_name().to_string(),
+        |path| path.display().to_string(),
+    ))
 }
 /// The error of the `errno` whose words end `message`, as in "Error
 /// opening file “/x”: Permission denied" or "Input/output error", or end
@@ -536,36 +570,156 @@ mod tests {
     fn gio_codes_read_as_the_windows_error() {
         use gio::IOErrorEnum as Io;
         let cases = [
-            GioCase { code: Io::NotFound, hresult: 0x8007_0002, sentence: "The system cannot find the file specified." },
-            GioCase { code: Io::Exists, hresult: 0x8007_00B7, sentence: "Cannot create a file when that file already exists." },
-            GioCase { code: Io::IsDirectory, hresult: 0x8007_0150, sentence: "An operation is not supported on a directory." },
-            GioCase { code: Io::NotDirectory, hresult: 0x8007_010B, sentence: "The directory name is invalid." },
-            GioCase { code: Io::NotEmpty, hresult: 0x8007_0091, sentence: "The directory is not empty." },
-            GioCase { code: Io::FilenameTooLong, hresult: 0x8007_00CE, sentence: "The filename or extension is too long." },
-            GioCase { code: Io::InvalidFilename, hresult: 0x8007_007B, sentence: "The filename, directory name, or volume label syntax is incorrect." },
-            GioCase { code: Io::TooManyLinks, hresult: 0x8007_0781, sentence: "The name of the file cannot be resolved by the system." },
-            GioCase { code: Io::NoSpace, hresult: 0x8007_0070, sentence: "There is not enough space on the disk." },
-            GioCase { code: Io::InvalidArgument, hresult: 0x8007_0057, sentence: "The parameter is incorrect." },
-            GioCase { code: Io::PermissionDenied, hresult: 0x8007_0005, sentence: "Access is denied." },
-            GioCase { code: Io::NotSupported, hresult: 0x8007_0032, sentence: "The request is not supported." },
-            GioCase { code: Io::NotMounted, hresult: 0x8007_0015, sentence: "The device is not ready." },
-            GioCase { code: Io::Cancelled, hresult: 0x8007_04C7, sentence: "The operation was canceled by the user." },
-            GioCase { code: Io::ReadOnly, hresult: 0x8007_0013, sentence: "The media is write protected." },
-            GioCase { code: Io::TimedOut, hresult: 0x8007_0079, sentence: "The semaphore timeout period has expired." },
-            GioCase { code: Io::Busy, hresult: 0x8007_0020, sentence: "The process cannot access the file because it is being used by another process." },
-            GioCase { code: Io::HostNotFound, hresult: 0x8007_0035, sentence: "The network path was not found." },
-            GioCase { code: Io::TooManyOpenFiles, hresult: 0x8007_0004, sentence: "The system cannot open the file." },
-            GioCase { code: Io::InvalidData, hresult: 0x8007_000D, sentence: "The data is invalid." },
-            GioCase { code: Io::HostUnreachable, hresult: 0x8007_04D0, sentence: "The network location cannot be reached." },
-            GioCase { code: Io::NetworkUnreachable, hresult: 0x8007_04CF, sentence: "The network location cannot be reached." },
-            GioCase { code: Io::ConnectionRefused, hresult: 0x8007_04C9, sentence: "The remote computer refused the network connection." },
-            GioCase { code: Io::BrokenPipe, hresult: 0x8007_0040, sentence: "The specified network name is no longer available." },
-            GioCase { code: Io::NotConnected, hresult: 0x8007_048F, sentence: "The device is not connected." },
-            GioCase { code: Io::NoSuchDevice, hresult: 0x8007_048F, sentence: "The device is not connected." },
-            GioCase { code: Io::Closed, hresult: 0x8007_0006, sentence: "The handle is invalid." },
-            GioCase { code: Io::NotSymbolicLink, hresult: 0x8007_1126, sentence: "The file or directory is not a reparse point." },
-            GioCase { code: Io::Failed, hresult: 0x8000_4005, sentence: "Unspecified error" },
-            GioCase { code: Io::DbusError, hresult: 0x8000_4005, sentence: "Unspecified error" },
+            GioCase {
+                code: Io::NotFound,
+                hresult: 0x8007_0002,
+                sentence: "The system cannot find the file specified.",
+            },
+            GioCase {
+                code: Io::Exists,
+                hresult: 0x8007_00B7,
+                sentence: "Cannot create a file when that file already exists.",
+            },
+            GioCase {
+                code: Io::IsDirectory,
+                hresult: 0x8007_0150,
+                sentence: "An operation is not supported on a directory.",
+            },
+            GioCase {
+                code: Io::NotDirectory,
+                hresult: 0x8007_010B,
+                sentence: "The directory name is invalid.",
+            },
+            GioCase {
+                code: Io::NotEmpty,
+                hresult: 0x8007_0091,
+                sentence: "The directory is not empty.",
+            },
+            GioCase {
+                code: Io::FilenameTooLong,
+                hresult: 0x8007_00CE,
+                sentence: "The filename or extension is too long.",
+            },
+            GioCase {
+                code: Io::InvalidFilename,
+                hresult: 0x8007_007B,
+                sentence: "The filename, directory name, or volume label syntax is incorrect.",
+            },
+            GioCase {
+                code: Io::TooManyLinks,
+                hresult: 0x8007_0781,
+                sentence: "The name of the file cannot be resolved by the system.",
+            },
+            GioCase {
+                code: Io::NoSpace,
+                hresult: 0x8007_0070,
+                sentence: "There is not enough space on the disk.",
+            },
+            GioCase {
+                code: Io::InvalidArgument,
+                hresult: 0x8007_0057,
+                sentence: "The parameter is incorrect.",
+            },
+            GioCase {
+                code: Io::PermissionDenied,
+                hresult: 0x8007_0005,
+                sentence: "Access is denied.",
+            },
+            GioCase {
+                code: Io::NotSupported,
+                hresult: 0x8007_0032,
+                sentence: "The request is not supported.",
+            },
+            GioCase {
+                code: Io::NotMounted,
+                hresult: 0x8007_0015,
+                sentence: "The device is not ready.",
+            },
+            GioCase {
+                code: Io::Cancelled,
+                hresult: 0x8007_04C7,
+                sentence: "The operation was canceled by the user.",
+            },
+            GioCase {
+                code: Io::ReadOnly,
+                hresult: 0x8007_0013,
+                sentence: "The media is write protected.",
+            },
+            GioCase {
+                code: Io::TimedOut,
+                hresult: 0x8007_0079,
+                sentence: "The semaphore timeout period has expired.",
+            },
+            GioCase {
+                code: Io::Busy,
+                hresult: 0x8007_0020,
+                sentence: "The process cannot access the file because it is being used by another process.",
+            },
+            GioCase {
+                code: Io::HostNotFound,
+                hresult: 0x8007_0035,
+                sentence: "The network path was not found.",
+            },
+            GioCase {
+                code: Io::TooManyOpenFiles,
+                hresult: 0x8007_0004,
+                sentence: "The system cannot open the file.",
+            },
+            GioCase {
+                code: Io::InvalidData,
+                hresult: 0x8007_000D,
+                sentence: "The data is invalid.",
+            },
+            GioCase {
+                code: Io::HostUnreachable,
+                hresult: 0x8007_04D0,
+                sentence: "The network location cannot be reached.",
+            },
+            GioCase {
+                code: Io::NetworkUnreachable,
+                hresult: 0x8007_04CF,
+                sentence: "The network location cannot be reached.",
+            },
+            GioCase {
+                code: Io::ConnectionRefused,
+                hresult: 0x8007_04C9,
+                sentence: "The remote computer refused the network connection.",
+            },
+            GioCase {
+                code: Io::BrokenPipe,
+                hresult: 0x8007_0040,
+                sentence: "The specified network name is no longer available.",
+            },
+            GioCase {
+                code: Io::NotConnected,
+                hresult: 0x8007_048F,
+                sentence: "The device is not connected.",
+            },
+            GioCase {
+                code: Io::NoSuchDevice,
+                hresult: 0x8007_048F,
+                sentence: "The device is not connected.",
+            },
+            GioCase {
+                code: Io::Closed,
+                hresult: 0x8007_0006,
+                sentence: "The handle is invalid.",
+            },
+            GioCase {
+                code: Io::NotSymbolicLink,
+                hresult: 0x8007_1126,
+                sentence: "The file or directory is not a reparse point.",
+            },
+            GioCase {
+                code: Io::Failed,
+                hresult: 0x8000_4005,
+                sentence: "Unspecified error",
+            },
+            GioCase {
+                code: Io::DbusError,
+                hresult: 0x8000_4005,
+                sentence: "Unspecified error",
+            },
         ];
         for case in cases {
             let error = SystemError::from_glib(&glib::Error::new(
@@ -591,43 +745,154 @@ mod tests {
     fn errno_values_read_as_the_windows_error() {
         use rustix::io::Errno;
         let cases = [
-            ErrnoCase { errno: Errno::PERM.raw_os_error(), expected: ACCESS_DENIED },
-            ErrnoCase { errno: Errno::ACCESS.raw_os_error(), expected: ACCESS_DENIED },
-            ErrnoCase { errno: Errno::NOENT.raw_os_error(), expected: FILE_NOT_FOUND },
-            ErrnoCase { errno: Errno::EXIST.raw_os_error(), expected: ALREADY_EXISTS },
-            ErrnoCase { errno: Errno::NOSPC.raw_os_error(), expected: DISK_FULL },
-            ErrnoCase { errno: Errno::DQUOT.raw_os_error(), expected: DISK_QUOTA_EXCEEDED },
-            ErrnoCase { errno: Errno::ROFS.raw_os_error(), expected: WRITE_PROTECT },
-            ErrnoCase { errno: Errno::NAMETOOLONG.raw_os_error(), expected: FILENAME_EXCED_RANGE },
-            ErrnoCase { errno: Errno::ILSEQ.raw_os_error(), expected: INVALID_NAME },
-            ErrnoCase { errno: Errno::INVAL.raw_os_error(), expected: INVALID_PARAMETER },
-            ErrnoCase { errno: Errno::BUSY.raw_os_error(), expected: SHARING_VIOLATION },
-            ErrnoCase { errno: Errno::TXTBSY.raw_os_error(), expected: SHARING_VIOLATION },
-            ErrnoCase { errno: Errno::IO.raw_os_error(), expected: IO_DEVICE },
-            ErrnoCase { errno: Errno::NOTDIR.raw_os_error(), expected: DIRECTORY },
-            ErrnoCase { errno: Errno::ISDIR.raw_os_error(), expected: DIRECTORY_NOT_SUPPORTED },
-            ErrnoCase { errno: Errno::NOTEMPTY.raw_os_error(), expected: DIR_NOT_EMPTY },
-            ErrnoCase { errno: Errno::XDEV.raw_os_error(), expected: NOT_SAME_DEVICE },
-            ErrnoCase { errno: Errno::NOTSUP.raw_os_error(), expected: NOT_SUPPORTED },
-            ErrnoCase { errno: Errno::NOSYS.raw_os_error(), expected: NOT_SUPPORTED },
-            ErrnoCase { errno: Errno::NOMEM.raw_os_error(), expected: NOT_ENOUGH_MEMORY },
-            ErrnoCase { errno: Errno::MFILE.raw_os_error(), expected: TOO_MANY_OPEN_FILES },
-            ErrnoCase { errno: Errno::FBIG.raw_os_error(), expected: FILE_TOO_LARGE },
-            ErrnoCase { errno: Errno::LOOP.raw_os_error(), expected: CANT_RESOLVE_FILENAME },
-            ErrnoCase { errno: Errno::TIMEDOUT.raw_os_error(), expected: SEM_TIMEOUT },
-            ErrnoCase { errno: Errno::CONNREFUSED.raw_os_error(), expected: CONNECTION_REFUSED },
-            ErrnoCase { errno: Errno::HOSTUNREACH.raw_os_error(), expected: HOST_UNREACHABLE },
-            ErrnoCase { errno: Errno::NETUNREACH.raw_os_error(), expected: NETWORK_UNREACHABLE },
-            ErrnoCase { errno: Errno::CONNRESET.raw_os_error(), expected: NETNAME_DELETED },
-            ErrnoCase { errno: Errno::PIPE.raw_os_error(), expected: NETNAME_DELETED },
-            ErrnoCase { errno: Errno::STALE.raw_os_error(), expected: NETNAME_DELETED },
-            ErrnoCase { errno: Errno::CONNABORTED.raw_os_error(), expected: CONNECTION_ABORTED },
-            ErrnoCase { errno: Errno::NOTCONN.raw_os_error(), expected: DEVICE_NOT_CONNECTED },
-            ErrnoCase { errno: Errno::NODEV.raw_os_error(), expected: DEVICE_NOT_CONNECTED },
-            ErrnoCase { errno: Errno::NXIO.raw_os_error(), expected: DEVICE_NOT_CONNECTED },
-            ErrnoCase { errno: Errno::NOMEDIUM.raw_os_error(), expected: NOT_READY },
-            ErrnoCase { errno: Errno::UCLEAN.raw_os_error(), expected: FILE_CORRUPT },
-            ErrnoCase { errno: Errno::CANCELED.raw_os_error(), expected: CANCELLED },
+            ErrnoCase {
+                errno: Errno::PERM.raw_os_error(),
+                expected: ACCESS_DENIED,
+            },
+            ErrnoCase {
+                errno: Errno::ACCESS.raw_os_error(),
+                expected: ACCESS_DENIED,
+            },
+            ErrnoCase {
+                errno: Errno::NOENT.raw_os_error(),
+                expected: FILE_NOT_FOUND,
+            },
+            ErrnoCase {
+                errno: Errno::EXIST.raw_os_error(),
+                expected: ALREADY_EXISTS,
+            },
+            ErrnoCase {
+                errno: Errno::NOSPC.raw_os_error(),
+                expected: DISK_FULL,
+            },
+            ErrnoCase {
+                errno: Errno::DQUOT.raw_os_error(),
+                expected: DISK_QUOTA_EXCEEDED,
+            },
+            ErrnoCase {
+                errno: Errno::ROFS.raw_os_error(),
+                expected: WRITE_PROTECT,
+            },
+            ErrnoCase {
+                errno: Errno::NAMETOOLONG.raw_os_error(),
+                expected: FILENAME_EXCED_RANGE,
+            },
+            ErrnoCase {
+                errno: Errno::ILSEQ.raw_os_error(),
+                expected: INVALID_NAME,
+            },
+            ErrnoCase {
+                errno: Errno::INVAL.raw_os_error(),
+                expected: INVALID_PARAMETER,
+            },
+            ErrnoCase {
+                errno: Errno::BUSY.raw_os_error(),
+                expected: SHARING_VIOLATION,
+            },
+            ErrnoCase {
+                errno: Errno::TXTBSY.raw_os_error(),
+                expected: SHARING_VIOLATION,
+            },
+            ErrnoCase {
+                errno: Errno::IO.raw_os_error(),
+                expected: IO_DEVICE,
+            },
+            ErrnoCase {
+                errno: Errno::NOTDIR.raw_os_error(),
+                expected: DIRECTORY,
+            },
+            ErrnoCase {
+                errno: Errno::ISDIR.raw_os_error(),
+                expected: DIRECTORY_NOT_SUPPORTED,
+            },
+            ErrnoCase {
+                errno: Errno::NOTEMPTY.raw_os_error(),
+                expected: DIR_NOT_EMPTY,
+            },
+            ErrnoCase {
+                errno: Errno::XDEV.raw_os_error(),
+                expected: NOT_SAME_DEVICE,
+            },
+            ErrnoCase {
+                errno: Errno::NOTSUP.raw_os_error(),
+                expected: NOT_SUPPORTED,
+            },
+            ErrnoCase {
+                errno: Errno::NOSYS.raw_os_error(),
+                expected: NOT_SUPPORTED,
+            },
+            ErrnoCase {
+                errno: Errno::NOMEM.raw_os_error(),
+                expected: NOT_ENOUGH_MEMORY,
+            },
+            ErrnoCase {
+                errno: Errno::MFILE.raw_os_error(),
+                expected: TOO_MANY_OPEN_FILES,
+            },
+            ErrnoCase {
+                errno: Errno::FBIG.raw_os_error(),
+                expected: FILE_TOO_LARGE,
+            },
+            ErrnoCase {
+                errno: Errno::LOOP.raw_os_error(),
+                expected: CANT_RESOLVE_FILENAME,
+            },
+            ErrnoCase {
+                errno: Errno::TIMEDOUT.raw_os_error(),
+                expected: SEM_TIMEOUT,
+            },
+            ErrnoCase {
+                errno: Errno::CONNREFUSED.raw_os_error(),
+                expected: CONNECTION_REFUSED,
+            },
+            ErrnoCase {
+                errno: Errno::HOSTUNREACH.raw_os_error(),
+                expected: HOST_UNREACHABLE,
+            },
+            ErrnoCase {
+                errno: Errno::NETUNREACH.raw_os_error(),
+                expected: NETWORK_UNREACHABLE,
+            },
+            ErrnoCase {
+                errno: Errno::CONNRESET.raw_os_error(),
+                expected: NETNAME_DELETED,
+            },
+            ErrnoCase {
+                errno: Errno::PIPE.raw_os_error(),
+                expected: NETNAME_DELETED,
+            },
+            ErrnoCase {
+                errno: Errno::STALE.raw_os_error(),
+                expected: NETNAME_DELETED,
+            },
+            ErrnoCase {
+                errno: Errno::CONNABORTED.raw_os_error(),
+                expected: CONNECTION_ABORTED,
+            },
+            ErrnoCase {
+                errno: Errno::NOTCONN.raw_os_error(),
+                expected: DEVICE_NOT_CONNECTED,
+            },
+            ErrnoCase {
+                errno: Errno::NODEV.raw_os_error(),
+                expected: DEVICE_NOT_CONNECTED,
+            },
+            ErrnoCase {
+                errno: Errno::NXIO.raw_os_error(),
+                expected: DEVICE_NOT_CONNECTED,
+            },
+            ErrnoCase {
+                errno: Errno::NOMEDIUM.raw_os_error(),
+                expected: NOT_READY,
+            },
+            ErrnoCase {
+                errno: Errno::UCLEAN.raw_os_error(),
+                expected: FILE_CORRUPT,
+            },
+            ErrnoCase {
+                errno: Errno::CANCELED.raw_os_error(),
+                expected: CANCELLED,
+            },
         ];
         for case in cases {
             let io = std::io::Error::from_raw_os_error(case.errno);
@@ -672,7 +937,10 @@ mod tests {
     fn file_and_resolver_errors_read_as_the_windows_error() {
         let denied = glib::Error::new(glib::FileError::Acces, "Failed to open file “/x”: odd");
         assert_eq!(SystemError::from_glib(&denied), ACCESS_DENIED);
-        let unknown_host = glib::Error::new(gio::ResolverError::NotFound, "Error resolving “nas”: Name or service not known");
+        let unknown_host = glib::Error::new(
+            gio::ResolverError::NotFound,
+            "Error resolving “nas”: Name or service not known",
+        );
         assert_eq!(SystemError::from_glib(&unknown_host), BAD_NETPATH);
         let other = glib::Error::new(glib::KeyFileError::Parse, "line 3: odd");
         assert_eq!(SystemError::from_glib(&other), UNSPECIFIED);
@@ -712,24 +980,39 @@ mod tests {
             gio::IOErrorEnum::NotFound,
             "Error when getting information for file “file:///home/ada/b%20track.mp3”: No such file or directory",
         );
-        assert_eq!(describe(&uri), "/home/ada/b track.mp3: The system cannot find the file specified.");
+        assert_eq!(
+            describe(&uri),
+            "/home/ada/b track.mp3: The system cannot find the file specified."
+        );
         let plain = glib::Error::new(gio::IOErrorEnum::NoSpace, "No space left on device");
         assert_eq!(describe(&plain), "There is not enough space on the disk.");
         let made = std::io::Error::new(
             std::io::ErrorKind::PermissionDenied,
-            format!("/home/ada/Locked/New document.txt: {}", std::io::Error::from_raw_os_error(13)),
+            format!(
+                "/home/ada/Locked/New document.txt: {}",
+                std::io::Error::from_raw_os_error(13)
+            ),
         );
-        assert_eq!(describe_io(&made), "/home/ada/Locked/New document.txt: Access is denied.");
+        assert_eq!(
+            describe_io(&made),
+            "/home/ada/Locked/New document.txt: Access is denied."
+        );
         let own = std::io::Error::other("The file dialog service did not start again.");
         assert_eq!(describe_io(&own), "The file dialog service did not start again.");
-        assert_eq!(describe_io(&std::io::Error::from_raw_os_error(28)), "There is not enough space on the disk.");
+        assert_eq!(
+            describe_io(&std::io::Error::from_raw_os_error(28)),
+            "There is not enough space on the disk."
+        );
     }
 
     /// A message that is one of the sentences finds its error, for the
     /// code line; any other text finds none.
     #[test]
     fn a_sentence_finds_its_error() {
-        assert_eq!(SystemError::from_sentence("Access is denied."), Some(ACCESS_DENIED));
+        assert_eq!(
+            SystemError::from_sentence("Access is denied."),
+            Some(ACCESS_DENIED)
+        );
         assert_eq!(SystemError::from_sentence("Invalid location."), None);
     }
 
@@ -739,7 +1022,15 @@ mod tests {
     fn no_sentence_carries_developer_text() {
         for error in ALL {
             let text = error.message();
-            for leak in ["file://", "/home", "errno", "Windows", "Error when", "G_IO", "os error"] {
+            for leak in [
+                "file://",
+                "/home",
+                "errno",
+                "Windows",
+                "Error when",
+                "G_IO",
+                "os error",
+            ] {
                 assert!(!text.contains(leak), "{text}");
             }
             assert!(text.chars().next().is_some_and(char::is_uppercase), "{text}");

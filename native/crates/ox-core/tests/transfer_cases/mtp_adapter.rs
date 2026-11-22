@@ -180,10 +180,7 @@ fn a_refused_rename_reports_the_devices_error() {
 
     let moved = device.node(".stage").move_native(&device.node("a"), None);
 
-    assert_eq!(
-        moved,
-        Err(TransferError::failed("Unspecified error"))
-    );
+    assert_eq!(moved, Err(TransferError::failed("Unspecified error")));
     assert_eq!(device.items(), [".stage"]);
 }
 

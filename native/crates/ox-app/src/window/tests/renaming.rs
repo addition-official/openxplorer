@@ -1082,7 +1082,9 @@ fn a_refused_rename_in_place_asks_to_try_again_in_windows_words() {
     let dialog = open_dialog(&test);
     assert_eq!(dialog.title_text(), "File Access Denied");
     assert!(
-        dialog.message_text().starts_with("You need permission to perform this action"),
+        dialog
+            .message_text()
+            .starts_with("You need permission to perform this action"),
         "{}",
         dialog.message_text()
     );

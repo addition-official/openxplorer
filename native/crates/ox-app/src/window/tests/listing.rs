@@ -623,7 +623,10 @@ fn a_folder_that_may_not_be_read_keeps_the_tab_where_it_was() {
         descendants::<gtk::Expander>(&dialog).is_empty(),
         "no Details: the message is the system's error already"
     );
-    assert!(dialog.has_css_class("message-box"), "Windows' message box, with its icon");
+    assert!(
+        dialog.has_css_class("message-box"),
+        "Windows' message box, with its icon"
+    );
     assert_eq!(dialog.button_labels(), ["OK"]);
     dialog.press("OK");
     super::file_ops_support::wait_for_no_dialog(&test);

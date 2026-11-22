@@ -433,9 +433,10 @@ fn start(tool: DiskTool, target: &Path) -> Result<(), String> {
             &[
                 (
                     "display",
-                    &program
-                        .file_name()
-                        .map_or_else(|| program.display().to_string(), |name| name.to_string_lossy().into_owned()),
+                    &program.file_name().map_or_else(
+                        || program.display().to_string(),
+                        |name| name.to_string_lossy().into_owned(),
+                    ),
                 ),
                 ("error", &ox_core::system_error::describe_io(&error)),
             ],

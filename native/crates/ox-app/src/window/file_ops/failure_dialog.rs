@@ -201,7 +201,9 @@ fn error_code_line(error: &str) -> String {
 /// code line.
 fn rename_wording(error: &OpsError, is_folder: bool, folder: &str) -> Option<Wording> {
     let said = error.to_string();
-    let sentence = said.rsplit_once(": ").map_or(said.as_str(), |(_, sentence)| sentence);
+    let sentence = said
+        .rsplit_once(": ")
+        .map_or(said.as_str(), |(_, sentence)| sentence);
     let in_use = SystemError::from_sentence(sentence) == Some(ox_core::system_error::SHARING_VIOLATION);
     let question = match error {
         OpsError::Cancelled | OpsError::Exists(_) => return None,
@@ -878,7 +880,8 @@ mod tests {
         failed.error = "/media/sample/USB/plan.docx: The device is not connected.".into();
         let said = wording(Question::Unexpected, &failed, false, "");
         assert_eq!(said.message, "Error 0x8007048F: The device is not connected.");
-        failed.error = "Incomplete staging folder left at /media/sample/USB. Inspect it before removing it.".into();
+        failed.error =
+            "Incomplete staging folder left at /media/sample/USB. Inspect it before removing it.".into();
         let said = wording(Question::Unexpected, &failed, false, "");
         assert_eq!(said.message, failed.error);
     }

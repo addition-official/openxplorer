@@ -129,7 +129,10 @@ fn network_details(message: &str) -> String {
     match SystemError::from_sentence(message).map(SystemError::on_network) {
         Some(error) => format_message(
             "Error code: {code}\n{message}",
-            &[("code", &format!("0x{:08X}", error.hresult())), ("message", &error.message())],
+            &[
+                ("code", &format!("0x{:08X}", error.hresult())),
+                ("message", &error.message()),
+            ],
         ),
         None => message.to_owned(),
     }
@@ -401,7 +404,10 @@ mod tests {
         else {
             panic!("the unavailable page");
         };
-        assert!(message.contains("is unavailable. Make sure you are connected"), "{message}");
+        assert!(
+            message.contains("is unavailable. Make sure you are connected"),
+            "{message}"
+        );
         assert_eq!(
             details.as_deref(),
             Some("Error code: 0x80070035\nThe network path was not found.")
@@ -410,7 +416,8 @@ mod tests {
             gtk::gio::IOErrorEnum::Failed,
             "Failed to mount Windows share: Connection refused",
         ));
-        let EmptyState::Unavailable { details, .. } = EmptyState::unavailable("smb://nas/Team", &refused) else {
+        let EmptyState::Unavailable { details, .. } = EmptyState::unavailable("smb://nas/Team", &refused)
+        else {
             panic!("the unavailable page");
         };
         assert_eq!(

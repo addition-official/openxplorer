@@ -255,7 +255,10 @@ mod tests {
             gio::IOErrorEnum::Failed,
             "Error splicing file: Transport endpoint is not connected",
         ));
-        assert_eq!(pulled, TransferError::Failed("The device is not connected.".into()));
+        assert_eq!(
+            pulled,
+            TransferError::Failed("The device is not connected.".into())
+        );
         let timed_out = TransferError::from(glib::Error::new(
             gio::IOErrorEnum::TimedOut,
             "Timeout was reached",
@@ -270,6 +273,9 @@ mod tests {
             TransferError::PermissionDenied("/home/ada/a.txt: Access is denied.".into())
         );
         let full = TransferError::from(std::io::Error::from_raw_os_error(28));
-        assert_eq!(full, TransferError::NoSpace("There is not enough space on the disk.".into()));
+        assert_eq!(
+            full,
+            TransferError::NoSpace("There is not enough space on the disk.".into())
+        );
     }
 }
