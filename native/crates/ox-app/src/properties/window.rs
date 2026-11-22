@@ -59,6 +59,11 @@ type RefreshHandler = Box<dyn Fn(&str)>;
 /// the message to show when the change could not be made.
 pub(crate) type ApplyFuture = Pin<Box<dyn Future<Output = Result<(), String>>>>;
 
+/// What a change returns when the user cancelled a question it asked,
+/// such as Confirm Attribute Changes: the changes stop there, the window
+/// stays open and no message shows.
+pub(crate) const CANCELLED: &str = "";
+
 /// A change a tab holds until OK or Apply.
 pub(crate) trait Pending {
     /// Whether there is anything to apply.
@@ -734,7 +739,9 @@ impl PropertiesWindow {
         let close_after = imp.close_after_apply.replace(false);
         if let Some(message) = failure {
             self.changed();
-            self.show_error(&message);
+            if message != CANCELLED {
+                self.show_error(&message);
+            }
             return false;
         }
         self.changed();
