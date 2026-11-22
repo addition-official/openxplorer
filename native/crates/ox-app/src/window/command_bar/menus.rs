@@ -27,33 +27,28 @@ fn item(label: &str, glyph: Icon, action: WindowAction) -> MenuEntry {
 }
 
 /// The New menu, which the folder background's "New…" opens too, laid
-/// out as Windows 11's: Folder and Shortcut, then the document types a
-/// stock Windows 11 registers with the OpenDocument types an installed
-/// application opens, by extension as Windows sorts them, then the
-/// user's `templates`, Linux's counterpart of further registered types
-/// (OPS-003). Every file is made at once and renamed in place; Shortcut
-/// opens the link dialog (OPS-004).
+/// out as Windows 11's, with no separators and no shortcut text (VM check
+/// 2026-11-22): Folder and Shortcut, then Bitmap image, Text Document and
+/// Compressed (zipped) Folder, which every Windows 11 lists, with the
+/// types an installed application opens among them by extension as
+/// Windows sorts them (the OpenDocument types, and Rich Text Document,
+/// which Windows lists only with WordPad), then the user's `templates`,
+/// Linux's counterpart of further registered types (OPS-003). Every file
+/// is made at once and renamed in place; Shortcut opens the link dialog
+/// (OPS-004).
 pub(in crate::window) fn new_menu(templates: Vec<MenuEntry>) -> Vec<MenuEntry> {
     let mut entries = vec![
-        MenuItem::new(&gettext("Folder"), Icon::FolderAdd, WindowAction::NewFolder)
-            .with_shortcut("Ctrl+Shift+N")
-            .into(),
+        item(&gettext("Folder"), Icon::FolderAdd, WindowAction::NewFolder),
         item(&gettext("Shortcut"), Icon::Link, WindowAction::NewLink),
-        MenuEntry::Divider,
         item(
             &gettext("Bitmap image"),
             Icon::Image,
             WindowAction::NewBitmapImage,
         ),
     ];
-    // .odp, .ods and .odt come between .bmp and .rtf.
+    // .odp, .ods, .odt and .rtf come between .bmp and .txt.
     entries.extend(crate::window::file_ops::document_entries());
     entries.extend([
-        item(
-            &gettext("Rich Text Document"),
-            Icon::Document,
-            WindowAction::NewRichTextDocument,
-        ),
         item(
             &gettext("Text Document"),
             Icon::DocumentText,
@@ -65,10 +60,7 @@ pub(in crate::window) fn new_menu(templates: Vec<MenuEntry>) -> Vec<MenuEntry> {
             WindowAction::NewCompressedFolder,
         ),
     ]);
-    if !templates.is_empty() {
-        entries.push(MenuEntry::Divider);
-        entries.extend(templates);
-    }
+    entries.extend(templates);
     entries
 }
 

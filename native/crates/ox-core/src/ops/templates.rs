@@ -204,7 +204,12 @@ impl NewDocument {
     /// offer the document, as Windows lists a type only once a program
     /// registers it; `None` for the documents a stock system always has.
     pub fn content_type(self) -> Option<&'static str> {
-        self.opendocument().map(OpenDocumentKind::media_type)
+        match self {
+            // WordPad registers it on Windows; Windows 11 24H2 and later,
+            // without WordPad, leave it out.
+            NewDocument::RichTextDocument => Some("application/rtf"),
+            _ => self.opendocument().map(OpenDocumentKind::media_type),
+        }
     }
 
     /// The OpenDocument file the document is.
@@ -528,6 +533,7 @@ mod tests {
                 "application/vnd.oasis.opendocument.presentation",
                 "application/vnd.oasis.opendocument.spreadsheet",
                 "application/vnd.oasis.opendocument.text",
+                "application/rtf",
             ]
         );
         assert_eq!(

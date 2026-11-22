@@ -26,7 +26,7 @@ msgid "- Deleted items go to the Recycle Bin of their drive. Restore puts them b
 msgstr ""
 
 #: crates/ox-app/resources/manual.md
-msgid "- New in the command bar lists what Windows 11 lists: Folder, Shortcut, Bitmap image, Rich Text Document, Text Document and Compressed (zipped) Folder, with OpenDocument Presentation, Spreadsheet and Text while an office suite such as LibreOffice is installed, then the files in your Templates folder. A new item is made at once as, for example, \"New Text Document.txt\" (or \"New Text Document (2).txt\" when that name is taken), then renamed in place: type its name and press Enter.\n- Cut, Copy and Paste work with other file managers. Paste on one selected folder pastes into that folder.\n- Rename with F2. Select several items to rename them together. As in Windows, \\ / : * ? \" < > | can’t be typed in a name, and a file given a name that is taken is offered the next free number, such as Report (2).txt.\n- Delete or Ctrl+D moves items to the Recycle Bin; Shift+Delete deletes them permanently after asking. Locations without a Recycle Bin offer a confirmed permanent delete.\n- When a name is already taken, OpenXplorer asks whether to replace, skip or keep both. Nothing is replaced without your answer.\n- Undo (Ctrl+Z) and Redo (Ctrl+Y) reverse the last operations.\n- Copies and moves show processed bytes and speed; a total and estimated time remaining appear when the total is known. Pause, Resume and Cancel apply to each job; finished items stay finished.\n- Up to four copy, move or delete jobs can run while you browse. Wait for a job using overlapping source or destination folders to finish before starting another. Archive operations, renaming, restore and Undo remain exclusive."
+msgid "- New in the command bar lists what Windows 11 lists: Folder, Shortcut, Bitmap image, Text Document and Compressed (zipped) Folder, with Rich Text Document while an app opens RTF files and OpenDocument Presentation, Spreadsheet and Text while an office suite such as LibreOffice is installed, then the files in your Templates folder. A new item is made at once as, for example, \"New Text Document.txt\" (or \"New Text Document (2).txt\" when that name is taken), then renamed in place: type its name and press Enter.\n- Cut, Copy and Paste work with other file managers. Paste on one selected folder pastes into that folder.\n- Rename with F2. Select several items to rename them together. As in Windows, \\ / : * ? \" < > | can’t be typed in a name, and a file given a name that is taken is offered the next free number, such as Report (2).txt.\n- Delete or Ctrl+D moves items to the Recycle Bin; Shift+Delete deletes them permanently after asking. Locations without a Recycle Bin offer a confirmed permanent delete.\n- When a name is already taken, OpenXplorer asks whether to replace, skip or keep both. Nothing is replaced without your answer.\n- Undo (Ctrl+Z) and Redo (Ctrl+Y) reverse the last operations.\n- Copies and moves show processed bytes and speed; a total and estimated time remaining appear when the total is known. Pause, Resume and Cancel apply to each job; finished items stay finished.\n- Up to four copy, move or delete jobs can run while you browse. Wait for a job using overlapping source or destination folders to finish before starting another. Archive operations, renaming, restore and Undo remain exclusive."
 msgstr ""
 
 #: crates/ox-app/resources/manual.md
@@ -516,6 +516,11 @@ msgstr ""
 msgid "{error}\n\nThe archive is unchanged. Existing files were not overwritten."
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/devices.rs crates/ox-app/src/window/mounting.rs
+msgid "'{drive}' is currently in use."
+msgstr ""
+
 #: crates/ox-app/src/devices.rs
 msgid "Could not disconnect"
 msgstr ""
@@ -548,13 +553,13 @@ msgstr ""
 msgid "Safely remove"
 msgstr ""
 
+#: crates/ox-app/src/devices.rs crates/ox-app/src/window/mounting.rs
+msgid "Save any open files on this disc, and then close the files or programs using the files before trying again."
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/devices.rs
 msgid "The '{label}' device can now be safely removed from the computer."
-msgstr ""
-
-#: crates/ox-app/src/devices.rs
-msgid "This device is currently in use. Close any programs or windows that might be using the device, and then try again."
 msgstr ""
 
 #: crates/ox-app/src/dialog/fields.rs crates/ox-core/src/format.rs
@@ -1426,7 +1431,7 @@ msgstr ""
 msgid "Not set"
 msgstr ""
 
-#: crates/ox-app/resources/ui/window.ui crates/ox-app/src/integration/status.rs crates/ox-app/src/window/activation.rs crates/ox-app/src/window/title_bar.rs packaging/data/io.winspace.Development.desktop packaging/data/io.winspace.Development.metainfo.xml
+#: crates/ox-app/resources/ui/window.ui crates/ox-app/src/integration/status.rs crates/ox-app/src/window/activation.rs crates/ox-app/src/window/mounting.rs crates/ox-app/src/window/title_bar.rs packaging/data/io.winspace.Development.desktop packaging/data/io.winspace.Development.metainfo.xml
 msgid "OpenXplorer"
 msgstr ""
 
@@ -1735,7 +1740,7 @@ msgstr ""
 msgid "Data rate"
 msgstr ""
 
-#: crates/ox-app/src/properties/details_rows.rs
+#: crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/properties/general_tab.rs
 msgid "Description"
 msgstr ""
 
@@ -3856,6 +3861,18 @@ msgid "Copying and moving"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs
+msgid "Delete files on removable drives permanently (like Windows)"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/files_folders.rs
+msgid "Delete on a USB stick or SD card asks, then deletes for good. Off: the items go to the drive's own Recycle Bin and keep using its space until it is emptied."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/files_folders.rs
+msgid "Deleting"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/files_folders.rs
 msgid "Documents and other files"
 msgstr ""
 
@@ -4017,6 +4034,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs
 msgid "copy cut paths text clipboard terminal editor plain ctrl+c paste location"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/files_folders.rs
+msgid "delete permanently removable drive usb stick sd card memory card recycle bin trash space windows erase"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs
@@ -5398,10 +5419,6 @@ msgid "Reset text size"
 msgstr ""
 
 #: crates/ox-app/src/window/command_bar/menus.rs
-msgid "Rich Text Document"
-msgstr ""
-
-#: crates/ox-app/src/window/command_bar/menus.rs
 msgid "Select items matching…"
 msgstr ""
 
@@ -5489,7 +5506,7 @@ msgstr ""
 msgid "Smaller"
 msgstr ""
 
-#: crates/ox-app/src/window/conflict_window.rs crates/ox-app/src/window/file_ops/failure_dialog.rs
+#: crates/ox-app/src/window/conflict_window.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/mounting.rs
 msgid "Continue"
 msgstr ""
 
@@ -6323,6 +6340,10 @@ msgstr ""
 msgid "Interrupted Action"
 msgstr ""
 
+#: crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/loading/denied_folder.rs
+msgid "Location is not available"
+msgstr ""
+
 #: crates/ox-app/src/window/file_ops/failure_dialog.rs
 msgid "Remove the write-protection or use another disk."
 msgstr ""
@@ -6374,7 +6395,7 @@ msgstr ""
 msgid "Total size: {size}"
 msgstr ""
 
-#: crates/ox-app/resources/ui/transfer-panel.ui crates/ox-app/src/window/file_ops/failure_dialog.rs
+#: crates/ox-app/resources/ui/transfer-panel.ui crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/mounting.rs
 msgid "Try Again"
 msgstr ""
 
@@ -6396,6 +6417,11 @@ msgstr ""
 
 #: crates/ox-app/src/window/file_ops/failure_dialog.rs
 msgid "You'll need to provide administrator permission to move to this folder"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/file_ops/failure_dialog.rs
+msgid "{location} is unavailable. If the location is on this PC, make sure the device or drive is connected or the disc is inserted, and then try again. If the location is on a network, make sure you're connected to the network or Internet, and then try again. If the location still can't be found, it might have been moved or deleted."
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -6622,6 +6648,10 @@ msgstr ""
 
 #: crates/ox-app/src/window/file_ops/opendocuments.rs crates/ox-core/src/entry/type_label.rs
 msgid "OpenDocument Text"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/opendocuments.rs
+msgid "Rich Text Document"
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/pasted_content.rs
@@ -7082,10 +7112,6 @@ msgstr ""
 msgid "“{name}” is not a link."
 msgstr ""
 
-#: crates/ox-app/src/window/loading/denied_folder.rs
-msgid "Location is not available"
-msgstr ""
-
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/loading/denied_folder.rs
 msgid "{path} is not accessible.\n\nAccess is denied."
@@ -7170,6 +7196,10 @@ msgstr ""
 
 #: crates/ox-app/src/window/mounting.rs
 msgid "Finish the current operation before disconnecting."
+msgstr ""
+
+#: crates/ox-app/src/window/mounting.rs
+msgid "If you choose to continue, the files will be closed, which might cause data to be lost."
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -10553,6 +10583,10 @@ msgstr ""
 
 #: crates/ox-core/src/sizes/result.rs
 msgid "Time limit reached"
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "A device which does not exist was specified."
 msgstr ""
 
 #: crates/ox-core/src/system_error.rs

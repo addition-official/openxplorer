@@ -27,7 +27,6 @@ use std::time::Duration;
 
 use gtk::gio::prelude::*;
 use gtk::prelude::*;
-#[cfg(test)]
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
 use ox_core::entry::{entry_from_info, Entry, EntryKind, ATTRIBUTES};
@@ -41,6 +40,7 @@ use ox_core::transfer::{Cancellation, ConflictPolicy, TransferMode};
 use super::FileCommand;
 use crate::dialog::Dialog;
 use crate::icons::{Art, ArtImage};
+use crate::volumes::{VolumeKind, VolumeState};
 use crate::window::BrowserWindow;
 use crate::window::ButtonStyle;
 
@@ -255,12 +255,15 @@ impl BrowserWindow {
         self.trash_items(&named_items(uris), None).await;
     }
 
-    /// Yes in "Problem with Shortcut": the broken shortcut at `uri` goes
-    /// to the Recycle Bin as Delete sends it, with Delete's confirmation
-    /// where the settings ask for one (OPEN-028). The operation checks the
-    /// folder's write protection, as any deletion does.
-    pub(crate) async fn trash_shortcut(&self, uri: String) {
-        self.trash_items(&named_items(vec![uri]), None).await;
+    /// Yes in "Problem with Shortcut": the broken shortcut at `uri`, a link
+    /// to nothing or a `.desktop` link, is deleted permanently, as Windows
+    /// 11 deletes it, without asking again: the question was the
+    /// confirmation (OPEN-028). Only the shortcut itself goes; the
+    /// operation never follows a link, and checks the folder's write
+    /// protection, as any deletion does.
+    pub(crate) async fn delete_shortcut(&self, uri: String) {
+        self.run_deletion(&removal(TransferMode::Delete, vec![uri]), None)
+            .await;
     }
 
     /// Deletes the folder tree's folder at `uri` permanently, after
@@ -282,6 +285,13 @@ impl BrowserWindow {
             return;
         };
         let preferences = self.context().settings_data().preferences;
+        // OPS-018: on a removable drive, the drive's own Trash unless the
+        // settings say to delete there permanently, as Windows does.
+        let plan = if preferences.delete_removable_permanently {
+            plan.deleting_permanently_inside(&self.removable_drive_roots())
+        } else {
+            plan
+        };
         let asks = (!plan.to_trash.is_empty() && preferences.confirm_trash)
             || (!plan.to_delete.is_empty() && preferences.confirm_delete);
         if asks
@@ -299,6 +309,25 @@ impl BrowserWindow {
             self.run_deletion(&removal(TransferMode::Delete, plan.to_delete), next)
                 .await;
         }
+    }
+
+    /// The roots of the mounted removable drives (a USB stick, an SD
+    /// card), as Send to and Format tell them: a drive that can be ejected
+    /// or powered off.
+    fn removable_drive_roots(&self) -> Vec<String> {
+        self.imp()
+            .volumes
+            .borrow()
+            .iter()
+            .filter_map(|row| match &row.state {
+                VolumeState::Mounted { uri, controls }
+                    if row.kind == VolumeKind::Drive && (controls.can_eject || controls.can_stop) =>
+                {
+                    Some(uri.clone())
+                }
+                _ => None,
+            })
+            .collect()
     }
 
     /// Shift+Delete: asks, then deletes the selection permanently, even
