@@ -1,4 +1,5 @@
 STATUS: BLOCKED - needs a decision on network-like-windows (no deb yet)
+ORDER CHANGE RECEIVED (deb first with quick checks, long checks after, "LONG TESTS: DONE" at the end): understood and will be followed. It does not answer the question below, which still decides what goes into the deb. Meanwhile I am building option D locally (steps 1-9 plus user-icon-files, not pushed), so if you choose D the deb can go out as soon as you say so.
 BRANCH: test-combined-49 e614b4b4 (steps 1-9 merged on upstream main 3ef87f79, 2.0.23; pushed for inspection, not built)
 
 MERGED SO FAR, in the requested order (each the branch tip):
