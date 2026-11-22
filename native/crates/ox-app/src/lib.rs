@@ -51,6 +51,7 @@ mod search;
 mod settings_page;
 mod settings_store;
 mod snapshot;
+mod startup_trace;
 mod text_size;
 mod theme;
 mod thumbnails;
