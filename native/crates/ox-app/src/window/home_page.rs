@@ -53,9 +53,9 @@ use crate::settings_store::Change;
 
 use super::context_menu::{MENU_KEY, SHIFT_F10_KEY};
 use super::gestures;
-use super::menu_popover::{MenuEntry, MenuItem, MenuStyle};
 #[cfg(test)]
 use super::menu_popover::MenuPopover;
+use super::menu_popover::{MenuEntry, MenuItem, MenuStyle};
 use super::place_menus::{popup_item_place_menu, PlaceMenu};
 use super::result_location::LocationTarget;
 use super::widget_tree::{children, remove_children, toggle_class};
@@ -256,7 +256,11 @@ pub(super) fn file_menu(
             WindowAction::RemoveFromFavorites,
         )
     } else {
-        target(message_id("Add to Favorites"), Icon::Star, WindowAction::AddToFavorites)
+        target(
+            message_id("Add to Favorites"),
+            Icon::Star,
+            WindowAction::AddToFavorites,
+        )
     };
     let remove_from_recent = is_recent.then(|| {
         target(
@@ -271,14 +275,15 @@ pub(super) fn file_menu(
         Icon::Folder,
         WindowAction::OpenFileLocationOf,
     );
-    let copy_path =
-        target(message_id("Copy as path"), Icon::Copy, WindowAction::CopyPathOf).with_shortcut("Ctrl+Shift+C");
+    let copy_path = target(message_id("Copy as path"), Icon::Copy, WindowAction::CopyPathOf)
+        .with_shortcut("Ctrl+Shift+C");
     let properties =
         target(message_id("Properties"), Icon::Info, WindowAction::PropertiesOf).with_shortcut("Alt+Enter");
     let cut = target(message_id("Cut"), Icon::Cut, WindowAction::CutFolder).with_shortcut("Ctrl+X");
     let copy = target(message_id("Copy"), Icon::Copy, WindowAction::CopyFolder).with_shortcut("Ctrl+C");
     let rename = target(message_id("Rename"), Icon::Rename, WindowAction::RenameFolder).with_shortcut("F2");
-    let delete = target(message_id("Delete"), Icon::Delete, WindowAction::TrashFolder).with_shortcut("Delete");
+    let delete =
+        target(message_id("Delete"), Icon::Delete, WindowAction::TrashFolder).with_shortcut("Delete");
     match style {
         MenuStyle::Compact => {
             let mut entries: Vec<MenuEntry> = vec![open.into(), location.into(), favorite.into()];
@@ -287,7 +292,8 @@ pub(super) fn file_menu(
             (entries, vec![cut, copy, rename, delete])
         }
         MenuStyle::Classic => {
-            let mut entries: Vec<MenuEntry> = vec![open.into(), location.into(), MenuEntry::Divider, favorite.into()];
+            let mut entries: Vec<MenuEntry> =
+                vec![open.into(), location.into(), MenuEntry::Divider, favorite.into()];
             entries.extend(remove_from_recent.map(MenuEntry::from));
             entries.extend([
                 MenuEntry::Divider,
@@ -1160,12 +1166,12 @@ fn connect_tile_reordering(flow: &gtk::FlowBox) {
         let Some(flow) = target.widget().and_downcast::<gtk::FlowBox>() else {
             return false;
         };
-        let Some(before) = tile_drop_place(&flow, x, y) else {
-            return true;
+        let before = match tile_drop_place(&flow, x, y) {
+            TileDrop::Before(before) if before == uri => return true,
+            TileDrop::Before(before) => Some(before),
+            TileDrop::AtEnd => None,
+            TileDrop::Nowhere => return true,
         };
-        if before.as_deref() == Some(uri.as_str()) {
-            return true;
-        }
         let Some(window) = flow.root().and_downcast::<BrowserWindow>() else {
             return false;
         };
@@ -1177,26 +1183,41 @@ fn connect_tile_reordering(flow: &gtk::FlowBox) {
     flow.add_controller(target);
 }
 
-/// Where a tile dropped at `x`, `y` in `flow` goes: before the address
-/// `Some(Some(uri))` names, at the end for `Some(None)`; `None` when it
-/// was dropped where it is.
-fn tile_drop_place(flow: &gtk::FlowBox, x: f64, y: f64) -> Option<Option<String>> {
+/// Where a dropped tile goes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum TileDrop {
+    /// Before the tile of this folder.
+    Before(String),
+    /// After the last tile.
+    AtEnd,
+    /// Where it is: dropped on a tile that is not in the box.
+    Nowhere,
+}
+
+/// Where a tile dropped at `x`, `y` in `flow` goes.
+fn tile_drop_place(flow: &gtk::FlowBox, x: f64, y: f64) -> TileDrop {
     let tiles: Vec<gtk::FlowBoxChild> = children(flow)
         .filter_map(|child| child.downcast::<gtk::FlowBoxChild>().ok())
         .collect();
     #[expect(clippy::cast_possible_truncation, reason = "pointer positions are small")]
     let Some(onto) = flow.child_at_pos(x as i32, y as i32) else {
-        return Some(None);
+        return TileDrop::AtEnd;
     };
-    let index = tiles.iter().position(|tile| *tile == onto)?;
-    let bounds = onto.compute_bounds(flow)?;
+    let (Some(index), Some(bounds)) = (
+        tiles.iter().position(|tile| *tile == onto),
+        onto.compute_bounds(flow),
+    ) else {
+        return TileDrop::Nowhere;
+    };
     let right_half = x > f64::from(bounds.x() + bounds.width() / 2.0);
     let before = if right_half {
         tiles.get(index + 1)
     } else {
         Some(&onto)
     };
-    Some(before.map(|tile| tile.widget_name().to_string()))
+    before.map_or(TileDrop::AtEnd, |tile| {
+        TileDrop::Before(tile.widget_name().to_string())
+    })
 }
 
 /// A box of `items`: tiles for Quick access, one row each for the lists.
@@ -1264,18 +1285,20 @@ fn item_box(page: &gtk::Box, items: Vec<Item>, section: Section, rows: bool) -> 
     connect_item_keys(&flow, &items);
     connect_edge_keys(&flow, page, section);
     // One selection on the page at a time, as in one item view: selecting
-    // in one section clears the other.
+    // in one section clears the other. The command bar follows it.
     flow.connect_selected_children_changed(glib::clone!(
         #[weak]
         page,
         move |flow| {
-            if flow.selected_children().is_empty() {
-                return;
-            }
-            for other in descendants_of_type::<gtk::FlowBox>(&page) {
-                if other != *flow {
-                    other.unselect_all();
+            if !flow.selected_children().is_empty() {
+                for other in descendants_of_type::<gtk::FlowBox>(&page) {
+                    if other != *flow {
+                        other.unselect_all();
+                    }
                 }
+            }
+            if let Some(window) = page.root().and_downcast::<BrowserWindow>() {
+                window.update_file_commands();
             }
         }
     ));
@@ -1543,6 +1566,23 @@ fn connect_blank_space_menu(page: &gtk::Box) {
         popup_blank_space_menu(&page, x, y, shift);
     });
     page.add_controller(right_click);
+    // A click on blank space selects nothing, as in an item view.
+    let click = gtk::GestureClick::new();
+    click.set_button(gtk::gdk::BUTTON_PRIMARY);
+    click.connect_pressed(|gesture, _, x, y| {
+        let Some(page) = gesture.widget().and_downcast::<gtk::Box>() else {
+            return;
+        };
+        let on_item = page.pick(x, y, gtk::PickFlags::DEFAULT).is_some_and(|picked| {
+            picked.is::<gtk::FlowBoxChild>() || picked.ancestor(gtk::FlowBoxChild::static_type()).is_some()
+        });
+        if page.has_css_class(HOME_CLASS) && !on_item {
+            for flow in descendants_of_type::<gtk::FlowBox>(&page) {
+                flow.unselect_all();
+            }
+        }
+    });
+    page.add_controller(click);
     let shortcuts = gtk::ShortcutController::new();
     for (key, shift_f10) in [(MENU_KEY, false), (SHIFT_F10_KEY, true)] {
         let action = gtk::CallbackAction::new(move |page, _| {
@@ -2055,6 +2095,23 @@ impl BrowserWindow {
             .into(),
         ]);
         entries
+    }
+
+    /// The file of the Recent or Favorites row selected on the Home page
+    /// the tab shows, which the command bar's Cut, Copy, Rename and Delete
+    /// act on (HOME-036); `None` elsewhere, during a search from Home and
+    /// while the lists are folded.
+    pub(crate) fn selected_home_file(&self) -> Option<String> {
+        let shows_home = self
+            .current_uri()
+            .is_some_and(|uri| crate::locations::Page::from_uri(&uri) == Some(crate::locations::Page::Home));
+        let page = self.folder_pane().landing();
+        if !shows_home || self.is_searching() || !page.has_css_class(HOME_CLASS) {
+            return None;
+        }
+        let flow = shown_items(page, Section::Files)?;
+        let child = flow.selected_children().into_iter().next()?;
+        Some(child.widget_name().to_string())
     }
 
     /// Whether the file at `uri` is among the Favorites.

@@ -88,6 +88,11 @@ impl BrowserWindow {
         if !self.allows(FileCommand::Rename) || self.refuses_writes() {
             return;
         }
+        // A row selected on Home stands for its file (HOME-036).
+        if let Some(uri) = self.selected_home_file() {
+            self.rename_folder_at(&uri).await;
+            return;
+        }
         let model = self.folder_pane().model();
         let selected = model.selected_positions();
         if selected.len() > 1 {

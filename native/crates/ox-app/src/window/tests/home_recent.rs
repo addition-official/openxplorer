@@ -76,7 +76,13 @@ fn recent_names(test: &TestWindow) -> Vec<String> {
 
 /// Moves the real pointer to the middle of `widget`, or to `at` in it,
 /// and clicks `button`.
-fn click(pointer: &mut Pointer, test: &TestWindow, widget: &impl IsA<gtk::Widget>, at: Option<(f64, f64)>, button: Button) {
+fn click(
+    pointer: &mut Pointer,
+    test: &TestWindow,
+    widget: &impl IsA<gtk::Widget>,
+    at: Option<(f64, f64)>,
+    button: Button,
+) {
     wait_for_frames(&test.window, 2);
     let at = at.unwrap_or((f64::from(widget.width()) / 2.0, f64::from(widget.height()) / 2.0));
     let (x, y) = screen_point(pointer, widget, at, (8, 8));
@@ -100,7 +106,9 @@ fn open_menu(test: &TestWindow) -> MenuPopover {
 
 /// Selects the row named `name` with a real click.
 fn click_row(pointer: &mut Pointer, test: &TestWindow, name: &str) {
-    wait_until("the row", || home_page::list_names(body(test)).contains(&name.to_owned()));
+    wait_until("the row", || {
+        home_page::list_names(body(test)).contains(&name.to_owned())
+    });
     let row = home_page::item_named(body(test), name);
     click(pointer, test, &row, None, Button::Primary);
     wait_until("the row to be selected", || row.is_selected() && row.has_focus());
@@ -137,7 +145,15 @@ fn a_recent_rows_menu_has_the_file_commands_and_remove_from_recent() {
     menu.click_row("Show more options");
     let classic = open_menu(&test);
     let classic_labels = classic.row_labels();
-    for wanted in ["Open", "Remove from Recent", "Cut", "Copy", "Delete", "Rename", "Properties"] {
+    for wanted in [
+        "Open",
+        "Remove from Recent",
+        "Cut",
+        "Copy",
+        "Delete",
+        "Rename",
+        "Properties",
+    ] {
         assert!(
             classic_labels.contains(&wanted.to_owned()),
             "{wanted} in the classic menu {classic_labels:?}"
@@ -226,7 +242,9 @@ fn f2_on_a_recent_row_renames_the_file_and_recent_follows_it() {
     dialog.press("Save");
     wait_for_no_dialog(&test);
 
-    wait_until("the file to be renamed", || fixture.path("Documents/final plan.txt").is_file());
+    wait_until("the file to be renamed", || {
+        fixture.path("Documents/final plan.txt").is_file()
+    });
     assert!(!fixture.path("Documents/plan.txt").exists());
     wait_until("Recent to list the new name", || {
         recent_names(&test) == ["final plan"]
@@ -254,7 +272,9 @@ fn ctrl_c_on_a_recent_row_copies_the_file() {
     pointer.let_go_key(gtk::gdk::Key::Control_L);
 
     let plan = fixture.uri_of("Documents/plan.txt");
-    wait_until("the copied file", || copied_uris(&test).as_deref() == Some(plan.as_str()));
+    wait_until("the copied file", || {
+        copied_uris(&test).as_deref() == Some(plan.as_str())
+    });
 }
 
 /// Opening a Recent file that is gone says "Item Not Found", as Windows
@@ -322,11 +342,19 @@ fn a_right_click_on_homes_blank_space_opens_its_menu() {
     assert_eq!(labels.first().map(String::as_str), Some("View"), "{labels:?}");
     assert!(labels.iter().any(|label| label.starts_with("Undo")), "{labels:?}");
     assert!(labels.iter().any(|label| label.starts_with("Redo")), "{labels:?}");
-    assert_eq!(labels.last().map(String::as_str), Some("Show more options"), "{labels:?}");
+    assert_eq!(
+        labels.last().map(String::as_str),
+        Some("Show more options"),
+        "{labels:?}"
+    );
     assert!(menu.row("View").is_sensitive());
     assert!(!menu.row("Sort by").is_sensitive(), "Sort by is greyed out");
     assert!(!menu.row("Group by").is_sensitive(), "Group by is greyed out");
-    assert!(menu.strip_labels().is_empty(), "no icon strip: {:?}", menu.strip_labels());
+    assert!(
+        menu.strip_labels().is_empty(),
+        "no icon strip: {:?}",
+        menu.strip_labels()
+    );
 
     menu.click_row("Show more options");
     let classic = open_menu(&test);
@@ -361,7 +389,9 @@ fn a_tile_dragged_onto_another_moves_there() {
     wait_until("the Home page", || {
         test.window.current_uri().as_deref() == Some(HOME_PAGE)
     });
-    wait_until("the tiles", || pins_in(&home_tiles(&test)) == ["Alpha", "Beta", "Gamma"]);
+    wait_until("the tiles", || {
+        pins_in(&home_tiles(&test)) == ["Alpha", "Beta", "Gamma"]
+    });
 
     let mut pointer = Pointer::connect();
     drag_tile(&mut pointer, &test, "Alpha", "Gamma", 0.8);
@@ -379,7 +409,12 @@ fn a_tile_dragged_onto_another_moves_there() {
         .collect();
     let positions: Vec<usize> = saved
         .iter()
-        .map(|uri| order.iter().position(|kept| kept == uri).expect("saved in the order"))
+        .map(|uri| {
+            order
+                .iter()
+                .position(|kept| kept == uri)
+                .expect("saved in the order")
+        })
         .collect();
     assert!(positions.windows(2).all(|pair| pair[0] < pair[1]), "{order:?}");
 }
@@ -410,16 +445,14 @@ fn drag_tile(pointer: &mut Pointer, test: &TestWindow, from: &str, onto: &str, a
     wait_for_frames(&test.window, 2);
     let source = home_page::tile_named(body(test), from);
     let target = home_page::tile_named(body(test), onto);
-    let start = screen_point(
-        pointer,
-        &source,
-        (40.0, f64::from(source.height()) / 2.0),
-        (8, 8),
-    );
+    let start = screen_point(pointer, &source, (40.0, f64::from(source.height()) / 2.0), (8, 8));
     let end = screen_point(
         pointer,
         &target,
-        (f64::from(target.width()) * across, f64::from(target.height()) / 2.0),
+        (
+            f64::from(target.width()) * across,
+            f64::from(target.height()) / 2.0,
+        ),
         (8, 8),
     );
     pointer.move_to(start.0, start.1);
@@ -429,4 +462,60 @@ fn drag_tile(pointer: &mut Pointer, test: &TestWindow, from: &str, onto: &str, a
     wait_for_frames(&test.window, 3);
     pointer.release(Button::Primary);
     wait_for_frames(&test.window, 3);
+}
+
+/// The command bar button that runs `action`.
+fn command_button(test: &TestWindow, action: &str) -> gtk::Button {
+    descendants::<gtk::Button>(test.window.command_bar())
+        .into_iter()
+        .find(|button| button.action_name().as_deref() == Some(action))
+        .unwrap_or_else(|| panic!("a button runs {action}"))
+}
+
+/// With a Recent row selected, the command bar's Cut, Copy, Rename and
+/// Delete act on its file, as in Windows 11's Home; with nothing
+/// selected they are greyed out. A click on blank space selects nothing
+/// again.
+///
+/// parity: HOME-036
+#[gtk::test]
+fn the_command_bar_acts_on_the_selected_row() {
+    let (fixture, test) = recent_home(&["plan.txt", "budget.txt"]);
+    let edit = ["win.cut", "win.copy", "win.rename", "win.trash"];
+    let enabled = |action: &str| command_button(&test, action).is_sensitive();
+    for action in edit {
+        assert!(!enabled(action), "{action} is greyed out with nothing selected");
+    }
+    let mut pointer = Pointer::connect();
+    click_row(&mut pointer, &test, "plan");
+    for action in edit {
+        wait_until("the command to follow the row", || enabled(action));
+    }
+
+    let page = body(&test);
+    click(
+        &mut pointer,
+        &test,
+        page,
+        Some((f64::from(page.width()) - 30.0, 8.0)),
+        Button::Primary,
+    );
+    wait_until("nothing selected", || !enabled("win.copy"));
+
+    click_row(&mut pointer, &test, "plan");
+    wait_until("Delete to follow the row", || enabled("win.trash"));
+    click(
+        &mut pointer,
+        &test,
+        &command_button(&test, "win.trash"),
+        None,
+        Button::Primary,
+    );
+    wait_until("the file to go to the Recycle Bin", || {
+        !fixture.path("Documents/plan.txt").exists()
+    });
+    assert!(fixture.path("Documents/budget.txt").is_file());
+    wait_until("the row to leave Recent", || {
+        !recent_names(&test).contains(&"plan".to_owned())
+    });
 }

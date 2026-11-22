@@ -558,9 +558,11 @@ impl PlaceMenu {
             PlaceMenu::QuickAccessPin { uri, editable } => {
                 quick_access_pin_menu(uri, *editable, facts, style)
             }
-            PlaceMenu::HomeFile { uri, favorite, recent } => {
-                super::home_page::file_menu(uri, *favorite, *recent, style)
-            }
+            PlaceMenu::HomeFile {
+                uri,
+                favorite,
+                recent,
+            } => super::home_page::file_menu(uri, *favorite, *recent, style),
             _ => (self.entries(facts.caching), Vec::new()),
         }
     }
@@ -603,9 +605,11 @@ impl PlaceMenu {
             PlaceMenu::RecentFiles => recent_files_entries(),
             PlaceMenu::RecentLocations => recent_locations_entries(),
             PlaceMenu::QuickAccessPin { uri, editable } => pin_menu(uri, caching, *editable),
-            PlaceMenu::HomeFile { uri, favorite, recent } => {
-                super::home_page::file_menu(uri, *favorite, *recent, MenuStyle::Classic).0
-            }
+            PlaceMenu::HomeFile {
+                uri,
+                favorite,
+                recent,
+            } => super::home_page::file_menu(uri, *favorite, *recent, MenuStyle::Classic).0,
             // Drawn from the window's state, in `popup_place_menu_in`.
             PlaceMenu::HomeBackground => Vec::new(),
             PlaceMenu::SavedShare { uri } => {
