@@ -295,6 +295,45 @@ fn large_icons_show_a_documents_first_page_from_the_shared_cache() {
     crate::test_support::harness::capture_in_both_themes(&test.window, "document-thumbnails-large-icons");
 }
 
+/// In Large icons, while a workbook that takes half a minute holds the
+/// conversion of thumbnails, the selected document still shows at once:
+/// the Preview pane stops that conversion and goes first, rather than
+/// waiting out its time limit.
+///
+/// parity: VIEW-070, VIEW-057
+#[gtk::test]
+fn the_selection_goes_before_a_slow_thumbnail() {
+    let cache = tempfile::tempdir().expect("a cache");
+    let Some(converter) = documents::test_office(cache.path()) else {
+        return;
+    };
+    let _converter = UsedConverter::new(Some(converter));
+    let fixture = Fixture::empty();
+    office_documents::write_slow_spreadsheet(&fixture.path("00 Forecast.xlsx"), 600);
+    office_documents::write(&fixture.path("01 Notes.odt"), Kind::Odt, "Notes");
+    let test = preview_window(&fixture);
+    test.activate("view", Some("large"));
+    let pane = test.window.imp().details_pane.get();
+    // The workbook's thumbnail is being made.
+    wait_for(Duration::from_secs(2));
+
+    let start = Instant::now();
+    test.select_named("01 Notes.odt");
+    while pane.preview_page_count() == 0 {
+        assert!(
+            start.elapsed() < Duration::from_secs(8),
+            "the selection waited for the workbook"
+        );
+        wait_for(Duration::from_millis(20));
+    }
+
+    eprintln!(
+        "the selection showed in {:?} beside a slow thumbnail",
+        start.elapsed()
+    );
+    assert!(start.elapsed() < documents::TIMEOUT / 2);
+}
+
 /// The longest the main loop may spend on one event while the selection
 /// moves: longer is a freeze the user sees.
 const LONGEST_STEP: Duration = Duration::from_millis(250);
