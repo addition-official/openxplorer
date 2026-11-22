@@ -561,7 +561,7 @@ msgstr ""
 msgid "Not provided"
 msgstr ""
 
-#: crates/ox-app/resources/ui/network-sign-in.ui crates/ox-app/src/dialog/window.rs crates/ox-app/src/dialogs/network_sign_in.rs crates/ox-app/src/properties/window.rs crates/ox-app/src/window/about.rs crates/ox-app/src/window/activation.rs crates/ox-app/src/window/activation/outcome.rs crates/ox-app/src/window/archive_password.rs crates/ox-app/src/window/choose_details.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/file_ops/journal.rs crates/ox-app/src/window/gallery_locations.rs crates/ox-app/src/window/item_dialogs.rs crates/ox-app/src/window/loading/denied_folder.rs
+#: crates/ox-app/resources/ui/network-sign-in.ui crates/ox-app/src/dialog/window.rs crates/ox-app/src/dialogs/network_sign_in.rs crates/ox-app/src/properties/window.rs crates/ox-app/src/window/about.rs crates/ox-app/src/window/activation.rs crates/ox-app/src/window/activation/broken_shortcut.rs crates/ox-app/src/window/activation/outcome.rs crates/ox-app/src/window/archive_password.rs crates/ox-app/src/window/choose_details.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/file_ops/journal.rs crates/ox-app/src/window/gallery_locations.rs crates/ox-app/src/window/item_dialogs.rs crates/ox-app/src/window/loading/denied_folder.rs
 msgid "OK"
 msgstr ""
 
@@ -4886,6 +4886,28 @@ msgstr ""
 msgid "This item is not a regular file or a readable folder."
 msgstr ""
 
+#: crates/ox-app/src/window/activation/broken_shortcut.rs crates/ox-app/src/window/file_ops/delete.rs crates/ox-app/src/window/file_ops/extension_confirm.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/file_ops/rename_conflict.rs crates/ox-app/src/window/folder_options.rs crates/ox-app/src/window/picker.rs
+msgid "No"
+msgstr ""
+
+#: crates/ox-app/src/window/activation/broken_shortcut.rs
+msgid "Problem with Shortcut"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/activation/broken_shortcut.rs
+msgid "The drive or network connection that the shortcut ‘{name}’ refers to is unavailable. Make sure that the disk is properly inserted or the network resource is available, and then try again."
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/activation/broken_shortcut.rs
+msgid "The item ‘{name}’ that this shortcut refers to has been changed or moved, so this shortcut will no longer work properly.\n\nDo you want to delete this shortcut?"
+msgstr ""
+
+#: crates/ox-app/src/window/activation/broken_shortcut.rs crates/ox-app/src/window/file_ops/delete.rs crates/ox-app/src/window/file_ops/extension_confirm.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/file_ops/rename_conflict.rs crates/ox-app/src/window/folder_options.rs crates/ox-app/src/window/picker.rs
+msgid "Yes"
+msgstr ""
+
 #: crates/ox-app/src/window/activation/outcome.rs crates/ox-app/src/window/file_ops/failure_dialog.rs
 msgid "Could not find this item"
 msgstr ""
@@ -6129,14 +6151,6 @@ msgstr ""
 
 #: crates/ox-app/src/window/file_ops/clipboard.rs
 msgid "The desktop clipboard could not be claimed."
-msgstr ""
-
-#: crates/ox-app/src/window/file_ops/delete.rs crates/ox-app/src/window/file_ops/extension_confirm.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/file_ops/rename_conflict.rs crates/ox-app/src/window/folder_options.rs crates/ox-app/src/window/picker.rs
-msgid "No"
-msgstr ""
-
-#: crates/ox-app/src/window/file_ops/delete.rs crates/ox-app/src/window/file_ops/extension_confirm.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/file_ops/rename_conflict.rs crates/ox-app/src/window/folder_options.rs crates/ox-app/src/window/picker.rs
-msgid "Yes"
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/extension_confirm.rs

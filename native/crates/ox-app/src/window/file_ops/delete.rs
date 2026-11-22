@@ -243,6 +243,14 @@ impl BrowserWindow {
         self.trash_items(&named_items(uris), None).await;
     }
 
+    /// Yes in "Problem with Shortcut": the broken shortcut at `uri` goes
+    /// to the Recycle Bin as Delete sends it, with Delete's confirmation
+    /// where the settings ask for one (OPEN-028). The operation checks the
+    /// folder's write protection, as any deletion does.
+    pub(crate) async fn trash_shortcut(&self, uri: String) {
+        self.trash_items(&named_items(vec![uri]), None).await;
+    }
+
     /// Deletes the folder tree's folder at `uri` permanently, after
     /// Shift+Delete's confirmation (SIDE-028).
     pub(crate) async fn delete_permanently_at(&self, uri: &str) {

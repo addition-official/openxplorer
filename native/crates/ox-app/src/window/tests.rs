@@ -108,6 +108,7 @@ mod seven_zip_folder;
 mod share;
 mod shift_f10_keys;
 mod shortcut_tab;
+mod shortcuts;
 mod sidebar;
 mod sidebar_layout;
 mod sidebar_sections;
