@@ -38,15 +38,23 @@ pub fn picture_headers(data: &[u8]) {
     crate::picture_guard::fuzz_vector_answer(data);
 }
 
-/// A picture decoded as the decoder process does, in this process, with
-/// the display limits and a time limit under the fuzzing job's.
+/// A picture decoded as the decoder process does, in this process, with a
+/// time limit under the fuzzing job's: as a picture shown in the app, or,
+/// when the first cut is odd, as a file of the thumbnail cache is read
+/// (its own limits, at its own size).
 pub fn picture_decode(data: &[u8]) {
     let (cuts, picture) = cuts_and_rest(data);
+    let thumbnail_file = cuts.first().is_some_and(|cut| cut % 2 == 1);
+    let (base, fit) = if thumbnail_file {
+        (Limits::THUMBNAIL_FILE, (i32::MAX, i32::MAX))
+    } else {
+        (Limits::DISPLAY, (256, 256))
+    };
     let limits = Limits {
         time: Duration::from_millis(1500),
-        ..Limits::DISPLAY
+        ..base
     };
-    crate::picture_guard::fuzz_serve(picture, &cuts, (256, 256), limits);
+    crate::picture_guard::fuzz_serve(picture, &cuts, fit, limits);
 }
 
 /// What Properties and the Preview pane read from a picture's start and

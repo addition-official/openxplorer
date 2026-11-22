@@ -14,8 +14,8 @@ use std::sync::{Arc, OnceLock};
 use gio::prelude::FileExt;
 
 use crate::archive::{
-    lift_single_folder, remove_preview_copy, ArchiveBrowser, ArchiveEntryKind, ArchiveError, ArchiveOpener, ArchivePassword,
-    ArchiveStream, ExtractionLimits, ExtractionRequest, GioExtractionOutput, ZipExtractor,
+    lift_single_folder, remove_preview_copy, ArchiveBrowser, ArchiveEntryKind, ArchiveError, ArchiveOpener,
+    ArchivePassword, ArchiveStream, ExtractionLimits, ExtractionRequest, GioExtractionOutput, ZipExtractor,
 };
 use crate::gio_node::GioNode;
 use crate::transfer::{Cancellation, Node, NodeFactory};
@@ -244,7 +244,12 @@ pub fn extract(data: &[u8]) {
             if input.lift {
                 let lifted = lift_single_folder(extracted);
                 let output = gio::File::for_uri(&lifted.uri).path().expect("a local output");
-                assert_eq!(output.parent(), Some(destination.as_path()), "lifted to {}", output.display());
+                assert_eq!(
+                    output.parent(),
+                    Some(destination.as_path()),
+                    "lifted to {}",
+                    output.display()
+                );
                 let left = names(&destination);
                 assert_eq!(left.len(), 1, "lifting left {left:?}");
                 check_contained(&output, &output);
