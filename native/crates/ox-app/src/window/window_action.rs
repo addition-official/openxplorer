@@ -247,6 +247,9 @@ pub(crate) enum WindowAction {
     NewTextDocument,
     /// New ▸ Compressed (zipped) Folder.
     NewCompressedFolder,
+    /// New ▸ OpenDocument Text and the other OpenDocument types an
+    /// application opens: the string target is the new file's extension.
+    NewOpenDocument,
     /// Copies the user template whose id is the string target into the
     /// folder and renames the copy in place: a template the New menu
     /// lists (OPS-003).
@@ -435,6 +438,9 @@ pub(crate) enum WindowAction {
     AddToFavorites,
     /// Removes the file in the string target from Favorites (HOME-014).
     RemoveFromFavorites,
+    /// Takes the file in the target off the desktop's recently used list
+    /// (HOME-036).
+    RemoveFromRecent,
     /// Opens the item in the string target as a double-click does: a
     /// folder in the tab, a file in its default application (Home's
     /// Recent and Favorites).
@@ -671,6 +677,7 @@ impl WindowAction {
             WindowAction::NewRichTextDocument => "new-rich-text-document",
             WindowAction::NewTextDocument => "new-text-document",
             WindowAction::NewCompressedFolder => "new-compressed-folder",
+            WindowAction::NewOpenDocument => "new-opendocument",
             WindowAction::NewFromUserTemplate => "new-from-user-template",
             WindowAction::Cut => "cut",
             WindowAction::Copy => "copy",
@@ -745,6 +752,7 @@ impl WindowAction {
             WindowAction::OpenFileLocationInWindow => "open-file-location-in-window",
             WindowAction::AddToFavorites => "add-to-favorites",
             WindowAction::RemoveFromFavorites => "remove-from-favorites",
+            WindowAction::RemoveFromRecent => "remove-from-recent",
             WindowAction::OpenItemAt => "open-item-at",
             WindowAction::OpenFileLocationOf => "open-file-location-of",
             WindowAction::GalleryCollection => "gallery-collection",

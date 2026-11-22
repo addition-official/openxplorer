@@ -177,6 +177,14 @@ mod imp {
         /// The content preview shown, which a redraw for the same item
         /// keeps (PROP-011).
         pub(super) shown_media: RefCell<Option<super::content::MediaPreview>>,
+        /// The wait for the selection to rest before its content preview
+        /// is read.
+        pub(super) media_timer: RefCell<Option<glib::SourceId>>,
+        /// Cancels the read of the content preview shown.
+        pub(super) media_cancellation: RefCell<Option<gtk::gio::Cancellable>>,
+        /// How many content previews were read, for tests.
+        #[cfg(test)]
+        pub(super) media_reads: Cell<u32>,
         /// The player of the recording shown, in its own process.
         pub(super) player: RefCell<Option<crate::media_player::PlayerStream>>,
         /// The app stopped the last player before changing its file: the
@@ -261,6 +269,7 @@ mod imp {
 
         fn dispose(&self) {
             self.obj().stop_reading();
+            self.obj().stop_media_reading();
             self.dispose_template();
         }
     }
@@ -435,8 +444,9 @@ impl DetailsPane {
         imp.has_selection
             .set(content.subject == content::Subject::Selection);
         imp.has_properties.set(content.has_properties);
+        self.aim_properties_button(content.properties_of.as_deref());
         imp.small_icon.set(content.small_icon);
-        imp.shows_hint.set(content.subject == content::Subject::Folder);
+        imp.shows_hint.set(content.hint);
         self.show_mode();
         imp.base_rows.replace(content.properties.clone());
         self.follow_metadata(content.metadata.as_ref());
@@ -462,6 +472,26 @@ impl DetailsPane {
             }
             Preview::Stack(arts) => self.set_preview_widget(Some(&stacked_art(arts))),
         }
+    }
+
+    /// Makes Properties open the Properties of `location`, a drive
+    /// selected on This PC, or else of the selection. The button lets go
+    /// of its action while its target changes: GTK checks an action's
+    /// parameter against the target at each change and warns while they
+    /// differ.
+    fn aim_properties_button(&self, location: Option<&str>) {
+        let button = &*self.imp().properties_button;
+        let (action, target) = match location {
+            Some(uri) => (WindowAction::PropertiesOf, Some(uri.to_variant())),
+            None => (WindowAction::Properties, None),
+        };
+        let name = action.detailed_name();
+        if button.action_name().as_deref() == Some(name.as_str()) && button.action_target_value() == target {
+            return;
+        }
+        button.set_action_name(None);
+        button.set_action_target_value(target.as_ref());
+        button.set_action_name(Some(&name));
     }
 
     /// Shows Share while the window can share the selection (CMD-037):

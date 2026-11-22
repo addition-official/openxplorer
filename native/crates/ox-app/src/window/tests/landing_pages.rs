@@ -211,6 +211,51 @@ fn this_pc_counts_its_tiles_in_the_status_bar_and_the_details_pane() {
     });
 }
 
+/// The Details pane's Properties button opens a selected drive's
+/// Properties, as Alt+Enter does, and the selection's again once a
+/// folder shows, without GTK finding the button's action and its target
+/// at odds on the way.
+///
+/// parity: PROP-009
+#[gtk::test]
+fn the_panes_properties_button_follows_a_selected_drive() {
+    let fixture = Fixture::standard();
+    let test = super::geometry::laid_out_with_details_pane(&fixture.uri());
+    let recorder = crate::test_support::gtk_log::LogRecorder::start();
+    test.window.navigate(Page::ThisPc.uri()).expect("This PC");
+    test.wait_for_listing("This PC");
+    let pane = test.window.imp().details_pane.get();
+    let groups = landing::tile_groups(test.window.folder_pane().landing());
+    let (flow, children) = &groups[0];
+    flow.unselect_all();
+    flow.select_child(&children[0]);
+    wait_until("Local Disk in the pane", || pane.shown_name() == "Local Disk");
+    let properties = descendants::<gtk::Button>(&pane)
+        .into_iter()
+        .find(|button| button.has_css_class("detail-button") && button.is_visible())
+        .expect("the Properties button");
+    assert_eq!(properties.action_name().as_deref(), Some("win.properties-of"));
+    assert_eq!(
+        properties
+            .action_target_value()
+            .and_then(|target| target.get::<String>())
+            .as_deref(),
+        Some("file:///")
+    );
+
+    test.window.navigate(&fixture.uri()).expect("the fixture folder");
+    test.wait_for_listing("the fixture folder");
+    test.select_named("Notes 2.txt");
+    assert_eq!(properties.action_name().as_deref(), Some("win.properties"));
+    assert!(properties.action_target_value().is_none());
+    let warnings: Vec<String> = recorder
+        .warnings()
+        .into_iter()
+        .filter(|warning| warning.contains("actionhelper"))
+        .collect();
+    assert!(warnings.is_empty(), "{warnings:?}");
+}
+
 /// Drive tiles are the Tiles view's: at least 256 pixels a column with
 /// their margins, all as wide, beside each other while they fit.
 #[gtk::test]
@@ -422,10 +467,15 @@ fn open_tile_menu(test: &TestWindow, tile: &gtk::FlowBoxChild) -> MenuPopover {
     menu
 }
 
-/// Closes `menu` and waits for it to let go of the pane.
+/// Closes `menu` and waits until it has; the pane keeps it, to show it
+/// again (`MenuPopover::kept_by`).
 fn close_menu(menu: &MenuPopover) {
     menu.popdown();
-    wait_until("the menu to let go of the pane", || menu.parent().is_none());
+    wait_until("the menu to close", || !menu.is_visible());
+    crate::test_support::harness::wait_for_frames(
+        menu.parent().as_ref().expect("the pane keeps the menu"),
+        2,
+    );
 }
 
 /// A drive tile's menu is the file list's right-click menu, in its
