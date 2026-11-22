@@ -4,7 +4,7 @@
 //!
 //! With `OX_STARTUP_TRACE=1` in the environment the app writes one line
 //! per step to standard error, `ox-startup <step> <microseconds>`, where
-//! the time is `CLOCK_MONOTONIC` (GLib's monotonic clock), so a launcher
+//! the time is `CLOCK_MONOTONIC` (the monotonic clock of `GLib`), so a launcher
 //! that notes the same clock before it starts the process can tell how
 //! long each step took from the launch. Without the variable nothing is
 //! written and each step costs one cached lookup. The startup budget test

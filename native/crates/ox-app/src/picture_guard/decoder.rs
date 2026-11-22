@@ -236,8 +236,8 @@ pub(crate) fn idle_decoder_ids() -> Vec<u32> {
 /// and how long the previews decoded for the folder views are kept once
 /// nothing asks for one (`thumbnails`). Browsing a folder of photos keeps
 /// both busy; once it is left, the decoders, about 20 MB each, and the
-/// previews are let go, as Windows lets its thumbnail processes end,
-/// instead of being held for as long as the app runs. The next picture
+/// previews are let go instead of being held for as long as the app
+/// runs. The next picture
 /// starts a decoder again in a few milliseconds.
 const UNUSED_LIMIT: Duration = Duration::from_secs(30);
 

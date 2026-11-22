@@ -351,7 +351,7 @@ fn forget_kept_previews_after(delay: std::time::Duration) {
         let limit = picture_guard::unused_limit();
         let unused = LAST_PREVIEW_ASKED.get().map_or(limit, |asked| asked.elapsed());
         if unused < limit {
-            forget_kept_previews_after(limit - unused);
+            forget_kept_previews_after(limit.saturating_sub(unused));
             return;
         }
         FORGETTING_PREVIEWS.set(false);

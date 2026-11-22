@@ -15,8 +15,8 @@ use crate::thumbnails::kept_preview_count;
 /// Browsing photos keeps their decoded previews, for rows scrolled back
 /// into view, and picture decoder processes, about 20 MB each, for the
 /// next pictures. Once the photos are left and nothing has asked for a
-/// picture for a while, both are let go, as Windows lets its thumbnail
-/// processes end, instead of being held for as long as the app runs.
+/// picture for a while, both are let go instead of being held for as
+/// long as the app runs.
 ///
 /// parity: VIEW-057
 #[gtk::test]
