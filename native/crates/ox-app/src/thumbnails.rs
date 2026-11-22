@@ -434,8 +434,11 @@ async fn thumbnail_of(request: &PreviewRequest) -> Option<PathBuf> {
         .ok();
     match info.as_ref().map(cached_thumbnail) {
         Some(CachedThumbnail::Valid(path)) => return Some(path),
-        Some(CachedThumbnail::Failed) => return None,
-        Some(CachedThumbnail::Missing) | None => {}
+        // GNOME's thumbnailer marks a document it could not draw, as an
+        // Office file without a picture of its own; `LibreOffice` may draw
+        // it all the same.
+        Some(CachedThumbnail::Failed) if !is_document(request) => return None,
+        Some(CachedThumbnail::Failed | CachedThumbnail::Missing) | None => {}
     }
     let version = (request.uri.clone(), request.modified);
     if FAILED.with_borrow(|failed| failed.contains(&version)) {

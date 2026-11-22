@@ -27,7 +27,7 @@
 //! document's path, size and modification time, so selecting it again
 //! shows it at once and a changed document is converted again; a
 //! document that could not be converted (damaged, protected by a
-//! password, or too slow) is not tried again in this run.
+//! password, or too slow twice) is not tried again in this run.
 
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
@@ -44,8 +44,8 @@ use gtk::{gio, glib};
 
 use super::{
     extension_of, installed_program, pdf_pages_in, program_folders, read_picture, run_within,
-    sandbox_arguments, sweep_stale_workspaces, writer, Job, Sandbox, Source, Thumbnailer, UserFolders,
-    Workspace, INPUT, INSIDE, PDF_PROGRAM,
+    sandbox_arguments, writer, Job, Sandbox, Source, Thumbnailer, UserFolders, Workspace, INPUT, INSIDE,
+    PDF_PROGRAM,
 };
 
 /// The longest a conversion may take before it is stopped: a document
@@ -75,8 +75,12 @@ const CACHE_BYTE_LIMIT: u64 = 512 * 1024 * 1024;
 #[cfg(not(test))]
 const CACHE_FOLDER: &str = "document-previews";
 
-/// The folder beside the cache that Flatpak's `LibreOffice` works in.
-const WORK_FOLDER: &str = "document-work";
+/// The end of the name a PDF is written under before it takes its own.
+const TEMPORARY_SUFFIX: &str = ".openxplorer.tmp";
+
+/// How old a PDF left under its temporary name must be to be removed: a
+/// conversion that still writes it takes seconds.
+const LEFTOVER_AGE: Duration = Duration::from_hours(1);
 
 /// What the cache's names start with, so a cache of another version's
 /// conversions is never taken for this one's.
@@ -97,7 +101,8 @@ const OUTPUT_PDF: &str = "openxplorer-item.pdf";
 ///   turns Basic, JavaScript, `BeanShell` and Python off) and whoever signed
 ///   it (`MacroSecurityLevel` 3, "Very high", with no trusted location);
 /// - links to other files and to the network are never updated on load
-///   (Writer's `Update/Link` 2 and Calc's 1 mean "Never"), and a link
+///   (Writer's `Update/Link` 0 and Calc's 1 mean "Never": Writer's values
+///   are `sw/inc/linkenum.hxx`'s, Calc's `ScLkUpdMode`'s), and a link
 ///   from an untrusted document is blocked;
 /// - no `OpenCL`, which would reach the graphics card.
 ///
@@ -108,7 +113,7 @@ pub(crate) const PROFILE: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 <item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="DisableMacrosExecution" oor:op="fuse"><value>true</value></prop></item>
 <item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="MacroSecurityLevel" oor:op="fuse"><value>3</value></prop></item>
 <item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="BlockUntrustedRefererLinks" oor:op="fuse"><value>true</value></prop></item>
-<item oor:path="/org.openoffice.Office.Writer/Content/Update"><prop oor:name="Link" oor:op="fuse"><value>2</value></prop></item>
+<item oor:path="/org.openoffice.Office.Writer/Content/Update"><prop oor:name="Link" oor:op="fuse"><value>0</value></prop></item>
 <item oor:path="/org.openoffice.Office.Calc/Content/Update"><prop oor:name="Link" oor:op="fuse"><value>1</value></prop></item>
 <item oor:path="/org.openoffice.Office.Common/Misc"><prop oor:name="UseOpenCL" oor:op="fuse"><value>false</value></prop></item>
 <item oor:path="/org.openoffice.Office.Common/Misc"><prop oor:name="FirstRun" oor:op="fuse"><value>false</value></prop></item>
@@ -149,14 +154,6 @@ const DOCUMENT_EXTENSIONS: [&str; 15] = [
 /// thumbnailers' task limit on a computer of many processors.
 const THREADS: &str = "4";
 
-/// `soffice` inside the Flatpak [`FLATPAK_APP`], whose own command is a
-/// launcher of its own.
-const FLATPAK_SOFFICE: &str = "/app/libreoffice/program/soffice";
-
-/// The Flatpak of `LibreOffice`, used when no `LibreOffice` is installed
-/// with the system.
-const FLATPAK_APP: &str = "org.libreoffice.LibreOffice";
-
 /// Whether a file of `content_type` named `name` is a document
 /// `LibreOffice` converts here.
 pub(crate) fn is_document(content_type: &str, name: &str) -> bool {
@@ -184,10 +181,12 @@ pub(crate) enum Failure {
     /// `LibreOffice` could not convert it: it is damaged, needs a password,
     /// or is no document after all. Not tried again in this run.
     Failed,
-    /// It took longer than [`TIMEOUT`]. Not tried again in this run.
+    /// It took longer than [`TIMEOUT`]. Tried once more, as a computer
+    /// busy just then may have slowed it, then not again in this run.
     TimedOut,
-    /// The request was dropped, or too many wait already; it is asked
-    /// again the next time it is shown.
+    /// The request was dropped, too many wait already, or the app could
+    /// not prepare the conversion or keep its PDF (a full disk); it is
+    /// asked again the next time it is shown.
     Cancelled,
 }
 
@@ -201,40 +200,27 @@ pub(crate) enum Priority {
     Thumbnail,
 }
 
-/// How `LibreOffice` is started.
+/// The `LibreOffice` installed on this computer, with the system or in
+/// `/opt`.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum Program {
-    /// Installed with the system or in `/opt`: `soffice` in its
-    /// `program` folder.
-    Installed {
-        /// `…/program/soffice`, as it really is.
-        soffice: PathBuf,
-        /// The folders the sandbox shows read-only besides the system's:
-        /// the install folder when it is outside `/usr`, and what its
-        /// links lead to outside it (Debian's `/etc/libreoffice`).
-        folders: Vec<PathBuf>,
-    },
-    /// The Flatpak [`FLATPAK_APP`], in Flatpak's own sandbox.
-    #[cfg_attr(test, expect(dead_code, reason = "a test never runs the computer's Flatpak"))]
-    Flatpak {
-        /// `flatpak` itself.
-        flatpak: PathBuf,
-    },
+pub(crate) struct Program {
+    /// `…/program/soffice`, as it really is.
+    soffice: PathBuf,
+    /// The folders the sandbox shows read-only besides the system's: the
+    /// install folder when it is outside `/usr`, and what its links lead
+    /// to outside it (Debian's `/etc/libreoffice`).
+    folders: Vec<PathBuf>,
 }
 
 impl Program {
     /// The `LibreOffice` of this computer: the `soffice` or `libreoffice`
     /// command (or `libreoffice24.8` and the like, as The Document
     /// Foundation's own packages name it) on `PATH` that leads to a
-    /// `program/soffice`, else the Flatpak when `flatpak` has it.
-    #[cfg(not(test))]
+    /// `program/soffice`. Flatpak's `LibreOffice` is not used: Flatpak
+    /// always gives an app its own data folder, where the user's
+    /// `LibreOffice` keeps its profile, so a document it converted could
+    /// change the profile the user opens next.
     fn find() -> Option<Self> {
-        Self::installed().or_else(Self::flatpak)
-    }
-
-    /// The `LibreOffice` installed with the system, by the commands on
-    /// `PATH`.
-    fn installed() -> Option<Self> {
         let path = std::env::var_os("PATH")?;
         let mut commands = vec![
             glib::find_program_in_path("soffice"),
@@ -278,24 +264,10 @@ impl Program {
                 .find(|soffice| is_soffice(soffice))?
         };
         let root = soffice.parent()?.parent()?.to_path_buf();
-        Some(Self::Installed {
+        Some(Self {
             folders: install_folders(&root, &UserFolders::of_session()),
             soffice,
         })
-    }
-
-    /// The Flatpak of `LibreOffice`, when `flatpak` is installed and has it.
-    #[cfg(not(test))]
-    fn flatpak() -> Option<Self> {
-        let flatpak = glib::find_program_in_path("flatpak")?;
-        let has_it = std::process::Command::new(&flatpak)
-            .args(["info", "--show-ref", FLATPAK_APP])
-            .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .is_ok_and(|status| status.success());
-        has_it.then_some(Self::Flatpak { flatpak })
     }
 
     /// The words that convert the document at `inside_item` into a PDF
@@ -378,13 +350,15 @@ fn install_folders(root: &Path, user: &UserFolders) -> Vec<PathBuf> {
 #[derive(Debug)]
 pub(crate) struct Converter {
     program: Program,
-    /// The thumbnailers' sandbox, for an installed `LibreOffice`; Flatpak's
-    /// runs within the same limits.
+    /// The thumbnailers' sandbox.
     sandbox: Sandbox,
     cache: Cache,
     /// Document versions that could not be converted in this run, by
     /// their cache names, with why.
     failed: Mutex<HashMap<String, Failure>>,
+    /// Document versions that ran out of time once in this run, which are
+    /// remembered as [`Failure::TimedOut`] the second time.
+    timed_out_once: Mutex<std::collections::HashSet<String>>,
     lane: Lane,
 }
 
@@ -449,6 +423,7 @@ impl Converter {
             sandbox,
             cache,
             failed: Mutex::new(HashMap::new()),
+            timed_out_once: Mutex::new(std::collections::HashSet::new()),
             lane: Lane::default(),
         }
     }
@@ -477,15 +452,26 @@ impl Converter {
             self.remember(name, Failure::Failed);
             return Err(Failure::Failed);
         }
-        let _turn = self.lane.wait(priority, cancellation)?;
+        let _turn = self.lane.wait(priority, &name, cancellation)?;
         // Another request may have converted it while this one waited.
         if let Some(pdf) = self.cache.find(&name) {
             return Ok(pdf);
         }
         match self.convert(path, &name, cancellation) {
-            Err(failure @ (Failure::Failed | Failure::TimedOut)) => {
-                self.remember(name, failure);
-                Err(failure)
+            Err(Failure::TimedOut) => {
+                let again = !self
+                    .timed_out_once
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .insert(name.clone());
+                if again {
+                    self.remember(name, Failure::TimedOut);
+                }
+                Err(Failure::TimedOut)
+            }
+            Err(Failure::Failed) => {
+                self.remember(name, Failure::Failed);
+                Err(Failure::Failed)
             }
             outcome => outcome,
         }
@@ -527,13 +513,7 @@ impl Converter {
     /// Converts the document at `path` in the sandbox, and keeps its PDF
     /// in the cache as `name`.
     fn convert(&self, path: &Path, name: &str, cancellation: &gio::Cancellable) -> Result<PathBuf, Failure> {
-        let workspace = match &self.program {
-            Program::Installed { .. } => Workspace::new(),
-            // Flatpak never shows an app the computer's `/tmp`: the
-            // folder is in the app's own cache instead.
-            Program::Flatpak { .. } => self.cache.workspace(),
-        }
-        .ok_or(Failure::Failed)?;
+        let workspace = Workspace::new().ok_or(Failure::Cancelled)?;
         let profile = workspace.path().join(PROFILE_FOLDER).join("user");
         let output = workspace.path().join(OUTPUT_FOLDER);
         let made = fs::DirBuilder::new()
@@ -544,53 +524,33 @@ impl Converter {
             && fs::DirBuilder::new().mode(0o700).create(&output).is_ok()
             && fs::write(profile.join("registrymodifications.xcu"), PROFILE).is_ok();
         if !made {
-            return Err(Failure::Failed);
+            return Err(Failure::Cancelled);
         }
-        let (command, runtime_dir) = match &self.program {
-            Program::Installed { soffice, folders } => (
-                self.sandbox
-                    .office_command(soffice, folders, path, workspace.path()),
-                self.sandbox.needs_runtime_dir(),
-            ),
-            Program::Flatpak { flatpak } => {
-                // Flatpak's sandbox cannot be nested in bubblewrap's: it
-                // sees the sandbox's folder alone, with a copy of the
-                // document in it that it cannot write to.
-                let copy = workspace.path().join(format!("{INPUT}{}", extension_of(path)));
-                copy_document(path, &copy).ok_or(Failure::Refused)?;
-                (
-                    self.sandbox
-                        .flatpak_command(flatpak, workspace.path(), &copy, &output),
-                    self.sandbox.needs_runtime_dir(),
-                )
-            }
-        };
-        let status = run_within(&command, runtime_dir, cancellation, TIMEOUT);
+        let command = self.sandbox.office_command(
+            &self.program.soffice,
+            &self.program.folders,
+            path,
+            workspace.path(),
+        );
+        let started = std::time::Instant::now();
+        let status = run_within(&command, self.sandbox.needs_runtime_dir(), cancellation, TIMEOUT);
         if cancellation.is_cancelled() {
             return Err(Failure::Cancelled);
         }
         if status.is_none() {
-            return Err(Failure::TimedOut);
+            // Stopped at its time limit, or never started at all, which
+            // is no fault of the document's.
+            return Err(if started.elapsed() >= TIMEOUT {
+                Failure::TimedOut
+            } else {
+                Failure::Cancelled
+            });
         }
         // LibreOffice says nothing useful through its status: the PDF
         // alone decides.
         let pdf = read_pdf(&output.join(OUTPUT_PDF)).ok_or(Failure::Failed)?;
-        self.cache.keep(name, &pdf).ok_or(Failure::Failed)
+        self.cache.keep(name, &pdf).ok_or(Failure::Cancelled)
     }
-}
-
-/// The document at `path` copied to `copy`, read-only, for Flatpak's
-/// `LibreOffice`; `None` when it is no plain file or too large.
-fn copy_document(path: &Path, copy: &Path) -> Option<()> {
-    let file = open_plain(path)?;
-    let mut target = fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o400)
-        .open(copy)
-        .ok()?;
-    let copied = std::io::copy(&mut file.take(SIZE_LIMIT + 1), &mut target).ok()?;
-    (copied <= SIZE_LIMIT).then_some(())
 }
 
 /// The first bytes of the documents converted: a ZIP archive (Office's
@@ -733,20 +693,6 @@ impl Cache {
         Some(path)
     }
 
-    /// A private folder for one conversion by Flatpak's `LibreOffice`, in
-    /// [`WORK_FOLDER`] beside the cache, after removing what an earlier
-    /// run left there ([`sweep_stale_workspaces`]).
-    fn workspace(&self) -> Option<Workspace> {
-        let parent = self.folder.with_file_name(WORK_FOLDER);
-        fs::DirBuilder::new()
-            .recursive(true)
-            .mode(0o700)
-            .create(&parent)
-            .ok()?;
-        sweep_stale_workspaces(&parent);
-        Workspace::new_in(&parent)
-    }
-
     /// Keeps `pdf` as `name`, written whole before it takes the name, and
     /// removes the PDFs used longest ago beyond the cache's limits.
     fn keep(&self, name: &str, pdf: &[u8]) -> Option<PathBuf> {
@@ -758,7 +704,7 @@ impl Cache {
         let target = self.folder.join(name);
         let temporary = self
             .folder
-            .join(format!(".{:08x}.openxplorer.tmp", glib::random_int()));
+            .join(format!(".{:08x}{TEMPORARY_SUFFIX}", glib::random_int()));
         let written = fs::OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -781,8 +727,26 @@ impl Cache {
         let Ok(listing) = fs::read_dir(&self.folder) else {
             return;
         };
-        let mut pdfs: Vec<(SystemTime, u64, PathBuf)> = listing
-            .filter_map(Result::ok)
+        let entries: Vec<fs::DirEntry> = listing.filter_map(Result::ok).collect();
+        // A PDF being written when the app ended was left under its
+        // temporary name, which no later run takes up.
+        for entry in &entries {
+            let is_leftover = entry
+                .file_name()
+                .to_str()
+                .is_some_and(|name| name.starts_with('.') && name.ends_with(TEMPORARY_SUFFIX));
+            let is_old = entry
+                .metadata()
+                .and_then(|metadata| metadata.modified())
+                .ok()
+                .and_then(|modified| modified.elapsed().ok())
+                .is_some_and(|age| age >= LEFTOVER_AGE);
+            if is_leftover && is_old {
+                let _ = fs::remove_file(entry.path());
+            }
+        }
+        let mut pdfs: Vec<(SystemTime, u64, PathBuf)> = entries
+            .iter()
             .filter(|entry| Path::new(&entry.file_name()).extension() == Some(OsStr::new("pdf")))
             .filter_map(|entry| {
                 let metadata = entry.metadata().ok()?;
@@ -819,8 +783,9 @@ pub(crate) struct Lane {
 
 #[derive(Debug, Default)]
 struct LaneState {
-    /// The conversion that runs, if one does: whom for, and what stops it.
-    running: Option<(Priority, gio::Cancellable)>,
+    /// The conversion that runs, if one does: whom for, the cache name of
+    /// the document it converts, and what stops it.
+    running: Option<(Priority, String, gio::Cancellable)>,
     /// The next request's number.
     next: u64,
     /// The requests waiting, by priority and number.
@@ -843,15 +808,19 @@ impl Lane {
         self.state.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    /// Waits for the turn of a request of `priority`, or
+    /// Waits for the turn of a request of `priority` for the document whose
+    /// cache name is `name`, or
     /// [`Failure::Cancelled`] when it is cancelled first or too many
     /// thumbnails wait already. The Preview pane's request stops a
-    /// thumbnail's conversion that runs, through its `cancellation`, so a
-    /// slow document scrolled past never keeps the selection waiting; that
-    /// thumbnail is asked again the next time it is shown. Blocks.
+    /// thumbnail's conversion of another document that runs, through its
+    /// `cancellation`, so a slow document scrolled past never keeps the
+    /// selection waiting; that thumbnail is asked again the next time it
+    /// is shown. A conversion of the selected document itself goes on, as
+    /// its PDF is what the Preview pane waits for. Blocks.
     pub(crate) fn wait(
         &self,
         priority: Priority,
+        name: &str,
         cancellation: &gio::Cancellable,
     ) -> Result<Turn<'_>, Failure> {
         let mut state = self.lock();
@@ -874,14 +843,16 @@ impl Lane {
                 return Err(Failure::Cancelled);
             }
             if priority == Priority::Preview {
-                if let Some((Priority::Thumbnail, running)) = &state.running {
-                    running.cancel();
+                if let Some((Priority::Thumbnail, converting, running)) = &state.running {
+                    if converting != name {
+                        running.cancel();
+                    }
                 }
             }
             let first = state.waiting.iter().min().copied();
             if state.running.is_none() && first == Some(ticket) {
                 state.waiting.retain(|waiting| *waiting != ticket);
-                state.running = Some((priority, cancellation.clone()));
+                state.running = Some((priority, name.to_owned(), cancellation.clone()));
                 return Ok(Turn(self));
             }
             state = self
@@ -934,45 +905,6 @@ impl Sandbox {
             Self::Off => unreachable!("documents are converted in a sandbox only"),
         }
     }
-
-    /// The command that runs Flatpak's `LibreOffice` on the document `copy`
-    /// in `workspace`, writing its PDF to `output`, within this sandbox's
-    /// limits: Flatpak's own sandbox, without the network, the session
-    /// bus or any of the user's folders but `workspace`.
-    fn flatpak_command(&self, flatpak: &Path, workspace: &Path, copy: &Path, output: &Path) -> Vec<OsString> {
-        let limits = match self {
-            Self::Bubblewrap { limits, .. } => limits.words(),
-            #[cfg(test)]
-            Self::Off => Vec::new(),
-        };
-        let mut command = limits;
-        command.push(flatpak.as_os_str().to_owned());
-        command.extend(
-            [
-                "run",
-                "--sandbox",
-                "--die-with-parent",
-                "--unshare=network",
-                "--unshare=ipc",
-                "--no-session-bus",
-                "--no-a11y-bus",
-                "--nofilesystem=host",
-                "--nofilesystem=home",
-            ]
-            .map(OsString::from),
-        );
-        let mut filesystem = OsString::from("--filesystem=");
-        filesystem.push(workspace.as_os_str());
-        command.push(filesystem);
-        let mut home = OsString::from("--env=HOME=");
-        home.push(workspace.as_os_str());
-        command.push(home);
-        command.push(format!("--env=MAX_CONCURRENCY={THREADS}").into());
-        command.push(format!("--command={FLATPAK_SOFFICE}").into());
-        command.push(FLATPAK_APP.into());
-        command.extend(Program::conversion(&workspace.join(PROFILE_FOLDER), output, copy));
-        command
-    }
 }
 
 /// The thumbnail of the document `job` names: the first page of its PDF
@@ -986,15 +918,18 @@ pub(in crate::thumbnails) fn write_thumbnail(
     let path = gio::File::for_uri(&job.uri).path().ok_or(Failure::Refused)?;
     let pdf = converter.pdf(&path, Priority::Thumbnail, cancellation)?;
     let pixels = job.flavor.pixels();
-    let picture = first_page(&converter.sandbox, &pdf, pixels, cancellation).ok_or(Failure::Failed)?;
+    let picture = first_page(&converter.sandbox, &pdf, pixels, cancellation);
     if cancellation.is_cancelled() {
         return Err(Failure::Cancelled);
     }
+    let picture = picture.ok_or(Failure::Failed)?;
     let source = Source {
         uri: job.uri.clone(),
         modified: job.modified,
     };
-    writer::save_thumbnail(&job.cache_dir, &source, job.flavor, &picture).map_err(|_| Failure::Failed)
+    // A cache that refused the picture is the app's trouble, not the
+    // document's: it is asked again the next time it is shown.
+    writer::save_thumbnail(&job.cache_dir, &source, job.flavor, &picture).map_err(|_| Failure::Cancelled)
 }
 
 /// The first page of the PDF at `pdf`, drawn by `pdftoppm` in `sandbox`
@@ -1042,7 +977,7 @@ pub(crate) fn use_converter(converter: Option<Arc<Converter>>) {
 /// working bubblewrap or `pdftoppm` is missing.
 #[cfg(test)]
 pub(crate) fn test_office(cache: &Path) -> Option<Arc<Converter>> {
-    let Some(program) = Program::installed() else {
+    let Some(program) = Program::find() else {
         eprintln!("skipped: LibreOffice is not installed");
         return None;
     };
@@ -1128,7 +1063,7 @@ mod tests {
             item(scripting, "DisableMacrosExecution", "true"),
             item(scripting, "MacroSecurityLevel", "3"),
             item(scripting, "BlockUntrustedRefererLinks", "true"),
-            item("/org.openoffice.Office.Writer/Content/Update", "Link", "2"),
+            item("/org.openoffice.Office.Writer/Content/Update", "Link", "0"),
             item("/org.openoffice.Office.Calc/Content/Update", "Link", "1"),
         ] {
             assert!(PROFILE.contains(&wanted), "{wanted}");
@@ -1207,43 +1142,6 @@ mod tests {
         );
     }
 
-    /// Flatpak's `LibreOffice` runs in Flatpak's sandbox without the
-    /// network, the session bus or the user's folders, seeing only the
-    /// sandbox's own folder.
-    ///
-    /// parity: VIEW-070
-    #[test]
-    fn the_flatpak_runs_without_network_or_the_users_folders() {
-        let sandbox = Sandbox::Bubblewrap {
-            program: PathBuf::from("/usr/bin/bwrap"),
-            proc: true,
-            limits: super::super::Limits::Unlimited,
-        };
-        let workspace = Path::new("/tmp/ws");
-        let command = sandbox.flatpak_command(
-            Path::new("/usr/bin/flatpak"),
-            workspace,
-            &workspace.join("openxplorer-item.odt"),
-            &workspace.join("out"),
-        );
-        let words: Vec<&str> = command.iter().map(|word| word.to_str().expect("UTF-8")).collect();
-        for wanted in [
-            "run",
-            "--sandbox",
-            "--die-with-parent",
-            "--unshare=network",
-            "--no-session-bus",
-            "--nofilesystem=host",
-            "--filesystem=/tmp/ws",
-            "--command=/app/libreoffice/program/soffice",
-            "org.libreoffice.LibreOffice",
-            "-env:UserInstallation=file:///tmp/ws/profile",
-            "/tmp/ws/openxplorer-item.odt",
-        ] {
-            assert!(words.contains(&wanted), "{wanted} in {words:?}");
-        }
-    }
-
     /// `LibreOffice`'s install folder is shown when it is outside `/usr`,
     /// with what its links lead to outside it; a link into the user's
     /// own folders is not followed.
@@ -1290,14 +1188,16 @@ mod tests {
     fn conversions_take_turns_and_the_preview_goes_first() {
         let lane = Arc::new(Lane::default());
         let first = lane
-            .wait(Priority::Thumbnail, &gio::Cancellable::new())
+            .wait(Priority::Thumbnail, "thumbnail.pdf", &gio::Cancellable::new())
             .expect("the first turn");
         let (done, order) = mpsc::channel();
         let mut waiting = Vec::new();
         for (name, priority) in [("thumbnail", Priority::Thumbnail), ("preview", Priority::Preview)] {
             let (lane, done) = (Arc::clone(&lane), done.clone());
             waiting.push(thread::spawn(move || {
-                let turn = lane.wait(priority, &gio::Cancellable::new()).expect("a turn");
+                let turn = lane
+                    .wait(priority, name, &gio::Cancellable::new())
+                    .expect("a turn");
                 done.send(name).expect("the test waits");
                 thread::sleep(Duration::from_millis(20));
                 drop(turn);
@@ -1307,7 +1207,10 @@ mod tests {
         let cancelled = gio::Cancellable::new();
         let leaving = {
             let (lane, cancelled) = (Arc::clone(&lane), cancelled.clone());
-            thread::spawn(move || lane.wait(Priority::Thumbnail, &cancelled).map(|_| ()))
+            thread::spawn(move || {
+                lane.wait(Priority::Thumbnail, "thumbnail.pdf", &cancelled)
+                    .map(|_| ())
+            })
         };
         thread::sleep(Duration::from_millis(100));
         assert!(order.try_recv().is_err(), "nothing runs beside the first");
@@ -1323,18 +1226,18 @@ mod tests {
         }
 
         let busy = lane
-            .wait(Priority::Preview, &gio::Cancellable::new())
+            .wait(Priority::Preview, "preview.pdf", &gio::Cancellable::new())
             .expect("a turn");
         let stop = gio::Cancellable::new();
         let queued: Vec<_> = (0..QUEUE_LIMIT)
             .map(|_| {
                 let (lane, stop) = (Arc::clone(&lane), stop.clone());
-                thread::spawn(move || lane.wait(Priority::Thumbnail, &stop).map(|_| ()))
+                thread::spawn(move || lane.wait(Priority::Thumbnail, "thumbnail.pdf", &stop).map(|_| ()))
             })
             .collect();
         thread::sleep(Duration::from_millis(200));
         assert_eq!(
-            lane.wait(Priority::Thumbnail, &gio::Cancellable::new())
+            lane.wait(Priority::Thumbnail, "thumbnail.pdf", &gio::Cancellable::new())
                 .map(|_| ()),
             Err(Failure::Cancelled),
             "a thumbnail beyond the queue's limit is asked again later"
@@ -1347,26 +1250,29 @@ mod tests {
     }
 
     /// A conversion the Preview pane needs stops a thumbnail's conversion
-    /// that runs, and starts as soon as it has stopped; a thumbnail never
-    /// stops another, nor the Preview pane's.
+    /// of another document that runs, and starts as soon as it has
+    /// stopped; a thumbnail never stops another, nor the Preview pane's,
+    /// and the selected document's own conversion goes on.
     ///
     /// parity: VIEW-070
     #[test]
     fn the_preview_stops_a_thumbnails_conversion() {
         let lane = Arc::new(Lane::default());
         let thumbnail = gio::Cancellable::new();
-        let running = lane.wait(Priority::Thumbnail, &thumbnail).expect("a turn");
+        let running = lane
+            .wait(Priority::Thumbnail, "thumbnail.pdf", &thumbnail)
+            .expect("a turn");
         let other = gio::Cancellable::new();
         let waiting = {
             let (lane, other) = (Arc::clone(&lane), other.clone());
-            thread::spawn(move || lane.wait(Priority::Thumbnail, &other).map(drop))
+            thread::spawn(move || lane.wait(Priority::Thumbnail, "thumbnail.pdf", &other).map(drop))
         };
         thread::sleep(Duration::from_millis(150));
         assert!(!thumbnail.is_cancelled(), "a thumbnail stops no other");
         let preview = {
             let lane = Arc::clone(&lane);
             thread::spawn(move || {
-                let turn = lane.wait(Priority::Preview, &gio::Cancellable::new());
+                let turn = lane.wait(Priority::Preview, "preview.pdf", &gio::Cancellable::new());
                 let started = Instant::now();
                 drop(turn);
                 started
@@ -1388,10 +1294,15 @@ mod tests {
         assert!(!other.is_cancelled());
 
         let preview = gio::Cancellable::new();
-        let turn = lane.wait(Priority::Preview, &preview).expect("a turn");
+        let turn = lane
+            .wait(Priority::Preview, "preview.pdf", &preview)
+            .expect("a turn");
         let another = {
             let lane = Arc::clone(&lane);
-            thread::spawn(move || lane.wait(Priority::Preview, &gio::Cancellable::new()).map(drop))
+            thread::spawn(move || {
+                lane.wait(Priority::Preview, "preview.pdf", &gio::Cancellable::new())
+                    .map(drop)
+            })
         };
         thread::sleep(Duration::from_millis(150));
         assert!(
@@ -1400,6 +1311,25 @@ mod tests {
         );
         drop(turn);
         assert!(another.join().expect("joined").is_ok());
+
+        let same = gio::Cancellable::new();
+        let running = lane
+            .wait(Priority::Thumbnail, "selected.pdf", &same)
+            .expect("a turn");
+        let preview = {
+            let lane = Arc::clone(&lane);
+            thread::spawn(move || {
+                lane.wait(Priority::Preview, "selected.pdf", &gio::Cancellable::new())
+                    .map(drop)
+            })
+        };
+        thread::sleep(Duration::from_millis(150));
+        assert!(
+            !same.is_cancelled(),
+            "the selected document's own conversion goes on"
+        );
+        drop(running);
+        assert!(preview.join().expect("joined").is_ok());
     }
 
     /// A document's PDF is named after its path, size and modification
@@ -1470,7 +1400,20 @@ mod tests {
                 .and_then(|file| file.set_modified(old + Duration::from_secs(index as u64)))
                 .expect("mtime");
         }
+        let leftover = cache.folder.join(".0badf00d.openxplorer.tmp");
+        let fresh = cache.folder.join(".0000beef.openxplorer.tmp");
+        for (path, time) in [(&leftover, old), (&fresh, SystemTime::now())] {
+            fs::write(path, b"%PDF-half").expect("a leftover");
+            fs::File::options()
+                .write(true)
+                .open(path)
+                .and_then(|file| file.set_modified(time))
+                .expect("mtime");
+        }
         cache.keep("new.pdf", b"%PDF-new").expect("kept");
+        assert!(!leftover.exists(), "an old leftover went");
+        assert!(fresh.exists(), "a PDF still being written stays");
+        fs::remove_file(&fresh).expect("removed");
         let left = fs::read_dir(&cache.folder).expect("listing").count();
         assert_eq!(left, CACHE_COUNT_LIMIT);
         assert!(!cache.folder.join("0000.pdf").exists(), "the oldest went first");
@@ -1627,7 +1570,8 @@ mod tests {
 
     /// A document that takes longer than the time limit (a workbook of a
     /// few kilobytes whose formulas take half a minute) is stopped there,
-    /// with every process `LibreOffice` started, and is not tried again;
+    /// with every process `LibreOffice` started, tried once more, and then
+    /// not again;
     /// the next document converts at once after it.
     ///
     /// parity: VIEW-070
@@ -1642,22 +1586,26 @@ mod tests {
         let quick = folder.path().join("Notes.odt");
         office_documents::write(&quick, Kind::Odt, "Notes");
 
-        let before = Instant::now();
-        let outcome = converter.pdf(&slow, Priority::Preview, &gio::Cancellable::new());
-        let took = before.elapsed();
-
-        eprintln!("the slow workbook: {outcome:?} after {took:?}");
-        assert_eq!(outcome, Err(Failure::TimedOut));
-        assert!(
-            took >= TIMEOUT && took < TIMEOUT + Duration::from_secs(3),
-            "{took:?}"
-        );
+        for attempt in ["first", "second"] {
+            let before = Instant::now();
+            let outcome = converter.pdf(&slow, Priority::Preview, &gio::Cancellable::new());
+            let took = before.elapsed();
+            eprintln!("the slow workbook, {attempt} time: {outcome:?} after {took:?}");
+            assert_eq!(outcome, Err(Failure::TimedOut));
+            assert!(
+                took >= TIMEOUT && took < TIMEOUT + Duration::from_secs(3),
+                "{took:?}"
+            );
+        }
         let again = Instant::now();
         assert_eq!(
             converter.pdf(&slow, Priority::Preview, &gio::Cancellable::new()),
             Err(Failure::TimedOut)
         );
-        assert!(again.elapsed() < Duration::from_millis(100), "not tried again");
+        assert!(
+            again.elapsed() < Duration::from_millis(100),
+            "not tried a third time"
+        );
         assert!(converter
             .pdf(&quick, Priority::Preview, &gio::Cancellable::new())
             .is_ok());
@@ -1729,7 +1677,7 @@ mod tests {
             limits: super::super::Limits::Unlimited,
         };
         let converter = Converter::new(
-            Program::Installed {
+            Program {
                 soffice: PathBuf::from("/nonexistent/program/soffice"),
                 folders: Vec::new(),
             },
