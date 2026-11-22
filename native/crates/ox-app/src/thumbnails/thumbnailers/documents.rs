@@ -428,6 +428,15 @@ impl Converter {
             return None;
         }
         let sandbox = Sandbox::find()?;
+        // `LibreOffice` refuses to start without a `/proc`, which some
+        // containers will not mount in the sandbox.
+        if matches!(sandbox, Sandbox::Bubblewrap { proc: false, .. }) {
+            glib::g_message!(
+                ox_core::LOG_DOMAIN,
+                "The sandbox has no /proc here, which LibreOffice needs: documents get no previews"
+            );
+            return None;
+        }
         let cache = Cache::new(glib::user_cache_dir().join("winspace").join(CACHE_FOLDER));
         Some(Self::new(program, sandbox, cache))
     }
