@@ -454,13 +454,43 @@ const TILE_VERTICAL_CHROME: i32 = 12 + 12 + 1 + 1;
 /// the cell less the padding and the gap. Its width comes from the column
 /// the window sets (`CellSize::columns_in` in `folder_view/grid.rs`), so the
 /// minimum is only the icon, which lets GTK use every column the window
-/// asks for.
+/// asks for. Grouped (VIEW-022), the height goes on the tile's own box,
+/// so the slots of a group heading's row are a line of title tall.
 fn tile_rule(icon_size: IconSize, text_size: TextSize) -> String {
+    if icon_size == IconSize::SMALL {
+        return small_icons_rule(text_size);
+    }
     let cell = grid::cell_size(icon_size, text_size);
     let height = cell.height - TILE_VERTICAL_CHROME;
     let width = icon_size.pixels();
     let class = icon_size.css_class();
-    format!("gridview.files.{class} > child {{ min-width: {width}px; min-height: {height}px; }}")
+    let groups = grid::ICON_GROUPS_CLASS;
+    format!(
+        "gridview.files.{class} > child {{ min-width: {width}px; min-height: {height}px; }}\n\
+         gridview.files.{class}.{groups} > child {{ min-height: 0; }}\n\
+         gridview.files.{class}.{groups} > child > box:not(.group-slot) {{ min-height: {height}px; }}"
+    )
+}
+
+/// Pixels of a Small icons item outside its content box: 2 pixels of
+/// padding on each side (`folder-views.css`).
+const SMALL_ICONS_CHROME: i32 = 2 + 2;
+
+/// Small icons' items at `text_size`: one line as tall as List's
+/// ([`compact_rule`]) and wide enough that the columns are
+/// [`crate::folder_view::icon_size::SMALL_ICONS_COLUMN`] pixels apart, growing with the text. Grouped,
+/// the height goes on the item's own box, as for the other icon sizes.
+fn small_icons_rule(text_size: TextSize) -> String {
+    let cell = grid::cell_size(IconSize::SMALL, text_size);
+    let height = cell.height;
+    let width = cell.width - SMALL_ICONS_CHROME;
+    let class = IconSize::SMALL.css_class();
+    let groups = grid::ICON_GROUPS_CLASS;
+    format!(
+        "gridview.files.{class} > child {{ min-width: {width}px; min-height: {height}px; }}\n\
+         gridview.files.{class}.{groups} > child {{ min-height: 0; }}\n\
+         gridview.files.{class}.{groups} > child > box:not(.group-slot) {{ min-height: {height}px; }}"
+    )
 }
 
 /// The height of the List layout's items at `text_size`
@@ -594,6 +624,15 @@ mod tests {
         assert!(css.contains("columnview.files > listview > row { min-height: 30px; }"));
         assert!(css.contains("gridview.files.icons-large > child { min-width: 96px; min-height: 144px; }"));
         assert!(css.contains("gridview.files.icons-56 > child { min-width: 56px; min-height: 104px; }"));
+        assert!(css.contains("gridview.files.icons-small > child { min-width: 306px; min-height: 25px; }"));
+        // Grouped, a tile's box keeps its height and a heading row's slots
+        // are a line of title tall (VIEW-022).
+        assert!(css.contains(
+            "gridview.files.icons-large.icon-groups > child { min-height: 0; }\n\
+             gridview.files.icons-large.icon-groups > child > box:not(.group-slot) { min-height: 144px; }"
+        ));
+        // Small icons' columns, 310 pixels apart at 100%, grow with the text.
+        assert!(css_at(200).contains("gridview.files.icons-small > child { min-width: 616px;"));
         assert!(
             css.contains("gridview.files.tiles > child > .item-cell:not(.group-slot) { min-height: 53px; }")
         );

@@ -420,7 +420,8 @@ fn choosing_a_folder_from_a_crumb_menu_goes_there() {
     });
     test.wait_for_listing("Letters");
     wait_for(std::time::Duration::from_millis(100));
-    assert!(descendants::<MenuPopover>(address).is_empty(), "the menu is gone");
+    // The bar keeps its menu, closed, to show it again.
+    assert!(!menu.is_visible(), "the menu is closed");
 }
 
 /// As in Windows Explorer, the wheel over a crumb never switches to the
@@ -533,13 +534,15 @@ fn the_recycle_bin_and_recent_open_from_the_typed_address() {
 #[gtk::test]
 fn a_typed_relative_name_or_tilde_opens_in_the_same_tab() {
     let fixture = Fixture::standard();
+    // Not a standard folder's name, which would open that folder.
+    std::fs::create_dir(fixture.path("Letters")).expect("fixture subfolder");
     let test = TestWindow::open(&fixture.uri());
     test.activate("location", None);
 
-    test.window.submit_address("Documents");
+    test.window.submit_address("Letters");
 
     wait_until("the typed folder", || {
-        test.window.current_uri() == Some(fixture.uri_of("Documents"))
+        test.window.current_uri() == Some(fixture.uri_of("Letters"))
     });
     assert_eq!(test.window.address_bar().mode(), AddressMode::Crumbs);
     test.window.submit_address("~");
@@ -721,7 +724,9 @@ fn a_middle_click_on_blank_address_space_opens_the_selected_text() {
     let test = TestWindow::open(&fixture.uri());
     let address = test.window.address_bar();
     let primary = WidgetExt::display(address).primary_clipboard();
-    primary.set_text("Documents");
+    // "Documents" alone names the standard folder; a relative path names
+    // the one here.
+    primary.set_text("./Documents");
 
     middle_click_at(address, (1.0, 1.0));
 

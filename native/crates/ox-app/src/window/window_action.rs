@@ -81,6 +81,15 @@ pub(crate) enum WindowAction {
     CopyAddress,
     /// Opens the clipboard's text as a typed address.
     PasteAddress,
+    /// Puts the folder at the `String` target on the clipboard, as Copy
+    /// does (the address bar menu's Copy Address).
+    CopyAddressOf,
+    /// Puts the address of the `String` target on the clipboard as text
+    /// (Copy Address as Text).
+    CopyAddressAsText,
+    /// Forgets the typed addresses (the address bar menu's Delete
+    /// History; NAV-043).
+    DeleteAddressHistory,
     /// Keeps the address editable text instead of crumbs (NAV-029).
     EditableLocation,
     /// Shows the full path in the crumbs (NAV-024).
@@ -191,6 +200,9 @@ pub(crate) enum WindowAction {
     /// Collapses or expands the sidebar section whose key is the string
     /// target: the chevron of This PC or Network (SIDE-033).
     ToggleSidebarSection,
+    /// Lists the shared folders of the computer under Network whose
+    /// location is the string target, or hides them: its chevron.
+    ToggleNetworkComputer,
     /// Shows the hidden sidebar section whose key is the string target.
     ShowSection,
     /// Hides the sidebar place at the string target (SIDE-010).
@@ -581,6 +593,9 @@ impl WindowAction {
             WindowAction::AddressHistory => "address-history",
             WindowAction::CopyAddress => "copy-address",
             WindowAction::PasteAddress => "paste-address",
+            WindowAction::CopyAddressOf => "copy-address-of",
+            WindowAction::CopyAddressAsText => "copy-address-as-text",
+            WindowAction::DeleteAddressHistory => "delete-address-history",
             WindowAction::EditableLocation => "editable-location",
             WindowAction::ShowFullPath => "show-full-path",
             WindowAction::CompactDensity => "compact-density",
@@ -627,6 +642,7 @@ impl WindowAction {
             WindowAction::SidebarShowAll => "sidebar-show-all",
             WindowAction::HideSection => "hide-section",
             WindowAction::ToggleSidebarSection => "toggle-sidebar-section",
+            WindowAction::ToggleNetworkComputer => "toggle-network-computer",
             WindowAction::ShowSection => "show-section",
             WindowAction::HidePlace => "hide-place",
             WindowAction::ShowPlace => "show-place",

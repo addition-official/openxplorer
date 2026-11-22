@@ -3,9 +3,10 @@
 //!
 //! Ports `footer.statusbar` in `v2.0.0:desktop/ui/index.html` and `updateStatus`
 //! in `v2.0.0:desktop/ui/app.js`, laid out as Windows 11 File Explorer's
-//! status bar: the item count ("6 items"), a thin divider, the selection
-//! ("1 item selected  19.0\u{a0}KB", the size only when every selected
-//! item is a file) and another thin divider, the type-to-select hint, then at the right
+//! status bar: the item count ("6 items"), a thin divider and the
+//! selection ("1 item selected  19.0 KB", the size only when every
+//! selected item is a file) with a divider after it, as Windows ends it,
+//! the type-to-select hint, then at the right
 //! "Check for updates" while a check found a newer release or a restart
 //! to finish one (the build it names is hidden, as Windows 11 Explorer's
 //! status bar has none), and the Details and Large icons view buttons, the
@@ -133,9 +134,9 @@ mod imp {
         /// The selection (`#status-selected`).
         #[template_child]
         pub(super) selection: TemplateChild<gtk::Label>,
-        /// The thin line after the selection.
+        /// The thin line after the selection, as Windows ends it.
         #[template_child]
-        pub(super) trailing_divider: TemplateChild<gtk::Separator>,
+        pub(super) selection_end_divider: TemplateChild<gtk::Separator>,
         /// The type-to-select hint.
         #[template_child]
         pub(super) typeahead_hint: TemplateChild<gtk::Label>,
@@ -273,8 +274,8 @@ impl StatusBar {
         check_updates.tooltip_text().unwrap_or_default().to_string()
     }
 
-    /// Shows the item count and, between dividers, the selection, as
-    /// Windows 11 writes it: "6 items | 1 item selected 19.0 KB |".
+    /// Shows the item count and, between two dividers, the selection, as
+    /// Windows writes "15 items | 1 item selected 4 bytes |".
     pub(super) fn set_counts(&self, subject: StatusSubject, selected: SelectionSummary) {
         let imp = self.imp();
         imp.count.set_text(&count_text(subject));
@@ -283,8 +284,8 @@ impl StatusBar {
             StatusSubject::Folder { .. } | StatusSubject::Search(_) => selection_text(selected),
         };
         imp.selection_divider.set_visible(!selection.is_empty());
+        imp.selection_end_divider.set_visible(!selection.is_empty());
         imp.selection.set_visible(!selection.is_empty());
-        imp.trailing_divider.set_visible(!selection.is_empty());
         imp.selection.set_text(&selection);
     }
 
@@ -347,10 +348,13 @@ impl StatusBar {
         self.imp().selection_divider.is_visible()
     }
 
-    /// Whether the divider after the selection shows, for tests.
+    /// Whether the divider after the selection shows, right after the
+    /// selection's text, for tests.
     #[cfg(test)]
     pub(super) fn shows_trailing_divider(&self) -> bool {
-        self.imp().trailing_divider.is_visible()
+        let imp = self.imp();
+        let divider = imp.selection_end_divider.upcast_ref::<gtk::Widget>();
+        imp.selection.next_sibling().as_ref() == Some(divider) && divider.is_visible()
     }
 
     /// The type-to-select hint's label, for tests.
@@ -408,60 +412,31 @@ mod tests {
             bytes: 19_456,
             all_files: true,
         };
-        assert_eq!(selection_text(one_file), "1 item selected  19.0\u{a0}KB");
+        assert_eq!(selection_text(one_file), "1 item selected  19.0 KB");
         let tooltip_example = SelectionSummary {
             count: 1,
             bytes: 4_486,
             all_files: true,
         };
-        assert_eq!(selection_text(tooltip_example), "1 item selected  4.38\u{a0}KB");
+        assert_eq!(selection_text(tooltip_example), "1 item selected  4.38 KB");
         let one_byte = SelectionSummary {
             count: 1,
             bytes: 1,
             all_files: true,
         };
-        assert_eq!(selection_text(one_byte), "1 item selected  1\u{a0}byte");
+        assert_eq!(selection_text(one_byte), "1 item selected  1 byte");
         let three_files = SelectionSummary {
             count: 3,
             bytes: 1_300_000,
             all_files: true,
         };
-        assert_eq!(selection_text(three_files), "3 items selected  1.23\u{a0}MB");
+        assert_eq!(selection_text(three_files), "3 items selected  1.23 MB");
         let folders = SelectionSummary {
             count: 3,
             bytes: 0,
             all_files: false,
         };
         assert_eq!(selection_text(folders), "3 items selected");
-    }
-
-    /// As in Windows 11's status bar ("6 items | 1 item selected 19.0 KB
-    /// |"), a divider follows the count and another the selection while
-    /// something is selected; nothing selected shows the count alone.
-    ///
-    /// parity: VIEW-050
-    #[gtk::test]
-    fn a_selection_sits_between_two_dividers() {
-        let bar: StatusBar = glib::Object::new();
-        let folder = StatusSubject::Folder {
-            shown: 6,
-            loading: false,
-        };
-        bar.set_counts(folder, SelectionSummary::default());
-        assert!(!bar.shows_selection_divider() && !bar.shows_trailing_divider());
-        let one_file = SelectionSummary {
-            count: 1,
-            bytes: 19_456,
-            all_files: true,
-        };
-        bar.set_counts(folder, one_file);
-        assert!(bar.shows_selection_divider(), "the divider after the count");
-        assert!(bar.shows_trailing_divider(), "the divider after the selection");
-        bar.set_counts(StatusSubject::Page, one_file);
-        assert!(
-            !bar.shows_trailing_divider(),
-            "a landing page has no selection here"
-        );
     }
 
     /// parity: VIEW-050

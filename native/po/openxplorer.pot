@@ -545,6 +545,10 @@ msgstr ""
 msgid "The '{label}' device can now be safely removed from the computer."
 msgstr ""
 
+#: crates/ox-app/src/devices.rs
+msgid "This device is currently in use. Close any programs or windows that might be using the device, and then try again."
+msgstr ""
+
 #: crates/ox-app/src/dialog/fields.rs crates/ox-core/src/format.rs
 msgid "Not provided"
 msgstr ""
@@ -594,7 +598,7 @@ msgstr ""
 msgid "Add a network folder to your sidebar: a Windows share, or a folder on an SSH, FTP, WebDAV or NFS server."
 msgstr ""
 
-#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/window/command_bar/menus.rs crates/ox-app/src/window/sidebar/menu.rs
+#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/window/command_bar/menus.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/sidebar/menu.rs
 msgid "Add a network location"
 msgstr ""
 
@@ -643,7 +647,7 @@ msgstr ""
 msgid "Specify the drive letter for the connection and the folder that you want to connect to:"
 msgstr ""
 
-#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/drive_tab.rs crates/ox-app/src/properties/general_tab.rs crates/ox-app/src/properties/security_tab/advanced.rs crates/ox-app/src/properties/selection_view.rs crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-core/src/grouping.rs
+#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/properties/drive_tab.rs crates/ox-app/src/properties/general_tab.rs crates/ox-app/src/properties/security_tab/advanced.rs crates/ox-app/src/properties/selection_view.rs crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-core/src/grouping.rs
 msgid "Type"
 msgstr ""
 
@@ -770,7 +774,7 @@ msgid "Select"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-app/src/folder_view/cells/row_tooltip.rs crates/ox-app/src/window/file_ops/delete.rs crates/ox-app/src/window/file_ops/failure_dialog.rs
+#: crates/ox-app/src/folder_view/cells/row_tooltip.rs crates/ox-app/src/window/file_ops/delete.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/file_ops/rename_conflict.rs
 msgid "Date created: {date}"
 msgstr ""
 
@@ -983,7 +987,7 @@ msgstr ""
 msgid "Date modified"
 msgstr ""
 
-#: crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs
+#: crates/ox-app/src/folder_view/sorting.rs
 msgid "Folder path"
 msgstr ""
 
@@ -1626,6 +1630,10 @@ msgstr ""
 msgid "Composers"
 msgstr ""
 
+#: crates/ox-app/src/properties/details_rows.rs crates/ox-core/src/entry/classify.rs
+msgid "Computer"
+msgstr ""
+
 #: crates/ox-app/src/properties/details_rows.rs
 msgid "Conductors"
 msgstr ""
@@ -1686,6 +1694,10 @@ msgstr ""
 msgid "File"
 msgstr ""
 
+#: crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-app/src/window/home_page.rs
+msgid "File location"
+msgstr ""
+
 #: crates/ox-app/src/properties/details_rows.rs
 msgid "Flash"
 msgstr ""
@@ -1741,10 +1753,6 @@ msgstr ""
 
 #: crates/ox-app/src/properties/details_rows.rs
 msgid "Image"
-msgstr ""
-
-#: crates/ox-app/src/properties/details_rows.rs
-msgid "Item type"
 msgstr ""
 
 #: crates/ox-app/src/properties/details_rows.rs
@@ -1901,6 +1909,11 @@ msgstr[1] ""
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/properties/details_rows.rs
 msgid "{flash}, red-eye reduction"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/properties/details_rows.rs
+msgid "{name} (this PC)"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -4877,33 +4890,19 @@ msgid "Address copied."
 msgstr ""
 
 #: crates/ox-app/src/window/address_menu.rs
-msgid "Copy address"
+msgid "Copy Address"
 msgstr ""
 
 #: crates/ox-app/src/window/address_menu.rs
-msgid "Edit address"
+msgid "Copy Address as Text"
 msgstr ""
 
 #: crates/ox-app/src/window/address_menu.rs
-msgid "Keep address editable"
-msgstr ""
-
-#. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-app/src/window/address_menu.rs
-msgid "Open “{label}” in new tab"
-msgstr ""
-
-#. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-app/src/window/address_menu.rs
-msgid "Open “{label}” in new window"
+msgid "Delete History"
 msgstr ""
 
 #: crates/ox-app/src/window/address_menu.rs
-msgid "Paste and go"
-msgstr ""
-
-#: crates/ox-app/src/window/address_menu.rs
-msgid "Show full path"
+msgid "Edit Address"
 msgstr ""
 
 #: crates/ox-app/src/window/address_menu.rs
@@ -5102,7 +5101,7 @@ msgstr ""
 msgid "Cut (Ctrl+X)"
 msgstr ""
 
-#: crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/file_ops/delete_label.rs crates/ox-app/src/window/folder_tree/menu.rs crates/ox-app/src/window/shortcuts_window.rs crates/ox-core/src/ops/undo.rs
+#: crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/file_ops/delete_label.rs crates/ox-app/src/window/folder_tree/menu.rs crates/ox-app/src/window/shortcuts_window.rs crates/ox-core/src/ops/undo.rs
 msgid "Delete"
 msgstr ""
 
@@ -5517,6 +5516,11 @@ msgstr ""
 msgid "Duplicate"
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/context_menu/entries.rs
+msgid "Edit in {name}"
+msgstr ""
+
 #: crates/ox-app/src/window/context_menu/entries.rs
 msgid "Extract here"
 msgstr ""
@@ -5600,6 +5604,10 @@ msgid "Restore previous versions"
 msgstr ""
 
 #: crates/ox-app/src/window/context_menu/entries.rs
+msgid "Restore the item to compress or share it."
+msgstr ""
+
+#: crates/ox-app/src/window/context_menu/entries.rs
 msgid "Select only one item for this command."
 msgstr ""
 
@@ -5661,10 +5669,6 @@ msgstr ""
 
 #: crates/ox-app/src/window/desktop_link.rs
 msgid "This link points to an address OpenXplorer cannot open."
-msgstr ""
-
-#: crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-app/src/window/home_page.rs
-msgid "File location"
 msgstr ""
 
 #: crates/ox-app/src/window/details_pane/content.rs
@@ -6403,6 +6407,10 @@ msgstr ""
 msgid "The name was not changed."
 msgstr ""
 
+#: crates/ox-app/src/window/file_ops/rename_conflict.rs
+msgid "Confirm Folder Replace"
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/file_ops/rename_conflict.rs
 msgid "Do you want to rename \"{name}\" to \"{numbered}\"?\nThere is already a file with the same name in this location."
@@ -6410,6 +6418,15 @@ msgstr ""
 
 #: crates/ox-app/src/window/file_ops/rename_conflict.rs
 msgid "Rename File"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/file_ops/rename_conflict.rs
+msgid "This destination already contains a folder named '{name}'.\n\nIf any files have the same names, you will be asked if you want to replace those files.\n\nDo you still want to merge this folder"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/rename_conflict.rs
+msgid "with this one?"
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/transfer.rs
@@ -6625,6 +6642,10 @@ msgstr ""
 
 #: crates/ox-app/src/window/folder_size_scan.rs
 msgid "Select a folder or share to calculate its size."
+msgstr ""
+
+#: crates/ox-app/src/window/folder_tree/menu.rs
+msgid "Expand to current folder"
 msgstr ""
 
 #: crates/ox-app/src/window/folder_tree/menu.rs
@@ -7603,7 +7624,23 @@ msgid "Map network drive…"
 msgstr ""
 
 #: crates/ox-app/src/window/sidebar/menu.rs
+msgid "Pin current folder to Quick access"
+msgstr ""
+
+#: crates/ox-app/src/window/sidebar/menu.rs
+msgid "Show Network"
+msgstr ""
+
+#: crates/ox-app/src/window/sidebar/menu.rs
+msgid "Show This PC"
+msgstr ""
+
+#: crates/ox-app/src/window/sidebar/menu.rs
 msgid "Show all entries"
+msgstr ""
+
+#: crates/ox-app/src/window/sidebar/menu.rs
+msgid "Show all folders"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -8575,10 +8612,6 @@ msgstr ""
 
 #: crates/ox-core/src/clipboard/pasted.rs
 msgid "The picture on the clipboard is too large to paste."
-msgstr ""
-
-#: crates/ox-core/src/entry/classify.rs
-msgid "Computer"
 msgstr ""
 
 #: crates/ox-core/src/entry/classify.rs
@@ -9720,6 +9753,11 @@ msgstr ""
 msgid "Undo can only rename an item back within its own folder."
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-core/src/ops/rename.rs
+msgid "You don't have permission to rename “{name}” here."
+msgstr ""
+
 #: crates/ox-core/src/ops/report.rs
 msgid "Operation stopped"
 msgstr ""
@@ -9915,6 +9953,11 @@ msgstr ""
 
 #: crates/ox-core/src/ops/undo.rs
 msgid "Undo Restore"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-core/src/ops/undo_apply.rs
+msgid "An item named “{name}” is already in “{folder}”, so Undo left it in “{left_in}”."
 msgstr ""
 
 #: crates/ox-core/src/ops/unfinished.rs
@@ -10304,6 +10347,11 @@ msgstr ""
 
 #: crates/ox-core/src/transfer/engine.rs
 msgid "Only copies and moves can rename an item."
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-core/src/transfer/engine.rs
+msgid "The copy at {uri} could not be written to its drive, so the original was kept. {error}"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
