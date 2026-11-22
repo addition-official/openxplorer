@@ -118,7 +118,11 @@ pub(super) fn decode(
         return Err(Refusal::Cancelled);
     }
     match RUNNER.get_or_init(find_runner) {
-        Runner::Pool(pool) => pool.decode(source, width, height, limits, cancellable),
+        Runner::Pool(pool) => {
+            let result = pool.decode(source, width, height, limits, cancellable);
+            pool.stop_unused_later();
+            result
+        }
         Runner::InProcess => match source {
             Source::File(file) => super::decode_here_to_fit(&file, width, height, limits, cancellable),
             Source::Reader(mut reader) => {
@@ -212,11 +216,75 @@ const DECODER_CPU_SECONDS: u64 = 600;
 /// it answered, before it is replaced instead.
 const RETURN_WAIT: Duration = Duration::from_secs(2);
 
+/// The process IDs of the decoders the app keeps waiting for pictures,
+/// for tests.
+#[cfg(test)]
+pub(crate) fn idle_decoder_ids() -> Vec<u32> {
+    match RUNNER.get() {
+        Some(Runner::Pool(pool)) => pool
+            .idle
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .iter()
+            .map(|decoder| decoder.child.0.id())
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// How long a decoder waits for another picture before it is stopped,
+/// and how long the previews decoded for the folder views are kept once
+/// nothing asks for one (`thumbnails`). Browsing a folder of photos keeps
+/// both busy; once it is left, the decoders, about 20 MB each, and the
+/// previews are let go, as Windows lets its thumbnail processes end,
+/// instead of being held for as long as the app runs. The next picture
+/// starts a decoder again in a few milliseconds.
+const UNUSED_LIMIT: Duration = Duration::from_secs(30);
+
+/// [`UNUSED_LIMIT`] as a test shortened it, in milliseconds; 0 when not.
+#[cfg(test)]
+static UNUSED_LIMIT_IN_TESTS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// How long decoders and the previews they decoded may go unused before
+/// they are let go ([`UNUSED_LIMIT`]).
+pub(crate) fn unused_limit() -> Duration {
+    #[cfg(test)]
+    {
+        let shortened = UNUSED_LIMIT_IN_TESTS.load(Ordering::Relaxed);
+        if shortened > 0 {
+            return Duration::from_millis(shortened);
+        }
+    }
+    UNUSED_LIMIT
+}
+
+/// Shortens [`unused_limit`] for a test while this lives.
+#[cfg(test)]
+pub(crate) struct UnusedForTests;
+
+#[cfg(test)]
+impl UnusedForTests {
+    pub(crate) fn shorten_to(limit: Duration) -> Self {
+        let milliseconds = u64::try_from(limit.as_millis()).unwrap_or(u64::MAX).max(1);
+        UNUSED_LIMIT_IN_TESTS.store(milliseconds, Ordering::Relaxed);
+        Self
+    }
+}
+
+#[cfg(test)]
+impl Drop for UnusedForTests {
+    fn drop(&mut self) {
+        UNUSED_LIMIT_IN_TESTS.store(0, Ordering::Relaxed);
+    }
+}
+
 /// The decoders kept idle, and how to start more.
 #[derive(Debug)]
 struct Pool {
     words: Vec<OsString>,
     idle: Mutex<Vec<Decoder>>,
+    /// Set while a check for unused decoders is due on the main loop.
+    stopping_unused: AtomicBool,
 }
 
 impl Pool {
@@ -224,7 +292,44 @@ impl Pool {
         Self {
             words,
             idle: Mutex::new(Vec::new()),
+            stopping_unused: AtomicBool::new(false),
         }
+    }
+
+    /// Stops the idle decoders that waited at least `limit` for a picture;
+    /// returns whether any decoder still waits.
+    fn stop_unused(&self, limit: Duration) -> bool {
+        let unused: Vec<Decoder> = {
+            let mut idle = self.idle.lock().unwrap_or_else(PoisonError::into_inner);
+            let (unused, waiting) = idle
+                .drain(..)
+                .partition(|decoder: &Decoder| decoder.idle_since.elapsed() >= limit);
+            *idle = waiting;
+            unused
+        };
+        // Dropping a decoder stops its process and waits for it, which is
+        // done after the pool is unlocked.
+        drop(unused);
+        !self
+            .idle
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .is_empty()
+    }
+
+    /// Checks on the main loop, once [`unused_limit`] has passed, for
+    /// decoders that waited that long, and stops them; again while any
+    /// decoder waits.
+    fn stop_unused_later(&'static self) {
+        if self.stopping_unused.swap(true, Ordering::AcqRel) {
+            return;
+        }
+        glib::timeout_add_once(unused_limit(), move || {
+            self.stopping_unused.store(false, Ordering::Release);
+            if self.stop_unused(unused_limit()) {
+                self.stop_unused_later();
+            }
+        });
     }
 
     /// Decodes with an idle decoder, or a new one; a decoder that served
@@ -279,6 +384,8 @@ struct Decoder {
     limit: Arc<std::sync::atomic::AtomicU64>,
     /// How many pictures it decoded.
     served: u32,
+    /// When it last finished a picture, from which it waits for the next.
+    idle_since: Instant,
 }
 
 impl Decoder {
@@ -327,6 +434,7 @@ impl Decoder {
             answers,
             limit,
             served: 0,
+            idle_since: Instant::now(),
         })
     }
 
@@ -414,6 +522,7 @@ impl Decoder {
                 answers: self.answers,
                 limit: self.limit,
                 served: self.served.saturating_add(1),
+                idle_since: Instant::now(),
             });
         (result, kept)
     }

@@ -274,6 +274,7 @@ pub(crate) async fn preview(request: PreviewRequest) -> Option<gdk::Texture> {
     if request.local_only && on_network {
         return None;
     }
+    note_kept_previews_used();
     if let Some(texture) = KEPT.with_borrow(|kept| kept.get(&key).cloned()) {
         return Some(texture);
     }
@@ -295,7 +296,49 @@ pub(crate) async fn preview(request: PreviewRequest) -> Option<gdk::Texture> {
         }
         kept.insert(key, texture.clone());
     });
+    note_kept_previews_used();
     Some(texture)
+}
+
+thread_local! {
+    /// When a view last asked for a preview.
+    static LAST_PREVIEW_ASKED: std::cell::Cell<Option<std::time::Instant>> = const { std::cell::Cell::new(None) };
+    /// Set while a check for unused previews is due.
+    static FORGETTING_PREVIEWS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Notes that a view asked for a preview now. The previews kept for rows
+/// and tiles scrolled back into view are dropped once no view asked for
+/// one for [`picture_guard::unused_limit`]: the rows shown hold their own,
+/// and the photos of a folder left long ago, up to 512 previews and 48
+/// tile-sized pictures, are otherwise held for as long as the app runs.
+fn note_kept_previews_used() {
+    LAST_PREVIEW_ASKED.set(Some(std::time::Instant::now()));
+    if !FORGETTING_PREVIEWS.replace(true) {
+        forget_kept_previews_after(picture_guard::unused_limit());
+    }
+}
+
+/// Drops the kept previews after `delay`, unless a view asked for one
+/// since, which puts it off.
+fn forget_kept_previews_after(delay: std::time::Duration) {
+    glib::timeout_add_local_once(delay, || {
+        let limit = picture_guard::unused_limit();
+        let unused = LAST_PREVIEW_ASKED.get().map_or(limit, |asked| asked.elapsed());
+        if unused < limit {
+            forget_kept_previews_after(limit - unused);
+            return;
+        }
+        FORGETTING_PREVIEWS.set(false);
+        KEPT.with_borrow_mut(HashMap::clear);
+        SHARP_KEPT.with_borrow_mut(Vec::clear);
+    });
+}
+
+/// How many previews and sharp pictures are kept now, for tests.
+#[cfg(test)]
+pub(crate) fn kept_preview_count() -> usize {
+    KEPT.with_borrow(HashMap::len) + SHARP_KEPT.with_borrow(Vec::len)
 }
 
 /// How many sharp pictures are kept for a tile scrolled back into view.
@@ -325,6 +368,7 @@ pub(crate) async fn sharp_picture(request: PreviewRequest, width: i32, height: i
             .find(|(seen, _)| *seen == key)
             .map(|(_, texture)| texture.clone())
     });
+    note_kept_previews_used();
     if let Some(texture) = kept {
         return Some(texture);
     }
@@ -358,6 +402,7 @@ pub(crate) async fn sharp_picture(request: PreviewRequest, width: i32, height: i
         }
         kept.push((key, texture.clone()));
     });
+    note_kept_previews_used();
     Some(texture)
 }
 
