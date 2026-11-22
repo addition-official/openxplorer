@@ -440,7 +440,7 @@ fn is_zip_top(uri: &str) -> bool {
 /// Network's or the Recycle Bin's icon, a standard folder's, Home's for
 /// the home folder, a ZIP's top as a compressed folder, on an SMB share
 /// the art its tab shows, else the folder. Home and Network take the
-/// colours of their navigation pane rows, as This PC does, since the pane
+/// colors of their navigation pane rows, as This PC does, since the pane
 /// draws them as large as Windows draws their icons; a folder inside a
 /// ZIP is a folder.
 fn folder_art(facts: &PaneFacts<'_>) -> Art {
