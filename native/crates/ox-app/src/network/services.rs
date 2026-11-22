@@ -16,7 +16,8 @@ use std::sync::Arc;
 
 use gtk::{gio, glib};
 use ox_core::network::{
-    read_stable_smb_mounts, CredentialStore, RecentServers, SecretService, SignOutRegistry, VisitedNetwork,
+    read_stable_smb_mounts, CredentialStore, DiscoveredServer, RecentServers, SecretService, SignOutRegistry,
+    VisitedNetwork,
 };
 use ox_core::places::StableMount;
 use ox_core::settings::Bookmark;
@@ -37,6 +38,9 @@ pub(crate) struct NetworkServices {
     stable_mounts: RefCell<Vec<StableMount>>,
     /// Where the listing of Network discovers computers.
     discoverer: RefCell<Discoverer>,
+    /// The computers discovery found this session, in the order found,
+    /// which the navigation pane lists under Network (SIDE-019).
+    computers: RefCell<Vec<DiscoveredServer>>,
 }
 
 impl Default for NetworkServices {
@@ -47,6 +51,7 @@ impl Default for NetworkServices {
             visited: RefCell::default(),
             stable_mounts: RefCell::default(),
             discoverer: RefCell::new(Discoverer::default()),
+            computers: RefCell::default(),
         }
     }
 }
@@ -117,6 +122,24 @@ impl NetworkServices {
         let changed = *self.stable_mounts.borrow() != mounts;
         self.stable_mounts.replace(mounts);
         changed
+    }
+
+    /// Adds the computers of `found` that are not known yet; true when
+    /// any was new.
+    pub(crate) fn remember_computers(&self, found: &[DiscoveredServer]) -> bool {
+        let mut computers = self.computers.borrow_mut();
+        let before = computers.len();
+        for server in found {
+            if !computers.iter().any(|known| known.uri == server.uri) {
+                computers.push(server.clone());
+            }
+        }
+        computers.len() != before
+    }
+
+    /// The computers discovery found this session.
+    pub(crate) fn computers(&self) -> Vec<DiscoveredServer> {
+        self.computers.borrow().clone()
     }
 
     /// Where the listing of Network discovers computers.
