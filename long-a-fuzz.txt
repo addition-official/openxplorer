@@ -1,7 +1,7 @@
-STATUS: RUNNING
-HEAD: long-a-fuzz (from upstream main 5d21fd3e; not pushed yet)
+STATUS: DONE
+HEAD: long-a-fuzz 2e5b7e12 (20 commits on upstream main 5d21fd3e, pushed)
 QUESTION: none
-NOTE: Long job A, fuzzing until 06:30 America/Chicago. cargo-fuzz 0.13.2 with libFuzzer and AddressSanitizer on nightly; targets live in native/fuzz (its own workspace) and reach private parsers through an off-by-default "fuzzing" feature, so normal builds are unchanged.
+NOTE: Fuzzed from 22:45 to 06:05 America/Chicago with cargo-fuzz 0.13.2 (libFuzzer, AddressSanitizer, nightly 1.102). 230 million executions over 12 targets in native/fuzz (one run twice, once with value profiling) plus 2 local ones on the fork branch user-icon-files. 10 crashes, hangs or memory blowups found (one BMP header reached by two targets); 9 fixed with regression tests, in 9 commits; 1 open, inside GStreamer, not the app's code. PR text: long-a-fuzz-pr.md.
 
 == 2026-11-21 22:53 CST ==
 Set up native/fuzz (cargo-fuzz), seeds.py (32 generated archive seeds: ZIP stored/deflate/bzip2/LZMA/ZIP64/encrypted, TAR ustar/gnu/pax plain/gz/bz2/xz/zst, 7z LZMA2 solid/plain, LZMA, BZip2, copy).
@@ -260,3 +260,35 @@ text_preview           15,869,547
 Found and fixed since last update: 1
 - Don't crash on deeply nested search words (core_formats kept converging on longer nested NOT groups; inputs past its 4 KB length then showed 60,000 opening parentheses running out of stack, and 3,000 nested NOT groups taking 15 s; the folder filter reads the search box's whole text on every change) - fixed 1c0a6266: groups nested past 32 are read flat; now 0.15 s and 0.18 s
 Not bugs: RTF with 500,000 nested groups (0.4 s), JSON and GVariant nested 50,000 to 500,000 deep (under 0.6 s), a 600 KB smb:// location (3.7 s under ASan, linear).
+
+== 2026-11-22 06:03 CST == FINAL
+Summary (executions over every run; a crash here is any crash, hang over 2 s or allocation over 1 GiB that was a real defect; harness artifacts and inputs that do not repeat alone are not counted):
+Target                             Executions  Crashes  Fixed  Still open
+app_protocols                         421,336        0      0           0
+archive_extract                     3,930,823        0      0           0
+archive_fixup                       1,335,855        0      0           0
+archive_list-vp                     3,896,436        0      0           0
+archive_list                       12,452,355        1      1           0
+archive_zipgen                      2,216,833        0      0           0
+core_formats                       11,020,840        2      2           0
+core_text                          21,508,679        1      1           0
+media_details                     103,013,196        0      0           0
+media_streams                          11,193        1      0           1
+picture_decode                     13,944,316        4      4           0
+picture_headers                    17,656,226        1      1           0
+text_preview                       15,869,547        0      0           0
+pe_icons (fork branch, local)       3,581,300        0      0           0
+truetype (fork branch, local)      19,293,686        0      0           0
+Total                             230,152,621       10      9           1
+
+Fixed (each with a regression test written first, in the test's code; every saved failing input reruns clean):
+- core_text: Don't crash on malformed .mo catalogs (286d56c1)
+- picture_headers: Don't crash on malformed BMP headers (5e16cc5e), and Read only PNG from the vector drawing process (43be97f5)
+- picture_decode: the same BMP header (above); Don't crash on malformed BMP file headers (522ac47a); Don't crash on malformed icon directories (0616796c); Don't crash on malformed icon images (5ca3cfa6)
+- core_formats: Read search words with many negated groups without stalling (156e3cb3); Don't crash on deeply nested search words (1c0a6266)
+- archive_list: Don't open archive members whose data ends early (cee1d612)
+Still open (not the app's code): media_streams, Don't crash on malformed Matroska files in the media reader: inside GStreamer 1.24.2, only after hundreds of files in one long-lived fuzzing process; not repeated in 300 fresh processes, and the app reads each file in a new child process.
+Not bugs (harness or design): turn_jpeg on under 2 bytes (the app checks the signature first); 7z decoder thread seen as a leak at exit; vector drawing limits applied to the fuzz process; GStreamer's 4 s READ_LIMIT wait; media and search inputs that only passed 2 s under load; disk-full harness failures.
+
+Checks before the final push (Rust 1.92.0, the CI version): parity/check.py passed; check.py's parity, i18n, driver, drawn-icon, rustfmt and clippy -D warnings steps passed; clippy also clean with the fuzzing feature on. The 87 test executables and the doctests ran through check.py's run_isolated, as the user tester because the app refuses to run as root: all pass except integration_file_chooser, location_fixture_drift, network_python and ox_app's settings_page::tests::every_preference_switch_saves_persists_and_turns_back_exactly, which fail the same way on upstream main 5d21fd3e built the same way (a GLib critical made fatal; Python 3.13 here against the system's 3.12 gi; a settings wait). After the last fix, ox-core's 1,309 library tests, its 5 search test executables and ox-app's 195 search and filter tests were rerun: all pass. Debug info was off for the test build to fit the disk allowance.
+Not run: a full check.py run in one go as a regular user, and the website or Flatpak builds (nothing there changed).
