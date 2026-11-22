@@ -248,9 +248,15 @@ pub(in crate::window) struct PaneContent {
     /// What the pane describes: with nothing selected, Windows' hint box
     /// takes the Details rows' place; a selection may be shared.
     pub subject: Subject,
+    /// Windows' hint to select a single file shows in place of the
+    /// Details rows: with nothing or several items selected.
+    pub hint: bool,
     /// Properties can open for what the pane shows: not on a landing
     /// page with nothing selected.
     pub has_properties: bool,
+    /// The location whose Properties the pane's button opens in place of
+    /// the selection's: a drive selected on This PC.
+    pub properties_of: Option<String>,
     /// The Details rows, in display order.
     pub properties: Vec<Property>,
     /// The content preview of one selected file.
@@ -329,8 +335,10 @@ fn item_content(item: &FileItem, facts: &PaneFacts<'_>) -> PaneContent {
         name: entry.name.clone(),
         small_icon: !entry.is_dir,
         subject: Subject::Selection,
+        hint: false,
         // Items inside a ZIP have no file of their own to describe.
         has_properties: !ox_core::location::is_archive_location(facts.folder_uri),
+        properties_of: None,
         properties,
         media: MediaPreview::of(item, facts.preview_rules),
         metadata: MetadataRequest::of(item),
@@ -338,27 +346,29 @@ fn item_content(item: &FileItem, facts: &PaneFacts<'_>) -> PaneContent {
     }
 }
 
-/// "N items selected" with the art of the first few stacked, and their
-/// total size while every one is a file, as Windows' status bar adds it.
+/// "N items selected" with the art of the first few stacked, over
+/// Windows' hint to select a single file and no Details rows, as Windows
+/// 11's pane shows several items; their size is in the status bar.
 fn several_content(items: &[FileItem], facts: &PaneFacts<'_>) -> PaneContent {
-    let count = ox_core::format::group_digits(items.len() as u64);
-    let name = ox_core::i18n::format_message("{selected} items selected", &[("selected", &count)]);
-    let arts = items.iter().take(STACKED_ITEMS).map(FileItem::art).collect();
-    let properties = total_size_text(items)
-        .map(|size| Property::new(keys::SIZE, message_id("Size"), size))
-        .into_iter()
-        .collect();
     PaneContent {
-        preview: Preview::Stack(arts),
-        name,
+        preview: Preview::Stack(items.iter().take(STACKED_ITEMS).map(FileItem::art).collect()),
+        name: items_selected(items.len()),
         small_icon: false,
         subject: Subject::Selection,
+        hint: true,
         has_properties: !ox_core::location::is_archive_location(facts.folder_uri),
-        properties,
+        properties_of: None,
+        properties: Vec::new(),
         media: None,
         metadata: None,
         page: PreviewPage::Message(NO_PREVIEW),
     }
+}
+
+/// "N items selected", for `count` items.
+fn items_selected(count: usize) -> String {
+    let count = ox_core::format::group_digits(count as u64);
+    ox_core::i18n::format_message("{selected} items selected", &[("selected", &count)])
 }
 
 /// Nothing selected: the folder's picture, its name with its item count
@@ -379,7 +389,9 @@ fn folder_content(facts: &PaneFacts<'_>) -> PaneContent {
         name,
         small_icon: false,
         subject: Subject::Folder,
+        hint: true,
         has_properties: false,
+        properties_of: None,
         properties: Vec::new(),
         media: None,
         metadata: None,
@@ -389,8 +401,9 @@ fn folder_content(facts: &PaneFacts<'_>) -> PaneContent {
 
 /// The Details pane's `content` for This PC with the tiles `selected`:
 /// one tile's picture, name and what it says under its name ("27.6 GB
-/// free of 252 GB"), or "N items selected" with their pictures. Nothing
-/// selected keeps This PC's own picture and count.
+/// free of 252 GB"), with Properties for a drive that has them (as
+/// Alt+Enter opens them), or "N items selected" with their pictures over
+/// Windows' hint. Nothing selected keeps This PC's own picture and count.
 pub(in crate::window) fn describe_tiles(content: &mut PaneContent, selected: &[TileFacts]) {
     match selected {
         [] => {}
@@ -398,6 +411,9 @@ pub(in crate::window) fn describe_tiles(content: &mut PaneContent, selected: &[T
             content.preview = Preview::Art(tile.art);
             content.name.clone_from(&tile.name);
             content.subject = Subject::Selection;
+            content.hint = false;
+            content.has_properties = tile.properties.is_some();
+            content.properties_of.clone_from(&tile.properties);
             content.properties = tile
                 .note
                 .iter()
@@ -405,12 +421,11 @@ pub(in crate::window) fn describe_tiles(content: &mut PaneContent, selected: &[T
                 .collect();
         }
         several => {
-            let count = ox_core::format::group_digits(several.len() as u64);
-            content.name =
-                ox_core::i18n::format_message("{selected} items selected", &[("selected", &count)]);
+            content.name = items_selected(several.len());
             content.preview =
                 Preview::Stack(several.iter().take(STACKED_ITEMS).map(|tile| tile.art).collect());
             content.subject = Subject::Selection;
+            content.hint = true;
             content.properties = Vec::new();
         }
     }
@@ -444,17 +459,6 @@ fn folder_art(facts: &PaneFacts<'_>) -> Art {
 fn container_text(uri: &str, locations: &LocationContext) -> String {
     let container = parent_location(uri).unwrap_or_else(|| uri.to_owned());
     locations.display_location(&container)
-}
-
-/// The total size of `items` while every one is a file of known size;
-/// `None` once one is a folder or has no size.
-fn total_size_text(items: &[FileItem]) -> Option<String> {
-    let mut total = 0_u64;
-    for entry in items.iter().map(FileItem::entry) {
-        let size = entry.size.filter(|_| !entry.is_dir)?;
-        total = total.saturating_add(size);
-    }
-    Some(format::short_size(total))
 }
 
 /// A date row: the day and the time without seconds, as the Date
@@ -586,23 +590,15 @@ mod tests {
     }
 
     /// A file's size reads as the status bar and the tooltip write it,
-    /// with one formatter: 4,486 bytes are "4.38 KB" in all three, and the
-    /// total of several files too.
+    /// with one formatter: 4,486 bytes are "4.38 KB" in all three.
     ///
     /// parity: PROP-009
     #[test]
     fn the_size_reads_as_the_status_bar_and_the_tooltip_write_it() {
         let mut entry = file_entry("Notes.txt");
         entry.size = Some(4_486);
-        let one = content_for(&[FileItem::new(entry.clone())], "file:///tmp/ox-test");
+        let one = content_for(&[FileItem::new(entry)], "file:///tmp/ox-test");
         assert_eq!(property(&one, keys::SIZE), Some("4.38\u{a0}KB"));
-        let mut other = file_entry("Plan.txt");
-        other.size = Some(4_486);
-        let both = content_for(
-            &[FileItem::new(entry), FileItem::new(other)],
-            "file:///tmp/ox-test",
-        );
-        assert_eq!(property(&both, keys::SIZE), Some("8.76\u{a0}KB"));
     }
 
     /// One file shows Windows 11's rows, in its order and wording.
@@ -764,11 +760,12 @@ mod tests {
     }
 
     /// Several items: their pictures stacked, "N items selected" and
-    /// their total size while every one is a file.
+    /// Windows' hint to select a single file, with no Details rows, as
+    /// Windows 11's pane shows them; the status bar gives their size.
     ///
     /// parity: PROP-009
     #[test]
-    fn several_items_are_counted_stacked_and_summed() {
+    fn several_items_are_counted_stacked_and_hinted() {
         let mut first = file_entry("a");
         first.size = Some(1000);
         let mut second = file_entry("b");
@@ -781,15 +778,17 @@ mod tests {
             Preview::Stack(selection.iter().map(FileItem::art).collect())
         );
         assert!(!content.small_icon, "the stack stands for them");
-        assert_eq!(names(&content), ["Size"]);
-        assert_eq!(
-            property(&content, keys::SIZE),
-            Some(format::short_size(3000).as_str())
+        assert!(content.hint, "Windows' hint to select a single file");
+        assert!(
+            content.properties.is_empty(),
+            "no Details rows: {:?}",
+            names(&content)
+        );
+        assert!(
+            content.subject == Subject::Selection && content.has_properties,
+            "Share and Properties stay for the selection"
         );
 
-        let with_folder = [FileItem::new(first), FileItem::new(folder_entry("Projects"))];
-        let content = content_for(&with_folder, "file:///tmp/ox-test");
-        assert_eq!(property(&content, keys::SIZE), None, "a folder is never counted");
         let four: Vec<FileItem> = ["a", "b", "c", "d"]
             .into_iter()
             .map(|name| FileItem::new(file_entry(name)))
@@ -798,6 +797,33 @@ mod tests {
             panic!("a stack");
         };
         assert_eq!(arts.len(), STACKED_ITEMS);
+        let one = content_for(&four[..1], "file:///tmp/ox-test");
+        assert!(!one.hint, "one file has its rows");
+    }
+
+    /// One drive selected on This PC offers Properties, which Alt+Enter
+    /// opens for it, as Windows' pane does; several drives have Windows'
+    /// hint.
+    ///
+    /// parity: PROP-009
+    #[test]
+    fn a_drive_selected_on_this_pc_offers_properties() {
+        let tile = |name: &str| TileFacts {
+            art: Art::Folder,
+            name: name.to_owned(),
+            note: Some("23.0 GB free of 251 GB".to_owned()),
+            properties: Some("file:///".to_owned()),
+        };
+        let mut content = content_for(&[], Page::ThisPc.uri());
+        describe_tiles(&mut content, &[tile("Local Disk")]);
+        assert!(content.has_properties, "Properties for the drive");
+        assert_eq!(content.properties_of.as_deref(), Some("file:///"));
+        assert!(!content.hint);
+        assert_eq!(content.name, "Local Disk");
+        let mut content = content_for(&[], Page::ThisPc.uri());
+        describe_tiles(&mut content, &[tile("Local Disk"), tile("Backup")]);
+        assert_eq!(content.name, "2 items selected");
+        assert!(content.hint && content.properties.is_empty());
     }
 
     /// parity: LOOK-016

@@ -444,8 +444,9 @@ impl DetailsPane {
         imp.has_selection
             .set(content.subject == content::Subject::Selection);
         imp.has_properties.set(content.has_properties);
+        self.aim_properties_button(content.properties_of.as_deref());
         imp.small_icon.set(content.small_icon);
-        imp.shows_hint.set(content.subject == content::Subject::Folder);
+        imp.shows_hint.set(content.hint);
         self.show_mode();
         imp.base_rows.replace(content.properties.clone());
         self.follow_metadata(content.metadata.as_ref());
@@ -471,6 +472,26 @@ impl DetailsPane {
             }
             Preview::Stack(arts) => self.set_preview_widget(Some(&stacked_art(arts))),
         }
+    }
+
+    /// Makes Properties open the Properties of `location`, a drive
+    /// selected on This PC, or else of the selection. The button lets go
+    /// of its action while its target changes: GTK checks an action's
+    /// parameter against the target at each change and warns while they
+    /// differ.
+    fn aim_properties_button(&self, location: Option<&str>) {
+        let button = &*self.imp().properties_button;
+        let (action, target) = match location {
+            Some(uri) => (WindowAction::PropertiesOf, Some(uri.to_variant())),
+            None => (WindowAction::Properties, None),
+        };
+        let name = action.detailed_name();
+        if button.action_name().as_deref() == Some(name.as_str()) && button.action_target_value() == target {
+            return;
+        }
+        button.set_action_name(None);
+        button.set_action_target_value(target.as_ref());
+        button.set_action_name(Some(&name));
     }
 
     /// Shows Share while the window can share the selection (CMD-037):
