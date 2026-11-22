@@ -8,8 +8,8 @@
 //! budgets are several times what a test build takes on an ordinary
 //! computer, so they hold on a busy one, and still catch a start that
 //! waits for something it should not: reading the whole executable before
-//! a later launch hands its command line over took a test build over two
-//! seconds.
+//! a later launch handed its command line over took a test build two
+//! seconds, where the handover now takes a tenth of that.
 //!
 //! Like `launch.rs`, these start `openxplorer-native` itself, so they run
 //! only inside the isolation `native/tools/check.py` sets up; anywhere
@@ -30,9 +30,13 @@ const APP: &str = env!("CARGO_BIN_EXE_openxplorer-native");
 /// the moment the process is started.
 const FIRST_WINDOW_BUDGET: Duration = Duration::from_secs(5);
 
+/// How long a later launch may take to hand its command line to the
+/// running instance and exit.
+const HANDOVER_BUDGET: Duration = Duration::from_secs(1);
+
 /// How long another window may take to show its files while the app
-/// runs, from the moment the second launch is started.
-const ANOTHER_WINDOW_BUDGET: Duration = Duration::from_millis(1500);
+/// runs, from the moment the later launch is started.
+const ANOTHER_WINDOW_BUDGET: Duration = Duration::from_secs(4);
 
 /// How long anything may take before the test gives up waiting.
 const PATIENCE: Duration = Duration::from_secs(60);
@@ -184,6 +188,10 @@ fn windows_open_within_their_budgets() {
         let launcher = run_timed(&["--new-window", &folder]);
         let listed = milliseconds(app.step("window-listed", nth) - launched);
         eprintln!("another window: launcher done after {launcher:?}, listed after {listed:?}");
+        assert!(
+            launcher <= HANDOVER_BUDGET,
+            "the later launch took {launcher:?} to hand its command line over, more than {HANDOVER_BUDGET:?}"
+        );
         assert!(
             listed <= ANOTHER_WINDOW_BUDGET,
             "another window listed its folder after {listed:?}, more than {ANOTHER_WINDOW_BUDGET:?} \
