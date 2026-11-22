@@ -30,14 +30,21 @@ fn document_label(document: NewDocument) -> Option<&'static str> {
     Some(ox_core::i18n::gettext_static(label))
 }
 
+/// The application that opens a document's type.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DocumentApplication {
+    /// Its icon, serialized as GIO writes one, when it has one.
+    icon: Option<String>,
+}
+
 /// The documents an application must open that one does now, in New's
 /// order, each with that application's icon.
 pub(in crate::window) fn offered_documents() -> Vec<(NewDocument, Option<String>)> {
     NewDocument::ALL
         .into_iter()
         .filter_map(|document| {
-            let icon = application_for(document.content_type()?)?;
-            Some((document, icon))
+            let application = application_for(document.content_type()?)?;
+            Some((document, application.icon))
         })
         .collect()
 }
@@ -68,9 +75,8 @@ pub(in crate::window) fn document_entries() -> Vec<MenuEntry> {
         .collect()
 }
 
-/// The icon of the application that opens `content_type`, or `None` when
-/// none does; the inner `None` is an application without an icon.
-fn application_for(content_type: &str) -> Option<Option<String>> {
+/// The application that opens `content_type`, or `None` when none does.
+fn application_for(content_type: &str) -> Option<DocumentApplication> {
     #[cfg(test)]
     {
         pretended_application_for(content_type)
@@ -84,9 +90,11 @@ fn application_for(content_type: &str) -> Option<Option<String>> {
 /// The icon of the desktop's application for `content_type`: its default,
 /// else the first that says it opens the type, as GIO picks one.
 #[cfg_attr(test, allow(dead_code, reason = "tests read it in their own test only"))]
-fn installed_application_for(content_type: &str) -> Option<Option<String>> {
+fn installed_application_for(content_type: &str) -> Option<DocumentApplication> {
     let application = gtk::gio::AppInfo::default_for_type(content_type, false)?;
-    Some(ox_core::integration::ApplicationInfo::icon(&application))
+    Some(DocumentApplication {
+        icon: ox_core::integration::ApplicationInfo::icon(&application),
+    })
 }
 
 #[cfg(test)]
@@ -100,13 +108,15 @@ thread_local! {
 /// [`application_for`] in tests: what [`pretend_document_applications`]
 /// says.
 #[cfg(test)]
-fn pretended_application_for(content_type: &str) -> Option<Option<String>> {
+fn pretended_application_for(content_type: &str) -> Option<DocumentApplication> {
     PRETENDED.with(|pretended| {
         pretended
             .borrow()
             .iter()
             .find(|(pretended_type, _)| *pretended_type == content_type)
-            .map(|(_, icon)| Some((*icon).to_owned()))
+            .map(|(_, icon)| DocumentApplication {
+                icon: Some((*icon).to_owned()),
+            })
     })
 }
 
