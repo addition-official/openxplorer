@@ -401,6 +401,7 @@ impl BrowserWindow {
             let (connection, facts) = (connection.clone(), facts.clone());
             let (form, window, root) = (dialog.downgrade(), window.clone(), root.clone());
             dialog.run(ox_core::i18n::gettext_static(RENAMING), async move {
+                let on_purpose = super::mounting::unmount_on_purpose(&root);
                 let renamed = set_drive_label(&connection, UDISKS_NAME, &facts, &label).await;
                 if let (Ok(relabelled), Some(window)) = (&renamed, window.upgrade()) {
                     match &relabelled.remounted {
@@ -415,6 +416,7 @@ impl BrowserWindow {
                         None => {}
                     }
                 }
+                drop(on_purpose);
                 let Some(dialog) = form.upgrade() else {
                     return;
                 };

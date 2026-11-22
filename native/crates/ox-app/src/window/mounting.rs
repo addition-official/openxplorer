@@ -29,7 +29,7 @@ use super::BrowserWindow;
 /// The tabs a removal moved to Home before it ran, to put back where they
 /// were when the drive could not be removed.
 #[derive(Debug)]
-struct MovedTabs {
+pub(super) struct MovedTabs {
     /// The home folder they were moved to.
     home: String,
     /// The tabs behind the one in front that were on the drive.
@@ -49,6 +49,44 @@ pub(super) fn is_inside(uri: &str, root: &str) -> bool {
     let file = gio::File::for_uri(uri);
     let root = gio::File::for_uri(root);
     file.equal(&root) || file.has_prefix(&root)
+}
+
+thread_local! {
+    /// The roots of the drives the app is unmounting on purpose, to mount
+    /// them again ([`unmount_on_purpose`]).
+    static UNMOUNTED_ON_PURPOSE: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// While the returned guard lives, the drive at `root` going away is the
+/// app's own doing (Rename unmounts an exFAT or NTFS drive to relabel
+/// it), so its tabs stay to follow it rather than go to the Desktop.
+pub(in crate::window) fn unmount_on_purpose(root: &str) -> UnmountedOnPurpose {
+    UNMOUNTED_ON_PURPOSE.with(|roots| roots.borrow_mut().push(root.to_owned()));
+    UnmountedOnPurpose(root.to_owned())
+}
+
+/// Whether the drive at `root` is being unmounted on purpose.
+pub(in crate::window) fn is_unmounted_on_purpose(root: &str) -> bool {
+    UNMOUNTED_ON_PURPOSE.with(|roots| {
+        roots
+            .borrow()
+            .iter()
+            .any(|own| is_inside(root, own) || is_inside(own, root))
+    })
+}
+
+/// See [`unmount_on_purpose`].
+pub(in crate::window) struct UnmountedOnPurpose(String);
+
+impl Drop for UnmountedOnPurpose {
+    fn drop(&mut self) {
+        UNMOUNTED_ON_PURPOSE.with(|roots| {
+            let mut roots = roots.borrow_mut();
+            if let Some(index) = roots.iter().position(|root| *root == self.0) {
+                roots.remove(index);
+            }
+        });
+    }
 }
 
 impl BrowserWindow {
@@ -230,7 +268,13 @@ impl BrowserWindow {
     /// there, and a tab behind it stops reading the drive and lists Home
     /// when it is next shown. Returns the tabs it moved.
     fn move_tabs_home_from(&self, root: &str) -> MovedTabs {
-        let home = file_uri(&glib::home_dir());
+        self.move_tabs_from(root, &file_uri(&glib::home_dir()))
+    }
+
+    /// Moves every tab inside `root` to `home`, as
+    /// [`Self::move_tabs_home_from`] moves them to Home.
+    pub(super) fn move_tabs_from(&self, root: &str, home: &str) -> MovedTabs {
+        let home = home.to_owned();
         let mut behind = Vec::new();
         let (stale, is_active_inside): (Vec<gio::ListStore>, bool) = {
             let mut session = self.imp().session.borrow_mut();
