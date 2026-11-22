@@ -1,5 +1,5 @@
 STATUS: DONE
-HEAD: long-c-thumb-cache 9f5546de
+HEAD: long-c-thumb-cache 00b00987
 QUESTION: Thumbnails of files deleted or sent to the Recycle Bin stay in ~/.cache/thumbnails (the standard says to remove them; GNOME and KDE mostly don't; Windows keeps them in thumbcache_*.db, a known privacy complaint). This branch only moves the entries of files the app moves or renames. Should it also remove the entries of files it deletes or recycles?
 NOTE: A revisited folder shows its thumbnails at once, as Windows does from thumbcache, from the freedesktop shared cache (normal, large, x-large, xx-large; MD5 of the URI).
 - Lookup: the app reads the cache first, itself. It parses Thumb::URI, Thumb::MTime and Thumb::Size (when present) from the PNG text chunks in safe Rust, without decoding. A larger size stands in for a smaller one. GIO's thumbnail::* query is now used only for files without a known time.
@@ -10,6 +10,13 @@ NOTE: A revisited folder shows its thumbnails at once, as Windows does from thum
 - Writes: 0600 temp file (O_EXCL, O_NOFOLLOW) in 0700 folders, renamed into place, with Size and Mimetype keys.
 - Failures: damaged pictures, and files a desktop thumbnailer ran to the end on and gave up on, go to thumbnails/fail/openxplorer. With gnome-thumbnail-factory's failures, they are not retried until the file changes.
 - Moves: a file the app moves or renames (via the undo journal, so Undo and Redo too), and every file of a moved folder up to 5,000, keeps its entries. The keys are rewritten with the pixels untouched; an entry from another version is left alone.
+- Review fixes (an independent read of the whole diff):
+  - a tile rebound while its thumbnail was being made could show the previous item's picture, because glib detaches a task whose JoinHandle is dropped; fixed and tested
+  - a custom icon that failed to decode hid the thumbnail
+  - keys are now also read from zTXt/iTXt (Qt compresses values of 40 characters or more), within 64 KB inflated
+  - batched moves read every entry before writing (name swaps)
+  - moves are not followed over network file systems
+  - a picture a decoder refuses is retried once in another decoder before being recorded as damaged, since a decoder out of CPU time refuses the same way
 - Policy: "Always show icons" starts and reads nothing. x-large is used for Extra large icons at 2x, and the service is asked for it only if GetFlavors lists it.
 - Cleanup: left to the desktop. The Interface guide (docs.json, regenerated) says so, as Windows leaves it to Disk Cleanup / Storage; no button added.
 - Tools: OX_THUMBNAIL_TRACE plus native/tools/thumbnail-bench.py measure all of this.
@@ -30,13 +37,15 @@ PASS interop (release build, Xvfb, unprivileged user): gio info reports thumbnai
 PASS new tests (the ox-core cache tests and the cache-name key test were written first and seen failing; the app tests were written with their code):
   ox-core thumbnail_cache (9: hit, mtime/size/URI misses, larger flavor, broken/linked/oversized entries, fail cache incl. GNOME's, atomic 0600 writes, key rewrite, moves, listing)
   flavors; undo moved_items
-  ox-app: batch decode with a crash, LRU eviction and versions, cached thumbnail until the file changes, fail/ recorded and honored, renamed folder keeps thumbnails, dropped network question, on-screen slots first
+  ox-core: compressed/international keys and inflate limit; name swaps in one batch
+  ox-app: lookup dropped while waiting stops its reading (seen failing with the old code), batch decode with a crash, LRU eviction and versions, cached thumbnail until the file changes, fail/ recorded and honored, renamed folder keeps thumbnails, dropped network question, on-screen slots first
 PASS all 87 test binaries at 9e992f6a via check.py's run_isolated as an unprivileged user: 4,995 passed, 4 failed, all pre-existing or unrelated:
   2 sandboxed-thumbnailer tests, identical on upstream as the same user (bwrap in this container)
   location_fixture_drift and network_python (Python-app comparisons, untouched code)
   one earlier ox-app run also failed home_has_no_band_under_the_titles_and_its_tiles_do_not_touch once (flaky: passes alone 3/3 and in the other two full runs)
 PASS all 87 test binaries at 77ae92d6, same way: 4,996 passed, 4 failed (the same 4 as above)
-PASS ox-app thumbnails and decoder tests at HEAD 9f5546de (spelling only since 77ae92d6), rustfmt and Clippy -D warnings
+PASS all 87 test binaries at HEAD 00b00987, same way: 4,999 passed, 4 failed (the same 4); rustfmt and Clippy -D warnings (Rust 1.92.0)
+PASS sanity pair at HEAD (one run each, same hour): after the first tile photos cold 1,158 -> 494 ms, restart 322 -> 73 ms, cache drop 339 -> 67 ms, mixed cold 2,604 -> 639 ms; real-input rename again: 20 moved, 0 made
 PASS tumbler 4.18.1 (installed here, D-Bus activated on a private session bus with the throwaway HOME): GetFlavors lists xx-large, x-large, large, normal; at 1x Large icons it makes normal and at 2x Extra large icons x-large (512 px) thumbnails of 6 photos and an MP4, the app shows them all, and on the next launch reads all 7 from the cache without asking tumbler again; tumbler's Thumb::MTime has microseconds (1795342906.979486), which the app reads to the second
 PASS real input, rename (Xvfb, xdotool, unprivileged user): a folder of 20 photos opened, Alt+Up, F2, typed "Trip 2026", Enter, opened again: 20 entries moved with it, 20 thumbnails read from the cache, 0 made again, 20 entries in the cache in all
 PASS real app, Always show icons (viewOptions.showPreviews off): no thumbnail requested, no decoder started, no thumbnails folder created

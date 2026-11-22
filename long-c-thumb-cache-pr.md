@@ -25,6 +25,13 @@ Windows keeps its thumbnails in `thumbcache_*.db`, so a folder of photos opened 
   - **Moves and renames:** a file the app moves or renames, or every file in a folder it moves or renames (up to 5,000), takes its thumbnails with it. This applies to Undo and Redo too. The entry is rewritten with the new URI and its old copy removed. The pixels are kept and nothing is decoded. An entry from another version, as after a copy that changed the time, is left alone.
   - **"Always show icons, never thumbnails":** with it on, nothing is read, listed, started or written.
   - **Cleanup:** removing old entries is left to the desktop's cleaners, as the standard intends.
+- **Fixes from an independent review of the diff.**
+  - A tile GTK bound to another item while its thumbnail was being made could show the old item's picture, because glib detaches a task whose handle is dropped. The reading now stops with its lookup and only paints a cell still bound to its item. A test reproduces the bug with the old code.
+  - A custom icon that cannot be drawn no longer hides the thumbnail.
+  - Keys are also read from compressed (`zTXt`) and international (`iTXt`) chunks, within 64 KB inflated. Qt, which writes Dolphin's thumbnails, compresses values of 40 characters or more.
+  - A batch of moves reads every entry before writing, so files that swap names keep their own.
+  - Moves are not followed over network file systems.
+  - A picture a decoder refuses is tried once more, in another decoder, before it is recorded as damaged. A decoder that used up its processor time refuses the same way.
 - **Extra large icons at twice the pixels** use `x-large` (512 px). The thumbnailer service is asked for that size only when its `GetFlavors` lists it.
 
 ### Clearing the cache, as on Windows
@@ -61,6 +68,7 @@ The two builds were run by turns, 3 times each, in the same hour. Earlier sets t
 
 - Whether Windows 11 File Explorer draws a cached folder's thumbnails on its first frame after a restart, or shows blank tiles or icons first.
 - The default of GNOME's thumbnail housekeeping (`org.gnome.desktop.thumbnail-cache` `maximum-age`, 180 days) on Zorin OS 17/18.
+- That Qt compresses text values of 40 characters or more into `zTXt`, as I recall from its PNG writer. Either way, both kinds of chunk are read now.
 - That Dolphin finds the app's entries valid. GIO, and so Files, does: `gio info` reports `thumbnail::is-valid: TRUE` for the app's entries, and FALSE once the file changes.
 
 ## Question
@@ -74,13 +82,13 @@ Thumbnails of files that were deleted or sent to the Recycle Bin stay in the cac
   - Also in ox-core: x-large and xx-large flavors, and the moved items of rename, move and Replace records.
   - App tests: a batch decoded by one decoder with a crashing picture refused alone; the memory's eviction and version checks; a cached thumbnail shown until its file changes, then made again and its entry replaced; a damaged picture recorded in `fail/` and a recorded failure not tried again until the file changes; a renamed folder keeping its files' thumbnails; a dropped network check not leaving other tiles waiting; tiles on the screen taking slots first.
   - The existing test that "Always show icons" turns thumbnails off everywhere still passes.
-- **Every test binary** was run through `check.py`'s own isolation (`run_isolated`) as an unprivileged user, because the app refuses to run as root and `check.py` stops there in this container. At 77ae92d6, the last code change, 4,996 tests passed and 4 failed. The commit after it only fixes spellings in tests and the bench, and its tests and Clippy pass.
+- **Every test binary** was run through `check.py`'s own isolation (`run_isolated`) as an unprivileged user, because the app refuses to run as root and `check.py` stops there in this container. At 00b00987, the head of the branch, 4,999 tests passed and 4 failed.
   - The two sandboxed-thumbnailer tests fail identically on unchanged upstream as the same user, because bubblewrap cannot run in this container.
   - The two Python-app comparison tests, `location_fixture_drift` and `network_python`, touch nothing changed here; the first is already noted as failing on main in this environment.
   - One earlier run of the ox-app suite also failed `home_has_no_band_under_the_titles_and_its_tiles_do_not_touch` once. It is a timing flake: it passes alone 3 of 3 times and in every other full run.
   - The doctests pass.
 - **Other checks:** `check.py` up to the Rust tests (the parity tests and `parity/check.py`, i18n, the driver tests, the drawn-icon guard, rustfmt and Clippy with `-D warnings` on Rust 1.92.0) passes, and `parity/check.py` passes alone. `tools/sync-docs.py --check` passes after regenerating the guides from `docs.json`.
-- **Benchmark:** the table above (`thumbnail-bench.py --scroll`).
+- **Benchmark:** the table above (`thumbnail-bench.py --scroll`), measured at 9f5546de. One run of each build at the head of the branch, after the review fixes, gives the same picture: photos 1,158 → 494 ms after the first tile cold, 322 → 73 ms after a restart and 339 → 67 ms after a cache drop; mixed 2,604 → 639 ms cold.
 - **Interop:** the release build was run by hand on a private Xvfb display as an unprivileged user with a throwaway HOME, then `gio info` was checked on its entries (0600 files in 0700 folders, with all four keys).
 - **Tumbler 4.18.1**, D-Bus activated on a private session bus with the throwaway HOME. `GetFlavors` lists all four sizes. At 1x Large icons it makes `normal` thumbnails, and at 2x Extra large icons `x-large` ones (512 px), of 6 photos and an MP4. The app shows them all, and on the next launch reads all 7 from the cache without asking tumbler again. Tumbler writes `Thumb::MTime` with microseconds (`1795342906.979486`), which the app reads to the second.
 - **Real input, rename** (Xvfb, xdotool): a folder of 20 photos was opened, then Alt+Up, F2, "Trip 2026" and Enter, then opened again. All 20 entries moved with it, all 20 thumbnails were read from the cache, none was made again, and the cache holds 20 entries in all.
