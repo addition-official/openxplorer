@@ -119,7 +119,10 @@ pub use delete_plan::{
 pub use duplicate::duplicate_items;
 pub use error::OpsError;
 pub use journal::{JournalDirection, JournalEntry, UndoJournal, UNDO_LIMIT};
-pub use links::{create_link, create_links, CreatedLink, LinkRequest, NewLink};
+pub use links::{
+    create_link, create_links, shortcut_location, suggested_name, CreatedLink, LinkRequest, NewLink,
+    ShortcutLocation,
+};
 pub use new_from_template::{
     create_from_template, create_numbered_document, create_numbered_from_template, NewFromTemplate,
 };

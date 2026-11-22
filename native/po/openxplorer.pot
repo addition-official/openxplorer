@@ -440,7 +440,7 @@ msgstr ""
 msgid "{error}\n\nNo existing file was replaced."
 msgstr ""
 
-#: crates/ox-app/src/archive_view/extract_dialog.rs crates/ox-app/src/window/compress_dialog.rs crates/ox-app/src/window/place_editor.rs
+#: crates/ox-app/src/archive_view/extract_dialog.rs crates/ox-app/src/window/compress_dialog.rs crates/ox-app/src/window/file_ops/links.rs crates/ox-app/src/window/place_editor.rs
 msgid "Browse…"
 msgstr ""
 
@@ -631,7 +631,7 @@ msgstr ""
 msgid "Example: {address}"
 msgstr ""
 
-#: crates/ox-app/src/dialogs/network_map.rs
+#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/window/file_ops/links.rs
 msgid "Finish"
 msgstr ""
 
@@ -999,7 +999,7 @@ msgstr ""
 msgid "Folder path"
 msgstr ""
 
-#: crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/properties/general_tab.rs crates/ox-app/src/properties/security_tab/advanced.rs crates/ox-app/src/properties/versions_panel.rs crates/ox-app/src/window/file_ops/batch_rename.rs crates/ox-app/src/window/file_ops/links.rs crates/ox-app/src/window/file_ops/name_dialog.rs crates/ox-app/src/window/home_page.rs crates/ox-core/src/grouping.rs
+#: crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/properties/general_tab.rs crates/ox-app/src/properties/security_tab/advanced.rs crates/ox-app/src/properties/versions_panel.rs crates/ox-app/src/window/file_ops/batch_rename.rs crates/ox-app/src/window/file_ops/name_dialog.rs crates/ox-app/src/window/home_page.rs crates/ox-core/src/grouping.rs
 msgid "Name"
 msgstr ""
 
@@ -2742,7 +2742,7 @@ msgstr ""
 msgid "Read-only in OpenXplorer · Restore a copy to edit"
 msgstr ""
 
-#: crates/ox-app/src/properties/snapshot_source.rs crates/ox-app/src/settings_page/section.rs crates/ox-app/src/window/navigation_buttons.rs crates/ox-app/src/window/shortcuts_window.rs
+#: crates/ox-app/src/properties/snapshot_source.rs crates/ox-app/src/settings_page/section.rs crates/ox-app/src/window/file_ops/links.rs crates/ox-app/src/window/navigation_buttons.rs crates/ox-app/src/window/shortcuts_window.rs
 msgid "Back"
 msgstr ""
 
@@ -5425,7 +5425,7 @@ msgstr ""
 msgid "Compression method:"
 msgstr ""
 
-#: crates/ox-app/src/window/compress_dialog.rs crates/ox-app/src/window/file_ops/links.rs
+#: crates/ox-app/src/window/compress_dialog.rs
 msgid "Create"
 msgstr ""
 
@@ -6357,19 +6357,47 @@ msgid "“{name}” was replaced, so Undo can't bring back the old file."
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/links.rs
-msgid "A link opens the file or folder it points to. Leave the name empty to use the name of that item."
+msgid "Browse for Files or Folders"
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/links.rs
-msgid "For example ~/Documents"
+msgid "Click Finish to create the shortcut."
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/links.rs
-msgid "Link to"
+msgid "Click Next to continue."
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/links.rs
-msgid "New link"
+msgid "Create Shortcut"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/links.rs
+msgid "Next"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/links.rs
+msgid "The location could not be read. Try again."
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/links.rs
+msgid "This wizard helps you to create shortcuts to local or network programs, files, folders, computers, or Internet addresses."
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/links.rs
+msgid "Type a name for this shortcut:"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/links.rs
+msgid "Type the location of the item:"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/links.rs
+msgid "What item would you like to create a shortcut for?"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/links.rs
+msgid "What would you like to name the shortcut?"
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/move_by_copying_dialog.rs
@@ -9744,9 +9772,17 @@ msgstr ""
 msgid "Links can only point to items on this computer."
 msgstr ""
 
+#: crates/ox-core/src/ops/links.rs
+msgid "New Internet Shortcut"
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-core/src/ops/links.rs
 msgid "Nothing exists at “{display}”. Check the path."
+msgstr ""
+
+#: crates/ox-core/src/ops/links.rs
+msgid "Type the location of a file or folder on this computer, a network share such as \\\\server\\share, or an Internet address that starts with http:// or https://."
 msgstr ""
 
 #: crates/ox-core/src/ops/new_from_template.rs

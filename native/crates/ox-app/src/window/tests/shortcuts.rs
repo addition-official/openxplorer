@@ -6,8 +6,13 @@
 use std::fs;
 use std::os::unix::fs::symlink;
 
+use gtk::prelude::*;
+
+use crate::test_support::harness::descendants;
 use crate::test_support::harness::{wait_for, wait_until, Fixture, TestWindow};
-use crate::window::tests::file_ops_support::{open_dialog, require_private_trash};
+use crate::window::tests::file_ops_support::{
+    dialog_over, open_dialog, require_private_trash, wait_for_no_dialog,
+};
 
 /// Opening a shortcut to a folder goes to the folder itself, as Windows
 /// does, not into the shortcut's own path: the address bar and Up then
@@ -167,4 +172,120 @@ fn a_desktop_link_to_a_deleted_folder_offers_to_delete_it() {
         !fixture.path("Archive.desktop").exists()
     });
     assert_eq!(test.window.current_uri(), Some(fixture.uri()));
+}
+
+/// The next page of the wizard: a dialog over the window other than
+/// `page`.
+fn next_page(test: &TestWindow, page: &crate::dialog::Dialog) -> crate::dialog::Dialog {
+    wait_until("the next page", || {
+        dialog_over(test).is_some_and(|dialog| &dialog != page)
+    });
+    dialog_over(test).expect("the next page shows")
+}
+
+/// New ▸ Shortcut is Windows' Create Shortcut wizard: the location, which
+/// must exist, then the name, which Windows proposes and which must be
+/// free; Back keeps what was typed; Finish makes the shortcut and selects
+/// it.
+///
+/// parity: OPS-004, OPS-051
+#[gtk::test]
+fn new_shortcut_is_the_create_shortcut_wizard() {
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+
+    test.activate("new-link", None);
+    let location = open_dialog(&test);
+    assert_eq!(location.title_text(), "Create Shortcut");
+    assert_eq!(
+        location.message_text(),
+        "What item would you like to create a shortcut for?\nThis wizard helps you to create shortcuts \
+         to local or network programs, files, folders, computers, or Internet addresses."
+    );
+    assert_eq!(location.button_labels(), ["Cancel", "Next"]);
+    let browse = descendants::<gtk::Button>(&location)
+        .into_iter()
+        .any(|button| button.label().as_deref() == Some("Browse…"));
+    assert!(browse, "a Browse… button beside the location");
+    let field = descendants::<gtk::Entry>(&location)[0].clone();
+    field.set_text("/no/such/place");
+    location.press("Next");
+    wait_until("the refusal", || location.error_text().is_some());
+
+    let notes = fixture.path("Notes 2.txt");
+    field.set_text(&format!("\"{}\"", notes.display()));
+    location.press("Next");
+    let name = next_page(&test, &location);
+    assert_eq!(name.title_text(), "Create Shortcut");
+    assert!(
+        name.message_text()
+            .starts_with("What would you like to name the shortcut?"),
+        "{}",
+        name.message_text()
+    );
+    assert_eq!(name.button_labels(), ["Back", "Cancel", "Finish"]);
+    let name_field = descendants::<gtk::Entry>(&name)[0].clone();
+    assert_eq!(
+        name_field.text(),
+        "Notes 2.txt",
+        "Windows proposes the item's name"
+    );
+
+    name.press("Back");
+    let again = next_page(&test, &name);
+    assert_eq!(
+        descendants::<gtk::Entry>(&again)[0].text(),
+        format!("\"{}\"", notes.display()),
+        "Back keeps the location"
+    );
+    again.press("Next");
+    let name = next_page(&test, &again);
+    name.press("Finish");
+    wait_until("the refusal of a taken name", || name.error_text().is_some());
+    descendants::<gtk::Entry>(&name)[0].set_text("Notes shortcut");
+    name.press("Finish");
+    wait_for_no_dialog(&test);
+
+    wait_until("the shortcut to be selected", || {
+        test.selected_names() == ["Notes shortcut"]
+    });
+    assert_eq!(
+        fs::read_link(fixture.path("Notes shortcut")).expect("a link"),
+        notes
+    );
+    assert_eq!(
+        fs::read(&notes).expect("the file"),
+        fs::read(fixture.path("Notes shortcut")).expect("followed")
+    );
+}
+
+/// A shortcut to an Internet address is a `.desktop` link, named "New
+/// Internet Shortcut" as Windows proposes, which opens the address.
+///
+/// parity: OPS-051
+#[gtk::test]
+fn new_shortcut_to_an_internet_address_is_a_desktop_link() {
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+
+    test.activate("new-link", None);
+    let location = open_dialog(&test);
+    descendants::<gtk::Entry>(&location)[0].set_text("https://example.org/news");
+    location.press("Next");
+    let name = next_page(&test, &location);
+    assert_eq!(
+        descendants::<gtk::Entry>(&name)[0].text(),
+        "New Internet Shortcut"
+    );
+    name.press("Finish");
+    wait_for_no_dialog(&test);
+
+    let link = fixture.path("New Internet Shortcut.desktop");
+    wait_until("the link file", || link.is_file());
+    let text = fs::read_to_string(&link).expect("a desktop entry");
+    assert!(text.contains("Type=Link\n"), "{text}");
+    assert!(text.contains("URL=https://example.org/news\n"), "{text}");
+    wait_until("the shortcut to be selected", || {
+        test.selected_names() == ["New Internet Shortcut.desktop"]
+    });
 }
