@@ -6,7 +6,7 @@
 //!
 //! The drive is read off the main thread: the mount table and udev's
 //! records on a worker thread, else, for a drive outside the mount table
-//! (a share mounted by GVfs), its space from GIO at low priority. An
+//! (a share mounted by `GVfs`), its space from GIO at low priority. An
 //! answer for a drive no longer selected is dropped, and the same drive
 //! is not read again when the pane is redrawn for it.
 
