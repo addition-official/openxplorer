@@ -35,7 +35,7 @@ PASS paging down a new 2,000-photo folder for 4.7 s while thumbnails are made, 7
 PASS memory (VmRSS, single runs): after scrolling a cold 2,000-photo folder to the end and back, 341 MB before -> 357 MB after; warm, 267 -> 286 MB; a 200,000-entry cache's name index adds 5.6 MB
 PASS interop (release build, Xvfb, unprivileged user): gio info reports thumbnail::is-valid TRUE for the app's entries and FALSE after the file changes; entries 0600 in 0700 folders with Thumb::URI, MTime, Size, Mimetype
 PASS new tests (the ox-core cache tests and the cache-name key test were written first and seen failing; the app tests were written with their code):
-  ox-core thumbnail_cache (9: hit, mtime/size/URI misses, larger flavor, broken/linked/oversized entries, fail cache incl. GNOME's, atomic 0600 writes, key rewrite, moves, listing)
+  ox-core thumbnail_cache (11 in all: hit, mtime/size/URI misses, larger flavor, broken/linked/oversized entries, fail cache incl. GNOME's, atomic 0600 writes, key rewrite, moves, listing)
   flavors; undo moved_items
   ox-core: compressed/international keys and inflate limit; name swaps in one batch
   ox-app: lookup dropped while waiting stops its reading (seen failing with the old code), batch decode with a crash, LRU eviction and versions, cached thumbnail until the file changes, fail/ recorded and honored, renamed folder keeps thumbnails, dropped network question, on-screen slots first
@@ -55,7 +55,7 @@ PASS real input, rename (Xvfb, xdotool, unprivileged user): a folder of 20 photo
 PASS real app, Always show icons (viewOptions.showPreviews off): no thumbnail requested, no decoder started, no thumbnails folder created
 PASS real app, fail cache: a PNG cut short is tried once and recorded in fail/openxplorer on the first launch; on the second it is answered from that entry (no decode, nothing made) and the good PNG beside it from the cache
 PASS 2x scale by hand (GDK_SCALE=2, Xvfb, unprivileged user): Large icons write large entries, Extra large icons write x-large (512 x 341) entries
-PASS doctests; check.py through parity tests, parity/check.py, i18n, driver tests, drawn-icon guard, rustfmt, Clippy -D warnings (Rust 1.92.0 as CI); parity/check.py alone; sync-docs --check; audit-public-data on the changed docs
+PASS doctests; check.py (run again at HEAD) through parity tests, parity/check.py, i18n, driver tests, drawn-icon guard, rustfmt, Clippy -D warnings (Rust 1.92.0 as CI); parity/check.py alone; sync-docs --check; audit-public-data on the changed docs
 FAIL none of this branch's
 NOT TESTED: KDE/Dolphin reading the app's entries; a real reboot (page-cache drop used instead)
 
