@@ -11,7 +11,7 @@ use std::ops::RangeInclusive;
 use serde::Serialize;
 use serde_json::Value;
 
-use super::choices::{ContextMenu, StripPosition, Theme, View, ZipOpening};
+use super::choices::{ColumnHeaderStyle, ContextMenu, StripPosition, Theme, View, ZipOpening};
 use super::file_icons::{canonical_file_icons, read_file_icons, FileIcons};
 use super::pane_options::DetailsPaneOptions;
 use super::tree_options::FolderTreeOptions;
@@ -262,6 +262,13 @@ pub struct Preferences {
         skip_serializing_if = "StripPosition::is_pointer"
     )]
     pub strip_position: StripPosition,
+    /// How the Details view draws the sorted column's title; stored only
+    /// when it is not the app's own style.
+    #[serde(
+        rename = "columnHeaderStyle",
+        skip_serializing_if = "ColumnHeaderStyle::is_openxplorer"
+    )]
+    pub column_header_style: ColumnHeaderStyle,
     /// Shift+F10 opens the classic (Windows 10) menu instead of the
     /// right-click menu's style, which Windows 11 opens on Shift+F10.
     /// Stored only when on.
@@ -632,6 +639,7 @@ impl Default for Preferences {
             auto_index: true,
             context_menu: ContextMenu::default(),
             strip_position: StripPosition::Pointer,
+            column_header_style: ColumnHeaderStyle::OpenXplorer,
             shift_f10_classic: false,
             classic_menu_chosen: false,
             item_counts_chosen: false,
@@ -905,6 +913,7 @@ impl Preferences {
         replace_if_some(&mut self.browse_archives, update.browse_archives);
         replace_if_some(&mut self.zip_opening, update.zip_opening);
         replace_if_some(&mut self.strip_position, update.strip_position);
+        replace_if_some(&mut self.column_header_style, update.column_header_style);
         if let Some(options) = &update.details_pane_options {
             self.details_pane_options = options.clone();
         }
@@ -1071,6 +1080,8 @@ pub struct PreferencesUpdate {
     pub context_menu: Option<ContextMenu>,
     /// Where the compact menu's strip sits.
     pub strip_position: Option<StripPosition>,
+    /// How the Details view draws the sorted column's title.
+    pub column_header_style: Option<ColumnHeaderStyle>,
     /// Whether Shift+F10 opens the classic menu.
     pub shift_f10_classic: Option<bool>,
     /// New network refresh interval in seconds.
@@ -1241,6 +1252,7 @@ impl PreferencesUpdate {
             column_widths: values.get("columnWidths").and_then(read_column_widths),
             context_menu: text("contextMenu").and_then(ContextMenu::from_key),
             strip_position: text("menuStripPosition").and_then(StripPosition::from_key),
+            column_header_style: text("columnHeaderStyle").and_then(ColumnHeaderStyle::from_key),
             shift_f10_classic: flag("shiftF10Classic"),
             network_interval: values.get("networkInterval").and_then(read_network_interval),
             window_size: values.get("windowSize").and_then(WindowSize::from_json),
