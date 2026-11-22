@@ -514,6 +514,9 @@ impl BrowserWindow {
         if let Some(handled) = self.prefix_editing_key(controller, input, key) {
             return handled;
         }
+        if let Some(handled) = self.first_arrow_from_the_current_item(key, modifiers) {
+            return handled;
+        }
         if let Some(handled) = self.grid_row_key(key, modifiers) {
             return handled;
         }
@@ -532,6 +535,48 @@ impl BrowserWindow {
             self.reset_typeahead();
         }
         glib::Propagation::Proceed
+    }
+
+    /// A plain Up or Down in Details while nothing is selected moves from
+    /// the item with the keyboard and selects the one before or after it,
+    /// as Windows 11 does once a folder opens with its first item ringed:
+    /// the first Down selects the second item (checked in a Windows 11 VM,
+    /// 2026-11-22). GTK lost track of its current item when the keyboard
+    /// came onto it before the rows were drawn, and its first Down selected
+    /// the first item instead. Home keeps that: Windows 11's Home has no
+    /// current item, and its first Down selects its first item. `None` for
+    /// every other key, view or state, which GTK handles.
+    fn first_arrow_from_the_current_item(
+        &self,
+        key: gdk::Key,
+        modifiers: gdk::ModifierType,
+    ) -> Option<glib::Propagation> {
+        let forward = match key {
+            gdk::Key::Down | gdk::Key::KP_Down => true,
+            gdk::Key::Up | gdk::Key::KP_Up => false,
+            _ => return None,
+        };
+        let pane = self.folder_pane();
+        let in_details = pane.view() == super::folder_pane::FolderView::Details;
+        if !modifiers.is_empty() || !in_details || pane.details().grouped().is_some() {
+            return None;
+        }
+        if !pane.model().selected_positions().is_empty() {
+            return None;
+        }
+        let current = pane.focused_position()?;
+        if self.current_uri().as_deref() == Some(self.home_location().as_str()) {
+            return None;
+        }
+        let last = pane.model().n_items().checked_sub(1)?;
+        let target = if forward {
+            current.saturating_add(1).min(last)
+        } else {
+            current.saturating_sub(1)
+        };
+        self.reset_typeahead();
+        pane.select_and_reveal(target);
+        Some(glib::Propagation::Stop)
     }
 
     /// Escape, Backspace and Space, which act on a typed prefix first:
