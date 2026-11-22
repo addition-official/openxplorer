@@ -24,3 +24,21 @@ Found and fixed (tests first): 3
 - Read only PNG from the vector drawing process (same OOM reached through the drawer's answer) - fixed 43be97f5
 Not bugs (harness only): turn_jpeg on input shorter than 2 bytes (the app checks the JPEG signature first); 7z decoder thread reported as a leak at exit (detached thread still running); vector drawing limits applied to the fuzz process.
 Open: none.
+
+== 2026-11-22 00:10 CST ==
+Executions so far (all runs):
+app_protocols              73,697
+archive_extract         1,984,660
+archive_list            6,047,173
+core_formats            1,795,986
+core_text               8,529,230
+media_details          16,458,992
+media_streams                  42
+picture_decode             32,066
+picture_headers         4,516,008
+text_preview            8,338,769
+New targets: core_formats (root helpers' command lines, mount plans checked against SAFE-021, update releases and trusted URLs, account and usershare lists, search words, saved sessions); app_protocols (media player lines and frame sizes, portal parent window, typed names, command line, Settings search); media_streams (GStreamer discoverer/parsebin on video and audio files, as the media reader does; ~1 exec/s).
+Found and fixed since last update: 1
+- Don't crash on malformed BMP file headers (pixel offset of ~4 GB made the loader reserve it: >1 GiB) - fixed, regression test extended
+Not bugs: media_streams input taking 4 s: GStreamer waits for preroll until READ_LIMIT (4 s), idle CPU, inside the reader child that the app stops at 10 s (bounded by design). The harness now reads each file once.
+Open: none.
