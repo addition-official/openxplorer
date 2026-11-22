@@ -614,13 +614,10 @@ async fn is_on_network(uri: &str, target: Option<&str>) -> bool {
     if folders.is_empty() {
         return false;
     }
-    if let Some(known) = known_answer(&folders) {
-        return known;
-    }
     // The tiles of a folder bound in one layout ask at once: one asks the
     // file system, the others wait for its answer.
     loop {
-        if let Some(known) = known_answer(&folders) {
+        if let Some(known) = known_answer(&folders, Some(NETWORK_ANSWER_LIFE)) {
             return known;
         }
         let waiting = ASKING.with_borrow_mut(|asking| {
@@ -714,14 +711,14 @@ fn local_folders(uri: &str, target: Option<&str>) -> Vec<PathBuf> {
         .collect()
 }
 
-/// Whether one of `folders` is on a network file system, as asked lately;
-/// `None` when any of them was not asked lately.
-fn known_answer(folders: &[PathBuf]) -> Option<bool> {
+/// Whether one of `folders` is on a network file system, as asked within
+/// `life` (or at any time without it); `None` when any of them was not.
+fn known_answer(folders: &[PathBuf], life: Option<Duration>) -> Option<bool> {
     NETWORK_FOLDERS.with_borrow(|known| {
         let mut on_network = false;
         for folder in folders {
             let (answer, asked) = known.get(folder)?;
-            if asked.elapsed() > NETWORK_ANSWER_LIFE {
+            if life.is_some_and(|life| asked.elapsed() > life) {
                 return None;
             }
             on_network |= *answer;
@@ -730,11 +727,12 @@ fn known_answer(folders: &[PathBuf]) -> Option<bool> {
     })
 }
 
-/// Whether `request`'s item is known, from a recent answer, to be on this
-/// computer's own disks.
+/// Whether `request`'s item was found on this computer's own disks, however
+/// long ago: a preview kept in memory was shown under the same rule, so it
+/// may be shown again at once.
 fn known_local(request: &PreviewRequest) -> bool {
     let folders = local_folders(&request.uri, request.target_uri.as_deref());
-    folders.is_empty() || known_answer(&folders) == Some(false)
+    folders.is_empty() || known_answer(&folders, None) == Some(false)
 }
 
 /// The thumbnail of `request`'s item: read from the shared cache, else
@@ -1487,9 +1485,29 @@ mod tests {
             .expect("the cached thumbnail");
 
         assert_eq!(first_pixel(&shown), (0, 255, 0), "read from the cache, not made");
-        // Shown once, it is kept for the frame a tile is bound on.
+        // Shown once, it is kept for the frame a tile is bound on, also
+        // with network previews off once its folder was found on this
+        // computer, however long ago that was.
         let kept = kept_preview(&request).expect("kept");
         assert_eq!(first_pixel(&kept), (0, 255, 0));
+        let local_only = PreviewRequest {
+            local_only: true,
+            ..request.clone()
+        };
+        let folders = local_folders(&request.uri, None);
+        NETWORK_FOLDERS.with_borrow_mut(|known| {
+            for folder in &folders {
+                if let Some((_, asked)) = known.get_mut(folder) {
+                    *asked = Instant::now()
+                        .checked_sub(10 * NETWORK_ANSWER_LIFE)
+                        .unwrap_or(*asked);
+                }
+            }
+        });
+        assert!(
+            kept_preview(&local_only).is_some(),
+            "shown at once after a while too"
+        );
 
         // The file changed: the kept preview and the entry are both stale.
         let changed = PreviewRequest {
