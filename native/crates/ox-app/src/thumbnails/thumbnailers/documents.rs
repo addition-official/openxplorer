@@ -479,7 +479,8 @@ impl Converter {
 
     /// The pages `first` to `last` of the PDF at `pdf`, one this
     /// converter made, drawn `width` pixels wide by `pdftoppm` in its
-    /// sandbox, as [`super::pdf_pages`] draws a PDF's. Blocks.
+    /// sandbox, as [`super::pdf_pages`] draws a PDF's ([`twice`]).
+    /// Blocks.
     pub(crate) fn pages(
         &self,
         pdf: &Path,
@@ -488,7 +489,9 @@ impl Converter {
         width: i32,
         cancellation: &gio::Cancellable,
     ) -> Option<Vec<Pixbuf>> {
-        pdf_pages_in(&self.sandbox, pdf, first, last, width, cancellation)
+        twice(cancellation, || {
+            pdf_pages_in(&self.sandbox, pdf, first, last, width, cancellation)
+        })
     }
 
     /// Why the document version named `name` could not be converted
@@ -918,7 +921,9 @@ pub(in crate::thumbnails) fn write_thumbnail(
     let path = gio::File::for_uri(&job.uri).path().ok_or(Failure::Refused)?;
     let pdf = converter.pdf(&path, Priority::Thumbnail, cancellation)?;
     let pixels = job.flavor.pixels();
-    let picture = first_page(&converter.sandbox, &pdf, pixels, cancellation);
+    let picture = twice(cancellation, || {
+        first_page(&converter.sandbox, &pdf, pixels, cancellation)
+    });
     if cancellation.is_cancelled() {
         return Err(Failure::Cancelled);
     }
@@ -930,6 +935,17 @@ pub(in crate::thumbnails) fn write_thumbnail(
     // A cache that refused the picture is the app's trouble, not the
     // document's: it is asked again the next time it is shown.
     writer::save_thumbnail(&job.cache_dir, &source, job.flavor, &picture).map_err(|_| Failure::Cancelled)
+}
+
+/// What `draw` drew, asked a second time when the first gave nothing and
+/// the request still stands. The PDF is one this converter made, which
+/// `pdftoppm` has drawn already when it was kept, so nothing is lost on a
+/// damaged one; but the app's picture decoder, which reads the pages
+/// back, can end without an answer on the first picture after the app
+/// starts, and the document's first view would say "No preview
+/// available." for it.
+fn twice<T>(cancellation: &gio::Cancellable, draw: impl Fn() -> Option<T>) -> Option<T> {
+    draw().or_else(|| (!cancellation.is_cancelled()).then(draw).flatten())
 }
 
 /// The first page of the PDF at `pdf`, drawn by `pdftoppm` in `sandbox`
