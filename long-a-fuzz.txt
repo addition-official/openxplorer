@@ -121,3 +121,20 @@ Found and fixed since last update: 0
 Not bugs: a media_streams input that stalled 10 s while the machine was overloaded runs in 0.4 s on its own (GStreamer bus wait); two archive "crashes" were the harness failing to create a temporary folder when the disk allowance filled up (stale debug builds of two toolchains; removed).
 Now: check.py running with Rust 1.92.0 (the CI version); six fuzzers at nice 19 beside it, keeping their files in a folder outside the checkout (the parity tests copy native/).
 Open: as before (Matroska in the media reader, inside GStreamer).
+
+== 2026-11-22 02:31 CST ==
+Executions so far (all runs):
+app_protocols             421,336
+archive_extract         2,248,232
+archive_fixup             532,871
+archive_list            9,116,572
+archive_zipgen            562,193
+core_formats            7,781,990
+core_text              13,615,244
+media_details          50,686,112
+media_streams               8,968
+picture_decode          3,990,414
+picture_headers        11,281,265
+text_preview            8,338,769
+Found and fixed since last update: 0 (six fuzzers at nice 19 beside the checks).
+check.py with Rust 1.92.0 as root: parity tests and parity/check.py, i18n check, driver tests, drawn-icon guard, rustfmt and clippy -D warnings passed; the app refuses to run as root ("Run OpenXplorer as your regular desktop user"), so display_scale failed there. The 87 test executables now run through check.py's run_isolated as the unprivileged user tester (debug info off to fit the disk allowance). So far 55 passed; failed: location_fixture_drift (known to fail on main: Python 3.13 parses smb://[V1.x]), network_python (the retired Python app imports gi, built for the system Python 3.12, not /usr/local's 3.13), integration_file_chooser (a GLib critical made fatal in another_program_cannot_close_the_dialog; code not touched here, to be rerun and compared with main).
