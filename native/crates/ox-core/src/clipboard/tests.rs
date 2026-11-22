@@ -258,7 +258,7 @@ fn refused_uri_lists() -> Vec<RefusedPayload> {
         RefusedPayload::uri_list("a web address", CUT_MARKER, b"https://example.test/file".to_vec()),
         RefusedPayload::uri_list("a share root", CUT_MARKER, b"smb://studio-nas/Shared".to_vec()),
         RefusedPayload::uri_list("credentials", CUT_MARKER, b"smb://user:pass@nas/share/a".to_vec()),
-        RefusedPayload::uri_list("an encoded line break", CUT_MARKER, b"file:///tmp/a%0Ab".to_vec()),
+        RefusedPayload::uri_list("an encoded NUL", CUT_MARKER, b"file:///tmp/a%00b".to_vec()),
         RefusedPayload::uri_list("its size", CUT_MARKER, oversized_payload()),
         RefusedPayload::uri_list("more than 100,000 items", None, too_many_items),
     ]
@@ -633,14 +633,16 @@ fn share_roots_cannot_be_copied_and_keep_the_location_message() {
     );
 }
 
-/// An item another program named with bytes that are not UTF-8 is copied
-/// to the clipboard with its name escaped as it is, while one whose name
-/// holds a line break is still refused: no payload carries an escaped
-/// control character.
+/// Items other programs named with bytes that are not UTF-8, or with a
+/// line break or a tab, go on the clipboard as a drag carries them: every
+/// file-list format holds their names escaped (`%0A`), so no line of a
+/// list is added, and the selection publishes no text, whose lines must
+/// be its items. A list another application published with such a name
+/// pastes too, as Nautilus copies them.
 ///
-/// parity: CLIP-005, OPS-035
+/// parity: CLIP-004, CLIP-005, OPS-035
 #[test]
-fn a_latin1_name_goes_on_the_clipboard_but_a_line_break_does_not() {
+fn names_with_a_line_break_or_latin1_bytes_go_on_the_clipboard_escaped() {
     let latin1 = "file:///tmp/ox-test/Caf%E9%20menu.txt".to_owned();
     let files = ClipboardFiles::new(ClipboardMode::Copy, std::slice::from_ref(&latin1), &context())
         .expect("a Latin-1 name");
@@ -649,9 +651,133 @@ fn a_latin1_name_goes_on_the_clipboard_but_a_line_break_does_not() {
         "file:///tmp/ox-test/Line%0Abreak.txt",
         "file:///tmp/ox-test/Tab%09.txt",
     ] {
-        assert!(
-            ClipboardFiles::new(ClipboardMode::Copy, &[uri.to_owned()], &context()).is_err(),
-            "{uri}"
+        let files = ClipboardFiles::new(
+            ClipboardMode::Cut,
+            &[uri.to_owned(), README_URI.to_owned()],
+            &context(),
+        )
+        .unwrap_or_else(|error| panic!("{uri}: {error}"));
+        assert_eq!(files.uris(), [uri, README_URI]);
+        let formats: Vec<&str> = files
+            .encode(&context())
+            .iter()
+            .map(|payload| payload.mime_type)
+            .collect();
+        assert_eq!(formats, [CUSTOM, GNOME, URI_LIST, KDE_CUT], "no text: {uri}");
+        assert_eq!(
+            published(&files, URI_LIST),
+            format!("{uri}\r\n{README_URI}\r\n").into_bytes(),
+            "one line per item"
         );
+        let gnome = format!("cut\n{uri}\n{README_URI}");
+        let pasted = decode(FileListFormat::Gnome, gnome.as_bytes()).expect("another app's list");
+        assert_eq!(pasted.uris(), [uri, README_URI]);
     }
+    assert!(
+        ClipboardFiles::new(
+            ClipboardMode::Copy,
+            &["file:///tmp/ox-test/Nul%00.txt".to_owned()],
+            &context()
+        )
+        .is_err(),
+        "no name holds NUL"
+    );
+}
+
+/// The item of a mounted share in the fixtures of the share tests.
+const MOUNTED_SMB_URI: &str = "smb://studio-nas/projects/Plan%20Q3.odt";
+/// An item of a share that is not mounted.
+const UNMOUNTED_SMB_URI: &str = "smb://archive-nas/scans/Receipt.pdf";
+
+/// The local path of a share's item: only `MOUNTED_SMB_URI`'s share is
+/// mounted, as `GVfs`'s FUSE export would show it.
+fn mounted_share(uri: &str) -> Option<std::path::PathBuf> {
+    (uri == MOUNTED_SMB_URI)
+        .then(|| "/run/user/1000/gvfs/smb-share:server=studio-nas,share=projects/Plan Q3.odt".into())
+}
+
+/// The bytes `files` publishes as `mime_type` with the shares of
+/// [`mounted_share`] mounted; `None` when it publishes no such format.
+fn published_mounted(files: &ClipboardFiles, mime_type: &str) -> Option<Vec<u8>> {
+    files
+        .encode_exporting(&context(), mounted_share)
+        .into_iter()
+        .find(|payload| payload.mime_type == mime_type)
+        .map(|payload| payload.bytes)
+}
+
+/// Applications that open only local files, such as a browser's file
+/// upload or an email attachment, read the standard URI list: a mounted
+/// share's item is offered there as its local file, as a drag offers it
+/// (DND-004). KDE's own list keeps the share's address, which Dolphin
+/// prefers, as do this app's format and GNOME's, which `GVfs` reads.
+///
+/// parity: CLIP-004, NET-026
+#[test]
+fn a_mounted_shares_items_are_offered_to_other_apps_as_local_files() {
+    let files = ClipboardFiles::new(
+        ClipboardMode::Copy,
+        &[MOUNTED_SMB_URI.to_owned(), UNMOUNTED_SMB_URI.to_owned()],
+        &context(),
+    )
+    .expect("two share items");
+
+    let uri_list = published_mounted(&files, URI_LIST).expect("a URI list");
+    let kde_list = published_mounted(&files, KDE_URI_LIST).expect("KDE's list beside it");
+    let gnome = published_mounted(&files, GNOME).expect("GNOME's list");
+
+    assert_eq!(
+        String::from_utf8(uri_list).expect("ASCII"),
+        format!(
+            "file:///run/user/1000/gvfs/smb-share%3Aserver%3Dstudio-nas%2Cshare%3Dprojects/Plan%20Q3.odt\r\n\
+             {UNMOUNTED_SMB_URI}\r\n"
+        ),
+        "the mounted item is its local file; the other keeps its address"
+    );
+    assert_eq!(
+        String::from_utf8(kde_list).expect("ASCII"),
+        format!("{MOUNTED_SMB_URI}\r\n{UNMOUNTED_SMB_URI}\r\n")
+    );
+    assert_eq!(
+        String::from_utf8(gnome).expect("ASCII"),
+        format!("copy\n{MOUNTED_SMB_URI}\n{UNMOUNTED_SMB_URI}")
+    );
+    let decoded = decode(
+        FileListFormat::Custom,
+        &published_mounted(&files, CUSTOM).expect("this app's format"),
+    )
+    .expect("this app's format decodes");
+    assert_eq!(
+        decoded.uris(),
+        files.uris(),
+        "this app's windows paste the share's items"
+    );
+}
+
+/// Local items and shares that are not mounted have nothing to export, so
+/// the formats are the five of every copy and the resolver is never asked
+/// about a local file.
+///
+/// parity: CLIP-004
+#[test]
+fn without_a_mounted_share_the_five_formats_are_unchanged() {
+    let local = selection(ClipboardMode::Cut);
+    let never = |uri: &str| -> Option<std::path::PathBuf> {
+        assert!(uri.starts_with("smb:"), "a local file is its own path: {uri}");
+        None
+    };
+    let advertised: Vec<&str> = local
+        .encode_exporting(&context(), never)
+        .iter()
+        .map(|payload| payload.mime_type)
+        .collect();
+    assert_eq!(advertised, [CUSTOM, GNOME, URI_LIST, TEXT, KDE_CUT]);
+
+    let unmounted = ClipboardFiles::new(ClipboardMode::Copy, &[UNMOUNTED_SMB_URI.to_owned()], &context())
+        .expect("an item");
+    assert!(published_mounted(&unmounted, KDE_URI_LIST).is_none());
+    assert_eq!(
+        published_mounted(&unmounted, URI_LIST).expect("a URI list"),
+        format!("{UNMOUNTED_SMB_URI}\r\n").into_bytes()
+    );
 }

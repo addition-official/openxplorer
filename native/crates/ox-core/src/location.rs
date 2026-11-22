@@ -59,8 +59,7 @@ mod typed;
 mod virtual_place;
 
 pub(crate) use text::{
-    decode_uri_component, has_control_character, python_strip, quote_component, unquote_lossy,
-    unquote_without_controls,
+    decode_uri_component, python_strip, quote_component, unquote_lossy, unquote_without_controls,
 };
 
 pub use archive_location::{is_archive_location, ArchiveLocation, ARCHIVE_SCHEME};
