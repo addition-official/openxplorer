@@ -1486,3 +1486,51 @@ fn the_dragging_help_says_alt_creates_shortcuts() {
     assert!(text.contains("Ctrl to copy"), "{text}");
     assert!(!text.contains("Alt to choose"), "{text}");
 }
+
+/// The category list is one Tab stop, as Windows 11 Settings' list is:
+/// real Tab from a category goes on to "Back to files" and Shift+Tab back
+/// to the search, without opening another category. GTK's list box took
+/// Tab as Down, so each Tab opened the next category until the list
+/// ended.
+///
+/// parity: ACC-016
+#[gtk::test]
+fn tab_leaves_the_category_list_without_opening_another_category() {
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    // Before the window opens, which a new pointer would put away.
+    let mut pointer = crate::test_support::pointer::Pointer::connect();
+    test.activate("settings", None);
+    let page = settings_page_of(&test);
+    let list = page.imp().category_list.get();
+    wait_until("Settings shows", || list.is_mapped());
+    let chosen = list.selected_row().expect("a category is chosen");
+    chosen.grab_focus();
+    let (x, y) = crate::test_support::pointer::screen_point(&mut pointer, &list, (10.0, 10.0), (20, 20));
+    // The keyboard follows the pointer on the private display.
+    pointer.move_to(x, y);
+    wait_until("the category has the keyboard", || chosen.has_focus());
+
+    pointer.tap_key(gtk::gdk::Key::Tab);
+    let back = page.back_to_files_button();
+    wait_until("Tab moves on to Back to files", || back.has_focus());
+    assert_eq!(
+        list.selected_row().as_ref(),
+        Some(&chosen),
+        "no other category opened"
+    );
+
+    chosen.grab_focus();
+    pointer.hold_key(gtk::gdk::Key::Shift_L);
+    pointer.tap_key(gtk::gdk::Key::Tab);
+    pointer.let_go_key(gtk::gdk::Key::Shift_L);
+    let search = page.imp().search_entry.get();
+    wait_until("Shift+Tab goes back to the search", || {
+        search.has_focus() || search.focus_child().is_some()
+    });
+    assert_eq!(
+        list.selected_row().as_ref(),
+        Some(&chosen),
+        "no other category opened"
+    );
+}

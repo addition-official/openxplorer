@@ -159,7 +159,7 @@ fn f6_moves_focus_round_the_regions_and_back_to_the_same_item() {
     let selected = test.window.folder_pane().model().selected_items().len();
 
     let mut visited = Vec::new();
-    for _ in 0..7 {
+    for _ in 0..8 {
         visited.push(
             test.window
                 .focus_next_region(false)
@@ -171,6 +171,7 @@ fn f6_moves_focus_round_the_regions_and_back_to_the_same_item() {
         visited,
         [
             Region::Details,
+            Region::StatusBar,
             Region::Tabs,
             Region::Address,
             Region::Search,
@@ -207,7 +208,7 @@ fn f6_into_the_tab_row_focuses_the_tab_in_front() {
     test.window.folder_pane().focus_view();
 
     let mut region = None;
-    for _ in 0..7 {
+    for _ in 0..8 {
         region = test.window.focus_next_region(false);
         if region == Some(Region::Tabs) {
             break;
