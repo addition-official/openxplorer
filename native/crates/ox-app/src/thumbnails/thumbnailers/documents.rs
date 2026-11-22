@@ -29,7 +29,7 @@
 //! document that could not be converted (damaged, protected by a
 //! password, or too slow) is not tried again in this run.
 
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::io::{Read, Write};
@@ -140,6 +140,11 @@ const DOCUMENT_EXTENSIONS: [&str; 15] = [
     "docx", "docm", "doc", "xlsx", "xlsm", "xls", "pptx", "pptm", "ppt", "odt", "ods", "odp", "ott", "ots",
     "otp",
 ];
+
+/// How many threads `LibreOffice`'s pool may run (`MAX_CONCURRENCY`, which
+/// it reads at start): its own count, the processors', would exceed the
+/// thumbnailers' task limit on a computer of many processors.
+const THREADS: &str = "4";
 
 /// The Flatpak of `LibreOffice`, used when no `LibreOffice` is installed
 /// with the system.
@@ -371,8 +376,8 @@ pub(crate) struct Converter {
     sandbox: Sandbox,
     cache: Cache,
     /// Document versions that could not be converted in this run, by
-    /// their cache names.
-    failed: Mutex<HashSet<String>>,
+    /// their cache names, with why.
+    failed: Mutex<HashMap<String, Failure>>,
     lane: Lane,
 }
 
@@ -427,7 +432,7 @@ impl Converter {
             program,
             sandbox,
             cache,
-            failed: Mutex::new(HashSet::new()),
+            failed: Mutex::new(HashMap::new()),
             lane: Lane::default(),
         }
     }
@@ -446,13 +451,14 @@ impl Converter {
         if let Some(pdf) = self.cache.find(&name) {
             return Ok(pdf);
         }
-        if self.has_failed(&name) {
-            return Err(Failure::Failed);
+        if let Some(failure) = self.failure_of(&name) {
+            return Err(failure);
         }
         // Noise under a document's name would be read as text, page after
         // page, until the time limit: only a document's own container is
         // converted.
         if !has_document_signature(path) {
+            self.remember(name, Failure::Failed);
             return Err(Failure::Failed);
         }
         let _turn = self.lane.wait(priority, cancellation)?;
@@ -462,10 +468,7 @@ impl Converter {
         }
         match self.convert(path, &name, cancellation) {
             Err(failure @ (Failure::Failed | Failure::TimedOut)) => {
-                self.failed
-                    .lock()
-                    .unwrap_or_else(PoisonError::into_inner)
-                    .insert(name);
+                self.remember(name, failure);
                 Err(failure)
             }
             outcome => outcome,
@@ -486,13 +489,23 @@ impl Converter {
         pdf_pages_in(&self.sandbox, pdf, first, last, width, cancellation)
     }
 
-    /// Whether the document version named `name` could not be converted
-    /// earlier in this run.
-    fn has_failed(&self, name: &str) -> bool {
+    /// Why the document version named `name` could not be converted
+    /// earlier in this run, if it could not.
+    fn failure_of(&self, name: &str) -> Option<Failure> {
         self.failed
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
-            .contains(name)
+            .get(name)
+            .copied()
+    }
+
+    /// Remembers that the document version named `name` could not be
+    /// converted, and why, for the rest of this run.
+    fn remember(&self, name: String, failure: Failure) {
+        self.failed
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(name, failure);
     }
 
     /// Converts the document at `path` in the sandbox, and keeps its PDF
@@ -856,6 +869,7 @@ impl Sandbox {
                 let mut command = limits.words();
                 command.push(bwrap.as_os_str().to_owned());
                 command.extend(sandbox_arguments(workspace, item, &inside_item, &shown, *proc));
+                command.extend(["--setenv", "MAX_CONCURRENCY", THREADS].map(OsString::from));
                 command.push("--".into());
                 command.extend(program);
                 command
@@ -897,6 +911,7 @@ impl Sandbox {
         let mut home = OsString::from("--env=HOME=");
         home.push(workspace.as_os_str());
         command.push(home);
+        command.push(format!("--env=MAX_CONCURRENCY={THREADS}").into());
         command.push("--command=soffice".into());
         command.push(FLATPAK_APP.into());
         command.extend(Program::conversion(&workspace.join(PROFILE_FOLDER), output, copy));
@@ -1102,6 +1117,7 @@ mod tests {
             joined.contains("--ro-bind /etc/libreoffice /etc/libreoffice"),
             "{joined}"
         );
+        assert!(joined.contains("--setenv MAX_CONCURRENCY 4"), "{joined}");
         let program = words
             .iter()
             .position(|word| *word == "--")
@@ -1490,7 +1506,49 @@ mod tests {
             "{:?}",
             before.elapsed()
         );
-        assert!(!converter.has_failed(&Version::of(&item).expect("version").cache_name()));
+        assert_eq!(
+            converter.failure_of(&Version::of(&item).expect("version").cache_name()),
+            None
+        );
+    }
+
+    /// A document that takes longer than the time limit (a workbook of a
+    /// few kilobytes whose formulas take half a minute) is stopped there,
+    /// with every process LibreOffice started, and is not tried again;
+    /// the next document converts at once after it.
+    ///
+    /// parity: VIEW-070
+    #[test]
+    fn a_slow_document_is_stopped_at_the_time_limit() {
+        let folder = tempfile::tempdir().expect("a temporary folder");
+        let Some(converter) = test_office(&folder.path().join("cache")) else {
+            return;
+        };
+        let slow = folder.path().join("Forecast.xlsx");
+        office_documents::write_slow_spreadsheet(&slow, 600);
+        let quick = folder.path().join("Notes.odt");
+        office_documents::write(&quick, Kind::Odt, "Notes");
+
+        let before = Instant::now();
+        let outcome = converter.pdf(&slow, Priority::Preview, &gio::Cancellable::new());
+        let took = before.elapsed();
+
+        eprintln!("the slow workbook: {outcome:?} after {took:?}");
+        assert_eq!(outcome, Err(Failure::TimedOut));
+        assert!(
+            took >= TIMEOUT && took < TIMEOUT + Duration::from_secs(3),
+            "{took:?}"
+        );
+        let again = Instant::now();
+        assert_eq!(
+            converter.pdf(&slow, Priority::Preview, &gio::Cancellable::new()),
+            Err(Failure::TimedOut)
+        );
+        assert!(again.elapsed() < Duration::from_millis(100), "not tried again");
+        assert!(converter
+            .pdf(&quick, Priority::Preview, &gio::Cancellable::new())
+            .is_ok());
+        assert_eq!(fs::read_dir(folder.path()).expect("listing").count(), 3);
     }
 
     /// A document larger than the size limit, a folder and a pipe are

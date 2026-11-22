@@ -172,6 +172,29 @@ pub(crate) fn write_damaged(path: &Path) {
     fs::write(path, &whole[..whole.len() * 2 / 3]).expect("the test document");
 }
 
+/// Writes an Excel workbook at `path` of `count` formulas that each sum
+/// over a whole column: a file of a few kilobytes that keeps LibreOffice
+/// calculating for many seconds (600 take about half a minute).
+pub(crate) fn write_slow_spreadsheet(path: &Path, count: usize) {
+    let mut parts = xlsx(&[]);
+    let mut data = String::new();
+    for row in 1..=count {
+        let _ = write!(
+            data,
+            "<row r=\"{row}\"><c r=\"A{row}\"><f>SUMPRODUCT((ROW(B1:B1048576)&gt;{row})*1)</f></c></row>"
+        );
+    }
+    let sheet = parts
+        .iter_mut()
+        .find(|(name, _)| name == "xl/worksheets/sheet1.xml")
+        .expect("the sheet");
+    sheet.1 = format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData>{data}</sheetData></worksheet>"
+    )
+    .into_bytes();
+    fs::write(path, zip(&parts)).expect("the test document");
+}
+
 /// Writes 64 KiB of noise at `path`.
 pub(crate) fn write_noise(path: &Path) {
     fs::write(path, noise(64 * 1024, 11)).expect("the test file");

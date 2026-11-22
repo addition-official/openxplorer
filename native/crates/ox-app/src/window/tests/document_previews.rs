@@ -316,7 +316,8 @@ fn run_and_time(duration: Duration) -> Duration {
 
 /// Writes the fifty documents the arrowing test goes through: every kind,
 /// short and long, with a damaged one, one that needs a password, noise
-/// under a document's name and a macro every tenth.
+/// under a document's name, a workbook that takes half a minute and a
+/// macro every tenth.
 fn write_fifty(fixture: &Fixture) -> Vec<String> {
     let mut names = Vec::new();
     for number in 0..50 {
@@ -327,6 +328,12 @@ fn write_fifty(fixture: &Fixture) -> Vec<String> {
             7 => office_documents::write_damaged(&fixture.path(&format!("Item {number:02}.docx"))),
             13 => office_documents::write_password_protected(&path),
             19 => office_documents::write_noise(&path),
+            25 => {
+                let name = format!("Item {number:02}.xlsx");
+                office_documents::write_slow_spreadsheet(&fixture.path(&name), 600);
+                names.push(name);
+                continue;
+            }
             _ if number % 10 == 3 => {
                 let name = format!("Item {number:02}.odt");
                 office_documents::write_with_macro(&fixture.path(&name), "A form with a macro");
