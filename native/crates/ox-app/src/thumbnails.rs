@@ -44,6 +44,7 @@ use ox_core::settings::{ViewOptions, PREVIEW_SIZE_LIMIT};
 
 pub(crate) use network_fs::is_on_network_filesystem;
 pub(crate) use slots::Slots;
+pub(crate) use thumbnailers::documents;
 pub(crate) use thumbnailers::{decoder_sandbox, pdf_pages};
 
 use crate::picture_guard::{self, Limits};
@@ -60,6 +61,12 @@ const MAKING_AT_ONCE: usize = 2;
 const NETWORK_MAKING_AT_ONCE: usize = 2;
 /// How many decoded previews are kept.
 const MAX_KEPT: usize = 512;
+/// The smallest edge, in device pixels, `LibreOffice` draws a document's
+/// thumbnail for: Medium icons and larger. A row of Details, List or
+/// Small icons keeps the document's type icon, as Windows draws it there,
+/// unless the cache has its thumbnail already; a page 16 pixels tall
+/// shows nothing of it, and costs a run of `LibreOffice`.
+const SMALLEST_DOCUMENT_THUMBNAIL: i32 = 40;
 
 /// Which items of the folder shown get previews.
 #[expect(
@@ -220,6 +227,9 @@ thread_local! {
     static DECODING: Rc<Slots> = Rc::new(Slots::new(DECODING_AT_ONCE));
     static MAKING: Rc<Slots> = Rc::new(Slots::new(MAKING_AT_ONCE));
     static NETWORK_MAKING: Rc<Slots> = Rc::new(Slots::new(NETWORK_MAKING_AT_ONCE));
+    /// Office documents' thumbnails, made one at a time by `LibreOffice`
+    /// ([`documents`]): the others wait here without holding a worker.
+    static DOCUMENT_MAKING: Rc<Slots> = Rc::new(Slots::new(1));
     /// Decoded previews by item, version and size.
     static KEPT: RefCell<HashMap<PreviewKey, gdk::Texture>> = RefCell::new(HashMap::new());
     /// Sharp pictures decoded at a tile's size (Gallery), by item, version
@@ -486,7 +496,14 @@ async fn make_thumbnail(request: &PreviewRequest) -> Result<PathBuf, Missing> {
             let _slot = making(request).take().await;
             let made = service.make(&request.uri, &request.content_type, flavor).await;
             let path = ox_core::entry::thumbnail_file(&cache_dir, &request.uri, flavor);
-            return made.then_some(path).ok_or(Missing::Failed);
+            // The service draws few documents (an OpenDocument's own
+            // thumbnail at best): one it could not draw is LibreOffice's.
+            if made || !is_document(request) {
+                return made.then_some(path).ok_or(Missing::Failed);
+            }
+            if request.pixels < SMALLEST_DOCUMENT_THUMBNAIL {
+                return Err(Missing::Later);
+            }
         }
     }
     // Test safety: tests write thumbnails only into a private cache.
@@ -533,7 +550,58 @@ async fn make_thumbnail_with(
             }
         }
     }
-    by_thumbnailer(request, cache_dir, modified, flavor, catalogue, false).await
+    match by_thumbnailer(request, cache_dir, modified, flavor, catalogue, false).await {
+        // No program of the desktop's drew the document, and it is on
+        // this computer: LibreOffice may draw it.
+        Err(Missing::Failed) if is_document(request) && !request.on_network => {
+            if request.pixels < SMALLEST_DOCUMENT_THUMBNAIL {
+                // Asked again at a size it is drawn for.
+                return Err(Missing::Later);
+            }
+            by_document(request, cache_dir, modified, flavor).await
+        }
+        outcome => outcome,
+    }
+}
+
+/// Whether `request` is for an office document ([`documents::is_document`]).
+fn is_document(request: &PreviewRequest) -> bool {
+    let name = request.uri.rsplit('/').next().unwrap_or_default();
+    let name = glib::Uri::unescape_string(name, None::<&str>).map_or_else(|| name.to_owned(), Into::into);
+    documents::is_document(&request.content_type, &name)
+}
+
+/// The thumbnail of the office document `request` asks for, its first
+/// page drawn from `LibreOffice`'s PDF ([`documents::write_thumbnail`]),
+/// one document at a time; a request dropped, or turned away while too
+/// many wait, is asked again the next time the item is shown.
+async fn by_document(
+    request: &PreviewRequest,
+    cache_dir: &Path,
+    modified: u64,
+    flavor: ThumbnailFlavor,
+) -> Result<PathBuf, Missing> {
+    let job = thumbnailers::Job {
+        cache_dir: cache_dir.to_path_buf(),
+        uri: request.uri.clone(),
+        content_type: request.content_type.clone(),
+        modified,
+        flavor,
+    };
+    let made = DOCUMENT_MAKING
+        .with(Rc::clone)
+        .blocking(move |cancel| documents::write_thumbnail(&job, cancel))
+        .await;
+    match made {
+        Some(Ok(path)) => Ok(path),
+        None | Some(Err(documents::Failure::Cancelled)) => Err(Missing::Later),
+        Some(Err(
+            documents::Failure::Unavailable
+            | documents::Failure::Refused
+            | documents::Failure::Failed
+            | documents::Failure::TimedOut,
+        )) => Err(Missing::Failed),
+    }
 }
 
 /// The thumbnail of `request` decoded in the app, or why there is none:
@@ -787,6 +855,77 @@ mod tests {
             target_uri: None,
             on_network: false,
         }
+    }
+
+    /// An office document's thumbnail is its first page, drawn from
+    /// `LibreOffice`'s PDF and written into the cache with the keys that
+    /// keep it valid; a row too small to show a page starts no
+    /// `LibreOffice` and is asked again later, and without `LibreOffice` the
+    /// document keeps its icon. Drawing runs where `LibreOffice`, `pdftoppm`
+    /// and a working bubblewrap are installed.
+    ///
+    /// parity: VIEW-057
+    #[gtk::test]
+    fn a_documents_thumbnail_is_its_first_page() {
+        use crate::test_support::office_documents::{self, Kind};
+
+        let folder = tempfile::tempdir().expect("a temporary folder");
+        let cache = folder.path().join("cache");
+        let item = folder.path().join("Budget.ods");
+        office_documents::write(&item, Kind::Ods, "Budget");
+        let request = request_of(&item, Kind::Ods.content_type());
+        let make = |request: &PreviewRequest, flavor| {
+            glib::MainContext::default().block_on(make_thumbnail_with(
+                request,
+                &cache,
+                Some(Arc::new(Catalogue::for_test(Vec::new()))),
+                flavor,
+                1_700_000_000,
+            ))
+        };
+        documents::use_converter(None);
+        assert_eq!(make(&request, ThumbnailFlavor::Normal), Err(Missing::Failed));
+        let Some(converter) = documents::test_office(&folder.path().join("pdfs")) else {
+            return;
+        };
+        documents::use_converter(Some(converter));
+        let small = PreviewRequest {
+            pixels: 16,
+            ..request.clone()
+        };
+        assert_eq!(make(&small, ThumbnailFlavor::Normal), Err(Missing::Later));
+        assert!(
+            !folder.path().join("pdfs").exists(),
+            "no LibreOffice ran for a row"
+        );
+
+        let written = make(&request, ThumbnailFlavor::Large);
+
+        documents::use_converter(None);
+        let written = written.expect("a thumbnail");
+        assert_eq!(
+            written,
+            thumbnail_file(&cache, &request.uri, ThumbnailFlavor::Large)
+        );
+        let thumbnail = Pixbuf::from_file(&written).expect("a PNG");
+        assert_eq!(
+            thumbnail.option("tEXt::Thumb::URI").as_deref(),
+            Some(request.uri.as_str())
+        );
+        assert_eq!(
+            thumbnail.option("tEXt::Thumb::MTime").as_deref(),
+            Some("1700000000")
+        );
+        assert_eq!(thumbnail.width().max(thumbnail.height()), 256);
+        let names: Vec<_> = fs::read_dir(folder.path())
+            .expect("listing")
+            .map(|entry| entry.expect("entry").file_name())
+            .collect();
+        assert_eq!(
+            names.len(),
+            3,
+            "nothing beside the document but the caches: {names:?}"
+        );
     }
 
     /// A share that does not answer holds only the network's own slots:
