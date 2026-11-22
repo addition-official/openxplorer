@@ -54,7 +54,10 @@ fn new_document_action(
     document: NewDocument,
 ) -> gio::ActionEntry<BrowserWindow> {
     task_action(window_action, move |window| async move {
-        window.create_new_file(NewFile::Document(document)).await;
+        // Rich Text Document only while an application opens RTF files.
+        if is_offered(document) {
+            window.create_new_file(NewFile::Document(document)).await;
+        }
     })
 }
 
