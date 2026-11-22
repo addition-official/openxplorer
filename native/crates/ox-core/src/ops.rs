@@ -149,7 +149,7 @@ pub use run_transfer::{run_transfer, TransferOutcome, TransferRequest};
 pub use shortcut_destination::{destination_of, resolve_shortcut, ShortcutDestination};
 pub use shortcuts::{
     create_named_shortcuts, create_shortcut, create_shortcut_named, create_shortcuts, shortcut_name,
-    NamedShortcuts, ShortcutTarget, NO_LINKS_HERE,
+    NamedShortcuts, ShortcutNames, ShortcutTarget, NO_LINKS_HERE,
 };
 pub use tab_transfer::{
     Acceptance, Delivery, KeptReason, TabMessage, TabMoveOutcome, TabTransferError, TabTransferToken,
