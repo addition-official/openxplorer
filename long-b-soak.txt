@@ -3,7 +3,7 @@ STATUS: RUNNING
 Long job B: overnight real-use soak of upstream main 5d21fd3e (release build),
 23:00 CST to 06:30 CST, crossing midnight in America/Chicago.
 
-So far (02:15 CST):
+So far (03:40 CST):
 - Midnight: date group headings moved Today -> Yesterday by themselves at
   00:00:01 (Downloads and Recent files). With relative dates on, the rows
   under them (and every row of an ungrouped folder) kept "Today at ..."
@@ -17,4 +17,8 @@ So far (02:15 CST):
   smbd failed (harness permissions), recovery verified by hand at 01:59.
   Second outage scheduled 04:15.
 - Idle CPU ~0.1%. Watches flat. Idle RSS on the fixed build 227 -> 421 ->
-  421 -> 430 MiB: leveling off; still watching.
+  430 -> 485 -> 489 MiB; glibc in-use heap 232.8 -> 235.6 MiB across a burst
+  (the rest is freed memory the allocator keeps). Still watching.
+- check.py (unprivileged user, Rust 1.92, Python 3.12 as CI): lints and all
+  executables pass except tests that fail the same way on upstream 5d21fd3e
+  in this container (sandboxed thumbnailers, admin_copy /tmp checks).
