@@ -180,6 +180,7 @@ fn open_elsewhere_items(uri: &str) -> Vec<MenuEntry> {
     ]
 }
 
+/// "Open in new tab" and "Open in new window" for `uri`.
 /// The menu of This PC's or Network's row, which opens `uri`, laid out as
 /// Windows 11's navigation pane lays it out. Windows' Pin to Quick access
 /// and Pin to Start are left out: the app cannot pin a page and has no
