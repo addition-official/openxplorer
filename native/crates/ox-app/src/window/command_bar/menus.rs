@@ -28,9 +28,11 @@ fn item(label: &str, glyph: Icon, action: WindowAction) -> MenuEntry {
 
 /// The New menu, which the folder background's "New…" opens too, laid
 /// out as Windows 11's: Folder and Shortcut, then the document types a
-/// stock Windows 11 registers, then the user's `templates`, Linux's
-/// counterpart of further registered types (OPS-003). Every file is made
-/// at once and renamed in place; Shortcut opens the link dialog (OPS-004).
+/// stock Windows 11 registers with the OpenDocument types an installed
+/// application opens, by extension as Windows sorts them, then the
+/// user's `templates`, Linux's counterpart of further registered types
+/// (OPS-003). Every file is made at once and renamed in place; Shortcut
+/// opens the link dialog (OPS-004).
 pub(in crate::window) fn new_menu(templates: Vec<MenuEntry>) -> Vec<MenuEntry> {
     let mut entries = vec![
         MenuItem::new(&gettext("Folder"), Icon::FolderAdd, WindowAction::NewFolder)
@@ -43,6 +45,10 @@ pub(in crate::window) fn new_menu(templates: Vec<MenuEntry>) -> Vec<MenuEntry> {
             Icon::Image,
             WindowAction::NewBitmapImage,
         ),
+    ];
+    // .odp, .ods and .odt come between .bmp and .rtf.
+    entries.extend(crate::window::file_ops::document_entries());
+    entries.extend([
         item(
             &gettext("Rich Text Document"),
             Icon::Document,
@@ -58,7 +64,7 @@ pub(in crate::window) fn new_menu(templates: Vec<MenuEntry>) -> Vec<MenuEntry> {
             Icon::FolderZip,
             WindowAction::NewCompressedFolder,
         ),
-    ];
+    ]);
     if !templates.is_empty() {
         entries.push(MenuEntry::Divider);
         entries.extend(templates);
