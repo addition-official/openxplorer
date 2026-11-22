@@ -29,6 +29,10 @@ pub struct EntryMeta {
     /// name is a hash of it. Kept only when it normalises to a real
     /// location, never a virtual one.
     pub recent_target: Option<String>,
+    /// For an item in the Recycle Bin (`trash:`), the local file that
+    /// holds it in the trash folder, as `GVfs` names it in
+    /// `standard::target-uri`; `None` for any other item.
+    pub trash_file: Option<String>,
     /// For a photo listed in Gallery, when it was taken: its EXIF
     /// `DateTimeOriginal` in local time, seconds since the Unix epoch.
     /// `None` everywhere else, and for a photo without one.
@@ -58,6 +62,7 @@ impl EntryMeta {
                 .flatten()
                 .map(|target| target.display().to_string()),
             recent_target: None,
+            trash_file: None,
             taken: None,
             pixel_size: None,
         }
