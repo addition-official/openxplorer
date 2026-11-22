@@ -79,4 +79,20 @@ QUICK CHECKS (before pushing):
    long-a-fuzz            function media_details
    user-icon-files        function glyph_icon_name
 
-LONG CHECKS: running (3 full ox_app runs, the other test binaries, failures compared with main by name, 300-file smoke run, input sweep). Results will be appended below.
+LONG CHECKS: test runs in progress (3 full ox_app runs, the other test binaries, failures compared with main by name); smoke run and input sweep done, below.
+
+SMOKE RUN (installed deb, Xvfb, non-root user with a throwaway HOME under /var/tmp, own D-Bus session and display, driven by the snapshot hook):
+- 300 files (the same generated set as debs 45-49), Details view: Details pane on and Down through all 300, then Preview pane on, Home and Down through all 300 again. Exit 0 after 384 s, ended on the last file (song-100) with the Preview pane's player shown. 0 "Bail out", 0 CRITICAL, 0 panic, 0 SIGSEGV/abort/core lines; no child process left after exit. Main process sampled every second (371 samples): fds max 29, 25 at the end; threads max 33, 24 at the end; at most 5 child processes at once; RSS about 326 MB, steady.
+
+INPUT SWEEP (installed deb, same isolation; keys through the window's real key handlers via the scene hook's key= step, text through type=, the pointer through hover=; each run on fresh fictional files; results read from disk and the window picture; every run exit 0 with no error lines):
+- Rename: F2, typed "Meeting notes", Enter -> Meeting notes.txt. F2, typed, Escape -> unchanged.
+- Rename, Down while editing: F2, Down, typed " v2", Enter -> v2.txt: the field stayed open through Down (the name part stayed selected, so the typed text replaced it), as in deb 49.
+- Rename onto an existing folder (Archive -> Projects): nothing changed on disk and the field stayed open; the merge question is its own window, which the picture does not show and key= cannot answer, so the merge itself is not confirmed here.
+- Undo/redo: rename, Ctrl+Z -> back; Ctrl+Y -> renamed again.
+- Copy: Ctrl+C, Ctrl+V -> "Notes - Copy.txt"; Ctrl+Z -> the copy is gone.
+- Cut/paste: Ctrl+X on Budget 2027.csv, open a folder, Ctrl+V -> moved, both into Archive (opened with Enter) and into Projects (opened with the open action).
+- OBSERVATION, to check by hand: with Projects selected by the hook's select= step while the keyboard focus ring stays on the first row (Archive), Enter opened nothing at all (neither Projects nor Archive), so a cut-paste using Enter there pasted back into Documents. select= selects without moving the keyboard, so this may be the hook's own state rather than one a user reaches by clicking; deb 48's run of this step only worked because its target was the first, focused row.
+- Address bar: from Documents/Projects, Ctrl+L, typed "Documents", Enter -> Documents.
+- Menus: Shift+F10 on a file and the Menu key on a folder open the compact menu; with the pointer moved from Compress to onto its submenu's 7z File row, the submenu stays open. (The hook cannot move the pointer outside every menu.)
+- Small icons: 37 files in three columns filled row by row, left to right.
+- Network page: opens with network-like-windows' "Network discovery is turned off. Network computers and devices are not visible. Click to change..." bar and "This folder is empty." (no devices in this isolated container); the Network row in the navigation pane has its own chevron.
