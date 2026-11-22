@@ -516,6 +516,11 @@ msgstr ""
 msgid "{error}\n\nThe archive is unchanged. Existing files were not overwritten."
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/devices.rs crates/ox-app/src/window/mounting.rs
+msgid "'{drive}' is currently in use."
+msgstr ""
+
 #: crates/ox-app/src/devices.rs
 msgid "Could not disconnect"
 msgstr ""
@@ -548,13 +553,13 @@ msgstr ""
 msgid "Safely remove"
 msgstr ""
 
+#: crates/ox-app/src/devices.rs crates/ox-app/src/window/mounting.rs
+msgid "Save any open files on this disc, and then close the files or programs using the files before trying again."
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/devices.rs
 msgid "The '{label}' device can now be safely removed from the computer."
-msgstr ""
-
-#: crates/ox-app/src/devices.rs
-msgid "This device is currently in use. Close any programs or windows that might be using the device, and then try again."
 msgstr ""
 
 #: crates/ox-app/src/dialog/fields.rs crates/ox-core/src/format.rs
@@ -1413,7 +1418,7 @@ msgstr ""
 msgid "Not set"
 msgstr ""
 
-#: crates/ox-app/resources/ui/window.ui crates/ox-app/src/integration/status.rs crates/ox-app/src/window/activation.rs crates/ox-app/src/window/title_bar.rs packaging/data/io.winspace.Development.desktop packaging/data/io.winspace.Development.metainfo.xml
+#: crates/ox-app/resources/ui/window.ui crates/ox-app/src/integration/status.rs crates/ox-app/src/window/activation.rs crates/ox-app/src/window/mounting.rs crates/ox-app/src/window/title_bar.rs packaging/data/io.winspace.Development.desktop packaging/data/io.winspace.Development.metainfo.xml
 msgid "OpenXplorer"
 msgstr ""
 
@@ -5476,7 +5481,7 @@ msgstr ""
 msgid "Smaller"
 msgstr ""
 
-#: crates/ox-app/src/window/conflict_window.rs crates/ox-app/src/window/file_ops/failure_dialog.rs
+#: crates/ox-app/src/window/conflict_window.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/mounting.rs
 msgid "Continue"
 msgstr ""
 
@@ -6340,7 +6345,7 @@ msgstr ""
 msgid "Total size: {size}"
 msgstr ""
 
-#: crates/ox-app/resources/ui/transfer-panel.ui crates/ox-app/src/window/file_ops/failure_dialog.rs
+#: crates/ox-app/resources/ui/transfer-panel.ui crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/mounting.rs
 msgid "Try Again"
 msgstr ""
 
@@ -7108,6 +7113,10 @@ msgstr ""
 
 #: crates/ox-app/src/window/mounting.rs
 msgid "Finish the current operation before disconnecting."
+msgstr ""
+
+#: crates/ox-app/src/window/mounting.rs
+msgid "If you choose to continue, the files will be closed, which might cause data to be lost."
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
