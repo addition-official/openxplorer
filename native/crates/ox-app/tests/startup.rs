@@ -128,19 +128,33 @@ impl Drop for TracedApp {
     }
 }
 
-/// Runs the app with `arguments` to its end and returns how long it took.
-fn run_timed(arguments: &[&str]) -> Duration {
+/// Runs the app with `arguments` to its end, tracing its steps, and
+/// returns how long it took and the steps it wrote.
+fn run_timed(arguments: &[&str]) -> (Duration, Vec<String>) {
     let started = Instant::now();
     let mut child = Command::new(APP)
         .args(arguments)
+        .env("OX_STARTUP_TRACE", "1")
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stderr(Stdio::piped())
         .spawn()
         .expect("the app starts");
+    let stderr = child.stderr.take().expect("standard error is piped");
+    let reader = thread::spawn(move || {
+        BufReader::new(stderr)
+            .lines()
+            .map_while(Result::ok)
+            .filter_map(|line| {
+                let step = line.strip_prefix("ox-startup ")?.split(' ').next()?;
+                Some(step.to_owned())
+            })
+            .collect::<Vec<String>>()
+    });
     loop {
         if let Some(status) = child.try_wait().expect("the process can be asked") {
             assert!(status.success(), "openxplorer {arguments:?} ended with {status}");
-            return started.elapsed();
+            let elapsed = started.elapsed();
+            return (elapsed, reader.join().expect("standard error is read"));
         }
         assert!(
             started.elapsed() < PATIENCE,
@@ -157,7 +171,7 @@ fn milliseconds(microseconds: i64) -> Duration {
 /// The first window shows its folder's files within the budget, and
 /// another window, opened while the app runs, does too: the later launch
 /// hands its command line to the running instance without reading the
-/// whole executable first.
+/// whole executable first, which it would trace as `executable-digest`.
 ///
 /// parity: INT-001, PERF-003
 #[test]
@@ -185,7 +199,11 @@ fn windows_open_within_their_budgets() {
 
     for nth in 0..2 {
         let launched = now();
-        let launcher = run_timed(&["--new-window", &folder]);
+        let (launcher, steps) = run_timed(&["--new-window", &folder]);
+        assert!(
+            !steps.iter().any(|step| step == "executable-digest"),
+            "the later launch read its whole executable before handing its command line over: {steps:?}"
+        );
         let listed = milliseconds(app.step("window-listed", nth) - launched);
         eprintln!("another window: launcher done after {launcher:?}, listed after {listed:?}");
         assert!(

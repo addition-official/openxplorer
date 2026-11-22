@@ -16,7 +16,8 @@
 //! tab's listing finished), `list-painted` (the first frame after that)
 //! and `idle` (the main loop had nothing else to do after that). Later
 //! windows of the same process write `window-built`, `window-painted` and
-//! `window-listed`.
+//! `window-listed`. Reading the digest of the whole executable, which a
+//! process does at most once, writes `executable-digest`.
 
 use std::cell::{Cell, RefCell};
 use std::sync::OnceLock;

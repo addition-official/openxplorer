@@ -90,6 +90,7 @@ pub(crate) fn running_identity(version: ReleaseVersion) -> io::Result<RuntimeIde
     let digest = DIGEST.get_or_init(|| {
         #[cfg(test)]
         EXECUTABLE_READS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        crate::startup_trace::mark("executable-digest");
         RuntimeIdentity::of_executable(Path::new(RUNNING_EXECUTABLE), &version.to_string())
             .map(|identity| identity.build)
             .map_err(|error| error.kind())
