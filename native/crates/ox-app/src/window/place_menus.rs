@@ -715,20 +715,18 @@ pub(super) fn popup_place_menu_in(
     if let Some(window) = owner.root().and_downcast::<BrowserWindow>() {
         window.remember_place_menu(menu.clone(), owner, point, opener);
     }
-    let popover = MenuPopover::new(entries);
+    // The pane keeps one place menu and shows it again each time
+    // ([`MenuPopover::kept_by`]).
+    let popover = MenuPopover::kept_by(owner, PLACE_MENU);
+    popover.set_entries(entries);
     popover.set_style_and_strip(style, strip);
     popover.set_offset(0, 0);
     popover.set_position(gtk::PositionType::Bottom);
-    popover.set_parent(owner);
     #[expect(clippy::cast_possible_truncation, reason = "pointer positions are small")]
     let pointing_to = gdk::Rectangle::new(point.x() as i32, point.y() as i32, 1, 1);
     popover.set_pointing_to(Some(&pointing_to));
-    // A menu belongs to one right-click; it lets go of the pane once it
-    // closes and its item has run.
     let opener = opener.map(ObjectExt::downgrade);
-    popover.connect_closed(move |popover| {
-        let closed = popover.clone();
-        glib::idle_add_local_once(move || closed.unparent());
+    popover.after_close(move |_| {
         if let Some(opener) = opener.as_ref().and_then(glib::WeakRef::upgrade) {
             if opener.is_drawable() {
                 opener.grab_focus();
@@ -766,6 +764,9 @@ pub(super) fn classic_or_compact(entries: Vec<MenuEntry>, style: MenuStyle) -> V
         MenuStyle::Classic => classic_look(entries),
     }
 }
+
+/// The name of the place menu a folder pane keeps.
+const PLACE_MENU: &str = "place-menu";
 
 /// A place menu as it was opened, for "Show more options".
 #[derive(Debug)]
