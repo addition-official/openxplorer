@@ -63,8 +63,9 @@ impl EmptyState {
     /// off the network is named in plain words, as Windows Explorer names
     /// it ("\\\\server\\share is unavailable."), with Windows' error code
     /// and words under Details ("Error code: 0x80070079", "The semaphore
-    /// timeout period has expired."). Every other
-    /// error is already said for people, and is shown as it is.
+    /// timeout period has expired."), and so is a drive whose driver
+    /// stopped answering. Every other error is already said for people,
+    /// and is shown as it is.
     pub(super) fn unavailable(uri: &str, error: &EntryError) -> EmptyState {
         // Only an archive that can't be read gets the archive page; a
         // folder or file a readable archive does not have (a typed or
@@ -74,7 +75,24 @@ impl EmptyState {
             return EmptyState::ArchiveUnavailable(error.to_string());
         }
         let raw = match error {
-            EntryError::Failed(raw) | EntryError::NotMounted(raw) if is_server_location(uri) => raw,
+            EntryError::Failed(raw) | EntryError::NotMounted(raw) | EntryError::NotConnected(raw)
+                if is_server_location(uri) =>
+            {
+                raw
+            }
+            // A drive that stopped answering, in Windows' words for a
+            // drive that is not there, with the system's error under
+            // Details.
+            EntryError::NotConnected(raw) => {
+                let location = gtk::gio::File::for_uri(uri).parse_name().to_string();
+                return EmptyState::Unavailable {
+                    message: format_message(
+                        "{location} is not accessible. The device is not ready.",
+                        &[("location", &location)],
+                    ),
+                    details: (!raw.trim().is_empty()).then(|| code_details(raw, false)),
+                };
+            }
             _ => {
                 return EmptyState::Unavailable {
                     message: error.to_string(),
@@ -126,7 +144,19 @@ impl EmptyState {
 /// words. A message that is not one of the system's errors is shown as it
 /// is.
 fn network_details(message: &str) -> String {
-    match SystemError::from_sentence(message).map(SystemError::on_network) {
+    code_details(message, true)
+}
+
+/// Windows' error code, then its words, for the system's error `message`,
+/// as a share's or, when not `on_network`, a drive's Details say it.
+fn code_details(message: &str, on_network: bool) -> String {
+    let error = SystemError::from_sentence(message);
+    let error = if on_network {
+        error.map(SystemError::on_network)
+    } else {
+        error
+    };
+    match error {
         Some(error) => format_message(
             "Error code: {code}\n{message}",
             &[
@@ -386,6 +416,30 @@ mod tests {
         assert_eq!(
             EmptyState::empty_listing("file:///tmp/empty"),
             EmptyState::EmptyFolder
+        );
+    }
+
+    /// A drive whose driver stopped answering (a FUSE driver such as
+    /// ntfs-3g or exfat-fuse that quit, as when the stick it read was
+    /// pulled out) is named as Windows names a drive that is not there,
+    /// "<location> is not accessible. The device is not ready.", with the
+    /// system's error in Windows' words and code under Details.
+    ///
+    /// parity: VIEW-048
+    #[test]
+    fn a_drive_that_stopped_answering_is_not_ready() {
+        let raw =
+            "Error opening directory \u{2018}/media/demo/STICK\u{2019}: Transport endpoint is not connected";
+        let error = EntryError::from(gtk::glib::Error::new(gtk::gio::IOErrorEnum::NotConnected, raw));
+
+        let state = EmptyState::unavailable("file:///media/demo/STICK", &error);
+
+        assert_eq!(
+            state,
+            EmptyState::Unavailable {
+                message: "/media/demo/STICK is not accessible. The device is not ready.".to_owned(),
+                details: Some("Error code: 0x8007048F\nThe device is not connected.".to_owned()),
+            }
         );
     }
     /// A share that stopped answering is named as Windows names it, and

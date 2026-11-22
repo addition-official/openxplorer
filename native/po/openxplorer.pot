@@ -594,6 +594,15 @@ msgstr ""
 msgid "Quick format"
 msgstr ""
 
+#: crates/ox-app/src/dialogs/format_drive.rs crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/file_ops/batch_rename.rs crates/ox-app/src/window/file_ops/extension_confirm.rs crates/ox-app/src/window/file_ops/unstorable_dialog.rs crates/ox-app/src/window/home_page.rs crates/ox-app/src/window/place_menus.rs crates/ox-app/src/window/shortcuts_window.rs crates/ox-core/src/ops/undo.rs
+msgid "Rename"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/dialogs/format_drive.rs
+msgid "Rename {drive}"
+msgstr ""
+
 #: crates/ox-app/src/dialogs/format_drive.rs
 msgid "Start"
 msgstr ""
@@ -5210,10 +5219,6 @@ msgstr ""
 msgid "Paste files (Ctrl+V)"
 msgstr ""
 
-#: crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/file_ops/batch_rename.rs crates/ox-app/src/window/file_ops/extension_confirm.rs crates/ox-app/src/window/file_ops/unstorable_dialog.rs crates/ox-app/src/window/home_page.rs crates/ox-app/src/window/place_menus.rs crates/ox-app/src/window/shortcuts_window.rs crates/ox-core/src/ops/undo.rs
-msgid "Rename"
-msgstr ""
-
 #: crates/ox-app/src/window/command_bar.rs
 msgid "Rename (F2)"
 msgstr ""
@@ -5823,6 +5828,11 @@ msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/disk_tools.rs
+msgid "Could not rename the drive: {error}"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/disk_tools.rs
 msgid "Could not start {display}: {error}"
 msgstr ""
 
@@ -5843,6 +5853,23 @@ msgid "No program to make a file system is installed on this computer."
 msgstr ""
 
 #: crates/ox-app/src/window/disk_tools.rs
+msgid "Renaming a drive needs the UDisks service, which is not available."
+msgstr ""
+
+#: crates/ox-app/src/window/disk_tools.rs
+msgid "Renaming…"
+msgstr ""
+
+#: crates/ox-app/src/window/disk_tools.rs
+msgid "The drive was not renamed."
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/disk_tools.rs
+msgid "The drive was renamed, but it could not be mounted again: {reason}"
+msgstr ""
+
+#: crates/ox-app/src/window/disk_tools.rs
 msgid "The tool is not installed."
 msgstr ""
 
@@ -5851,11 +5878,19 @@ msgid "This drive cannot be formatted."
 msgstr ""
 
 #: crates/ox-app/src/window/disk_tools.rs
+msgid "This drive cannot be renamed."
+msgstr ""
+
+#: crates/ox-app/src/window/disk_tools.rs
 msgid "This tool needs a location on this computer."
 msgstr ""
 
 #: crates/ox-app/src/window/disk_tools.rs crates/ox-app/src/window/file_ops/running.rs
 msgid "Wait until the drive is formatted, then try again."
+msgstr ""
+
+#: crates/ox-app/src/window/disk_tools.rs
+msgid "You are not allowed to rename this drive."
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -5911,6 +5946,11 @@ msgstr ""
 
 #: crates/ox-app/src/window/empty_page.rs
 msgid "Try again"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/empty_page.rs
+msgid "{location} is not accessible. The device is not ready."
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -7263,10 +7303,6 @@ msgid "Clear recent locations"
 msgstr ""
 
 #: crates/ox-app/src/window/place_menus.rs
-msgid "Drive names cannot be changed here."
-msgstr ""
-
-#: crates/ox-app/src/window/place_menus.rs
 msgid "Format…"
 msgstr ""
 
@@ -7276,6 +7312,10 @@ msgstr ""
 
 #: crates/ox-app/src/window/place_menus.rs
 msgid "Mount volume"
+msgstr ""
+
+#: crates/ox-app/src/window/place_menus.rs
+msgid "Only a removable drive can be renamed here."
 msgstr ""
 
 #: crates/ox-app/src/window/place_menus.rs

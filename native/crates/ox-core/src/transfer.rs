@@ -71,6 +71,7 @@ mod containment;
 mod copy;
 mod engine;
 mod error;
+mod gone_drive;
 mod guard;
 mod item_failure;
 mod labels;
