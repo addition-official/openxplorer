@@ -1,4 +1,36 @@
 STATUS: DONE
+HEAD: long-b-soak 6e067eb0 (merges origin/pass-19-a11y 4bb6397a and
+origin/long-d-doc-previews c8e18b0b into the soak fixes).
+
+MERGE FOR DEB (2026-11-22 12:20-13:20 CST)
+- Merged origin/pass-19-a11y (clean) and origin/long-d-doc-previews.
+- picture_guard/decoder.rs: kept long-b's take_idle (waitid WNOWAIT) and
+  spawn_lasting in decode(); removed long-d's idle_alive. Kept pass-19's
+  unused-decoder expiry (stop_unused) and its test. Kept long-d's test
+  a_decoder_that_ended_while_idle_is_replaced, now also asserting that the
+  ended decoder was reaped, not handed the picture.
+- The "Today at" after-midnight fix (4d9379d5) is unchanged in HEAD.
+- thumbnails.rs: kept both the 64 MB kept-preview budget and long-d's
+  smallest document-thumbnail edge, and both sides' tests.
+- parity/features.toml VIEW-057 note and apps/web/lib/docs.json folder-views
+  guide: pass-19's text plus long-d's office document previews; Markdown
+  guides regenerated with tools/sync-docs.py.
+- Ran: cargo fmt --check and clippy -D warnings (Rust 1.92.0): pass.
+  picture_guard::decoder (16), relative_dates (3), thumbnails::tests (12):
+  pass. parity/check.py: pass.
+- check.py as user tester, Rust 1.92.0, Python 3.12.3: FAILS in the ox_app
+  executable, which exits with SIGTRAP (status 133) on a fatal Gdk-CRITICAL
+  "gdk_surface_get_device_position: assertion 'GDK_IS_SURFACE (surface)'"
+  at window::tests::archives::extract_refuses_an_empty_folder_and_keeps_the_dialog_open
+  (and, with that skipped, at the next archives test). Reproduced the same
+  way on origin/pass-19-a11y alone (window::tests::a filter, twice), so it
+  comes from pass-19, not this merge. Backtrace: a GTK-internal timeout
+  queries the pointer of a destroyed surface while TestWindow::open waits in
+  harness::settle. Not fixed here.
+  Every other executable (86) and the doctests pass when run with check.py's
+  isolation, except ox_core's nine admin_copy tests, which fail the same way
+  on upstream 5d21fd3e in this container. Run alone, window::tests::archives
+  also has three launch tests that time out identically on pass-19-a11y.
 
 Long job B: the real long-use soak of OpenXplorer upstream main 5d21fd3e
 Run: 2026-11-21 23:00:51 to 2026-11-22 06:30:00 America/Chicago (7.5 hours,
