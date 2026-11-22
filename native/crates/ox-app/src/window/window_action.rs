@@ -143,6 +143,11 @@ pub(crate) enum WindowAction {
     /// Opens the offline user manual at the topic of what the window
     /// shows (F1, CMD-033).
     Help,
+    /// Opens the manual at "Turning on network discovery", from Network's
+    /// info bar.
+    NetworkDiscoveryHelp,
+    /// Hides Network's info bar until discovery runs again.
+    DismissNetworkInfoBar,
     /// Opens the keyboard shortcuts window (Ctrl+?, CMD-032).
     KeyboardShortcuts,
     About,
@@ -200,9 +205,9 @@ pub(crate) enum WindowAction {
     /// Collapses or expands the sidebar section whose key is the string
     /// target: the chevron of This PC or Network (SIDE-033).
     ToggleSidebarSection,
-    /// Lists the shared folders of the computer under Network whose
-    /// location is the string target, or hides them: its chevron.
-    ToggleNetworkComputer,
+    /// Expands or collapses the computer under Network whose location is
+    /// the string target, to its shares (SIDE-035).
+    ToggleComputer,
     /// Shows the hidden sidebar section whose key is the string target.
     ShowSection,
     /// Hides the sidebar place at the string target (SIDE-010).
@@ -430,6 +435,9 @@ pub(crate) enum WindowAction {
     AddToFavorites,
     /// Removes the file in the string target from Favorites (HOME-014).
     RemoveFromFavorites,
+    /// Takes the file in the target off the desktop's recently used list
+    /// (HOME-036).
+    RemoveFromRecent,
     /// Opens the item in the string target as a double-click does: a
     /// folder in the tab, a file in its default application (Home's
     /// Recent and Favorites).
@@ -620,6 +628,8 @@ impl WindowAction {
             WindowAction::Share => "share",
             WindowAction::About => "about",
             WindowAction::Help => "help",
+            WindowAction::NetworkDiscoveryHelp => "network-discovery-help",
+            WindowAction::DismissNetworkInfoBar => "dismiss-network-info-bar",
             WindowAction::KeyboardShortcuts => "keyboard-shortcuts",
             WindowAction::ContextMenu => "context-menu",
             WindowAction::View => "view",
@@ -642,7 +652,7 @@ impl WindowAction {
             WindowAction::SidebarShowAll => "sidebar-show-all",
             WindowAction::HideSection => "hide-section",
             WindowAction::ToggleSidebarSection => "toggle-sidebar-section",
-            WindowAction::ToggleNetworkComputer => "toggle-network-computer",
+            WindowAction::ToggleComputer => "toggle-computer",
             WindowAction::ShowSection => "show-section",
             WindowAction::HidePlace => "hide-place",
             WindowAction::ShowPlace => "show-place",
@@ -734,6 +744,7 @@ impl WindowAction {
             WindowAction::OpenFileLocationInWindow => "open-file-location-in-window",
             WindowAction::AddToFavorites => "add-to-favorites",
             WindowAction::RemoveFromFavorites => "remove-from-favorites",
+            WindowAction::RemoveFromRecent => "remove-from-recent",
             WindowAction::OpenItemAt => "open-item-at",
             WindowAction::OpenFileLocationOf => "open-file-location-of",
             WindowAction::GalleryCollection => "gallery-collection",

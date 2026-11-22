@@ -16,8 +16,8 @@ use std::sync::Arc;
 
 use gtk::{gio, glib};
 use ox_core::network::{
-    read_stable_smb_mounts, CredentialStore, DiscoveredServer, RecentServers, SecretService, SignOutRegistry,
-    VisitedNetwork,
+    read_stable_smb_mounts, CredentialStore, DiscoveredComputer, RecentServers, SecretService,
+    SignOutRegistry, VisitedNetwork,
 };
 use ox_core::places::StableMount;
 use ox_core::settings::Bookmark;
@@ -38,9 +38,11 @@ pub(crate) struct NetworkServices {
     stable_mounts: RefCell<Vec<StableMount>>,
     /// Where the listing of Network discovers computers.
     discoverer: RefCell<Discoverer>,
-    /// The computers discovery found this session, in the order found,
-    /// which the navigation pane lists under Network (SIDE-019).
-    computers: RefCell<Vec<DiscoveredServer>>,
+    /// The computers discovered this session, each with every service it
+    /// advertised, in the order first found. Opening a computer lists its
+    /// services from here, and the navigation pane lists them under
+    /// Network.
+    computers: RefCell<Vec<DiscoveredComputer>>,
 }
 
 impl Default for NetworkServices {
@@ -101,6 +103,12 @@ impl NetworkServices {
         self.visited.borrow_mut().remember_mapped(uri, label);
     }
 
+    /// Forgets the shares mapped this session at or inside `root`, when it
+    /// is disconnected; true when one was mapped.
+    pub(crate) fn forget_mapped_inside(&self, root: &str) -> bool {
+        self.visited.borrow_mut().forget_mapped_inside(root)
+    }
+
     /// Forgets every browsed root on `host`, when signing out of it.
     pub(crate) fn forget_visited_host(&self, host: &str) {
         self.visited.borrow_mut().forget_host(host);
@@ -124,27 +132,45 @@ impl NetworkServices {
         changed
     }
 
-    /// Adds the computers of `found` that are not known yet; true when
-    /// any was new.
-    pub(crate) fn remember_computers(&self, found: &[DiscoveredServer]) -> bool {
-        let mut computers = self.computers.borrow_mut();
-        let before = computers.len();
-        for server in found {
-            if !computers.iter().any(|known| known.uri == server.uri) {
-                computers.push(server.clone());
-            }
-        }
-        computers.len() != before
-    }
-
-    /// The computers discovery found this session.
-    pub(crate) fn computers(&self) -> Vec<DiscoveredServer> {
-        self.computers.borrow().clone()
-    }
-
     /// Where the listing of Network discovers computers.
     pub(crate) fn discoverer(&self) -> Discoverer {
         self.discoverer.borrow().clone()
+    }
+
+    /// Keeps what a discovery pass found: each computer replaces the one
+    /// of its host found before, and new ones join at the end. Returns
+    /// whether anything changed.
+    pub(crate) fn remember_computers(&self, found: &[DiscoveredComputer]) -> bool {
+        let mut known = self.computers.borrow_mut();
+        let mut changed = false;
+        for computer in found {
+            match known.iter_mut().find(|known| known.key == computer.key) {
+                Some(known) if known == computer => {}
+                Some(known) => {
+                    *known = computer.clone();
+                    changed = true;
+                }
+                None => {
+                    known.push(computer.clone());
+                    changed = true;
+                }
+            }
+        }
+        changed
+    }
+
+    /// The computers discovered this session.
+    pub(crate) fn known_computers(&self) -> Vec<DiscoveredComputer> {
+        self.computers.borrow().clone()
+    }
+
+    /// The discovered computer `uri` opens (`\\host`), if any.
+    pub(crate) fn computer_at(&self, uri: &str) -> Option<DiscoveredComputer> {
+        self.computers
+            .borrow()
+            .iter()
+            .find(|computer| computer.is_at(uri))
+            .cloned()
     }
 
     /// Makes Network find what `discoverer` returns, for tests.

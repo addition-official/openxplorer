@@ -257,9 +257,10 @@ fn the_blank_space_of_this_pc_home_and_network_has_windows_11s_menu() {
     session.test.window.folder_model().select_none();
     let at = on_page_blank(&session);
     let menu = right_click_at(&mut session, at, "Network's blank space");
+    // As Windows 11 lists it there (build 26200): no Refresh.
     assert_eq!(
         menu.row_labels(),
-        ["View", "Sort by", "Group by", "Refresh", "-", "Show more options"]
+        ["View", "Sort by", "Group by", "-", "Show more options"]
     );
     close(&mut session, &menu);
 
@@ -345,8 +346,10 @@ fn a_network_computer_in_the_navigation_pane_pins_to_quick_access() {
     let mut session = Session::open_on(Fixture::real_world(), None);
     session.test.window.context().remember_network("smb://nas/");
     let sidebar = session.test.window.sidebar().clone();
+    // Network starts collapsed, as in Windows 11 (SIDE-035).
+    sidebar.toggle_section("network");
     wait_until("the computer's row", || {
-        sidebar.labels().contains(&"nas".to_owned())
+        sidebar.labels_shown().contains(&"nas".to_owned())
     });
     wait_for_frames(&session.test.window, 3);
     for style in [ContextMenu::Win11, ContextMenu::Win10] {

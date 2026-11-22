@@ -18,7 +18,7 @@ use crate::window::widget_tree::descendants;
 use crate::window::window_action::WindowAction;
 
 use super::super::saved_search::saved_search_target;
-use super::entries::{EjectButton, RowLevel, RowTarget, Section, SidebarEntry};
+use super::entries::{EjectButton, RowExpander, RowLevel, RowTarget, Section, SidebarEntry};
 
 /// Glyphs and art are 16 pixels, as Windows 11's navigation pane icons
 /// (owner decision 2026-11-06; the web's were 18 and 19).
@@ -110,8 +110,8 @@ fn row_content(entry: &SidebarEntry, look: RowLook, collapsed: bool) -> gtk::Box
             content.append(&chevron);
         }
     }
-    if let (RowLevel::Computer { expanded }, RowTarget::Location(uri)) = (entry.level, &entry.target) {
-        content.append(&computer_chevron(uri, &entry.label, expanded));
+    if let Some(expander) = &entry.expander {
+        content.append(&row_chevron(expander, &entry.label));
     }
     let icon = row_icon(entry.icon, look.icon_size);
     if matches!(entry.icon, Art::Network(_)) {
@@ -164,20 +164,19 @@ fn section_chevron(section: Section, expanded: bool) -> Option<gtk::Button> {
     Some(button)
 }
 
-/// The chevron of a computer Network discovered, `expanded` or not: it
-/// lists the computer's shared folders under it, or hides them, as a
-/// node of Windows Explorer's navigation pane does; clicking the name
-/// still opens the computer. Like This PC's, it takes no focus: Right
-/// and Left on the row do the same.
-fn computer_chevron(uri: &str, name: &str, expanded: bool) -> gtk::Button {
+/// The chevron of a row that expands on its own, such as a computer
+/// under Network, called `name`: it expands the row to its shares or
+/// collapses it, as in Windows 11's navigation pane, and takes no focus
+/// (Right and Left on the row do the same).
+fn row_chevron(expander: &RowExpander, name: &str) -> gtk::Button {
     let button = gtk::Button::builder()
         .css_classes([CHEVRON_CLASS])
         .valign(gtk::Align::Center)
         .focus_on_click(false)
         .can_focus(false)
         .build();
-    WindowAction::ToggleNetworkComputer.assign_with_target_to(&button, &uri.to_variant());
-    let (glyph, label) = if expanded {
+    WindowAction::ToggleComputer.assign_with_target_to(&button, &expander.uri.to_variant());
+    let (glyph, label) = if expander.expanded {
         (
             Icon::ChevronDown16,
             ox_core::i18n::format_message("Collapse {section}", &[("section", name)]),
@@ -251,8 +250,10 @@ fn placement_classes(entry: &SidebarEntry) -> Vec<&'static str> {
         RowLevel::Place => {}
         RowLevel::Group => classes.push("group"),
         RowLevel::Child => classes.push("indent"),
-        RowLevel::Computer { .. } => classes.push("computer"),
-        RowLevel::Share => classes.push("share"),
+        RowLevel::Grandchild => classes.push("indent2"),
+    }
+    if entry.expander.is_some() {
+        classes.push("expandable");
     }
     if entry.section == Section::QuickAccess {
         classes.push("quick-access");
@@ -281,11 +282,10 @@ pub(super) fn sidebar_row(entry: &SidebarEntry, look: RowLook, collapsed: bool) 
     match entry.level {
         RowLevel::Place => {}
         RowLevel::Group => row.update_state(&[gtk::accessible::State::Expanded(Some(!collapsed))]),
-        RowLevel::Child | RowLevel::Share => row.set_visible(!collapsed),
-        RowLevel::Computer { expanded } => {
-            row.update_state(&[gtk::accessible::State::Expanded(Some(expanded))]);
-            row.set_visible(!collapsed);
-        }
+        RowLevel::Child | RowLevel::Grandchild => row.set_visible(!collapsed),
+    }
+    if let Some(expander) = &entry.expander {
+        row.update_state(&[gtk::accessible::State::Expanded(Some(expander.expanded))]);
     }
     let (action, target) = match &entry.target {
         RowTarget::Location(uri) => (WindowAction::GoTo, uri.to_variant()),

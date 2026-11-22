@@ -58,6 +58,7 @@ use crate::locations::Page;
 use super::listing_state::{ListingEnd, ListingState, ReloadTiming};
 use super::session::TabId;
 use super::BrowserWindow;
+pub(super) use mount_retry::at_remote_home;
 use mount_retry::MountRetry;
 
 /// Whether a change to the folder of a tab waits until the tab is shown:
@@ -353,24 +354,35 @@ impl BrowserWindow {
                 glib::clone!(
                     #[weak(rename_to = window)]
                     self,
-                    move |entries| {
-                        // The navigation pane lists them under Network too.
-                        let servers: Vec<ox_core::network::DiscoveredServer> = entries
-                            .iter()
-                            .map(|entry| ox_core::network::DiscoveredServer {
-                                uri: entry.uri.clone(),
-                                label: entry.name.clone(),
-                                host: String::new(),
-                            })
-                            .collect();
-                        window.remember_computers(&servers);
-                        window.receive_batch(&batch_run, entries);
-                    }
+                    move |entries| window.receive_batch(&batch_run, entries)
                 ),
                 glib::clone!(
                     #[weak(rename_to = window)]
                     self,
-                    move |problem| window.finish_network_listing(&run, problem)
+                    move |computers| window.context().remember_computers(computers)
+                ),
+                glib::clone!(
+                    #[weak(rename_to = window)]
+                    self,
+                    move |problem: Option<crate::network::DiscoveryProblem>| {
+                        window.finish_network_listing(&run, problem.map(|problem| problem.reason()));
+                    }
+                ),
+            );
+        }
+        // A computer Network found lists its shares and its other services.
+        if let Some(computer) = self.context().network().computer_at(&start.uri) {
+            return loader::list_computer(
+                computer,
+                glib::clone!(
+                    #[weak(rename_to = window)]
+                    self,
+                    move |entries| window.receive_batch(&batch_run, entries)
+                ),
+                glib::clone!(
+                    #[weak(rename_to = window)]
+                    self,
+                    move |result| window.finish_load(&run, result)
                 ),
             );
         }

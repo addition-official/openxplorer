@@ -1285,7 +1285,7 @@ native_note = "native/crates/ox-app/src/window/home_page.rs (folder_tile, reusin
 id = "HOME-014"
 area = "HOME"
 title = "Home: Favorites, with Add to Favorites and Remove from Favorites"
-behaviour = "A file's right-click menu (compact and classic) offers 'Add to Favorites', whatever Home shows, as Windows 11's does, or 'Remove from Favorites' for a favorite; so do the rows of Recent. Home lists the Favorites while 'Open Quick access on Home' is on. Favorites lists those files in the order added (favorites in the settings file, up to 500 locations, the name read from the location so no drive or share is read to draw Home). A double-click or Enter opens the real file in its default application; the menu has Open, Open file location, Remove from Favorites, Copy as path and Properties. Empty, it says 'Files you add to Favorites show here.'"
+behaviour = "A file's right-click menu (compact and classic) offers 'Add to Favorites', whatever Home shows, as Windows 11's does, or 'Remove from Favorites' for a favorite; so do the rows of Recent. Home lists the Favorites while 'Open Quick access on Home' is on. Favorites lists those files in the order added (favorites in the settings file, up to 500 locations, the name read from the location so no drive or share is read to draw Home). A double-click or Enter opens the real file in its default application; the menu has Open, Open file location, Remove from Favorites, Copy as path and Properties, with the file commands of HOME-036. Empty, it says 'Files you add to Favorites show here.'"
 origin = ["openxplorer"]
 priority = "could"
 openxplorer = "missing"
@@ -1303,7 +1303,7 @@ native_note = "native/crates/ox-app/src/window/home_page.rs; native/crates/ox-co
 id = "HOME-015"
 area = "HOME"
 title = "Home: Recent lists the desktop's recently used files"
-behaviour = "Recent lists the files GVfs lists at recent:/// (the desktop's recently used list, as the navigation pane's Recent files), newest first, up to 50, folders and rows without a real file left out; it follows the list as it changes. The switcher's tabs are pills with a glyph (a clock for Recent, a star for Favorites), the shown one filled with the accent colour. The list is a Details list with the column headers Name, Date accessed (the time the desktop's list records for Recent, the file's access time for Favorites) and File location (the folder from the home folder down, '/' between folders, 'Home' for the home folder, the whole path elsewhere); rows are 36 px apart (26 in Compact view), set by the rows' own height; Name stands over the rows' 20 px icons about 90 px from the pane's edge, Date accessed 484 px and File location 782 px right of it, not stretched to the window's edge; a narrow window narrows Name first, then the other two. The status bar counts Home's tiles and rows ('9 items'), as Windows 11's does on Home. A double-click or Enter opens the real file (the row's recent target), Open file location opens its folder with it selected; the menu also has Add to Favorites, Copy as path and Properties. Empty, it says 'Files you open recently show here.' Nothing is sent anywhere."
+behaviour = "Recent lists the files GVfs lists at recent:/// (the desktop's recently used list, as the navigation pane's Recent files), newest first, up to 50, folders, rows without a real file and files that are gone left out; it follows the list as it changes, also when another application adds a file. The switcher's tabs are pills with a glyph (a clock for Recent, a star for Favorites), the shown one filled with the accent colour. The list is a Details list with the column headers Name, Date accessed (the time the desktop's list records for Recent, the file's access time for Favorites) and File location (the folder from the home folder down, '/' between folders, 'Home' for the home folder, the whole path elsewhere); rows are 36 px apart (26 in Compact view), set by the rows' own height; Name stands over the rows' 20 px icons about 90 px from the pane's edge, Date accessed 484 px and File location 782 px right of it, not stretched to the window's edge; a narrow window narrows Name first, then the other two. The status bar counts Home's tiles and rows ('9 items'), as Windows 11's does on Home. A double-click or Enter opens the real file (the row's recent target), Open file location opens its folder with it selected; the menu also has Add to Favorites, Copy as path and Properties. Empty, it says 'Files you open recently show here.' Nothing is sent anywhere."
 origin = ["openxplorer"]
 priority = "could"
 openxplorer = "missing"
@@ -1314,7 +1314,7 @@ sources = [
 python_tests = []
 bridge = []
 native = "done"
-native_note = "native/crates/ox-app/src/window/home_page.rs (recent_files, watch_recent_files). Tested in native/crates/ox-app/src/window/tests/home_page.rs (a_recent_file_opens_the_real_file_and_its_location, the_list_has_name_date_accessed_and_file_location_columns, recent_lists_nothing_while_the_desktop_remembers_no_recent_files). Microsoft: Home's files offer 'Open file location' (Release Preview 26100.7015). The columns Name, Date accessed and File location are those of a Windows 11 screenshot; how many files, 'Remove from list' and the empty wording are not documented, so no Remove from list is drawn. Since 2026-11-14 the first row stands right under the column titles, one row (36 pixels, 26 in Compact view) from their middle, with no empty band, and the rows name files without a known type's extension while extensions are hidden (window/tests/home_page.rs: home_has_no_band_under_the_titles_and_its_tiles_do_not_touch, recent_and_favorites_follow_the_file_name_extensions_setting)."
+native_note = "native/crates/ox-app/src/window/home_page.rs (recent_files, watch_recent_files). Tested in native/crates/ox-app/src/window/tests/home_page.rs (a_recent_file_opens_the_real_file_and_its_location, the_list_has_name_date_accessed_and_file_location_columns, recent_lists_nothing_while_the_desktop_remembers_no_recent_files). Microsoft: Home's files offer 'Open file location' (Release Preview 26100.7015). The columns Name, Date accessed and File location are those of a Windows 11 screenshot; how many files and the empty wording are not documented. Remove from Recent and the file commands of a row are HOME-036. Since 2026-11-14 the first row stands right under the column titles, one row (36 pixels, 26 in Compact view) from their middle, with no empty band, and the rows name files without a known type's extension while extensions are hidden (window/tests/home_page.rs: home_has_no_band_under_the_titles_and_its_tiles_do_not_touch, recent_and_favorites_follow_the_file_name_extensions_setting)."
 
 [[feature]]
 id = "HOME-016"
@@ -1349,6 +1349,39 @@ python_tests = []
 bridge = []
 native = "done"
 native_note = "native/crates/ox-app/src/window/folder_search.rs (searched_folder: the home folder on the Home page); native/crates/ox-app/src/window/location_view.rs (the search box is enabled on Home); native/crates/ox-app/src/window/pane_content.rs (a search step on Home lists its results in place of the page). The search step keeps the Home page as its location, so Back and Close search return there. Tested in native/crates/ox-app/src/window/tests/home_page.rs (searching_from_home_searches_the_home_folder_and_its_subfolders, searching_the_home_folder_finds_files_in_its_subfolders). Windows 11 also searches the cloud from Home; there is no cloud here. The Home page has no listing of its own, so its search is the walk of the home folder's whole tree, also when pinned folders below home are cached (searching_from_home_finds_files_deep_in_uncached_folders: files three levels down in an uncached folder, found from Home and from the home folder). While the walk runs the pane keeps the blank list, never 'No matching items', and shows each match as it is found (PaneState::searching in native/crates/ox-app/src/window/pane_content.rs, update_content after the first batch in live_search.rs): before, a big home showed 'No matching items' until the whole tree had been walked. Tested in searching_from_a_big_home_shows_matches_as_they_are_found (a cached Documents, an uncached OX-Test three levels down and 1,500 more folders)."
+
+[[feature]]
+id = "HOME-036"
+area = "HOME"
+title = "Home: Recent and Favorites rows act on their files, Remove from Recent"
+behaviour = "A row of Home's Recent or Favorites stands for its file, as in Windows 11's Home. Its compact menu has Cut, Copy, Rename and Delete in the icon strip, then Open, Open file location, Add to Favorites or Remove from Favorites, Remove from Recent (Recent rows only), Copy as path, Properties and Show more options, which opens the classic menu (the same commands, Cut, Copy, Delete and Rename as rows) in its place. With a row selected, Ctrl+C and Ctrl+X put the file on the clipboard, F2 opens the Rename dialog, Delete moves the file to the Recycle Bin and Shift+Delete deletes it after its question; the command bar's Cut, Copy, Rename and Delete act on it too, and a click on blank space selects nothing. Remove from Recent takes the file off the desktop's recently used list (recently-used.xbel, which every application shares) and its row off Recent; the file stays. A renamed file stays in Recent and Favorites under its new name (as do files inside a renamed folder), keeping its place in Favorites. A deleted file's row leaves Recent; one found gone when opened says 'Item Not Found' and then leaves Recent. Clear OpenXplorer history (Folder Options) empties Recent and keeps Favorites and the pins."
+origin = ["openxplorer"]
+priority = "should"
+openxplorer = "missing"
+sources = [
+  "https://blogs.windows.com/windows-insider/2025/10/21/releasing-windows-11-builds-26100-7015-and-26200-7015-to-the-release-preview-channel/",
+  "https://blogs.windows.com/windows-insider/2022/04/06/announcing-windows-11-insider-preview-build-22593/",
+]
+python_tests = []
+bridge = []
+native = "done"
+native_note = "native/crates/ox-app/src/window/home_page.rs (file_menu, PlaceMenu::HomeFile, connect_item_keys, remove_from_recent, drop_recent_row, follow_renamed_item, selected_home_file); native/crates/ox-app/src/window/file_ops/availability.rs, clipboard.rs, delete.rs and rename.rs (the command bar on a selected row); native/crates/ox-app/src/window/activation/outcome.rs (a gone file leaves Recent); native/crates/ox-core/src/settings.rs (Settings::move_favorites). Tested with real XTEST clicks and keys in native/crates/ox-app/src/window/tests/home_recent.rs (a_recent_rows_menu_has_the_file_commands_and_remove_from_recent, remove_from_recent_drops_the_row_and_keeps_the_file, delete_on_a_recent_row_recycles_the_file_and_drops_the_row, f2_on_a_recent_row_renames_the_file_and_recent_follows_it, ctrl_c_on_a_recent_row_copies_the_file, a_recent_file_found_gone_leaves_recent, clearing_history_empties_recent_and_keeps_favorites, the_command_bar_acts_on_the_selected_row, a_right_click_on_blank_space_clears_the_selection, a_right_clicked_row_is_not_left_drawn_as_pressed) and native/crates/ox-core/src/settings/tests/preferences.rs (a_renamed_favorite_keeps_its_place_under_its_new_name). Not on an official Microsoft page, so to check in Windows: the wording 'Remove from Recent', which commands Windows puts in the strip (Share is left out here), whether Windows renames in place (here the Rename dialog opens) and whether a file deleted elsewhere leaves Recent before Home is drawn again (here it leaves on F5, on opening Home, or when opened)."
+
+[[feature]]
+id = "HOME-037"
+area = "HOME"
+title = "Home: Quick access tiles are dragged into a new order"
+behaviour = "A Quick access tile dragged onto the left half of another goes before it, onto the right half after it, and onto blank space after the last tile. The order is the navigation pane's Quick access order (quickOrder), so the navigation pane shows it too, and it is saved."
+origin = ["openxplorer"]
+priority = "should"
+openxplorer = "missing"
+sources = [
+  "https://support.microsoft.com/en-us/windows/file-explorer-in-windows-ef370130-1cca-9dc5-e0df-2f7416fe1cb1",
+]
+python_tests = []
+bridge = []
+native = "done"
+native_note = "native/crates/ox-app/src/window/home_page.rs (connect_tile_reordering, tile_drop_place), saving through BrowserWindow::pin_dropped (native/crates/ox-app/src/window/quick_access.rs). Tested with a real XTEST drag in native/crates/ox-app/src/window/tests/home_recent.rs (a_tile_dragged_onto_another_moves_there). No insertion mark is drawn while dragging; Windows draws one, to check in Windows."
 
 [[feature]]
 id = "HOME-017"
@@ -5669,7 +5702,7 @@ python_tests = [
 bridge = ["environment", "bookmark", "pin"]
 dolphin = "Places panel; show_places_panel: F9"
 native = "done"
-native_note = "Changed to match Windows 11 (2026-11-06): the order and dividers are Windows 11's (Home | pins | This PC and Network), the pinned rows are full width on the 32 px pitch with every top-level icon in one column (a chevron's room in, as in Windows), drives and network locations a 16 px level in, and saved searches moved from below Quick access to the last group after Network, with Recent files, Recent locations and the Recycle Bin, where they were. Gallery is left out until the app has a Gallery view; since HOME-017 it is listed right under Home, in Home's group, in both states of 'Show more items in the navigation pane' (native/crates/ox-app/src/window/tests/gallery.rs the_gallery_row_is_right_under_home_and_opens_gallery). native/crates/ox-app/src/window/sidebar/entries.rs (rows_follow_windows_11_order_and_smb_mounts_appear_once_under_network, the_places_windows_lacks_follow_network_in_a_group_of_their_own, home_this_pc_and_network_show_their_glyphs_in_their_own_colours); native/crates/ox-app/src/window/tests/sidebar_layout.rs (pinned_rows_line_up_with_home_on_the_32_pixel_pitch); native/crates/ox-app/src/window/tests/sidebar.rs (nothing_is_pinned_below_the_navigation_pane); native/crates/ox-app/src/window/tests/sidebar.rs (quick_access_has_no_heading_and_this_pc_opens_from_its_name). The order, the blue Home glyph, the section separators, non-SMB volumes and devices under This PC, the chevrons (buttons that collapse their section, SIDE-033; activating This PC's row opens it and its drives stay listed) and the absence of a Quick access heading or counter are tested. On 2026-11-10 the owner chose to keep this as the default and to offer Windows 11 File Explorer's layout (as checked in Windows 11 build 26200) as an opt-in (SIDE-034). Test: native/crates/ox-app/src/window/tests/sidebar.rs (the_navigation_pane_keeps_more_rows_by_default_and_a_setting_gives_windows_pane)."
+native_note = "Changed to match Windows 11 (2026-11-06): the order and dividers are Windows 11's (Home | pins | This PC and Network), the pinned rows are full width on the 32 px pitch with every top-level icon in one column (a chevron's room in, as in Windows), drives and network locations a 16 px level in, and saved searches moved from below Quick access to the last group after Network, with Recent files, Recent locations and the Recycle Bin, where they were. Gallery is left out until the app has a Gallery view; since HOME-017 it is listed right under Home, in Home's group, in both states of 'Show more items in the navigation pane' (native/crates/ox-app/src/window/tests/gallery.rs the_gallery_row_is_right_under_home_and_opens_gallery). native/crates/ox-app/src/window/sidebar/entries.rs (rows_follow_windows_11_order_and_saved_shares_appear_once_under_this_pc, the_places_windows_lacks_follow_network_in_a_group_of_their_own, home_this_pc_and_network_show_their_glyphs_in_their_own_colours); native/crates/ox-app/src/window/tests/sidebar_layout.rs (pinned_rows_line_up_with_home_on_the_32_pixel_pitch); native/crates/ox-app/src/window/tests/sidebar.rs (nothing_is_pinned_below_the_navigation_pane); native/crates/ox-app/src/window/tests/sidebar.rs (quick_access_has_no_heading_and_this_pc_opens_from_its_name). The order, the blue Home glyph, the section separators, non-SMB volumes and devices under This PC, the chevrons (buttons that collapse their section, SIDE-033; activating This PC's row opens it and its drives stay listed) and the absence of a Quick access heading or counter are tested. On 2026-11-10 the owner chose to keep this as the default and to offer Windows 11 File Explorer's layout (as checked in Windows 11 build 26200) as an opt-in (SIDE-034). Test: native/crates/ox-app/src/window/tests/sidebar.rs (the_navigation_pane_keeps_more_rows_by_default_and_a_setting_gives_windows_pane)."
 
 [[feature]]
 id = "SIDE-002"
@@ -6397,6 +6430,19 @@ python_tests = []
 bridge = []
 native = "done"
 native_note = "Preferences::more_navigation_pane_items (native/crates/ox-core/src/settings/preferences.rs), read by render_places (native/crates/ox-app/src/window/environment.rs) and the sidebar rows (native/crates/ox-app/src/window/sidebar/row.rs). Owner-approved opt-in (2026-11-10): the app's pane stays the default and Windows 11's is a switch away. Tests: preferences.rs (tab_menu_and_navigation_pane_extras_start_on_and_are_stored_when_off), native/crates/ox-app/src/window/tests/sidebar.rs (the_navigation_pane_keeps_more_rows_by_default_and_a_setting_gives_windows_pane), native/crates/ox-app/src/window/tests/address_input.rs (the_recycle_bin_and_recent_open_from_the_typed_address). Until 2026-11-09 Enter on 'Recycle Bin', 'Recent' or 'Recent locations', or on trash:///, recent:/// or ox:recent-locations, in the address bar did nothing: its by-title fallback knew only Home, This PC and Network. Folder Options > General > Privacy's 'Show recently used files' and 'Show frequently used folders' choose whether those rows show while this switch is on, the default; while it is off they are grayed out, with a tooltip saying they apply when 'Show more items in the navigation pane' is on in Settings > Appearance, and Folder Options does not turn the switch on; an open Folder Options follows the switch at once when any window or process changes it, in both directions (native/crates/ox-app/src/window/tests/folder_options.rs, privacy_check_boxes_follow_the_navigation_pane_switch, privacy_check_boxes_follow_the_switch_while_folder_options_is_open)."
+[[feature]]
+id = "SIDE-035"
+area = "SIDE"
+title = "Network in the navigation pane expands to computers, then shares"
+behaviour = "As in Windows 11, Network in the navigation pane starts collapsed and expands to the computers on the network (discovery runs when it is expanded and nothing found them yet), each with its own chevron that expands it to its shares and services, read off the main loop; Left and Right expand and collapse it from the keyboard. Shares and servers mounted or browsed this session are inside their computer, and a server no discovery found is a computer of its own. Saved network locations and shares mapped to a drive letter are under This PC."
+origin = ["openxplorer"]
+priority = "should"
+openxplorer = "missing"
+sources = ["Windows 11 File Explorer: Network (build 26200)"]
+python_tests = []
+bridge = []
+native = "done"
+native_note = "native/crates/ox-app/src/window/sidebar/network_tree.rs (network_lists_computers_and_this_pc_the_mapped_drives, an_expanded_computer_lists_its_shares); native/crates/ox-app/src/window/network_pane.rs; native/crates/ox-app/src/window/tests/network.rs (the_navigation_pane_expands_network_to_computers_and_shares). Review 5 U1."
 [[feature]]
 id = "CMD-001"
 area = "CMD"
@@ -12025,6 +12071,90 @@ dolphin = "Properties → Share tab (kdenetwork-filesharing); Samba share proper
 gnome = "`net usershare add/delete/info` (samba-common-bin installed), as the nautilus-share extension does; gnome-user-share for the Public folder; nautilus-share (usershares via 'net usershare')"
 native = "done"
 native_note = "native/crates/ox-core/src/network/usershare.rs runs net usershare info/add/delete with an argument list (a_folder_is_shared_read_only_by_default_and_its_state_is_read_back, sharing_is_unavailable_without_permitted_user_shares, another_folders_share_name_is_refused); native/crates/ox-app/src/properties/sharing_panel.rs is the Sharing tab of a local folder's Properties: share this folder, share name, comment, guests, read only and Apply, with the current state (the_tab_shows_the_share_and_applies_a_change). Without Samba or permitted user shares the tab says so and its controls are off. Tested with a fake net command only. A share name another folder already uses is refused ('This share name is already used for another folder.'), as Dolphin's Share tab does, since Samba would move that share. A missing net says 'Folder sharing needs Samba, and its net command is not installed.'. The share is read when the tab is first shown. The Flatpak has no Sharing tab, as it cannot run the host's net. The shares are read with `net usershare info --long`: Samba 4.15 and newer read `-l` as --log-basename, so `-l` failed there with 'Invalid option -l: missing argument' and the Sharing tab always said sharing was unavailable (native/crates/ox-core/src/network/usershare.rs: shares_are_listed_with_the_long_option_newer_samba_takes)."
+
+[[feature]]
+id = "NET-036"
+area = "NET"
+title = "One row per device on Network, opened as \\\\PC"
+behaviour = "Network lists one row per device, as Windows 11 does: every SMB, SFTP, FTP and WebDAV service one host advertises (WebDAV over DNS-SD included) is one computer, named by its SMB server's NetBIOS name, else its host name, in Tiles grouped by type ('Computer') until another view is chosen there. Opening it lists its SMB shares and its other services as rows of their own ('Harbor Files (SFTP)'), so nothing advertised is lost; the tab says '\\\\PC', the address 'Network > PC' and the search box 'Search PC'. Its menu is Open, Open in new tab, Open in new window, Pin to Quick access and Create shortcut (on the Desktop), with no Properties."
+origin = ["openxplorer"]
+priority = "should"
+openxplorer = "missing"
+sources = ["Windows 11 File Explorer: Network (build 26200)"]
+python_tests = []
+bridge = []
+native = "done"
+native_note = "native/crates/ox-core/src/network/computers.rs groups services by host (every_service_of_one_host_is_one_computer, a_netbios_name_and_its_dns_sd_host_are_one_computer); native/crates/ox-core/src/network/discovery.rs resolves dav+sd through Avahi's D-Bus ResolveService (a_dns_sd_webdav_service_resolves_to_its_host); native/crates/ox-app/src/folder_view/loader.rs lists a computer (list_computer); native/crates/ox-app/src/window/tests/network.rs (a_computer_lists_its_services_and_is_named_like_windows). Review 5 U1, B3, B4."
+
+[[feature]]
+id = "NET-037"
+area = "NET"
+title = "Shares ending in $ are hidden"
+behaviour = "A share whose name ends in $ is a hidden item in a server's list of shares and in the navigation pane, as Windows hides it; 'Show hidden files' shows it, and typing its address opens it."
+origin = ["openxplorer"]
+priority = "should"
+openxplorer = "missing"
+sources = ["https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2012-r2-and-2012/hh750728(v=ws.11)"]
+python_tests = []
+bridge = []
+native = "done"
+native_note = "native/crates/ox-core/src/entry/info.rs (a_share_ending_in_a_dollar_sign_is_hidden); native/crates/ox-app/src/window/sidebar/network_tree.rs (an_expanded_computer_lists_its_shares). Review 5 U1."
+
+[[feature]]
+id = "NET-038"
+area = "NET"
+title = "Network says when discovery is off"
+behaviour = "When discovery cannot run (no GVfs network browser, or neither Avahi nor wsdd and nothing found), Network shows Windows' yellow bar: 'Network discovery is turned off. Network computers and devices are not visible. Click to change...', with the reason as its tooltip and an x that hides it until discovery runs again. Clicking it opens a menu: 'How to turn on network discovery' (the manual's steps) and 'Open Help'. The list says 'This folder is empty.'. The app never starts or changes a system service."
+origin = ["openxplorer"]
+priority = "should"
+openxplorer = "missing"
+sources = ["Windows 11 File Explorer: Network (build 26200)", "https://support.microsoft.com/en-us/windows/experience/connectivity-networking/file-sharing-over-a-network-in-windows"]
+python_tests = []
+bridge = []
+native = "done"
+native_note = "native/crates/ox-core/src/network/discovery.rs (discovery_sources, discovery_needs_the_browser_and_one_source); native/crates/ox-app/src/network/discovery.rs (discovery_is_off_without_a_source); native/crates/ox-app/src/window/tests/network.rs (network_says_when_discovery_is_turned_off, network_says_discovery_is_off_without_avahi_or_wsdd). Review 5 U1."
+
+[[feature]]
+id = "NET-039"
+area = "NET"
+title = "Mapped drive letters open in the address bar"
+behaviour = "Typing Z: or Z:\\folder\\sub (or with /) in the address bar opens the share mapped to Z by Map network drive, saved or for this session, and the folder inside it. A letter no share is mapped to is still refused as a Windows path."
+origin = ["openxplorer"]
+priority = "should"
+openxplorer = "missing"
+sources = ["https://support.microsoft.com/en-us/windows/experience/connectivity-networking/file-sharing-over-a-network-in-windows"]
+python_tests = []
+bridge = []
+native = "done"
+native_note = "native/crates/ox-core/src/location/drive_letters.rs (a_mapped_letter_opens_its_share, other_addresses_are_not_mapped_drives); native/crates/ox-app/src/window/tests/network.rs (a_mapped_drive_letter_opens_in_the_address_bar). Review 5 B1."
+
+[[feature]]
+id = "NET-040"
+area = "NET"
+title = "Disconnect ends a drive's mapping"
+behaviour = "Disconnect of a share mapped to a drive letter ends the mapping, saved or for this session, as in Windows: no row of it is left in the navigation pane or This PC. 'Disconnect this mount?' has Disconnect as its default button. A saved network location without a letter stays."
+origin = ["openxplorer"]
+priority = "should"
+openxplorer = "missing"
+sources = ["Windows 11 File Explorer: Network (build 26200)"]
+python_tests = []
+bridge = []
+native = "done"
+native_note = "native/crates/ox-core/src/network/visited.rs (disconnecting_a_mapped_share_forgets_its_mapping); native/crates/ox-app/src/window/mounting.rs (forget_mapped_drives_inside). Review 5 B1, U1."
+
+[[feature]]
+id = "NET-041"
+area = "NET"
+title = "Share names keep the spelling they were opened with"
+behaviour = "Inside an SMB share, folders keep the spelling the share was opened with (the server's own when opened from its list of shares), not GVfs's mounted spelling, so the tab, the address bar and Recent locations say 'Projects', not 'projects'; Recent locations lists a share once whatever its case."
+origin = ["openxplorer"]
+priority = "should"
+openxplorer = "missing"
+sources = ["Windows 11 File Explorer: Network (build 26200)"]
+python_tests = []
+bridge = []
+native = "done"
+native_note = "native/crates/ox-core/src/entry/enumerate.rs (rows_of_a_share_keep_the_folders_spelling); native/crates/ox-app/src/folder_view/recent_locations.rs (a_share_spelled_in_two_cases_is_listed_once). Review 5 U1."
 
 [[feature]]
 id = "DEV-001"
