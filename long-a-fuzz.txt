@@ -80,5 +80,5 @@ New: archive_zipgen (ZIPs written from the input with consistent offsets and CRC
 Found and fixed since last update: 2
 - Don't crash on malformed icon directories (ICO/CUR entry offset of 1.2 GB made the loader reserve it) - fixed 0616796c
 - Don't open archive members whose data ends early (a ZIP or 7z member shorter than its recorded size, with a matching checksum, previewed as a silently shorter copy; Extract All already refused it) - fixed cee1d612
-Open (not in the app's code): media_streams crash inside GStreamer 1.24.2's parsebin with a Matroska input, about 1 run in 60 in one process; it runs only in the media reader child, which the app already treats as allowed to crash. Kept as fixed/media_streams-open in the fuzz folder, not committed.
+Open (not in the app's code): Don't crash on malformed Matroska files in the media reader (inside GStreamer, which runs only in the reader child; not reproducible on every run).
 Notes: the fuzz harness now gives each archive input its own location (the 7z header cache is keyed by location, length and start header, so one input's headers could be reused for the next).
