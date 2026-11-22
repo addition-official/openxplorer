@@ -54,7 +54,7 @@ pub(crate) enum Button {
 
 /// The tests' pointer, on the private X display. Dropping it releases
 /// the buttons it holds, so a test that fails mid-drag leaves none pressed
-/// for the next one, and moves it off every window.
+/// for the next one.
 #[derive(Debug)]
 pub(crate) struct Pointer {
     connection: UnixStream,
@@ -304,13 +304,6 @@ impl Drop for Pointer {
             if self.connection.write_all(&request).is_err() {
                 return;
             }
-        }
-        // The pointer goes to the screen's far corner, off every window:
-        // left over a later test's window, it showed that window's
-        // tooltips, whose labels a test reads too.
-        let corner = self.fake_request(MOTION_NOTIFY, 0, self.screen.0 - 1, self.screen.1 - 1);
-        if self.connection.write_all(&corner).is_err() {
-            return;
         }
         let _ = self.connection.write_all(&[GET_INPUT_FOCUS, 0, 1, 0]);
         let mut reply = [0; 32];
