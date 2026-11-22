@@ -452,6 +452,41 @@ impl Converter {
             self.remember(name, Failure::Failed);
             return Err(Failure::Failed);
         }
+        loop {
+            // The conversion has a cancellation of its own, which the
+            // request's cancels and which the Preview pane's request may
+            // cancel too (see [`Lane::wait`]): a thumbnail's conversion
+            // stopped for the selection waits for its turn again, rather
+            // than leaving its item without a thumbnail until it is shown
+            // again.
+            let conversion = gio::Cancellable::new();
+            let link = {
+                let conversion = conversion.clone();
+                cancellation.connect_cancelled(move |_| conversion.cancel())
+            };
+            let outcome = self.convert_in_turn(path, name.clone(), priority, &conversion);
+            if let Some(link) = link {
+                cancellation.disconnect_cancelled(link);
+            }
+            let stopped_for_the_selection = outcome == Err(Failure::Cancelled)
+                && conversion.is_cancelled()
+                && !cancellation.is_cancelled();
+            if !stopped_for_the_selection {
+                return outcome;
+            }
+        }
+    }
+
+    /// Converts the document at `path`, whose cache name is `name`, in its
+    /// turn for `priority`, and remembers a failure that is the
+    /// document's.
+    fn convert_in_turn(
+        &self,
+        path: &Path,
+        name: String,
+        priority: Priority,
+        cancellation: &gio::Cancellable,
+    ) -> Result<PathBuf, Failure> {
         let _turn = self.lane.wait(priority, &name, cancellation)?;
         // Another request may have converted it while this one waited.
         if let Some(pdf) = self.cache.find(&name) {
@@ -1547,6 +1582,49 @@ mod tests {
             assert!(text.contains("Second version BBB"), "{text}");
             assert!(!text.contains("First version"), "{text}");
         }
+    }
+
+    /// A thumbnail's conversion that the Preview pane stops for another
+    /// document is done again once the selected document's is: the item
+    /// still gets its thumbnail.
+    ///
+    /// parity: VIEW-070, VIEW-057
+    #[test]
+    fn a_thumbnail_stopped_for_the_selection_is_converted_after_it() {
+        let folder = tempfile::tempdir().expect("a temporary folder");
+        let Some(converter) = test_office(&folder.path().join("cache")) else {
+            return;
+        };
+        let thumbnail = folder.path().join("Long report.odt");
+        office_documents::write_long(&thumbnail, Kind::Odt, 400);
+        let selected = folder.path().join("Agenda.docx");
+        office_documents::write(&selected, Kind::Docx, "Agenda");
+        let request = gio::Cancellable::new();
+        let made = {
+            let (converter, thumbnail, request) =
+                (Arc::clone(&converter), thumbnail.clone(), request.clone());
+            thread::spawn(move || converter.pdf(&thumbnail, Priority::Thumbnail, &request))
+        };
+        // Once the thumbnail's conversion runs, the selection asks for its
+        // own.
+        let start = Instant::now();
+        while converter.lane.lock().running.is_none() {
+            assert!(
+                start.elapsed() < Duration::from_secs(5),
+                "the thumbnail's conversion started"
+            );
+            thread::sleep(Duration::from_millis(5));
+        }
+        thread::sleep(Duration::from_millis(100));
+        let preview = converter.pdf(&selected, Priority::Preview, &gio::Cancellable::new());
+
+        assert!(preview.is_ok(), "{preview:?}");
+        let made = made.join().expect("joined");
+        assert!(
+            made.is_ok(),
+            "the thumbnail's document was converted after all: {made:?}"
+        );
+        assert!(!request.is_cancelled());
     }
 
     /// A document's macros never run: the test document's macro, which
