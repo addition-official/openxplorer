@@ -1514,7 +1514,7 @@ mod tests {
 
     /// A document that takes longer than the time limit (a workbook of a
     /// few kilobytes whose formulas take half a minute) is stopped there,
-    /// with every process LibreOffice started, and is not tried again;
+    /// with every process `LibreOffice` started, and is not tried again;
     /// the next document converts at once after it.
     ///
     /// parity: VIEW-070

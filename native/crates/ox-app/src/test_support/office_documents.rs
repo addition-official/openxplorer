@@ -173,7 +173,7 @@ pub(crate) fn write_damaged(path: &Path) {
 }
 
 /// Writes an Excel workbook at `path` of `count` formulas that each sum
-/// over a whole column: a file of a few kilobytes that keeps LibreOffice
+/// over a whole column: a file of a few kilobytes that keeps `LibreOffice`
 /// calculating for many seconds (600 take about half a minute).
 pub(crate) fn write_slow_spreadsheet(path: &Path, count: usize) {
     let mut parts = xlsx(&[]);
