@@ -16,8 +16,10 @@
 //! about a changed extension ([`super::extension_confirm`]) ends the
 //! rename with the old name, as in Windows 11. As in Windows 11, Tab
 //! and Shift+Tab commit and go on to rename the next or previous item
-//! (OPS-012), while Down and Up only move the text cursor, as Right and
-//! Left do (checked in Windows 11 26200). With several items
+//! (OPS-012), while Down and Up only move the text cursor to the very end
+//! and the very start of the name, as End and Home do, as Windows 11's
+//! one-line name box does (checked in Windows 11 26200). The row keeps its
+//! look while the name is edited: no focus outline is drawn around it. With several items
 //! selected, the field edits one of them and Enter gives the typed name to
 //! all of them with a number (OPS-050, [`super::numbered_rename`]); Tab is
 //! then the field's own key. Ctrl+A selects the whole
@@ -87,9 +89,10 @@ fn rename_step(key: gdk::Key, modifiers: gdk::ModifierType) -> Option<i32> {
     }
 }
 
-/// How far Down or Up moves the text cursor, as Right or Left would, as
-/// a one-line name box in Windows does; `None` for any other key, and
-/// with Ctrl or Alt. GTK's own Down and Up leave a one-line field.
+/// Which end of the name Down (1, the end) or Up (-1, the start) moves
+/// the text cursor to, as End and Home do in a one-line name box in
+/// Windows; `None` for any other key, and with Ctrl or Alt. GTK's own Down
+/// and Up leave a one-line field.
 fn caret_step(key: gdk::Key, modifiers: gdk::ModifierType) -> Option<i32> {
     if modifiers.intersects(gdk::ModifierType::CONTROL_MASK | gdk::ModifierType::ALT_MASK) {
         return None;
@@ -201,8 +204,8 @@ impl BrowserWindow {
     }
 
     /// Escape in the field ends the rename and leaves the name as it was;
-    /// Ctrl+A selects the whole name; Down and Up move the text cursor as
-    /// Right and Left do; Tab and Shift+Tab commit and go on to rename the
+    /// Ctrl+A selects the whole name; Down and Up move the text cursor to
+    /// the end and the start of the name; Tab and Shift+Tab commit and go on to rename the
     /// next or previous item (OPS-012).
     fn rename_keys(
         &self,
@@ -240,7 +243,7 @@ impl BrowserWindow {
                         let extend = modifiers.contains(gdk::ModifierType::SHIFT_MASK);
                         text.emit_by_name::<()>(
                             "move-cursor",
-                            &[&gtk::MovementStep::VisualPositions, &step, &extend],
+                            &[&gtk::MovementStep::BufferEnds, &step, &extend],
                         );
                     }
                     return glib::Propagation::Stop;
