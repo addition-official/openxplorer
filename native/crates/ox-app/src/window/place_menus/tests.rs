@@ -412,7 +412,7 @@ fn a_drive_menu_follows_windows_11_in_the_compact_style() {
 /// Rename on a removable drive changes its volume label, as Windows'
 /// Rename of a USB drive does: enabled in the strip and the classic menu,
 /// it opens the app's Rename dialog for the drive (win.rename-drive).
-/// Local Disk and drives the app cannot relabel keep it greyed out,
+/// Local Disk and drives the app cannot relabel keep it grayed out,
 /// saying why.
 ///
 /// parity: HOME-003, SIDE-017, DEV-012

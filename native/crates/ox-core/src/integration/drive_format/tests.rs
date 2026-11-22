@@ -60,6 +60,10 @@ const DRIVE_XML: &str = r#"<node>
 
 /// What the fake answers.
 #[derive(Default)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is one independent answer of the fake, not a state"
+)]
 struct Answers {
     /// The device `ResolveDevice` knows, `/dev/sdb1` by default.
     unknown_device: bool,

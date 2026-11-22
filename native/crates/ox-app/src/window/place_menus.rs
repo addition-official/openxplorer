@@ -211,7 +211,7 @@ fn drive_strip(uri: &str, controls: MountControls) -> Vec<MenuItem> {
 }
 
 /// Rename for the drive at `uri`: it changes the volume label of a
-/// removable drive, as Windows' Rename of a drive does, and is greyed out,
+/// removable drive, as Windows' Rename of a drive does, and is grayed out,
 /// saying why, for Local Disk and other drives the app cannot relabel.
 fn rename_drive_item(uri: &str, controls: MountControls) -> MenuItem {
     if controls.can_format {

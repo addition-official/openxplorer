@@ -343,8 +343,10 @@ impl TransferPanel {
         self.failure_buttons()
             .into_iter()
             .find(|(text, _)| text == label)
-            .map(|(_, button)| button)
-            .unwrap_or_else(|| panic!("the question has a {label} button"))
+            .map_or_else(
+                || panic!("the question has a {label} button"),
+                |(_, button)| button,
+            )
     }
 
     /// Presses the question's button labelled `label`, for tests.

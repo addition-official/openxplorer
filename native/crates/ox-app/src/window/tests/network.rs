@@ -468,7 +468,7 @@ fn network_says_when_discovery_is_turned_off() {
     );
     assert_eq!(
         parts.text.tooltip_text().as_deref(),
-        Some("Location is not supported")
+        Some("The request is not supported.")
     );
     assert!(test.names().is_empty());
     capture(&test.window, "native-network-discovery-off.png");

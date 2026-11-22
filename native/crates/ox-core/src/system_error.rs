@@ -504,9 +504,20 @@ pub fn describe_io(error: &std::io::Error) -> String {
     }
 }
 
-/// The file GIO's message names in its quotes, as a path when it is a
-/// local one: GIO quotes the path or URI it failed on (“/home/…”).
+/// The file GIO's message names, as a path when it is a local one: GIO
+/// quotes the path or URI it failed on (“/home/…”), or, in some of the
+/// local backend's messages, writes the path and then its URI in brackets
+/// (`Error opening file /home/… (file:///home/…): Permission denied`).
 fn quoted_location(message: &str) -> Option<String> {
+    if !message.contains('“') {
+        let (named, _) = message.rsplit_once(": ")?;
+        let path = &named[named.find(" /")? + 1..];
+        let path = match path.rsplit_once(" (") {
+            Some((path, uri)) if uri.ends_with(')') => path,
+            _ => path,
+        };
+        return Some(path.to_owned());
+    }
     let start = message.find('“')? + '“'.len_utf8();
     let length = message[start..].find('”')?;
     let quoted = &message[start..start + length];
@@ -986,6 +997,11 @@ mod tests {
             describe(&uri),
             "/home/ada/b track.mp3: The system cannot find the file specified."
         );
+        let unquoted = glib::Error::new(
+            gio::IOErrorEnum::PermissionDenied,
+            "Error opening file /home/ada/tree/sub/b.txt (file:///home/ada/tree/sub/b.txt): Permission denied",
+        );
+        assert_eq!(describe(&unquoted), "/home/ada/tree/sub/b.txt: Access is denied.");
         let plain = glib::Error::new(gio::IOErrorEnum::NoSpace, "No space left on device");
         assert_eq!(describe(&plain), "There is not enough space on the disk.");
         let made = std::io::Error::new(

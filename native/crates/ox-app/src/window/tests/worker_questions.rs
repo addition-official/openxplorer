@@ -556,7 +556,7 @@ fn run_for(duration: std::time::Duration) {
 /// the answered question once it is taken away: GTK then moved the
 /// keyboard on by itself after the next paint, walking the action's
 /// widgets while the old question was freed under it (Gtk-CRITICAL
-/// gtk_widget_is_ancestor, a widget read after it was freed).
+/// `gtk_widget_is_ancestor`, a widget read after it was freed).
 ///
 /// parity: OPS-047
 #[gtk::test]
