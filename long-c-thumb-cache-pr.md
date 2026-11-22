@@ -76,6 +76,10 @@ The two builds were run by turns, 3 times each, in the same hour. Earlier sets t
 - That Qt compresses text values of 40 characters or more into `zTXt`, as I recall from its PNG writer. Either way, both kinds of chunk are read now.
 - That Dolphin finds the app's entries valid. GIO, and so Files, does: `gio info` reports `thumbnail::is-valid: TRUE` for the app's entries, and FALSE once the file changes.
 
+## Known limitation
+
+With a cache of 200,000 other entries, the thumbnails still arrive 51 to 57 ms after the first tile after a restart. But the first folder after a start shows its type icons for that moment: none of its 30 tiles avoids the flash, against all 30 with a small cache. The background listing of the cache's names, which tells a tile to wait without its icon, is not ready in time. Starting that listing at application start-up did not help (measured and reverted), so this is left as a follow-up.
+
 ## Question
 
 Thumbnails of files that were deleted or sent to the Recycle Bin stay in the cache. The standard says to remove them, GNOME and KDE mostly don't, and Windows keeps them in `thumbcache_*.db` (a known privacy complaint). This change removes only the entries of files the app moves. Should it also remove the entries of files it deletes or moves to the Recycle Bin?
