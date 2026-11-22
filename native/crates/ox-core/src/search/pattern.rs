@@ -121,13 +121,19 @@ fn extension_start(lowercase_name: &str) -> Option<usize> {
 }
 
 /// Whether the plain `word` is in `lowercase_name`, starting before its
-/// extension, or is the whole extension.
+/// extension's dot, or is the whole extension, with or without the dot.
+/// A word that starts at the dot reaches into the extension as one
+/// without it does, so `.doc` finds `report.docx` no more than `doc`
+/// does, while `.docx` and `docx` both find it.
 pub(crate) fn word_in_name(word: &str, lowercase_name: &str) -> bool {
     let Some(first) = lowercase_name.find(word) else {
         return false;
     };
     match extension_start(lowercase_name) {
-        Some(extension) => first < extension || lowercase_name[extension..] == *word,
+        Some(extension) => {
+            let dot = extension - 1;
+            first < dot || lowercase_name[extension..] == *word || lowercase_name[dot..] == *word
+        }
         None => true,
     }
 }
@@ -145,11 +151,11 @@ pub(crate) fn wildcard_in_name(pattern: &str, lowercase_name: &str) -> bool {
     let tokens = tokens(&pattern);
     let extension = extension_start(lowercase_name);
     let mut states = States::new(tokens.len());
-    // Every position before the extension may start a match, which may
-    // run on into the extension; reaching the pattern's end at any point
-    // means the pattern matches the text from that start.
+    // Every position before the extension's dot may start a match, which
+    // may run on into the extension; reaching the pattern's end at any
+    // point means the pattern matches the text from that start.
     for (at, character) in lowercase_name.char_indices() {
-        if extension.is_none_or(|extension| at < extension) {
+        if extension.is_none_or(|extension| at + 1 < extension) {
             states.start(&tokens);
         }
         if states.is_complete() {
@@ -164,8 +170,12 @@ pub(crate) fn wildcard_in_name(pattern: &str, lowercase_name: &str) -> bool {
     if states.is_complete() {
         return true;
     }
-    // Inside the extension, only as the whole extension.
-    extension.is_some_and(|extension| matches_tokens(&tokens, &lowercase_name[extension..]))
+    // From the dot or inside the extension, only as the whole extension,
+    // with or without its dot.
+    extension.is_some_and(|extension| {
+        matches_tokens(&tokens, &lowercase_name[extension..])
+            || matches_tokens(&tokens, &lowercase_name[extension - 1..])
+    })
 }
 
 /// Whether the whole of `name` matches the wildcard `pattern`, as
@@ -376,6 +386,14 @@ mod tests {
         for word in ["pdf", ".pdf", "66873.pdf", "873.p"] {
             assert!(NamePattern::new(word).matches("WO - M5753 - 66873.pdf"), "{word}");
         }
+        // A word starting at the dot reaches into the extension as one
+        // without the dot does: only the whole extension matches.
+        for word in ["doc", ".doc", "do?", ".do?", ".d*c"] {
+            assert!(!NamePattern::new(word).matches("report.docx"), "{word}");
+        }
+        for word in ["docx", ".docx", ".doc?", "t.doc", "report.doc"] {
+            assert!(NamePattern::new(word).matches("report.docx"), "{word}");
+        }
         assert!(!NamePattern::new("df").matches("WO - M5753 - 66873.pdf"));
         // Not extensions: the words are found anywhere.
         assert!(NamePattern::new("draft").matches("Notes v2.final draft"));
@@ -575,8 +593,9 @@ mod tests {
                     .map(|(start, _)| start)
                     .chain(std::iter::once(name.len()))
                     .any(|start| match extension {
-                        Some(extension) if start >= extension => {
-                            start == extension && wildcard_matches(pattern, &name[start..])
+                        Some(extension) if start + 1 >= extension => {
+                            (start == extension || start + 1 == extension)
+                                && wildcard_matches(pattern, &name[start..])
                         }
                         _ => wildcard_matches(&open_end, &name[start..]),
                     });
