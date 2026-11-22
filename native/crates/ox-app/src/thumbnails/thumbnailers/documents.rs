@@ -1429,9 +1429,11 @@ mod tests {
     #[test]
     fn each_kind_of_document_converts_in_the_sandbox() {
         let folder = tempfile::tempdir().expect("a temporary folder");
+        let found = Instant::now();
         let Some(converter) = test_office(&folder.path().join("cache")) else {
             return;
         };
+        eprintln!("LibreOffice and its sandbox found in {:?}", found.elapsed());
         let documents = folder.path().join("Documents");
         fs::create_dir(&documents).expect("a folder");
         for kind in Kind::ALL {
