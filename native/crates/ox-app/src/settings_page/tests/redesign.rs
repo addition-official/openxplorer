@@ -618,7 +618,7 @@ fn choosing_a_page_with_a_click_opens_no_bubble() {
 
 /// The search finds settings by the words people use for them, not only
 /// by the words the settings use, and those words find only what they
-/// mean: "dark mode" finds Theme alone, the arrow words only the two
+/// mean: "dark mode" finds Theme alone, the arrow words only the three
 /// settings with arrows.
 ///
 /// parity: SET-004
@@ -626,6 +626,7 @@ fn choosing_a_page_with_a_click_opens_no_bubble() {
 fn the_search_finds_settings_by_the_words_people_use() {
     let settings = SettingsTest::open();
     let arrows = [
+        "Column header style",
         "Hide expand arrows in the sidebar",
         "Expandable folders in Details",
     ];
@@ -664,8 +665,11 @@ fn the_search_finds_settings_by_the_words_people_use() {
         settings.page.search(typed);
         assert_eq!(settings.shown_rows(), expected, "{typed:?}");
     }
-    // "tree" finds the arrow settings among others that say it.
+    // "tree" finds the tree's arrow settings among others that say it.
     settings.page.search("tree");
     let found = settings.shown_rows();
-    assert!(arrows.iter().all(|row| found.contains(row)), "tree: {found:?}");
+    assert!(
+        arrows[1..].iter().all(|row| found.contains(row)),
+        "tree: {found:?}"
+    );
 }

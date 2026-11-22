@@ -25,6 +25,7 @@ use crate::test_support::python::{python_preference, python_saves_preferences};
 use crate::text_size::TextSize;
 use crate::window::WindowAction;
 
+mod column_header;
 mod indexing;
 mod moved_from_more;
 mod passwordless;
@@ -555,6 +556,7 @@ fn escape_leaves_the_search_and_shows_every_row_again() {
             "Code icon",
             "File name endings",
             "Compact view",
+            "Column header style",
             "Hide expand arrows in the sidebar",
             "Show more items in the navigation pane",
             "Show more items in the tab menu",
