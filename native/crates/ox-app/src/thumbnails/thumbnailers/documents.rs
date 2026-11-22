@@ -927,7 +927,7 @@ pub(in crate::thumbnails) fn write_thumbnail(
     if cancellation.is_cancelled() {
         return Err(Failure::Cancelled);
     }
-    let picture = picture.ok_or(Failure::Failed)?;
+    let picture = framed(&picture.ok_or(Failure::Failed)?).ok_or(Failure::Failed)?;
     let source = Source {
         uri: job.uri.clone(),
         modified: job.modified,
@@ -935,6 +935,31 @@ pub(in crate::thumbnails) fn write_thumbnail(
     // A cache that refused the picture is the app's trouble, not the
     // document's: it is asked again the next time it is shown.
     writer::save_thumbnail(&job.cache_dir, &source, job.flavor, &picture).map_err(|_| Failure::Cancelled)
+}
+
+/// The color of the line around a document's thumbnail: a light gray
+/// that shows a white page on a white background, as Explorer frames
+/// one.
+const FRAME: u32 = 0xc8c8_c8ff;
+
+/// `page` with a line of [`FRAME`] one pixel wide around it, so a page
+/// with little on it still shows as a page and not as an empty tile.
+fn framed(page: &Pixbuf) -> Option<Pixbuf> {
+    let framed = page.copy()?;
+    let (width, height) = (framed.width(), framed.height());
+    if width < 3 || height < 3 {
+        return Some(framed);
+    }
+    for (x, y, line_width, line_height) in [
+        (0, 0, width, 1),
+        (0, height - 1, width, 1),
+        (0, 0, 1, height),
+        (width - 1, 0, 1, height),
+    ] {
+        // A part of the picture shares its pixels.
+        framed.new_subpixbuf(x, y, line_width, line_height).fill(FRAME);
+    }
+    Some(framed)
 }
 
 /// What `draw` drew, asked a second time when the first gave nothing and

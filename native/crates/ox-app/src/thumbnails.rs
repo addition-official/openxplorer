@@ -860,7 +860,8 @@ mod tests {
         }
     }
 
-    /// An office document's thumbnail is its first page, drawn from
+    /// An office document's thumbnail is its first page, framed in light
+    /// gray, drawn from
     /// `LibreOffice`'s PDF and written into the cache with the keys that
     /// keep it valid; a row too small to show a page starts no
     /// `LibreOffice` and is asked again later, and without `LibreOffice` the
@@ -920,6 +921,12 @@ mod tests {
             Some("1700000000")
         );
         assert_eq!(thumbnail.width().max(thumbnail.height()), 256);
+        let corner = thumbnail.read_pixel_bytes();
+        assert_eq!(
+            &corner[..3],
+            &[0xc8, 0xc8, 0xc8],
+            "a light gray frame around the page"
+        );
         let names: Vec<_> = fs::read_dir(folder.path())
             .expect("listing")
             .map(|entry| entry.expect("entry").file_name())
