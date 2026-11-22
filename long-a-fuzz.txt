@@ -206,3 +206,21 @@ picture_decode          7,778,844
 picture_headers        16,016,708
 text_preview           15,869,547
 Found since last update: 0. text_preview paused again (no new coverage); a second archive_list instance runs with value profiling (archive_list-vp), sharing the corpus.
+
+== 2026-11-22 04:26 CST ==
+Executions so far (all runs):
+app_protocols             421,336
+archive_extract         3,209,144
+archive_fixup           1,079,294
+archive_list-vp         1,230,097
+archive_list           11,624,061
+archive_zipgen          1,629,217
+core_formats            9,098,304
+core_text              14,481,549
+media_details          77,132,543
+media_streams               9,965
+picture_decode          8,863,221
+picture_headers        17,656,226
+text_preview           15,869,547
+Found since last update: a second input for the open Matroska item (same place inside GStreamer, media reader child only); nothing in the app's code. Every earlier failing input was rerun against the current fuzz binaries: all run clean.
+Rotation: media_details and picture_headers paused (no new coverage); core_text, core_formats and media_streams back.
