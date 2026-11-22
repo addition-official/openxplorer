@@ -24,26 +24,26 @@ The fuzz targets live in `native/fuzz` (see its README). That crate is not a wor
 
 ## Validation
 
-Fuzzing (cargo-fuzz 0.13.2, libFuzzer with AddressSanitizer, nightly), from 22:45 to 06:05 with a 2 s timeout and a 1 GiB memory limit, seeds from `native/fuzz/seeds.py`:
+Fuzzing (cargo-fuzz 0.13.2, libFuzzer with AddressSanitizer, nightly), from 22:45 to 06:27 with a 2 s timeout and a 1 GiB memory limit, seeds from `native/fuzz/seeds.py`:
 
 ```
 Target                             Executions  Crashes  Fixed  Still open
 app_protocols                         421,336        0      0           0
-archive_extract                     3,930,823        0      0           0
-archive_fixup                       1,335,855        0      0           0
+archive_extract                     4,401,998        0      0           0
+archive_fixup                       1,505,649        0      0           0
 archive_list-vp                     3,896,436        0      0           0
-archive_list                       12,452,355        1      1           0
-archive_zipgen                      2,216,833        0      0           0
-core_formats                       11,020,840        2      2           0
-core_text                          21,508,679        1      1           0
+archive_list                       13,016,364        1      1           0
+archive_zipgen                      2,632,926        0      0           0
+core_formats                       11,795,811        2      2           0
+core_text                          23,124,656        1      1           0
 media_details                     103,013,196        0      0           0
 media_streams                          11,193        1      0           1
-picture_decode                     13,944,316        4      4           0
-picture_headers                    17,656,226        1      1           0
+picture_decode                     14,984,992        4      4           0
+picture_headers                    20,745,849        1      1           0
 text_preview                       15,869,547        0      0           0
 pe_icons (fork branch, local)       3,581,300        0      0           0
 truetype (fork branch, local)      19,293,686        0      0           0
-Total                             230,152,621       10      9           1
+Total                             238,294,939       10      9           1
 ```
 
 "Crashes" counts real defects (crashes, hangs over 2 s, allocations over 1 GiB); one BMP header was reached by two targets. The open one is inside GStreamer 1.24.2 (Matroska through parsebin), seen only after hundreds of files in one long-lived fuzzing process and not in 300 fresh processes; the app reads each media file in a new child process. Every saved failing input reruns clean against the fixed code. The last two rows fuzzed the fork branch `user-icon-files` locally; nothing there is changed.

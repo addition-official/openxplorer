@@ -1,7 +1,7 @@
 STATUS: DONE
 HEAD: long-a-fuzz 2e5b7e12 (20 commits on upstream main 5d21fd3e, pushed)
 QUESTION: none
-NOTE: Fuzzed from 22:45 to 06:05 America/Chicago with cargo-fuzz 0.13.2 (libFuzzer, AddressSanitizer, nightly 1.102). 230 million executions over 12 targets in native/fuzz (one run twice, once with value profiling) plus 2 local ones on the fork branch user-icon-files. 10 crashes, hangs or memory blowups found (one BMP header reached by two targets); 9 fixed with regression tests, in 9 commits; 1 open, inside GStreamer, not the app's code. PR text: long-a-fuzz-pr.md.
+NOTE: Fuzzed from 22:45 to 06:27 America/Chicago with cargo-fuzz 0.13.2 (libFuzzer, AddressSanitizer, nightly 1.102). 238 million executions over 12 targets in native/fuzz (one run twice, once with value profiling) plus 2 local ones on the fork branch user-icon-files. 10 crashes, hangs or memory blowups found (one BMP header reached by two targets); 9 fixed with regression tests, in 9 commits; 1 open, inside GStreamer, not the app's code. PR text: long-a-fuzz-pr.md.
 
 == 2026-11-21 22:53 CST ==
 Set up native/fuzz (cargo-fuzz), seeds.py (32 generated archive seeds: ZIP stored/deflate/bzip2/LZMA/ZIP64/encrypted, TAR ustar/gnu/pax plain/gz/bz2/xz/zst, 7z LZMA2 solid/plain, LZMA, BZip2, copy).
@@ -265,21 +265,21 @@ Not bugs: RTF with 500,000 nested groups (0.4 s), JSON and GVariant nested 50,00
 Summary (executions over every run; a crash here is any crash, hang over 2 s or allocation over 1 GiB that was a real defect; harness artifacts and inputs that do not repeat alone are not counted):
 Target                             Executions  Crashes  Fixed  Still open
 app_protocols                         421,336        0      0           0
-archive_extract                     3,930,823        0      0           0
-archive_fixup                       1,335,855        0      0           0
+archive_extract                     4,401,998        0      0           0
+archive_fixup                       1,505,649        0      0           0
 archive_list-vp                     3,896,436        0      0           0
-archive_list                       12,452,355        1      1           0
-archive_zipgen                      2,216,833        0      0           0
-core_formats                       11,020,840        2      2           0
-core_text                          21,508,679        1      1           0
+archive_list                       13,016,364        1      1           0
+archive_zipgen                      2,632,926        0      0           0
+core_formats                       11,795,811        2      2           0
+core_text                          23,124,656        1      1           0
 media_details                     103,013,196        0      0           0
 media_streams                          11,193        1      0           1
-picture_decode                     13,944,316        4      4           0
-picture_headers                    17,656,226        1      1           0
+picture_decode                     14,984,992        4      4           0
+picture_headers                    20,745,849        1      1           0
 text_preview                       15,869,547        0      0           0
 pe_icons (fork branch, local)       3,581,300        0      0           0
 truetype (fork branch, local)      19,293,686        0      0           0
-Total                             230,152,621       10      9           1
+Total                             238,294,939       10      9           1
 
 Fixed (each with a regression test written first, in the test's code; every saved failing input reruns clean):
 - core_text: Don't crash on malformed .mo catalogs (286d56c1)
@@ -292,3 +292,5 @@ Not bugs (harness or design): turn_jpeg on under 2 bytes (the app checks the sig
 
 Checks before the final push (Rust 1.92.0, the CI version): parity/check.py passed; check.py's parity, i18n, driver, drawn-icon, rustfmt and clippy -D warnings steps passed; clippy also clean with the fuzzing feature on. The 87 test executables and the doctests ran through check.py's run_isolated, as the user tester because the app refuses to run as root: all pass except integration_file_chooser, location_fixture_drift, network_python and ox_app's settings_page::tests::every_preference_switch_saves_persists_and_turns_back_exactly, which fail the same way on upstream main 5d21fd3e built the same way (a GLib critical made fatal; Python 3.13 here against the system's 3.12 gi; a settings wait). After the last fix, ox-core's 1,309 library tests, its 5 search test executables and ox-app's 195 search and filter tests were rerun: all pass. Debug info was off for the test build to fit the disk allowance.
 Not run: a full check.py run in one go as a regular user, and the website or Flatpak builds (nothing there changed).
+
+Fuzzing went on to 06:27 (eight targets after the first final count at 06:03); nothing new was found. The table above holds the final totals.
