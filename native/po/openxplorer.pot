@@ -30,7 +30,7 @@ msgid "- New in the command bar lists what Windows 11 lists: Folder, Shortcut, B
 msgstr ""
 
 #: crates/ox-app/resources/manual.md
-msgid "- Open Network in the navigation pane to see the computers and servers on your network, as in Windows; open one to see its shared folders. Refresh (F5) looks again. Or type an address such as \\\\server\\share or smb://server/share in the address bar.\n- Network finds only devices that advertise themselves, through the desktop's GVfs network services (DNS-SD through Avahi, Windows computers through WS-Discovery); firewalls and separate networks can hide them. If Network says that network discovery is turned off, those services are missing: install your distribution's GVfs backends (gvfs-backends on Ubuntu and Debian) and Avahi, or type the server's address instead.\n- Map network drive, on the right-click menu of This PC and Network in the navigation pane or in their \"…\" menu, connects a share such as \\\\server\\share under a drive letter, as in Windows, offering only the letters still free; Save in the sidebar · reconnect when opened (Windows has Reconnect at sign-in) saves it in the navigation pane. The letter is only part of its name. Its link Connect to a Web site, and Add a network location in that menu, connect SFTP, FTP, WebDAV and NFS folders too. Disconnect network drive there disconnects a connected share.\n- OpenXplorer asks for your user name and password in Enter network credentials when a server needs them, and can keep the password in your desktop's keyring. Connect using different credentials in Map network drive asks even when it knows an account.\n- Right-click a share or server and choose Sign out of server to disconnect and forget a session."
+msgid "- Open Network in the navigation pane to see the computers and devices on your network, one row per device, as in Windows; open one to see its shared folders, and its other services (SFTP, FTP, WebDAV) as rows of their own. Shares whose names end in $ are hidden until Show hidden files is on. Refresh (F5) looks again. In the navigation pane, Network expands to the same computers, and each computer to its shares. Or type an address such as \\\\server\\share or smb://server/share in the address bar.\n- Network finds only devices that advertise themselves, through the desktop's GVfs network services (DNS-SD through Avahi, Windows computers through WS-Discovery); firewalls and separate networks can hide them. If Network says that network discovery is turned off, those services are missing or stopped: click the bar and choose How to turn on network discovery, or type the server's address instead.\n- Map network drive, on the right-click menu of This PC and Network in the navigation pane or in their \"…\" menu, connects a share such as \\\\server\\share under a drive letter, as in Windows, offering only the letters still free; it is listed under This PC. Type the letter in the address bar, such as Z: or Z:\\Plans, to open the share or a folder in it. Save in the sidebar · reconnect when opened (Windows has Reconnect at sign-in) keeps it after OpenXplorer quits. Its link Connect to a Web site, and Add a network location in that menu, connect SFTP, FTP, WebDAV and NFS folders too. Disconnect network drive there disconnects a connected share and ends its mapping.\n- OpenXplorer asks for your user name and password in Enter network credentials when a server needs them, and can keep the password in your desktop's keyring. Connect using different credentials in Map network drive asks even when it knows an account.\n- Right-click a share or server and choose Sign out of server to disconnect and forget a session."
 msgstr ""
 
 #: crates/ox-app/resources/manual.md
@@ -71,6 +71,10 @@ msgstr ""
 
 #: crates/ox-app/resources/manual.md
 msgid "Getting help"
+msgstr ""
+
+#: crates/ox-app/resources/manual.md
+msgid "OpenXplorer finds computers through your desktop's own network discovery services, and never turns them on or changes them by itself. When Network says that network discovery is turned off, one of them is missing or stopped:\n\n- GVfs's network backends, which list the network: install gvfs-backends on Ubuntu, Debian and Zorin OS, gvfs-smb on Fedora and Arch Linux, or gvfs-backends and gvfs-backend-samba on openSUSE.\n- Avahi, which finds Linux computers, NAS devices and Macs (DNS-SD): install avahi-daemon and start it with sudo systemctl enable --now avahi-daemon.\n- wsdd, which finds Windows PCs (WS-Discovery): install the wsdd package.\n- Your firewall must let discovery through: mDNS on UDP port 5353 and WS-Discovery on UDP port 3702.\n\nThen open Network again or press F5. You can always open a computer by typing its address, such as \\\\server or \\\\server\\share, in the address bar."
 msgstr ""
 
 #: crates/ox-app/resources/manual.md
@@ -171,6 +175,10 @@ msgstr ""
 
 #: crates/ox-app/resources/ui/open-with-dialog.ui
 msgid "Current default"
+msgstr ""
+
+#: crates/ox-app/resources/ui/open-with-dialog.ui
+msgid "Find an app in Software"
 msgstr ""
 
 #: crates/ox-app/resources/ui/open-with-dialog.ui
@@ -353,7 +361,7 @@ msgstr ""
 msgid "Browse without extracting the entire archive."
 msgstr ""
 
-#: crates/ox-app/resources/ui/update-dialog.ui crates/ox-app/src/archive_view/browser.rs crates/ox-app/src/dialog/frame.rs crates/ox-app/src/dialog/window.rs crates/ox-app/src/properties/window.rs crates/ox-app/src/window/help.rs crates/ox-app/src/window/shortcuts_window.rs crates/ox-app/src/window/type_applications.rs
+#: crates/ox-app/resources/ui/update-dialog.ui crates/ox-app/src/archive_view/browser.rs crates/ox-app/src/dialog/frame.rs crates/ox-app/src/dialog/window.rs crates/ox-app/src/properties/window.rs crates/ox-app/src/window/help.rs crates/ox-app/src/window/network_info_bar.rs crates/ox-app/src/window/shortcuts_window.rs crates/ox-app/src/window/type_applications.rs
 msgid "Close"
 msgstr ""
 
@@ -545,6 +553,10 @@ msgstr ""
 msgid "The '{label}' device can now be safely removed from the computer."
 msgstr ""
 
+#: crates/ox-app/src/devices.rs
+msgid "This device is currently in use. Close any programs or windows that might be using the device, and then try again."
+msgstr ""
+
 #: crates/ox-app/src/dialog/fields.rs crates/ox-core/src/format.rs
 msgid "Not provided"
 msgstr ""
@@ -594,7 +606,7 @@ msgstr ""
 msgid "Add a network folder to your sidebar: a Windows share, or a folder on an SSH, FTP, WebDAV or NFS server."
 msgstr ""
 
-#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/window/command_bar/menus.rs crates/ox-app/src/window/sidebar/menu.rs
+#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/window/command_bar/menus.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/sidebar/menu.rs
 msgid "Add a network location"
 msgstr ""
 
@@ -643,7 +655,7 @@ msgstr ""
 msgid "Specify the drive letter for the connection and the folder that you want to connect to:"
 msgstr ""
 
-#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/drive_tab.rs crates/ox-app/src/properties/general_tab.rs crates/ox-app/src/properties/security_tab/advanced.rs crates/ox-app/src/properties/selection_view.rs crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-core/src/grouping.rs
+#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/properties/drive_tab.rs crates/ox-app/src/properties/general_tab.rs crates/ox-app/src/properties/security_tab/advanced.rs crates/ox-app/src/properties/selection_view.rs crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-core/src/grouping.rs
 msgid "Type"
 msgstr ""
 
@@ -770,7 +782,7 @@ msgid "Select"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-app/src/folder_view/cells/row_tooltip.rs crates/ox-app/src/window/file_ops/delete.rs crates/ox-app/src/window/file_ops/failure_dialog.rs
+#: crates/ox-app/src/folder_view/cells/row_tooltip.rs crates/ox-app/src/window/file_ops/delete.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/file_ops/rename_conflict.rs
 msgid "Date created: {date}"
 msgstr ""
 
@@ -983,7 +995,7 @@ msgstr ""
 msgid "Date modified"
 msgstr ""
 
-#: crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs
+#: crates/ox-app/src/folder_view/sorting.rs
 msgid "Folder path"
 msgstr ""
 
@@ -1057,6 +1069,10 @@ msgstr ""
 
 #: crates/ox-app/src/integration/applications.rs
 msgid "That installed application is unavailable for this file/location."
+msgstr ""
+
+#: crates/ox-app/src/integration/applications.rs
+msgid "The default app could not be changed."
 msgstr ""
 
 #: crates/ox-app/src/integration/applications.rs
@@ -1313,6 +1329,10 @@ msgid "Super+E will stop opening OpenXplorer once you log out and back in."
 msgstr ""
 
 #: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "A default app can be set only for files with an extension."
+msgstr ""
+
+#: crates/ox-app/src/integration/open_with_dialog.rs
 msgid "All files"
 msgstr ""
 
@@ -1321,11 +1341,27 @@ msgid "Choose an app on your PC"
 msgstr ""
 
 #: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "Default app"
+msgstr ""
+
+#: crates/ox-app/src/integration/open_with_dialog.rs
 msgid "Finding installed applications…"
 msgstr ""
 
 #: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "More options"
+msgstr ""
+
+#: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "No installed app can open this item."
+msgstr ""
+
+#: crates/ox-app/src/integration/open_with_dialog.rs
 msgid "No matching installed applications."
+msgstr ""
+
+#: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "Only an installed app (.desktop) can be the default."
 msgstr ""
 
 #: crates/ox-app/src/integration/open_with_dialog.rs
@@ -1336,8 +1372,19 @@ msgstr ""
 msgid "Ran the command."
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/integration/open_with_dialog.rs
-msgid "Select an app to open this file"
+msgid "Select a default app for '{name}'"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "Select a default app for {extension} files"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "Select an app to open '{name}'"
 msgstr ""
 
 #: crates/ox-app/src/integration/open_with_dialog.rs
@@ -1347,6 +1394,10 @@ msgstr ""
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/integration/open_with_dialog.rs
 msgid "Select an app to open this {extension} file"
+msgstr ""
+
+#: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "Set default"
 msgstr ""
 
 #: crates/ox-app/src/integration/status.rs
@@ -1406,6 +1457,14 @@ msgstr ""
 
 #: crates/ox-app/src/locations.rs
 msgid "Your explorer, your way."
+msgstr ""
+
+#: crates/ox-app/src/network/discovery.rs
+msgid "Avahi (DNS-SD) is not running and wsdd (WS-Discovery) is not installed."
+msgstr ""
+
+#: crates/ox-app/src/network/discovery.rs
+msgid "The GVfs network browser is not installed."
 msgstr ""
 
 #: crates/ox-app/src/properties.rs
@@ -1626,6 +1685,10 @@ msgstr ""
 msgid "Composers"
 msgstr ""
 
+#: crates/ox-app/src/properties/details_rows.rs crates/ox-core/src/entry/classify.rs
+msgid "Computer"
+msgstr ""
+
 #: crates/ox-app/src/properties/details_rows.rs
 msgid "Conductors"
 msgstr ""
@@ -1686,6 +1749,10 @@ msgstr ""
 msgid "File"
 msgstr ""
 
+#: crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-app/src/window/home_page.rs
+msgid "File location"
+msgstr ""
+
 #: crates/ox-app/src/properties/details_rows.rs
 msgid "Flash"
 msgstr ""
@@ -1741,10 +1808,6 @@ msgstr ""
 
 #: crates/ox-app/src/properties/details_rows.rs
 msgid "Image"
-msgstr ""
-
-#: crates/ox-app/src/properties/details_rows.rs
-msgid "Item type"
 msgstr ""
 
 #: crates/ox-app/src/properties/details_rows.rs
@@ -1901,6 +1964,11 @@ msgstr[1] ""
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/properties/details_rows.rs
 msgid "{flash}, red-eye reduction"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/properties/details_rows.rs
+msgid "{name} (this PC)"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -4867,33 +4935,19 @@ msgid "Address copied."
 msgstr ""
 
 #: crates/ox-app/src/window/address_menu.rs
-msgid "Copy address"
+msgid "Copy Address"
 msgstr ""
 
 #: crates/ox-app/src/window/address_menu.rs
-msgid "Edit address"
+msgid "Copy Address as Text"
 msgstr ""
 
 #: crates/ox-app/src/window/address_menu.rs
-msgid "Keep address editable"
-msgstr ""
-
-#. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-app/src/window/address_menu.rs
-msgid "Open “{label}” in new tab"
-msgstr ""
-
-#. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-app/src/window/address_menu.rs
-msgid "Open “{label}” in new window"
+msgid "Delete History"
 msgstr ""
 
 #: crates/ox-app/src/window/address_menu.rs
-msgid "Paste and go"
-msgstr ""
-
-#: crates/ox-app/src/window/address_menu.rs
-msgid "Show full path"
+msgid "Edit Address"
 msgstr ""
 
 #: crates/ox-app/src/window/address_menu.rs
@@ -5092,7 +5146,7 @@ msgstr ""
 msgid "Cut (Ctrl+X)"
 msgstr ""
 
-#: crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/file_ops/delete_label.rs crates/ox-app/src/window/folder_tree/menu.rs crates/ox-app/src/window/home_page.rs crates/ox-app/src/window/shortcuts_window.rs crates/ox-core/src/ops/undo.rs
+#: crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/file_ops/delete_label.rs crates/ox-app/src/window/folder_tree/menu.rs crates/ox-app/src/window/home_page.rs crates/ox-app/src/window/shortcuts_window.rs crates/ox-core/src/ops/undo.rs
 msgid "Delete"
 msgstr ""
 
@@ -5176,7 +5230,7 @@ msgstr ""
 msgid "Sort"
 msgstr ""
 
-#: crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/folder_options.rs crates/ox-app/src/window/home_page.rs crates/ox-app/src/window/shortcuts_window.rs
+#: crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/folder_options.rs crates/ox-app/src/window/shortcuts_window.rs
 msgid "View"
 msgstr ""
 
@@ -5237,7 +5291,7 @@ msgstr ""
 msgid "Folders first"
 msgstr ""
 
-#: crates/ox-app/src/window/command_bar/menus.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/home_page.rs
+#: crates/ox-app/src/window/command_bar/menus.rs crates/ox-app/src/window/context_menu/entries.rs
 msgid "Group by"
 msgstr ""
 
@@ -5495,6 +5549,10 @@ msgstr ""
 msgid "Copy as path"
 msgstr ""
 
+#: crates/ox-app/src/window/context_menu/entries.rs
+msgid "Create shortcut"
+msgstr ""
+
 #: crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/file_ops/delete_label.rs crates/ox-app/src/window/folder_tree/menu.rs crates/ox-app/src/window/shortcuts_window.rs
 msgid "Delete permanently"
 msgstr ""
@@ -5505,6 +5563,11 @@ msgstr ""
 
 #: crates/ox-app/src/window/context_menu/entries.rs crates/ox-core/src/ops/undo.rs
 msgid "Duplicate"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/context_menu/entries.rs
+msgid "Edit in {name}"
 msgstr ""
 
 #: crates/ox-app/src/window/context_menu/entries.rs
@@ -5573,7 +5636,7 @@ msgstr ""
 msgid "Pin this folder"
 msgstr ""
 
-#: crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/home_page.rs crates/ox-app/src/window/navigation_buttons.rs crates/ox-app/src/window/shortcuts_window.rs
+#: crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/navigation_buttons.rs crates/ox-app/src/window/shortcuts_window.rs
 msgid "Refresh"
 msgstr ""
 
@@ -5587,6 +5650,10 @@ msgstr ""
 
 #: crates/ox-app/src/window/context_menu/entries.rs
 msgid "Restore previous versions"
+msgstr ""
+
+#: crates/ox-app/src/window/context_menu/entries.rs
+msgid "Restore the item to compress or share it."
 msgstr ""
 
 #: crates/ox-app/src/window/context_menu/entries.rs
@@ -5617,7 +5684,7 @@ msgstr ""
 msgid "Sign out of server…"
 msgstr ""
 
-#: crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/home_page.rs
+#: crates/ox-app/src/window/context_menu/entries.rs
 msgid "Sort by"
 msgstr ""
 
@@ -5651,10 +5718,6 @@ msgstr ""
 
 #: crates/ox-app/src/window/desktop_link.rs
 msgid "This link points to an address OpenXplorer cannot open."
-msgstr ""
-
-#: crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-app/src/window/home_page.rs
-msgid "File location"
 msgstr ""
 
 #: crates/ox-app/src/window/details_pane/content.rs
@@ -6393,6 +6456,10 @@ msgstr ""
 msgid "The name was not changed."
 msgstr ""
 
+#: crates/ox-app/src/window/file_ops/rename_conflict.rs
+msgid "Confirm Folder Replace"
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/file_ops/rename_conflict.rs
 msgid "Do you want to rename \"{name}\" to \"{numbered}\"?\nThere is already a file with the same name in this location."
@@ -6400,6 +6467,15 @@ msgstr ""
 
 #: crates/ox-app/src/window/file_ops/rename_conflict.rs
 msgid "Rename File"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/file_ops/rename_conflict.rs
+msgid "This destination already contains a folder named '{name}'.\n\nIf any files have the same names, you will be asked if you want to replace those files.\n\nDo you still want to merge this folder"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/rename_conflict.rs
+msgid "with this one?"
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/transfer.rs
@@ -6618,6 +6694,10 @@ msgid "Select a folder or share to calculate its size."
 msgstr ""
 
 #: crates/ox-app/src/window/folder_tree/menu.rs
+msgid "Expand to open folder"
+msgstr ""
+
+#: crates/ox-app/src/window/folder_tree/menu.rs
 msgid "Limit to home folder"
 msgstr ""
 
@@ -6717,6 +6797,10 @@ msgstr ""
 
 #: crates/ox-app/src/window/help.rs
 msgid "Topic"
+msgstr ""
+
+#: crates/ox-app/resources/manual.md crates/ox-app/src/window/help.rs
+msgid "Turning on network discovery"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -6904,7 +6988,15 @@ msgid "Up to \"{place}\""
 msgstr ""
 
 #: crates/ox-app/src/window/network_info_bar.rs
-msgid "Network discovery is turned off. Network computers and devices are not visible. Click to learn more..."
+msgid "How to turn on network discovery"
+msgstr ""
+
+#: crates/ox-app/src/window/network_info_bar.rs
+msgid "Network discovery is turned off. Network computers and devices are not visible. Click to change..."
+msgstr ""
+
+#: crates/ox-app/src/window/network_info_bar.rs
+msgid "Open Help"
 msgstr ""
 
 #: crates/ox-app/src/window/network_sign_out.rs
@@ -7602,7 +7694,15 @@ msgid "Map network drive…"
 msgstr ""
 
 #: crates/ox-app/src/window/sidebar/menu.rs
+msgid "Pin current folder to Quick access"
+msgstr ""
+
+#: crates/ox-app/src/window/sidebar/menu.rs
 msgid "Show all entries"
+msgstr ""
+
+#: crates/ox-app/src/window/sidebar/menu.rs
+msgid "Show all folders"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -7643,10 +7743,6 @@ msgstr ""
 
 #: crates/ox-app/src/window/sidebar_toggle.rs
 msgid "Places (F9 shows the navigation pane)"
-msgstr ""
-
-#: crates/ox-app/src/window/software_search.rs
-msgid "Find an app in Software"
 msgstr ""
 
 #: crates/ox-app/src/window/star_prompt.rs
@@ -8581,10 +8677,6 @@ msgstr ""
 
 #: crates/ox-core/src/clipboard/pasted.rs
 msgid "The picture on the clipboard is too large to paste."
-msgstr ""
-
-#: crates/ox-core/src/entry/classify.rs
-msgid "Computer"
 msgstr ""
 
 #: crates/ox-core/src/entry/classify.rs
@@ -9726,6 +9818,11 @@ msgstr ""
 msgid "Undo can only rename an item back within its own folder."
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-core/src/ops/rename.rs
+msgid "You don't have permission to rename “{name}” here."
+msgstr ""
+
 #: crates/ox-core/src/ops/report.rs
 msgid "Operation stopped"
 msgstr ""
@@ -9921,6 +10018,11 @@ msgstr ""
 
 #: crates/ox-core/src/ops/undo.rs
 msgid "Undo Restore"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-core/src/ops/undo_apply.rs
+msgid "An item named “{name}” is already in “{folder}”, so Undo left it in “{left_in}”."
 msgstr ""
 
 #: crates/ox-core/src/ops/unfinished.rs
@@ -10310,6 +10412,11 @@ msgstr ""
 
 #: crates/ox-core/src/transfer/engine.rs
 msgid "Only copies and moves can rename an item."
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-core/src/transfer/engine.rs
+msgid "The copy at {uri} could not be written to its drive, so the original was kept. {error}"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.

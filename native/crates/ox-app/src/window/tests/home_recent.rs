@@ -4,8 +4,8 @@
 //! real file, by its menu and by its keys; Remove from Recent takes a
 //! file off the desktop's recently used list and leaves the file; a
 //! renamed file stays in Recent and Favorites under its new name, and one
-//! found gone leaves Recent. Blank space has its own menu, and the Quick
-//! access tiles are dragged into a new order. Clicks, keys and drags are
+//! found gone leaves Recent. A click on blank space selects nothing, and
+//! the Quick access tiles are dragged into a new order. Clicks, keys and drags are
 //! real (XTEST, `crate::test_support::pointer`). Every name below is
 //! fictional.
 
@@ -323,56 +323,42 @@ fn clearing_history_empties_recent_and_keeps_favorites() {
     });
 }
 
-/// A right-click on Home's blank space opens Windows 11's menu for Home:
-/// View, Sort by and Group by (both greyed out, as Home is not sorted or
-/// grouped), Undo and Redo, then "Show more options", which opens the
-/// classic menu, with Refresh, in its place.
+/// A right-click on Home's blank space, with a Recent row selected,
+/// clears the selection, so the command bar's Copy is greyed out again,
+/// and opens the menu of Home's blank space (View first), not the row's.
 ///
-/// parity: HOME-037
+/// parity: HOME-036
 #[gtk::test]
-fn a_right_click_on_homes_blank_space_opens_its_menu() {
+fn a_right_click_on_blank_space_clears_the_selection() {
     let (_fixture, test) = recent_home(&["plan.txt"]);
     let mut pointer = Pointer::connect();
+    click_row(&mut pointer, &test, "plan");
+    wait_until("Copy to follow the row", || {
+        command_button(&test, "win.copy").is_sensitive()
+    });
     let page = body(&test);
     let blank = (f64::from(page.width()) - 30.0, 8.0);
     click(&mut pointer, &test, page, Some(blank), Button::Secondary);
     let menu = open_menu(&test);
 
-    let labels = menu.row_labels();
-    assert_eq!(labels.first().map(String::as_str), Some("View"), "{labels:?}");
-    assert!(labels.iter().any(|label| label.starts_with("Undo")), "{labels:?}");
-    assert!(labels.iter().any(|label| label.starts_with("Redo")), "{labels:?}");
     assert_eq!(
-        labels.last().map(String::as_str),
-        Some("Show more options"),
-        "{labels:?}"
+        menu.row_labels().first().map(String::as_str),
+        Some("View"),
+        "{:?}",
+        menu.row_labels()
     );
-    assert!(menu.row("View").is_sensitive());
-    assert!(!menu.row("Sort by").is_sensitive(), "Sort by is greyed out");
-    assert!(!menu.row("Group by").is_sensitive(), "Group by is greyed out");
-    assert!(
-        menu.strip_labels().is_empty(),
-        "no icon strip: {:?}",
-        menu.strip_labels()
-    );
-
-    menu.click_row("Show more options");
-    let classic = open_menu(&test);
-    let classic_labels = classic.row_labels();
-    for wanted in ["View", "Sort by", "Group by", "Refresh"] {
-        assert!(
-            classic_labels.contains(&wanted.to_owned()),
-            "{wanted} in the classic menu {classic_labels:?}"
-        );
-    }
-    classic.popdown();
+    assert!(!menu.row_labels().contains(&"Remove from Recent".to_owned()));
+    menu.popdown();
+    wait_until("nothing selected", || {
+        !command_button(&test, "win.copy").is_sensitive()
+    });
 }
 
 /// A Quick access tile dragged onto the right half of another goes after
 /// it, and onto the left half before it, as an insertion mark shows in
 /// Windows; the navigation pane takes the same order, which is saved.
 ///
-/// parity: HOME-038
+/// parity: HOME-037
 #[gtk::test]
 fn a_tile_dragged_onto_another_moves_there() {
     let fixture = Fixture::standard();

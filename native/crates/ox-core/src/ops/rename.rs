@@ -93,8 +93,23 @@ pub(super) fn rename_item_blocking(
         return Ok(renamed);
     }
     move_within_folder(&source, destination.as_ref(), context)
-        .map_err(|error| name_taken_or(error, new_name))?;
+        .map_err(|error| rename_refusal(error, &source.display_name(), new_name))?;
     Ok(renamed)
+}
+
+/// The message for a rename the backend refused: a taken `new_name`
+/// says which name is taken, and a denied permission names the item,
+/// `old_name`, in place of GIO's "Error moving file" with the item's
+/// whole path, as Windows says it needs permission to rename it. Other
+/// refusals keep their messages.
+fn rename_refusal(error: OpsError, old_name: &str, new_name: &str) -> OpsError {
+    match name_taken_or(error, new_name) {
+        OpsError::PermissionDenied(_) => OpsError::PermissionDenied(crate::i18n::format_message(
+            "You don't have permission to rename “{name}” here.",
+            &[("name", old_name)],
+        )),
+        other => other,
+    }
 }
 
 /// Undoes a rename: gives the item at `renamed_uri` its name from
@@ -121,7 +136,7 @@ pub(crate) fn rename_back(
     }
     context.protection.check(renamed_uri)?;
     move_within_folder(&source, &original, context)
-        .map_err(|error| name_taken_or(error, &original.display_name()))
+        .map_err(|error| rename_refusal(error, &source.display_name(), &original.display_name()))
 }
 
 /// True when `first` and `second` have the same parent folder.
@@ -147,4 +162,37 @@ fn move_within_folder(
     protection.check_tree(source, destination, &context.cancel, SourceChange::Changed)?;
     source.move_native(destination, Some(&context.cancel))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A denied rename names the item in place of GIO's message, which
+    /// gives its whole path; other refusals keep their messages, and a
+    /// taken name says which.
+    ///
+    /// parity: OPS-008
+    #[test]
+    fn a_denied_rename_names_the_item_not_its_path() {
+        let gio_message = "Error moving file /srv/example/Budget 2027.ods: Permission denied";
+
+        let denied = rename_refusal(
+            OpsError::PermissionDenied(gio_message.into()),
+            "Budget 2027.ods",
+            "Budget.ods",
+        );
+        let taken = rename_refusal(OpsError::Exists(String::new()), "Budget 2027.ods", "Budget.ods");
+        let other = rename_refusal(OpsError::failed("No space left"), "Budget 2027.ods", "Budget.ods");
+
+        assert_eq!(
+            denied,
+            OpsError::PermissionDenied("You don't have permission to rename “Budget 2027.ods” here.".into())
+        );
+        assert_eq!(
+            taken,
+            OpsError::Exists("An item named “Budget.ods” already exists. Nothing was overwritten.".into())
+        );
+        assert_eq!(other, OpsError::failed("No space left"));
+    }
 }

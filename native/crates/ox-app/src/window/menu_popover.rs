@@ -718,6 +718,11 @@ impl MenuPopover {
         }
     }
 
+    /// The entries, dividers included, as the menu shows them now.
+    pub(in crate::window) fn entries(&self) -> Vec<MenuEntry> {
+        self.imp().entries.borrow().clone()
+    }
+
     /// The items, one per row, without the dividers.
     pub(in crate::window) fn items(&self) -> Vec<MenuItem> {
         items_of(&self.imp().entries.borrow()).cloned().collect()
@@ -1251,7 +1256,7 @@ impl MenuPopover {
     /// The pointer rests on the row at `index`, or on none: after
     /// [`SUBMENU_DELAY`], that row's submenu opens, or the open one closes
     /// when the pointer rests on another row. Leaving the rows keeps an
-    /// open submenu open, as Windows does.
+    /// open submenu open, as Windows 11 does (checked on build 26200).
     fn rest_on(&self, index: Option<usize>) {
         if self.imp().hover.borrow().0 == index {
             return;

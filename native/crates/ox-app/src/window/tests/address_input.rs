@@ -88,14 +88,18 @@ fn an_smb_path_has_server_share_and_folder_crumbs_with_the_uri_encoded() {
         .iter()
         .filter_map(|crumb| crumb.label().map(Into::into))
         .collect();
-    assert_eq!(labels[1..], ["Team files", "Q3 #1"]);
-    assert!(crumb_target(&crumbs[0]).starts_with("smb://nas:1445/"));
-    assert_eq!(crumb_target(&crumbs[2]), "smb://nas:1445/Team%20files/Q3%20%231");
+    // Network > server > share > folder, as Windows starts the address of
+    // a computer's share at Network.
+    assert_eq!(labels[0], "Network");
+    assert_eq!(labels[2..], ["Team files", "Q3 #1"]);
+    assert_eq!(crumb_target(&crumbs[0]), "network:///");
+    assert!(crumb_target(&crumbs[1]).starts_with("smb://nas:1445/"));
+    assert_eq!(crumb_target(&crumbs[3]), "smb://nas:1445/Team%20files/Q3%20%231");
     let dividers: Vec<gtk::Label> = descendants::<gtk::Label>(&crumb_box(&test))
         .into_iter()
         .filter(|label| label.has_css_class("crumb-divider"))
         .collect();
-    assert_eq!(dividers.len(), 2, "server › share › folder");
+    assert_eq!(dividers.len(), 3, "Network › server › share › folder");
     assert!(
         dividers.iter().all(|label| label.text().is_empty()),
         "dividers are drawn as Explorer's chevrons, not as the path's '\\'"
@@ -533,13 +537,15 @@ fn the_recycle_bin_and_recent_open_from_the_typed_address() {
 #[gtk::test]
 fn a_typed_relative_name_or_tilde_opens_in_the_same_tab() {
     let fixture = Fixture::standard();
+    // Not a standard folder's name, which would open that folder.
+    std::fs::create_dir(fixture.path("Letters")).expect("fixture subfolder");
     let test = TestWindow::open(&fixture.uri());
     test.activate("location", None);
 
-    test.window.submit_address("Documents");
+    test.window.submit_address("Letters");
 
     wait_until("the typed folder", || {
-        test.window.current_uri() == Some(fixture.uri_of("Documents"))
+        test.window.current_uri() == Some(fixture.uri_of("Letters"))
     });
     assert_eq!(test.window.address_bar().mode(), AddressMode::Crumbs);
     test.window.submit_address("~");
@@ -721,7 +727,9 @@ fn a_middle_click_on_blank_address_space_opens_the_selected_text() {
     let test = TestWindow::open(&fixture.uri());
     let address = test.window.address_bar();
     let primary = WidgetExt::display(address).primary_clipboard();
-    primary.set_text("Documents");
+    // "Documents" alone names the standard folder; a relative path names
+    // the one here.
+    primary.set_text("./Documents");
 
     middle_click_at(address, (1.0, 1.0));
 

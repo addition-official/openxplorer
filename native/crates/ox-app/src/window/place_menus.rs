@@ -91,8 +91,6 @@ pub(super) enum PlaceMenu {
         /// Whether it is a row of Recent, which offers Remove from Recent.
         recent: bool,
     },
-    /// Home's blank space (HOME-037).
-    HomeBackground,
 }
 
 /// An item that runs `action` with the place `target`.
@@ -154,8 +152,7 @@ fn disks_items(uri: &str, controls: MountControls) -> Vec<MenuEntry> {
 /// can open there (`terminalMenuItem`): anywhere but a local folder, an
 /// SMB share or an SFTP, FTP, WebDAV or NFS place.
 fn terminal_item(uri: &str) -> MenuEntry {
-    let is_share = (is_smb_location(uri) || is_remote_location(uri)) && !is_smb_server(uri);
-    let can_open = uri.starts_with("file:") || is_share;
+    let can_open = terminal_opens_at(uri);
     let terminal = MenuItem::with_text_target(
         &ox_core::i18n::gettext("Open in Terminal"),
         Icon::WindowConsole,
@@ -163,6 +160,14 @@ fn terminal_item(uri: &str) -> MenuEntry {
         uri,
     );
     terminal.disabled_when(!can_open).into()
+}
+
+/// Whether a terminal can open at `uri` (`terminalMenuItem`): a local
+/// folder, an SMB share or an SFTP, FTP, WebDAV or NFS place, not a
+/// server's share list or a page such as Network or Gallery.
+pub(super) fn terminal_opens_at(uri: &str) -> bool {
+    let is_share = (is_smb_location(uri) || is_remote_location(uri)) && !is_smb_server(uri);
+    uri.starts_with("file:") || is_share
 }
 
 /// "Cache this folder for search" for the place at `uri`, where it can be
@@ -367,11 +372,12 @@ fn quick_access_pin_menu(
     }
 }
 
-/// `networkLocationMenu`: opening, Open in Terminal, the cache item,
+/// `networkLocationMenu`: opening, a computer's Pin to Quick access (or
+/// Unpin while `pinned`), Open in Terminal, the cache item,
 /// keeping or removing a share, Sign out for SMB, Disconnect for a
 /// connected SFTP, FTP, WebDAV or NFS place, and Properties of a mount or
 /// a connected share.
-fn network_entries(location: &NetworkLocation, caching: Option<Caching>) -> Vec<MenuEntry> {
+fn network_entries(location: &NetworkLocation, caching: Option<Caching>, pinned: bool) -> Vec<MenuEntry> {
     let uri = location.uri.as_str();
     let mut entries = vec![
         item(
@@ -388,12 +394,17 @@ fn network_entries(location: &NetworkLocation, caching: Option<Caching>) -> Vec<
         ),
         item(
             ox_core::i18n::gettext_static("Open in new window"),
-            Icon::Share,
+            Icon::WindowNew,
             WindowAction::OpenWindow,
             uri,
         ),
-        terminal_item(uri),
     ];
+    // A computer's Pin to Quick access, as Windows 11's (checked on build
+    // 26200); Windows' Create shortcut is not offered yet.
+    if location.kind == NetworkKind::Server {
+        entries.push(drive_pin_item(uri, pinned));
+    }
+    entries.push(terminal_item(uri));
     entries.extend(cache_entries(uri, caching));
     let is_smb = is_smb_location(uri);
     let is_remote = is_remote_location(uri);
@@ -563,6 +574,9 @@ impl PlaceMenu {
                 favorite,
                 recent,
             } => super::home_page::file_menu(uri, *favorite, *recent, style),
+            PlaceMenu::Network(location) => {
+                (network_entries(location, facts.caching, facts.pinned), Vec::new())
+            }
             _ => (self.entries(facts.caching), Vec::new()),
         }
     }
@@ -578,8 +592,7 @@ impl PlaceMenu {
             | PlaceMenu::RecycleBin { .. }
             | PlaceMenu::RecentFiles
             | PlaceMenu::RecentLocations
-            | PlaceMenu::HomeFile { .. }
-            | PlaceMenu::HomeBackground => None,
+            | PlaceMenu::HomeFile { .. } => None,
         }
     }
 
@@ -600,7 +613,7 @@ impl PlaceMenu {
                 WindowAction::MountVolume,
                 id,
             )],
-            PlaceMenu::Network(location) => network_entries(location, caching),
+            PlaceMenu::Network(location) => network_entries(location, caching, false),
             PlaceMenu::RecycleBin { has_items } => recycle_bin_entries(*has_items),
             PlaceMenu::RecentFiles => recent_files_entries(),
             PlaceMenu::RecentLocations => recent_locations_entries(),
@@ -610,8 +623,6 @@ impl PlaceMenu {
                 favorite,
                 recent,
             } => super::home_page::file_menu(uri, *favorite, *recent, MenuStyle::Classic).0,
-            // Drawn from the window's state, in `popup_place_menu_in`.
-            PlaceMenu::HomeBackground => Vec::new(),
             PlaceMenu::SavedShare { uri } => {
                 let mut entries = vec![
                     item(
@@ -702,15 +713,7 @@ pub(super) fn popup_place_menu_in(
     style: MenuStyle,
     opener: Option<&gtk::Widget>,
 ) -> Option<MenuPopover> {
-    let (entries, strip) = match menu {
-        // Home's blank space: View and Undo read the window's state.
-        PlaceMenu::HomeBackground => owner
-            .root()
-            .and_downcast::<BrowserWindow>()
-            .map(|window| (window.home_background_menu(style), Vec::new()))
-            .unwrap_or_default(),
-        _ => menu.styled(facts_in(menu, owner), style),
-    };
+    let (entries, strip) = menu.styled(facts_in(menu, owner), style);
     if entries.is_empty() {
         return None;
     }

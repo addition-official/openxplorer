@@ -1132,7 +1132,7 @@ fn keep_tiles_apart(flow: &gtk::FlowBox) {
 const TILE_DRAG_PREFIX: &str = "openxplorer-quick-access-tile:";
 
 /// Lets the Quick access tiles of `flow` be dragged into a new order
-/// (HOME-038), as Windows 11's Home and the navigation pane's Quick
+/// (HOME-037), as Windows 11's Home and the navigation pane's Quick
 /// access let pins be: a tile dropped on the left half of another goes
 /// before it, on the right half after it, and on blank space after the
 /// last tile. The order is the navigation pane's, saved as
@@ -1476,7 +1476,7 @@ pub(super) fn render(
     let kept = KeptFocus::read(page);
     remove_children(page);
     page.add_css_class(HOME_CLASS);
-    connect_blank_space_menu(page);
+    connect_blank_space_clicks(page);
     let drawn = page.has_css_class(DRAWN_CLASS);
     let folded = |section: Section| {
         if drawn {
@@ -1537,38 +1537,21 @@ pub(super) fn render(
     recount(page);
 }
 
-/// The class the page carries once its blank space has its menu.
-const BLANK_MENU_CLASS: &str = "home-blank-menu";
+/// The class the page carries once a click on its blank space clears
+/// the selection.
+const BLANK_SPACE_CLASS: &str = "home-blank-space";
 
-/// Gives Home's blank space its menu (HOME-037): a right-click outside
-/// the tiles and rows, Shift for the classic style, and the Menu key or
-/// Shift+F10 where no tile or row took it. The page outlives a redraw,
-/// so this is done once; another landing page drawn in it does not
-/// offer the menu.
-fn connect_blank_space_menu(page: &gtk::Box) {
-    if page.has_css_class(BLANK_MENU_CLASS) {
+/// A click on Home's blank space, with either button, selects nothing,
+/// as in an item view; a right-click then goes on to the menu of Home's
+/// blank space, which the folder pane's scroller opens. The page
+/// outlives a redraw, so this is done once.
+fn connect_blank_space_clicks(page: &gtk::Box) {
+    if page.has_css_class(BLANK_SPACE_CLASS) {
         return;
     }
-    page.add_css_class(BLANK_MENU_CLASS);
-    let right_click = gtk::GestureClick::new();
-    right_click.set_button(gtk::gdk::BUTTON_SECONDARY);
-    right_click.connect_pressed(|gesture, _, x, y| {
-        let Some(page) = gesture.widget().and_downcast::<gtk::Box>() else {
-            return;
-        };
-        if !page.has_css_class(HOME_CLASS) {
-            return;
-        }
-        gesture.set_state(gtk::EventSequenceState::Claimed);
-        let shift = gesture
-            .current_event_state()
-            .contains(gtk::gdk::ModifierType::SHIFT_MASK);
-        popup_blank_space_menu(&page, x, y, shift);
-    });
-    page.add_controller(right_click);
-    // A click on blank space selects nothing, as in an item view.
+    page.add_css_class(BLANK_SPACE_CLASS);
     let click = gtk::GestureClick::new();
-    click.set_button(gtk::gdk::BUTTON_PRIMARY);
+    click.set_button(0);
     click.connect_pressed(|gesture, _, x, y| {
         let Some(page) = gesture.widget().and_downcast::<gtk::Box>() else {
             return;
@@ -1583,46 +1566,6 @@ fn connect_blank_space_menu(page: &gtk::Box) {
         }
     });
     page.add_controller(click);
-    let shortcuts = gtk::ShortcutController::new();
-    for (key, shift_f10) in [(MENU_KEY, false), (SHIFT_F10_KEY, true)] {
-        let action = gtk::CallbackAction::new(move |page, _| {
-            let Some(page) = page.downcast_ref::<gtk::Box>() else {
-                return glib::Propagation::Proceed;
-            };
-            if !page.has_css_class(HOME_CLASS) {
-                return glib::Propagation::Proceed;
-            }
-            let classic = shift_f10
-                && page
-                    .root()
-                    .and_downcast::<BrowserWindow>()
-                    .is_some_and(|window| window.shift_f10_menu_style() == MenuStyle::Classic);
-            popup_blank_space_menu(page, f64::from(SECTION_INDENT), 0.0, classic);
-            glib::Propagation::Stop
-        });
-        shortcuts.add_shortcut(gtk::Shortcut::new(
-            gtk::ShortcutTrigger::parse_string(key),
-            Some(action),
-        ));
-    }
-    page.add_controller(shortcuts);
-}
-
-/// Opens the menu of Home's blank space at `x`, `y` in `page`, in the
-/// right-click menu's style or the classic one.
-fn popup_blank_space_menu(page: &gtk::Box, x: f64, y: f64, classic: bool) {
-    let style = if classic {
-        MenuStyle::Classic
-    } else {
-        page.root()
-            .and_downcast::<BrowserWindow>()
-            .map_or(MenuStyle::Compact, |window| window.preferred_menu_style())
-    };
-    // Nothing stays selected, as a click on blank space selects nothing.
-    for flow in descendants_of_type::<gtk::FlowBox>(page) {
-        flow.unselect_all();
-    }
-    popup_item_place_menu(&PlaceMenu::HomeBackground, page, x, y, style);
 }
 
 /// How many items Home shows, as Windows 11's status bar counts them on
@@ -1909,15 +1852,10 @@ impl BrowserWindow {
         ]);
     }
 
-    /// Adds the file at `uri` to Favorites, or removes it; every window
-    /// draws Home again once it is saved. Nothing changes while "Open
-    /// Quick access on Home" is off, here or, should another window turn
-    /// it off meanwhile, when the change runs
-    /// ([`ox_core::settings::Settings::set_favorite`]).
+    /// Adds the file at `uri` to Favorites, or removes it, whatever Home
+    /// shows, as Windows 11 does; every window draws Home again once it is
+    /// saved ([`ox_core::settings::Settings::set_favorite`]).
     fn set_favorite(&self, uri: &str, favorite: bool) {
-        if !self.context().settings_data().preferences.home_quick_access {
-            return;
-        }
         let uri = uri.to_owned();
         let change: Change = Box::new(move |settings| settings.set_favorite(&uri, favorite).map(|_| ()));
         self.context().change_settings(
@@ -2027,73 +1965,6 @@ impl BrowserWindow {
         let (from, to) = (from.to_owned(), to.to_owned());
         let change: Change = Box::new(move |settings| settings.move_favorites(&from, &to).map(|_| ()));
         self.context().remember_change(change);
-    }
-
-    /// The menu of Home's blank space in `style` (HOME-037), as the task
-    /// owner checked it on Windows 11's Home: View, then Sort by and Group
-    /// by greyed out, as Home's sections are neither sorted nor grouped,
-    /// then Undo and Redo; "Show more options" follows in the compact
-    /// style, and the classic one adds Refresh.
-    pub(super) fn home_background_menu(&self, style: MenuStyle) -> Vec<MenuEntry> {
-        use ox_core::ops::JournalDirection;
-
-        let submenu = |label: &'static str, glyph: Icon, action: WindowAction, entries: Vec<MenuEntry>| {
-            MenuItem::submenu(ox_core::i18n::gettext_static(label), glyph, action, entries)
-        };
-        let mut entries: Vec<MenuEntry> = vec![
-            submenu(
-                message_id("View"),
-                Icon::Grid,
-                WindowAction::ShowViewMenu,
-                self.background_view_menu(),
-            )
-            .into(),
-            submenu(
-                message_id("Sort by"),
-                Icon::ArrowSort,
-                WindowAction::ShowSortMenu,
-                super::command_bar::sort_menu(),
-            )
-            .disabled_when(true)
-            .into(),
-            submenu(
-                message_id("Group by"),
-                Icon::TextBulletList,
-                WindowAction::GroupBy,
-                super::command_bar::group_by_menu(),
-            )
-            .disabled_when(true)
-            .into(),
-        ];
-        if style == MenuStyle::Classic {
-            entries.push(
-                MenuItem::new(
-                    ox_core::i18n::gettext_static("Refresh"),
-                    Icon::ArrowClockwise,
-                    WindowAction::Refresh,
-                )
-                .with_shortcut("F5")
-                .into(),
-            );
-        }
-        entries.extend([
-            MenuEntry::Divider,
-            MenuItem::new(
-                &self.journal_label(JournalDirection::Undo),
-                Icon::ArrowUndo,
-                WindowAction::Undo,
-            )
-            .with_shortcut("Ctrl+Z")
-            .into(),
-            MenuItem::new(
-                &self.journal_label(JournalDirection::Redo),
-                Icon::ArrowRedo,
-                WindowAction::Redo,
-            )
-            .with_shortcut("Ctrl+Y")
-            .into(),
-        ]);
-        entries
     }
 
     /// The file of the Recent or Favorites row selected on the Home page
