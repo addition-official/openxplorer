@@ -36,7 +36,8 @@ const NAMES: [&str; 8] = [
 /// The folders listed below the top, and the members previewed, at most.
 const MAX_VISITS: usize = 6;
 
-/// The options an input asks for.
+/// The options an input asks for, each a bit of its first byte.
+#[allow(clippy::struct_excessive_bools)]
 struct Input<'a> {
     uri: String,
     archive: &'a [u8],
