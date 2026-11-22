@@ -110,9 +110,6 @@ fn row_content(entry: &SidebarEntry, look: RowLook, collapsed: bool) -> gtk::Box
             content.append(&chevron);
         }
     }
-    if let (RowLevel::Computer { expanded }, RowTarget::Location(uri)) = (entry.level, &entry.target) {
-        content.append(&computer_chevron(uri, &entry.label, expanded));
-    }
     let icon = row_icon(entry.icon, look.icon_size);
     if matches!(entry.icon, Art::Network(_)) {
         // The network pipe says what it means (`.side-icon.shared`).
@@ -162,36 +159,6 @@ fn section_chevron(section: Section, expanded: bool) -> Option<gtk::Button> {
     WindowAction::ToggleSidebarSection.assign_with_target_to(&button, &key.to_variant());
     draw_chevron(&button, section, expanded);
     Some(button)
-}
-
-/// The chevron of a computer Network discovered, `expanded` or not: it
-/// lists the computer's shared folders under it, or hides them, as a
-/// node of Windows Explorer's navigation pane does; clicking the name
-/// still opens the computer. Like This PC's, it takes no focus: Right
-/// and Left on the row do the same.
-fn computer_chevron(uri: &str, name: &str, expanded: bool) -> gtk::Button {
-    let button = gtk::Button::builder()
-        .css_classes([CHEVRON_CLASS])
-        .valign(gtk::Align::Center)
-        .focus_on_click(false)
-        .can_focus(false)
-        .build();
-    WindowAction::ToggleNetworkComputer.assign_with_target_to(&button, &uri.to_variant());
-    let (glyph, label) = if expanded {
-        (
-            Icon::ChevronDown16,
-            ox_core::i18n::format_message("Collapse {section}", &[("section", name)]),
-        )
-    } else {
-        (
-            Icon::ChevronRight16,
-            ox_core::i18n::format_message("Expand {section}", &[("section", name)]),
-        )
-    };
-    button.set_child(Some(&icons::image(glyph, EXPANDER_SIZE)));
-    button.set_tooltip_text(Some(&label));
-    button.update_property(&[gtk::accessible::Property::Label(&label)]);
-    button
 }
 
 /// Points `chevron` down while `section` is expanded and right while it
@@ -251,8 +218,6 @@ fn placement_classes(entry: &SidebarEntry) -> Vec<&'static str> {
         RowLevel::Place => {}
         RowLevel::Group => classes.push("group"),
         RowLevel::Child => classes.push("indent"),
-        RowLevel::Computer { .. } => classes.push("computer"),
-        RowLevel::Share => classes.push("share"),
     }
     if entry.section == Section::QuickAccess {
         classes.push("quick-access");
@@ -281,11 +246,7 @@ pub(super) fn sidebar_row(entry: &SidebarEntry, look: RowLook, collapsed: bool) 
     match entry.level {
         RowLevel::Place => {}
         RowLevel::Group => row.update_state(&[gtk::accessible::State::Expanded(Some(!collapsed))]),
-        RowLevel::Child | RowLevel::Share => row.set_visible(!collapsed),
-        RowLevel::Computer { expanded } => {
-            row.update_state(&[gtk::accessible::State::Expanded(Some(expanded))]);
-            row.set_visible(!collapsed);
-        }
+        RowLevel::Child => row.set_visible(!collapsed),
     }
     let (action, target) = match &entry.target {
         RowTarget::Location(uri) => (WindowAction::GoTo, uri.to_variant()),

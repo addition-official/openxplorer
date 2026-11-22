@@ -468,12 +468,9 @@ impl Sidebar {
                 ));
             }
         }
-        // Home, Gallery and the computers under Network with their
-        // shared folders open in a new tab or window, as every node of
+        // Home and Gallery open in a new tab or window, as every node of
         // Windows 11's navigation pane does.
-        let opens_elsewhere = entry.section == Section::Home
-            || matches!(entry.level, RowLevel::Computer { .. } | RowLevel::Share);
-        if opens_elsewhere && entry.menu.is_none() {
+        if entry.section == Section::Home && entry.menu.is_none() {
             if let RowTarget::Location(uri) = &entry.target {
                 return Some(open_elsewhere_items(uri));
             }

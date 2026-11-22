@@ -43,8 +43,8 @@ use super::window_action::WindowAction;
 use super::{gestures, preferences};
 
 pub(super) use drop_spots::SidebarDropSpot;
-pub(super) use entries::{computer_entries, recent_and_bin_entries, sidebar_entries, Section};
-use entries::{RowLevel, RowTarget, SidebarEntry};
+pub(super) use entries::{recent_and_bin_entries, sidebar_entries};
+use entries::{RowLevel, RowTarget, Section, SidebarEntry};
 
 /// Whether a row shows something hidden, listed while "Show all
 /// entries" is on (SIDE-010).
