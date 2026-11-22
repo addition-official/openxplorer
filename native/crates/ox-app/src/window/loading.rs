@@ -524,6 +524,7 @@ impl BrowserWindow {
             self.update_details_pane();
             self.focus_new_file_list();
             self.restore_scroll_after_listing(id);
+            self.folder_pane().move_keyboard_onto_an_item_once_drawn();
             self.restore_expanded_after_listing(id);
             self.reveal_located_item(id);
             if is_listed {

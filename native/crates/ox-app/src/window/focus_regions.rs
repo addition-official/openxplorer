@@ -5,8 +5,13 @@
 //! Windows Explorer cycles its panes with F6; here the regions are, in
 //! order, the tab strip, the address bar, the search box, the command
 //! bar, the sidebar, the file list (each pane of a split tab, the left
-//! one first, as Tab visits them, `tab_order.rs`) and the Details pane,
-//! wrapping round.
+//! one first, as Tab visits them, `tab_order.rs`), the Details pane and
+//! the status bar, wrapping round. Microsoft gives Windows 11's F6 order
+//! as "Tabs", "Navigation pane", "Content pane", "Details pane (if
+//! shown)" and "Status bar" ("Use a screen reader to explore and navigate
+//! File Explorer in Windows"); the address bar, search box and command
+//! bar, which Windows reaches with Tab from the tabs, are F6 stops here
+//! too.
 //! A hidden or disabled region is skipped. Focus lands on the region's
 //! current item: the front tab, the highlighted sidebar row, the item that
 //! last had focus in the file list; elsewhere on the region's first
@@ -42,11 +47,13 @@ pub(super) enum Region {
     /// The right pane of a split tab, shown only then.
     EndPane,
     Details,
+    /// The status bar's view buttons.
+    StatusBar,
 }
 
 impl Region {
     /// Every region, in F6's order.
-    const ALL: [Region; 8] = [
+    const ALL: [Region; 9] = [
         Region::Tabs,
         Region::Address,
         Region::Search,
@@ -55,6 +62,7 @@ impl Region {
         Region::Files,
         Region::EndPane,
         Region::Details,
+        Region::StatusBar,
     ];
 }
 
@@ -249,6 +257,7 @@ impl BrowserWindow {
             Region::Files => self.pane_on(PaneSide::Start).clone().upcast(),
             Region::EndPane => self.pane_on(PaneSide::End).clone().upcast(),
             Region::Details => self.details_pane().clone().upcast(),
+            Region::StatusBar => self.status_bar().clone().upcast(),
         }
     }
 

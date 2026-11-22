@@ -89,12 +89,12 @@ fn the_file_list_its_items_and_every_icon_button_are_named() {
         gtk::AccessibleRole::Status,
         "a live region"
     );
+    // Buttons that sort: GTK's column-header role reaches no screen
+    // reader as one (tests/screen_reader.rs).
     let titles = crate::folder_view::column_titles::title_buttons(&details);
     let roles: Vec<gtk::AccessibleRole> = titles.iter().map(AccessibleExt::accessible_role).collect();
     assert!(
-        roles
-            .iter()
-            .all(|role| *role == gtk::AccessibleRole::ColumnHeader),
+        roles.iter().all(|role| *role == gtk::AccessibleRole::Button),
         "{roles:?}"
     );
     let resizers = descendants::<ResizerControl>(&details);
@@ -159,7 +159,7 @@ fn f6_moves_focus_round_the_regions_and_back_to_the_same_item() {
     let selected = test.window.folder_pane().model().selected_items().len();
 
     let mut visited = Vec::new();
-    for _ in 0..7 {
+    for _ in 0..8 {
         visited.push(
             test.window
                 .focus_next_region(false)
@@ -171,6 +171,7 @@ fn f6_moves_focus_round_the_regions_and_back_to_the_same_item() {
         visited,
         [
             Region::Details,
+            Region::StatusBar,
             Region::Tabs,
             Region::Address,
             Region::Search,
@@ -207,7 +208,7 @@ fn f6_into_the_tab_row_focuses_the_tab_in_front() {
     test.window.folder_pane().focus_view();
 
     let mut region = None;
-    for _ in 0..7 {
+    for _ in 0..8 {
         region = test.window.focus_next_region(false);
         if region == Some(Region::Tabs) {
             break;
