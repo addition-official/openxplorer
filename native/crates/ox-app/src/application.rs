@@ -535,7 +535,6 @@ fn software_rendering_notice(asks: bool, is_remote: bool, renderer: Option<&str>
 /// with `--ox-draw-vector-picture` it draws one vector picture for the app
 /// (see `picture_guard/vector.rs`).
 pub fn run() -> glib::ExitCode {
-    crate::startup_trace::mark("main");
     raise_open_file_limit();
     let arguments: Vec<String> = std::env::args().collect();
     if let Some(status) = crate::media_details::run_as_reader(&arguments) {
@@ -550,6 +549,9 @@ pub fn run() -> glib::ExitCode {
     if let Some(status) = crate::picture_guard::run_as_drawer(&arguments) {
         return status;
     }
+    // After the helper processes the app starts again of itself, which
+    // write no steps of a start.
+    crate::startup_trace::mark("main");
     crate::crash_guard::install_panic_hook();
     ox_core::i18n::install(crate::config::I18N_DOMAIN);
     let launch = match SnapshotRequest::from_environment() {
