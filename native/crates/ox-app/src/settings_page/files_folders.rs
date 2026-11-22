@@ -4,9 +4,9 @@
 //! sizes" section, SET-008), what Replace does with the file it replaces
 //! (OPS-028), and previews (VIEW-058), as Dolphin's Previews settings offer
 //! them, folded away, and two clipboard extras that Windows 11 File Explorer
-//! lacks: a picture pasted as a new file (CLIP-015), off by default as
-//! Windows has it, and the paths copied as text beside the files (CLIP-004),
-//! on by default as GNOME Files has it. Windows 11's Compact view (VIEW-067) is built here and
+//! lacks, both on by default and each one able to be turned off: a picture
+//! pasted as a new file (CLIP-015) and the paths copied as text beside the
+//! files (CLIP-004). Windows 11's Compact view (VIEW-067) is built here and
 //! shown on the Appearance page. Each switch saves its preference or the
 //! folder views' options at once, and every window follows.
 
@@ -344,8 +344,7 @@ fn replacing_group(page: &SettingsPage) -> SettingsGroup {
     group
 }
 
-/// The clipboard's extras beyond Windows: picture paste, off by default,
-/// and paths as text, on by default.
+/// The clipboard's extras beyond Windows, each on by default.
 fn clipboard_group(page: &SettingsPage) -> SettingsGroup {
     let group = SettingsGroup::new(&ox_core::i18n::gettext("Clipboard"));
     let rows = [

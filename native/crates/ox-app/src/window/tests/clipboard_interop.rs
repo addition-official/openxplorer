@@ -176,15 +176,6 @@ fn offering(mime_type: &str, payload: &[u8]) -> gdk::ContentProvider {
     gdk::ContentProvider::for_bytes(mime_type, &glib::Bytes::from(payload))
 }
 
-/// A window on `uri` with Settings' "Paste pictures as new files" on,
-/// which a paste of a picture needs; it starts off, as in Windows
-/// (CLIP-015).
-fn window_pasting_pictures(uri: &str) -> TestWindow {
-    let test = TestWindow::open(uri);
-    test.set_paste_pictures_as_files(true);
-    test
-}
-
 /// A window on the fixture's Documents folder with the fixture's
 /// "Notes 2.txt" copied, so Paste is enabled until the clipboard changes.
 fn window_with_a_file_clipboard(fixture: &Fixture) -> TestWindow {
@@ -285,7 +276,7 @@ fn an_empty_clipboard_disables_paste() {
 #[gtk::test]
 fn a_picture_on_the_clipboard_pastes_as_an_image_file() {
     let fixture = Fixture::standard();
-    let test = window_pasting_pictures(&fixture.uri_of("Documents"));
+    let test = TestWindow::open(&fixture.uri_of("Documents"));
     let one_blue_pixel = glib::Bytes::from_static(&[0, 120, 212, 255]);
     let image = gdk::MemoryTexture::new(1, 1, gdk::MemoryFormat::R8g8b8a8, &one_blue_pixel, 4);
 
@@ -317,7 +308,7 @@ fn a_picture_on_the_clipboard_pastes_as_an_image_file() {
 #[gtk::test]
 fn a_jpeg_on_the_clipboard_is_written_as_it_was_copied() {
     let fixture = Fixture::standard();
-    let test = window_pasting_pictures(&fixture.uri_of("Documents"));
+    let test = TestWindow::open(&fixture.uri_of("Documents"));
     let jpeg = [0xff, 0xd8, 0xff, 0xe0, b'\r', b'\n', 0x00, 0xff, 0xd9];
 
     take_clipboard(&test, &offering("image/jpeg", &jpeg));
@@ -375,7 +366,7 @@ fn a_file_list_wins_over_the_text_paths_copied_beside_it() {
 #[gtk::test]
 fn a_picture_over_the_size_limit_is_no_data_and_says_why() {
     let fixture = Fixture::standard();
-    let test = window_pasting_pictures(&fixture.uri_of("Documents"));
+    let test = TestWindow::open(&fixture.uri_of("Documents"));
     let huge = vec![0x89; MAX_BYTES + 1];
     let owner = ScriptedOwner::new(
         "image/png",
@@ -406,7 +397,7 @@ fn a_picture_over_the_size_limit_is_no_data_and_says_why() {
 #[gtk::test]
 fn a_picture_conversion_the_owner_refuses_is_no_data() {
     let fixture = Fixture::standard();
-    let test = window_pasting_pictures(&fixture.uri_of("Documents"));
+    let test = TestWindow::open(&fixture.uri_of("Documents"));
     let refusing_owner = ScriptedOwner::new("image/png", Script::Fail);
     let progress = refusing_owner.progress();
 
@@ -427,7 +418,7 @@ fn a_picture_conversion_the_owner_refuses_is_no_data() {
 #[gtk::test]
 fn pasting_the_same_picture_twice_never_overwrites_the_first_file() {
     let fixture = Fixture::standard();
-    let test = window_pasting_pictures(&fixture.uri_of("Documents"));
+    let test = TestWindow::open(&fixture.uri_of("Documents"));
     let png = [0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
 
     take_clipboard(&test, &offering("image/png", &png));
@@ -455,7 +446,7 @@ fn pasting_the_same_picture_twice_never_overwrites_the_first_file() {
 #[gtk::test]
 fn paste_into_a_folder_writes_the_picture_there() {
     let fixture = Fixture::standard();
-    let test = window_pasting_pictures(&fixture.uri());
+    let test = TestWindow::open(&fixture.uri());
     select_names(&test, &["Documents"]);
     let png = [0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
 

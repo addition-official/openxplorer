@@ -540,11 +540,10 @@ pub struct Preferences {
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub show_search_filter_bar: bool,
     /// Paste in a folder writes a picture on the clipboard, such as a
-    /// screenshot, as a new image file (CLIP-015). Off by default, which
-    /// leaves Paste unavailable for a picture, as in Windows 11 File
-    /// Explorer; stored only when on. Earlier versions stored it only when
-    /// off, so such a file reads as off too.
-    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    /// screenshot, as a new image file (CLIP-015). On by default; stored
+    /// only when off, which leaves Paste unavailable for a picture, as in
+    /// Windows 11 File Explorer.
+    #[serde(skip_serializing_if = "is_true")]
     pub paste_pictures_as_files: bool,
     /// Copy and Cut also put the items' paths on the clipboard as plain
     /// text (CLIP-004). On by default; stored only when off, which copies
@@ -692,7 +691,7 @@ impl Default for Preferences {
             type_into_search_box: false,
             show_search_filter_bar: false,
             search_contents: false,
-            paste_pictures_as_files: false,
+            paste_pictures_as_files: true,
             copy_paths_as_text: true,
             view_defaults: None,
             folder_views: Vec::new(),
@@ -2050,41 +2049,35 @@ mod tests {
         assert_eq!(preferences, Preferences::default());
     }
 
-    /// "Also copy paths as text" starts on, as it was before it could be
-    /// turned off, and is stored only when off. "Paste pictures as new
-    /// files" starts off, as Windows 11 File Explorer leaves Paste
-    /// unavailable for a picture (checked on Windows 11, 2026-11-22), and is
-    /// stored only when on; a settings file that saved it off reads as off.
+    /// The clipboard's extras beyond Windows start on, as they were before
+    /// they could be turned off, and are not stored then; each one turned
+    /// off, as Windows 11 File Explorer behaves, is saved under its key and
+    /// read back, and turned on again leaves the file.
     ///
     /// parity: CLIP-004, CLIP-015
     #[test]
-    fn copying_paths_as_text_is_on_and_pasting_pictures_off_by_default() {
+    fn clipboard_extras_are_on_by_default_and_stored_only_when_off() {
+        let keys = ["pastePicturesAsFiles", "copyPathsAsText"];
         let mut preferences = Preferences::default();
-        assert!(preferences.copy_paths_as_text, "paths as text start on");
-        assert!(
-            !preferences.paste_pictures_as_files,
-            "a picture pastes nothing by default"
-        );
+        assert!(preferences.paste_pictures_as_files && preferences.copy_paths_as_text);
         let stored = serde_json::to_value(&preferences).expect("serializable preferences");
-        for key in ["pastePicturesAsFiles", "copyPathsAsText"] {
+        for key in keys {
             assert!(stored.get(key).is_none(), "{key} is not stored by default");
         }
-        let turn = |key: &str, on: bool| {
-            PreferencesUpdate::from_json(&json!({ key: on })).expect("valid preferences")
+        let all = |on: bool| {
+            let values = keys.iter().map(|key| ((*key).to_owned(), json!(on))).collect();
+            PreferencesUpdate::from_json(&Value::Object(values)).expect("valid preferences")
         };
-        preferences.apply(&turn("pastePicturesAsFiles", true));
-        preferences.apply(&turn("copyPathsAsText", false));
+        preferences.apply(&all(false));
+        assert!(!preferences.paste_pictures_as_files && !preferences.copy_paths_as_text);
         let stored = serde_json::to_value(&preferences).expect("serializable preferences");
-        assert_eq!(stored["pastePicturesAsFiles"], json!(true), "stored once on");
-        assert_eq!(stored["copyPathsAsText"], json!(false), "stored once off");
+        for key in keys {
+            assert_eq!(stored[key], json!(false), "{key} is stored once off");
+        }
         let mut read = Preferences::default();
         read.apply(&PreferencesUpdate::from_json(&stored).expect("read back"));
         assert_eq!(read, preferences, "read back as saved");
-        let mut earlier = Preferences::default();
-        earlier.apply(&turn("pastePicturesAsFiles", false));
-        assert!(!earlier.paste_pictures_as_files, "an earlier off stays off");
-        preferences.apply(&turn("pastePicturesAsFiles", false));
-        preferences.apply(&turn("copyPathsAsText", true));
+        preferences.apply(&all(true));
         assert_eq!(preferences, Preferences::default());
     }
 }

@@ -975,23 +975,23 @@ fn the_network_thumbnails_switch_is_off_by_default_and_saved_only_when_changed()
     );
 }
 
-/// "Paste pictures as new files" starts off, as Windows 11 File Explorer
-/// leaves Paste unavailable for a picture, and "Also copy paths as text"
-/// starts on, as before it could be turned off; each switch saves the
-/// choice the other way, which the open window then follows.
+/// The clipboard's extras beyond Windows are on by default, as they were
+/// before they could be turned off; each switch saves the choice to turn
+/// it off, as Windows 11 File Explorer behaves, which the open window then
+/// follows.
 ///
 /// parity: CLIP-004, CLIP-015
 #[gtk::test]
-fn the_clipboard_switches_start_as_windows_and_gnome_files_and_save_the_choice() {
+fn the_clipboard_switches_are_on_by_default_and_save_the_choice() {
     let settings = SettingsTest::open();
     let pictures = switch_of(&settings.row("Paste pictures as new files"));
     let paths = switch_of(&settings.row("Also copy paths as text"));
-    assert!(!pictures.is_active(), "a picture pastes nothing by default");
+    assert!(pictures.is_active(), "pictures paste as files by default");
     assert!(paths.is_active(), "paths are copied as text by default");
 
-    pictures.set_active(true);
-    wait_until("picture paste on to be saved", || {
-        settings.saved_preferences().paste_pictures_as_files
+    pictures.set_active(false);
+    wait_until("picture paste off to be saved", || {
+        !settings.saved_preferences().paste_pictures_as_files
     });
     paths.set_active(false);
     wait_until("paths as text off to be saved", || {
@@ -999,7 +999,7 @@ fn the_clipboard_switches_start_as_windows_and_gnome_files_and_save_the_choice()
     });
     wait_until("the window to follow", || {
         let preferences = settings.test.context.settings_data().preferences;
-        preferences.paste_pictures_as_files && !preferences.copy_paths_as_text
+        !preferences.paste_pictures_as_files && !preferences.copy_paths_as_text
     });
 }
 
