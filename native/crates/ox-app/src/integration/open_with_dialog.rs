@@ -722,7 +722,7 @@ impl OpenWithDialog {
             self,
             async move {
                 if let Err(error) = crate::window::software_search::search_software(&content_type).await {
-                    dialog.set_status(Some(&error.to_string()));
+                    dialog.set_status(Some(&ox_core::system_error::message_of(&error)));
                 }
             }
         ));
