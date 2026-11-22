@@ -1,0 +1,9 @@
+STATUS: RUNNING
+HEAD: long-a-fuzz (from upstream main 5d21fd3e; not pushed yet)
+QUESTION: none
+NOTE: Long job A, fuzzing until 06:30 America/Chicago. cargo-fuzz 0.13.2 with libFuzzer and AddressSanitizer on nightly; targets live in native/fuzz (its own workspace) and reach private parsers through an off-by-default "fuzzing" feature, so normal builds are unchanged.
+
+== 2026-11-21 22:53 CST ==
+Set up native/fuzz (cargo-fuzz), seeds.py (32 generated archive seeds: ZIP stored/deflate/bzip2/LZMA/ZIP64/encrypted, TAR ustar/gnu/pax plain/gz/bz2/xz/zst, 7z LZMA2 solid/plain, LZMA, BZip2, copy).
+Running: archive_list (list, inspect, preview), archive_extract (Extract All with an outside-write and link oracle). Limits: 2 s timeout, 1 GiB RSS/malloc.
+Crashes so far: 0.
