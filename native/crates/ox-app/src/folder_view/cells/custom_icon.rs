@@ -11,7 +11,7 @@
 //! for it ([`super::folder_picture`]). Last comes a picture the user chose
 //! in File icons for the item's kind (LOOK-029).
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -33,6 +33,10 @@ const MAX_ICON_BYTES: u64 = 16 * 1024 * 1024;
 const ICON_PIXELS: i32 = 256;
 /// How many decoded pictures are kept.
 const MAX_CACHED_ICONS: usize = 256;
+/// How long a tile whose thumbnail the cache holds waits for it without
+/// its type icon: a read of the cache takes a few milliseconds, a busy
+/// disk longer.
+const ICON_WAIT: std::time::Duration = std::time::Duration::from_millis(250);
 /// How many custom pictures are decoded at once, including workers whose
 /// rows scrolled away before their blocking decoder could finish.
 const DECODING_AT_ONCE: usize = 4;
@@ -73,6 +77,8 @@ impl FileCell {
     pub(crate) fn look_up_picture(&self, item: &FileItem, previews: PreviewPolicy) {
         self.cancel_picture_lookup();
         let imp = self.imp();
+        // A wait for the item shown before ends with it.
+        imp.icon_wait.set(imp.icon_wait.get().wrapping_add(1));
         imp.custom_icon.set_visible(false);
         imp.folder_picture.show_texture(None);
         imp.image.set_opacity(1.0);
@@ -80,6 +86,26 @@ impl FileCell {
         let uri = entry.uri.clone();
         let pixels = imp.icon_size.get() * self.scale_factor().max(1);
         let preview = previews.request(entry, pixels);
+        if preview.is_some() {
+            thumbnails::trace::event("bind", &uri);
+        }
+        // A preview shown lately is drawn on this very frame, as Windows
+        // draws a thumbnail it has cached; the lookup below still runs, as
+        // the item may have a custom icon since.
+        let shown_at_once = preview
+            .as_ref()
+            .and_then(thumbnails::kept_preview)
+            .filter(is_big_enough_to_see);
+        if let Some(texture) = &shown_at_once {
+            thumbnails::trace::event("shown-at-bind", &uri);
+            self.show_picture(texture);
+        } else if preview.as_ref().is_some_and(thumbnails::probably_cached) {
+            // The cache holds its thumbnail, which takes a moment to read:
+            // the tile waits for it without its type icon, rather than
+            // showing an icon replaced a moment later, for a moment at
+            // most.
+            self.hide_type_icon_for_a_moment(&uri);
+        }
         let kind_picture = crate::icons::file_icons::picture_for(entry);
         if !uri.starts_with("file:") && preview.is_none() && kind_picture.is_none() {
             return;
@@ -87,8 +113,26 @@ impl FileCell {
         let is_folder = entry.is_dir;
         let on_the_folder = imp.is_tile.get() && imp.icon_size.get() >= SMALLEST_PICTURE_ICON;
         let cell = self.downgrade();
+        // The preview is read while the item's own pictures are looked up,
+        // which takes a while for the many tiles of one layout: a tile
+        // shows its thumbnail as soon as it is read, and a custom icon
+        // found after it takes its place.
+        let own_found = Rc::new(Cell::new(false));
+        let reading = preview.filter(|_| shown_at_once.is_none()).map(|request| {
+            let (cell, own_found, uri) = (self.downgrade(), Rc::clone(&own_found), uri.clone());
+            Reading(Some(glib::spawn_future_local(async move {
+                let texture = thumbnails::preview(request).await.filter(is_big_enough_to_see)?;
+                if let Some(cell) = cell.upgrade().filter(|_| !own_found.get()) {
+                    thumbnails::trace::event("shown", &uri);
+                    cell.show_picture(&texture);
+                }
+                Some(texture)
+            })))
+        });
         let lookup = glib::spawn_future_local(async move {
             let own = own_pictures(&uri).await;
+            thumbnails::trace::event("own-pictures", &uri);
+            own_found.set(own.icon.is_some() || (is_folder && own.folder_picture.is_some()));
             let mut texture = match own.icon {
                 Some(icon) => icon_texture(icon).await,
                 None => None,
@@ -107,22 +151,77 @@ impl FileCell {
                 texture = icon_texture(picture).await;
             }
             if texture.is_none() {
-                if let Some(request) = preview {
-                    texture = thumbnails::preview(request).await.filter(is_big_enough_to_see);
+                if let Some(shown) = shown_at_once {
+                    // Already shown, and still the item's picture.
+                    if let Some(cell) = cell.upgrade() {
+                        cell.imp().picture_lookup.take();
+                    }
+                    drop(shown);
+                    return;
+                }
+                if let Some(reading) = reading {
+                    // Shown as soon as it was read.
+                    let read = reading.finish().await;
+                    if let Some(cell) = cell.upgrade() {
+                        if read.is_none() {
+                            // No picture after all: the type icon it waited
+                            // without.
+                            cell.imp().image.set_opacity(1.0);
+                        }
+                        if read.is_some() || kind_picture.is_none() {
+                            cell.imp().picture_lookup.take();
+                            return;
+                        }
+                    }
                 }
             }
             if let Some(picture) = kind_picture.filter(|_| texture.is_none()) {
                 texture = icon_texture(picture).await;
             }
-            if let (Some(cell), Some(texture)) = (cell.upgrade(), texture) {
-                let imp = cell.imp();
-                imp.custom_icon.set_paintable(Some(&texture));
-                imp.custom_icon.set_visible(true);
-                imp.image.set_opacity(0.0);
-                imp.picture_lookup.take();
+            let Some(cell) = cell.upgrade() else {
+                return;
+            };
+            if let Some(texture) = texture {
+                thumbnails::trace::event("shown", &uri);
+                cell.show_picture(&texture);
+            } else {
+                // No picture after all: the type icon it waited without.
+                cell.imp().image.set_opacity(1.0);
             }
+            cell.imp().picture_lookup.take();
         });
         imp.picture_lookup.replace(Some(lookup));
+    }
+
+    /// Shows `texture` in place of the type icon.
+    fn show_picture(&self, texture: &gdk::Texture) {
+        let imp = self.imp();
+        imp.custom_icon.set_paintable(Some(texture));
+        imp.custom_icon.set_visible(true);
+        imp.image.set_opacity(0.0);
+    }
+
+    /// Hides the type icon while a thumbnail the cache holds is read, and
+    /// shows it again after [`ICON_WAIT`] if the thumbnail has not come,
+    /// as the disk may be busy.
+    fn hide_type_icon_for_a_moment(&self, uri: &str) {
+        let imp = self.imp();
+        imp.image.set_opacity(0.0);
+        thumbnails::trace::event("icon-held", uri);
+        let generation = imp.icon_wait.get().wrapping_add(1);
+        imp.icon_wait.set(generation);
+        let cell = self.downgrade();
+        let uri = uri.to_owned();
+        glib::timeout_add_local_once(ICON_WAIT, move || {
+            let Some(cell) = cell.upgrade() else {
+                return;
+            };
+            let imp = cell.imp();
+            if imp.icon_wait.get() == generation && !imp.custom_icon.is_visible() {
+                thumbnails::trace::event("icon-revealed", &uri);
+                imp.image.set_opacity(1.0);
+            }
+        });
     }
 
     /// Drops the lookup of a custom icon or preview still running, as for
@@ -144,6 +243,25 @@ impl FileCell {
     #[cfg(test)]
     pub(crate) fn shows_custom_icon(&self) -> bool {
         self.imp().custom_icon.is_visible()
+    }
+}
+
+/// A preview being read for a cell; stopped when the cell no longer
+/// wants it, as when it is bound to another item.
+struct Reading(Option<glib::JoinHandle<Option<gdk::Texture>>>);
+
+impl Reading {
+    /// The preview, once read.
+    async fn finish(mut self) -> Option<gdk::Texture> {
+        self.0.take()?.await.ok().flatten()
+    }
+}
+
+impl Drop for Reading {
+    fn drop(&mut self) {
+        if let Some(reading) = self.0.take() {
+            reading.abort();
+        }
     }
 }
 

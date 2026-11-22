@@ -244,6 +244,9 @@ mod imp {
         pub(super) is_details_row: Cell<bool>,
         /// The running lookup of the custom icon or preview.
         pub(super) picture_lookup: RefCell<Option<glib::JoinHandle<()>>>,
+        /// Counts the waits for a cached thumbnail, so a wait's end does
+        /// not show the type icon of an item bound since.
+        pub(super) icon_wait: Cell<u32>,
         /// Holds the icon, and on a tile spans it, with the check box in
         /// its top left corner.
         pub(super) icon_frame: gtk::Overlay,
@@ -987,7 +990,13 @@ pub(crate) fn connect_mapped_file_cells(
         }
     });
     factory.connect_unbind(|_, object| {
-        if let Some(cell) = as_list_item(object).child().and_downcast::<FileCell>() {
+        let list_item = as_list_item(object);
+        if crate::thumbnails::trace::enabled() {
+            if let Some(item) = bound_item(list_item) {
+                crate::thumbnails::trace::event("unbind", &item.entry().uri);
+            }
+        }
+        if let Some(cell) = list_item.child().and_downcast::<FileCell>() {
             cell.cancel_picture_lookup();
         }
     });

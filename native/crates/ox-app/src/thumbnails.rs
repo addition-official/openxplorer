@@ -24,10 +24,13 @@
 //! made on slots of their own ([`making`]), so a share that stops
 //! answering never holds up the thumbnails of this computer's files.
 
+mod memory;
 mod network_fs;
+mod reader;
 mod service;
 mod slots;
 mod thumbnailers;
+pub(crate) mod trace;
 mod writer;
 
 use std::cell::RefCell;
@@ -35,20 +38,24 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use gtk::gdk_pixbuf::{Pixbuf, PixbufFormat};
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib};
 use ox_core::entry::{cached_thumbnail, CachedThumbnail, Entry, ThumbnailFlavor, THUMBNAIL_ATTRIBUTES};
 use ox_core::settings::{ViewOptions, PREVIEW_SIZE_LIMIT};
+use ox_core::thumbnail_cache::{self, Version};
 
 pub(crate) use network_fs::is_on_network_filesystem;
 pub(crate) use slots::Slots;
 pub(crate) use thumbnailers::{decoder_sandbox, pdf_pages};
 
 use crate::picture_guard::{self, Limits};
+use memory::Memory;
+use reader::Cached;
 use thumbnailers::Catalogue;
-use writer::Source;
+use writer::{Made, Source};
 
 /// How many previews are decoded at a time.
 const DECODING_AT_ONCE: usize = 4;
@@ -58,8 +65,12 @@ const MAKING_AT_ONCE: usize = 2;
 /// time, on slots of their own: a share that stops answering holds these,
 /// never the ones of this computer's files.
 const NETWORK_MAKING_AT_ONCE: usize = 2;
-/// How many decoded previews are kept.
-const MAX_KEPT: usize = 512;
+/// How much the previews kept decoded may take: 96 MB, a few thousand
+/// tiles of Large icons, or a hundred of Extra large icons at twice the
+/// pixels.
+const MEMORY_BUDGET: usize = 96 * 1024 * 1024;
+/// How long whether a folder is on the network is remembered.
+const NETWORK_ANSWER_LIFE: Duration = Duration::from_secs(30);
 
 /// Which items of the folder shown get previews.
 #[expect(
@@ -180,6 +191,8 @@ pub(crate) struct PreviewRequest {
     pub content_type: String,
     /// Its modification time, which tells a current thumbnail from an old.
     pub modified: Option<u64>,
+    /// Its size in bytes, which does too.
+    pub size: Option<u64>,
     /// The edge of the picture wanted, in device pixels.
     pub pixels: i32,
     /// Only a file on this computer's own disks gets a preview: one on a
@@ -204,6 +217,7 @@ impl PreviewRequest {
             uri: entry.uri.clone(),
             content_type: entry.content_type.clone()?,
             modified: entry.modified,
+            size: entry.size,
             pixels,
             local_only: false,
             target_uri: stands_for(entry).map(str::to_owned),
@@ -211,8 +225,14 @@ impl PreviewRequest {
         })
     }
 
-    fn key(&self) -> PreviewKey {
-        (self.uri.clone(), self.modified, self.pixels)
+    /// The version of the file a thumbnail must have been made from, when
+    /// its time is known.
+    fn version(&self) -> Option<Version> {
+        Some(Version {
+            uri: self.uri.clone(),
+            modified: self.modified?,
+            size: self.size,
+        })
     }
 }
 
@@ -220,8 +240,14 @@ thread_local! {
     static DECODING: Rc<Slots> = Rc::new(Slots::new(DECODING_AT_ONCE));
     static MAKING: Rc<Slots> = Rc::new(Slots::new(MAKING_AT_ONCE));
     static NETWORK_MAKING: Rc<Slots> = Rc::new(Slots::new(NETWORK_MAKING_AT_ONCE));
-    /// Decoded previews by item, version and size.
-    static KEPT: RefCell<HashMap<PreviewKey, gdk::Texture>> = RefCell::new(HashMap::new());
+    /// The previews shown lately, decoded, by item and size.
+    static MEMORY: RefCell<Memory> = RefCell::new(Memory::new(MEMORY_BUDGET));
+    /// Whether a folder is on a network file system, and when that was
+    /// asked.
+    static NETWORK_FOLDERS: RefCell<HashMap<PathBuf, (bool, Instant)>> = RefCell::new(HashMap::new());
+    /// The folders whose file systems are being asked, with the requests
+    /// waiting for the answer.
+    static ASKING: RefCell<HashMap<Vec<PathBuf>, Vec<async_channel::Sender<bool>>>> = RefCell::new(HashMap::new());
     /// Sharp pictures decoded at a tile's size (Gallery), by item, version
     /// and edge; only the last few, as they are large.
     static SHARP_KEPT: RefCell<Vec<(PreviewKey, gdk::Texture)>> = const { RefCell::new(Vec::new()) };
@@ -265,37 +291,187 @@ fn making(request: &PreviewRequest) -> Rc<Slots> {
 }
 
 /// The preview `request` asks for, or `None` when the item keeps its icon.
+///
+/// One shown lately comes from memory. Otherwise the shared cache is read
+/// first ([`reader`]), in batches, and only a file it has no current
+/// thumbnail of, nor a recorded failure, has one made ([`make_thumbnail`]),
+/// which is written to the cache for the next visit, and for the other
+/// programs of the desktop.
 pub(crate) async fn preview(request: PreviewRequest) -> Option<gdk::Texture> {
-    let key = request.key();
     // A file of this computer's tree may be on a share mounted there (a
     // kernel share, sshfs, GVfs's FUSE folder): it keeps its icon with
     // network previews off, and is made on the network's slots with them on.
     let on_network = request.on_network || is_on_network(&request.uri, request.target_uri.as_deref()).await;
+    trace::event("network-known", &request.uri);
     if request.local_only && on_network {
         return None;
     }
-    if let Some(texture) = KEPT.with_borrow(|kept| kept.get(&key).cloned()) {
+    if let Some(texture) = remembered(&request) {
+        trace::event("kept-hit", &request.uri);
         return Some(texture);
     }
     let request = PreviewRequest {
         on_network,
         ..request
     };
-    let path = thumbnail_of(&request).await?;
-    let pixels = request.pixels;
-    let texture = DECODING
-        .with(Rc::clone)
-        .blocking(move |_| decode(&path, pixels))
-        .await
-        .flatten();
-    let texture = texture?;
-    KEPT.with_borrow_mut(|kept| {
-        if kept.len() >= MAX_KEPT {
-            kept.clear();
-        }
-        kept.insert(key, texture.clone());
+    let texture = look_up_or_make(&request).await?;
+    MEMORY.with_borrow_mut(|memory| {
+        memory.put(
+            (request.uri.clone(), request.pixels),
+            texture.clone(),
+            request.modified,
+            request.size,
+        );
     });
     Some(texture)
+}
+
+/// Gets the previews of the folder about to be shown ready: lists the
+/// names of the shared cache's entries ([`reader::probably_cached`]) and
+/// starts the picture decoders that read them, both in the background,
+/// once per run. A view calls it when it is about to show previews, so
+/// with "Always show icons, never thumbnails" nothing is started.
+pub(crate) fn prepare() {
+    thread_local! {
+        static PREPARED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    }
+    if cfg!(test) || PREPARED.replace(true) {
+        return;
+    }
+    let cache_dir = glib::user_cache_dir();
+    for flavor in ThumbnailFlavor::ALL {
+        reader::probably_cached(&cache_dir, "", flavor);
+    }
+    picture_guard::warm_up_decoders(reader::READERS);
+}
+
+/// The preview of `request` shown lately, if it is kept in memory and
+/// still of the current version of its file: what a view shows on the
+/// frame it binds a tile, without waiting for anything. With network
+/// previews off, only for a file known to be on this computer's disks.
+pub(crate) fn kept_preview(request: &PreviewRequest) -> Option<gdk::Texture> {
+    if request.local_only && !known_local(request) {
+        return None;
+    }
+    remembered(request)
+}
+
+fn remembered(request: &PreviewRequest) -> Option<gdk::Texture> {
+    MEMORY.with_borrow_mut(|memory| {
+        memory.get(
+            &(request.uri.clone(), request.pixels),
+            request.modified,
+            request.size,
+        )
+    })
+}
+
+/// Whether the shared cache probably holds a thumbnail for `request`,
+/// known without touching the disk ([`reader::probably_cached`]): a view
+/// draws such a tile without its type icon for the moment the thumbnail
+/// takes to read, rather than an icon replaced a moment later.
+pub(crate) fn probably_cached(request: &PreviewRequest) -> bool {
+    request.modified.is_some()
+        && reader::probably_cached(
+            &glib::user_cache_dir(),
+            &request.uri,
+            ThumbnailFlavor::for_pixels(request.pixels),
+        )
+}
+
+/// The most files of a moved folder whose thumbnails follow it.
+const MOST_FOLLOWED: usize = 5_000;
+
+/// Moves the thumbnails of the items the app moved or renamed, each from
+/// its old place to its new one in `moved` (and those of the files inside
+/// a moved folder), in the shared cache: the files keep their thumbnails,
+/// as Windows' cache, which knows a file by its identity, keeps them.
+/// Only local files are followed. Runs off the main thread.
+pub(crate) fn follow_moves(moved: Vec<(String, String)>) {
+    let moved: Vec<(PathBuf, PathBuf)> = moved
+        .into_iter()
+        .filter_map(|(old, new)| Some((gio::File::for_uri(&old).path()?, gio::File::for_uri(&new).path()?)))
+        .collect();
+    if moved.is_empty() {
+        return;
+    }
+    let cache_dir = glib::user_cache_dir();
+    // Test safety: tests write only into a private cache.
+    #[cfg(test)]
+    if !cache_dir.starts_with(std::env::temp_dir()) {
+        return;
+    }
+    glib::spawn_future_local(async move {
+        let followed = gio::spawn_blocking(move || {
+            let mut followed = Vec::new();
+            for (old, new) in moved {
+                followed.extend(follow_move_of(&cache_dir, &old, &new));
+            }
+            followed
+        })
+        .await
+        .unwrap_or_default();
+        for (old_uri, new_uri) in followed {
+            MEMORY.with_borrow_mut(|memory| memory.forget(&old_uri));
+            for flavor in ThumbnailFlavor::ALL {
+                reader::note_written(&new_uri, flavor);
+            }
+        }
+    });
+}
+
+/// Moves the thumbnails of the item moved from `old` to `new`, a file or
+/// a folder of files, in the cache under `cache_dir`: the old and new URIs
+/// of each file whose thumbnails moved. Blocks.
+fn follow_move_of(cache_dir: &Path, old: &Path, new: &Path) -> Vec<(String, String)> {
+    let mut followed = Vec::new();
+    let mut folders = vec![(old.to_path_buf(), new.to_path_buf())];
+    let mut seen = 0_usize;
+    while let Some((old, new)) = folders.pop() {
+        let Ok(metadata) = std::fs::symlink_metadata(&new) else {
+            continue;
+        };
+        if metadata.is_dir() {
+            let Ok(listing) = std::fs::read_dir(&new) else {
+                continue;
+            };
+            for child in listing.filter_map(Result::ok) {
+                seen += 1;
+                if seen > MOST_FOLLOWED {
+                    return followed;
+                }
+                folders.push((old.join(child.file_name()), child.path()));
+            }
+            continue;
+        }
+        if !metadata.is_file() {
+            continue;
+        }
+        let (Ok(old_uri), Ok(new_uri)) = (
+            glib::filename_to_uri(&old, None),
+            glib::filename_to_uri(&new, None),
+        ) else {
+            continue;
+        };
+        let modified = metadata
+            .modified()
+            .ok()
+            .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|time| time.as_secs());
+        let Some(modified) = modified else {
+            continue;
+        };
+        let version = Version {
+            uri: new_uri.to_string(),
+            modified,
+            size: Some(metadata.len()),
+        };
+        if thumbnail_cache::follow_move(cache_dir, &old_uri, &version) > 0 {
+            trace::event("moved", &version.uri);
+            followed.push((old_uri.to_string(), new_uri.to_string()));
+        }
+    }
+    followed
 }
 
 /// How many sharp pictures are kept for a tile scrolled back into view.
@@ -395,24 +571,202 @@ pub(crate) fn shrink_to_cover(picture: &Pixbuf, width: i32, height: i32) -> Opti
 /// [`PreviewPolicy::allows`], which tells servers and devices by their
 /// URIs.
 async fn is_on_network(uri: &str, target: Option<&str>) -> bool {
-    let paths: Vec<PathBuf> = std::iter::once(uri)
-        .chain(target)
-        .filter_map(|uri| gio::File::for_uri(uri).path())
-        .collect();
-    if paths.is_empty() {
+    let folders = local_folders(uri, target);
+    if folders.is_empty() {
         return false;
     }
-    gio::spawn_blocking(move || {
-        paths
-            .iter()
-            .any(|path| network_fs::is_on_network_filesystem(path))
-    })
-    .await
-    .unwrap_or(true)
+    if let Some(known) = known_answer(&folders) {
+        return known;
+    }
+    // The tiles of a folder bound in one layout ask at once: one asks the
+    // file system, the others wait for its answer.
+    loop {
+        if let Some(known) = known_answer(&folders) {
+            return known;
+        }
+        let waiting = ASKING.with_borrow_mut(|asking| {
+            let waiters = asking.get_mut(&folders)?;
+            let (sender, receiver) = async_channel::bounded(1);
+            waiters.push(sender);
+            Some(receiver)
+        });
+        let Some(receiver) = waiting else {
+            let asking = Asking::start(folders.clone());
+            let answer = ask_file_systems(folders).await;
+            asking.answer(answer);
+            return answer;
+        };
+        // A request that asked and was dropped before the answer came
+        // hands the asking on.
+        if let Ok(answer) = receiver.recv().await {
+            return answer;
+        }
+    }
 }
 
-/// The cached thumbnail of the item, made first if it is missing.
-async fn thumbnail_of(request: &PreviewRequest) -> Option<PathBuf> {
+/// A request asking the file systems of its folders, which other
+/// requests for the same folders wait for. Dropped before it answered, as
+/// when its tile is bound to another item, it lets them ask themselves.
+struct Asking(Option<Vec<PathBuf>>);
+
+impl Asking {
+    fn start(folders: Vec<PathBuf>) -> Self {
+        ASKING.with_borrow_mut(|asking| asking.insert(folders.clone(), Vec::new()));
+        Self(Some(folders))
+    }
+
+    /// Hands `answer` to the requests waiting.
+    fn answer(mut self, answer: bool) {
+        let Some(folders) = self.0.take() else {
+            return;
+        };
+        for waiter in ASKING
+            .with_borrow_mut(|asking| asking.remove(&folders))
+            .unwrap_or_default()
+        {
+            let _ = waiter.try_send(answer);
+        }
+    }
+}
+
+impl Drop for Asking {
+    fn drop(&mut self) {
+        if let Some(folders) = self.0.take() {
+            // The waiters' senders are dropped with the entry.
+            ASKING.with_borrow_mut(|asking| asking.remove(&folders));
+        }
+    }
+}
+
+/// Asks the file systems of `folders` whether one of them is on the
+/// network, off the main thread, and remembers each answer.
+async fn ask_file_systems(folders: Vec<PathBuf>) -> bool {
+    let asked = folders.clone();
+    let answers = gio::spawn_blocking(move || {
+        asked
+            .iter()
+            .map(|folder| network_fs::is_on_network_filesystem(folder))
+            .collect::<Vec<_>>()
+    })
+    .await;
+    let Ok(answers) = answers else {
+        return true;
+    };
+    NETWORK_FOLDERS.with_borrow_mut(|known| {
+        if known.len() > 256 {
+            known.clear();
+        }
+        let now = Instant::now();
+        for (folder, answer) in folders.into_iter().zip(&answers) {
+            known.insert(folder, (*answer, now));
+        }
+    });
+    answers.into_iter().any(|answer| answer)
+}
+
+/// The folders of the local files `uri` and `target` name: each file's
+/// own folder, whose file system is the file's, so one answer serves
+/// every tile of a folder.
+fn local_folders(uri: &str, target: Option<&str>) -> Vec<PathBuf> {
+    std::iter::once(uri)
+        .chain(target)
+        .filter_map(|uri| gio::File::for_uri(uri).path())
+        .map(|path| path.parent().map_or_else(|| path.clone(), Path::to_path_buf))
+        .collect()
+}
+
+/// Whether one of `folders` is on a network file system, as asked lately;
+/// `None` when any of them was not asked lately.
+fn known_answer(folders: &[PathBuf]) -> Option<bool> {
+    NETWORK_FOLDERS.with_borrow(|known| {
+        let mut on_network = false;
+        for folder in folders {
+            let (answer, asked) = known.get(folder)?;
+            if asked.elapsed() > NETWORK_ANSWER_LIFE {
+                return None;
+            }
+            on_network |= *answer;
+        }
+        Some(on_network)
+    })
+}
+
+/// Whether `request`'s item is known, from a recent answer, to be on this
+/// computer's own disks.
+fn known_local(request: &PreviewRequest) -> bool {
+    let folders = local_folders(&request.uri, request.target_uri.as_deref());
+    folders.is_empty() || known_answer(&folders) == Some(false)
+}
+
+/// The thumbnail of `request`'s item: read from the shared cache, else
+/// made and written there.
+async fn look_up_or_make(request: &PreviewRequest) -> Option<gdk::Texture> {
+    let cache_dir = glib::user_cache_dir();
+    // The cache's own pictures keep their icons: a thumbnail of a
+    // thumbnail would grow the cache from itself, so nothing is read, made
+    // or asked of the service and the desktop's programs for them.
+    if writer::inside_cache(&cache_dir, &request.uri) {
+        return None;
+    }
+    let Some(version) = request.version() else {
+        // Without the file's time no thumbnail can be told current: GIO
+        // looks one up by the file's own.
+        return thumbnail_known_to_gio(request).await;
+    };
+    let failed_key = (request.uri.clone(), request.modified);
+    if FAILED.with_borrow(|failed| failed.contains(&failed_key)) {
+        return None;
+    }
+    let flavor = ThumbnailFlavor::for_pixels(request.pixels);
+    match reader::read(cache_dir.clone(), version.clone(), flavor, request.pixels).await {
+        Cached::Hit(texture) => return Some(texture),
+        Cached::Failed => {
+            FAILED.with_borrow_mut(|failed| failed.insert(failed_key));
+            return None;
+        }
+        Cached::Missing => {}
+    }
+    match make_thumbnail(request, &cache_dir, flavor, &version).await {
+        Ok(Some(made)) => {
+            reader::note_written(&request.uri, flavor);
+            Some(made.picture)
+        }
+        // The thumbnailer service wrote it to the cache.
+        Ok(None) => match reader::read(cache_dir, version, flavor, request.pixels).await {
+            Cached::Hit(texture) => Some(texture),
+            Cached::Failed | Cached::Missing => None,
+        },
+        Err(missing) => {
+            if matches!(missing, Missing::Failed | Missing::Broken) {
+                FAILED.with_borrow_mut(|failed| failed.insert(failed_key));
+            }
+            if missing == Missing::Broken {
+                record_failure(cache_dir, version);
+            }
+            None
+        }
+    }
+}
+
+/// Records in the shared cache that no thumbnail can be made of `version`
+/// of its file, so neither this app nor a later run tries again until the
+/// file changes. Runs off the main thread.
+fn record_failure(cache_dir: PathBuf, version: Version) {
+    // Test safety: tests write only into a private cache.
+    #[cfg(test)]
+    if !cache_dir.starts_with(std::env::temp_dir()) {
+        return;
+    }
+    trace::event("fail-written", &version.uri);
+    gio::spawn_blocking(move || {
+        let _ = thumbnail_cache::record_failure(&cache_dir, &version);
+    });
+}
+
+/// The cached thumbnail of an item whose time is not known, as GIO finds
+/// it by the file's own time, decoded.
+async fn thumbnail_known_to_gio(request: &PreviewRequest) -> Option<gdk::Texture> {
+    trace::event("gio-query", &request.uri);
     let file = gio::File::for_uri(&request.uri);
     let info = file
         .query_info_future(
@@ -421,26 +775,16 @@ async fn thumbnail_of(request: &PreviewRequest) -> Option<PathBuf> {
             glib::Priority::LOW,
         )
         .await
-        .ok();
-    match info.as_ref().map(cached_thumbnail) {
-        Some(CachedThumbnail::Valid(path)) => return Some(path),
-        Some(CachedThumbnail::Failed) => return None,
-        Some(CachedThumbnail::Missing) | None => {}
-    }
-    let version = (request.uri.clone(), request.modified);
-    if FAILED.with_borrow(|failed| failed.contains(&version)) {
+        .ok()?;
+    let CachedThumbnail::Valid(path) = cached_thumbnail(&info) else {
         return None;
-    }
-    match make_thumbnail(request).await {
-        Ok(path) => Some(path),
-        Err(Missing::Failed) => {
-            FAILED.with_borrow_mut(|failed| failed.insert(version));
-            None
-        }
-        // Asked again next time: the user may turn them back on, or the
-        // disk be less busy.
-        Err(Missing::TurnedOff | Missing::Later) => None,
-    }
+    };
+    let pixels = request.pixels;
+    DECODING
+        .with(Rc::clone)
+        .blocking(move |_| decode(&path, pixels))
+        .await
+        .flatten()
 }
 
 /// Why no thumbnail was made of an item.
@@ -449,6 +793,11 @@ enum Missing {
     /// None could be made, and this version of the item is not tried
     /// again in this run.
     Failed,
+    /// None could be made because the file is one no thumbnailer reads
+    /// (a damaged picture, a document its program gave up on): this version
+    /// is not tried again in this run, nor, as the shared cache records the
+    /// failure, in another.
+    Broken,
     /// The user turned the desktop's thumbnailers off for its type, which
     /// they may turn back on at any time.
     TurnedOff,
@@ -458,35 +807,20 @@ enum Missing {
 }
 
 /// Makes the missing thumbnail of the item: by the thumbnailer service
-/// when it supports the type, else by gdk-pixbuf for a picture, else by
-/// the desktop's own thumbnailer for the type when it installs one.
-async fn make_thumbnail(request: &PreviewRequest) -> Result<PathBuf, Missing> {
-    let flavor = ThumbnailFlavor::for_pixels(request.pixels);
-    let cache_dir = glib::user_cache_dir();
-    // The cache's own pictures keep their icons: a thumbnail of a
-    // thumbnail would grow the cache from itself, so nothing is read, made
-    // or asked of the service and the desktop's programs for them.
-    if writer::inside_cache(&cache_dir, &request.uri) {
-        return Err(Missing::Failed);
-    }
-    // GIO looks up local files only, and one size: a thumbnail this app
-    // made earlier may be there all the same.
-    let earlier = (cache_dir.clone(), request.uri.clone(), request.modified);
-    let found = making(request)
-        .blocking(move |_| {
-            let (cache_dir, uri, modified) = earlier;
-            writer::find_thumbnail(&cache_dir, &uri, modified?, flavor)
-        })
-        .await;
-    if let Some(Some(path)) = found {
-        return Ok(path);
-    }
+/// when it supports the type (`Ok(None)`: it wrote the thumbnail to the
+/// cache), else by gdk-pixbuf for a picture, else by the desktop's own
+/// thumbnailer for the type when it installs one.
+async fn make_thumbnail(
+    request: &PreviewRequest,
+    cache_dir: &Path,
+    flavor: ThumbnailFlavor,
+    version: &Version,
+) -> Result<Option<Made>, Missing> {
     if let Some(service) = service::service().await {
-        if service.supports(&request.uri, &request.content_type) {
+        if service.supports(&request.uri, &request.content_type) && service.has_flavor(flavor) {
             let _slot = making(request).take().await;
             let made = service.make(&request.uri, &request.content_type, flavor).await;
-            let path = ox_core::entry::thumbnail_file(&cache_dir, &request.uri, flavor);
-            return made.then_some(path).ok_or(Missing::Failed);
+            return if made { Ok(None) } else { Err(Missing::Failed) };
         }
     }
     // Test safety: tests write thumbnails only into a private cache.
@@ -494,10 +828,9 @@ async fn make_thumbnail(request: &PreviewRequest) -> Result<PathBuf, Missing> {
     if !cache_dir.starts_with(std::env::temp_dir()) {
         return Err(Missing::Failed);
     }
-    let Some(modified) = request.modified else {
-        return Err(Missing::Failed);
-    };
-    make_thumbnail_with(request, &cache_dir, None, flavor, modified).await
+    make_thumbnail_with(request, cache_dir, None, flavor, version.modified)
+        .await
+        .map(Some)
 }
 
 /// The thumbnail `request` asks for: the app decodes a picture itself
@@ -511,10 +844,10 @@ async fn make_thumbnail_with(
     catalogue: Option<Arc<Catalogue>>,
     flavor: ThumbnailFlavor,
     modified: u64,
-) -> Result<PathBuf, Missing> {
+) -> Result<Made, Missing> {
     if PIXBUF_TYPES.with(|declared| pixbuf_may_read(&request.content_type, declared)) {
         match by_decoding(request, cache_dir, modified, flavor).await {
-            Ok(path) => return Ok(path),
+            Ok(made) => return Ok(made),
             // Only a picture the app cannot read leaves room for another
             // thumbnailer, and one larger than the app decodes itself for
             // a thumbnailer whose memory is limited, as a scan of many
@@ -527,10 +860,11 @@ async fn make_thumbnail_with(
             Err(writer::Failure::TooLarge) => {
                 return by_thumbnailer(request, cache_dir, modified, flavor, catalogue, true).await;
             }
-            Err(writer::Failure::TimedOut) => return Err(Missing::Later),
-            Err(writer::Failure::Unwritable | writer::Failure::Refused | writer::Failure::Cancelled) => {
-                return Err(Missing::Failed);
-            }
+            // Asked again when it is shown again.
+            Err(writer::Failure::TimedOut | writer::Failure::Cancelled) => return Err(Missing::Later),
+            // A damaged picture is recorded as such in the cache.
+            Err(writer::Failure::Refused) => return Err(Missing::Broken),
+            Err(writer::Failure::Unwritable) => return Err(Missing::Failed),
         }
     }
     by_thumbnailer(request, cache_dir, modified, flavor, catalogue, false).await
@@ -544,10 +878,12 @@ async fn by_decoding(
     cache_dir: &Path,
     modified: u64,
     flavor: ThumbnailFlavor,
-) -> Result<PathBuf, writer::Failure> {
+) -> Result<Made, writer::Failure> {
     let source = Source {
         uri: request.uri.clone(),
         modified,
+        size: request.size,
+        mime_type: Some(request.content_type.clone()),
     };
     let cache_dir = cache_dir.to_path_buf();
     let decoded = making(request)
@@ -569,13 +905,14 @@ async fn by_thumbnailer(
     flavor: ThumbnailFlavor,
     catalogue: Option<Arc<Catalogue>>,
     oversized: bool,
-) -> Result<PathBuf, Missing> {
+) -> Result<Made, Missing> {
     let job = thumbnailers::Job {
         cache_dir: cache_dir.to_path_buf(),
         uri: request.uri.clone(),
         content_type: request.content_type.clone(),
         modified,
         flavor,
+        size: request.size,
     };
     making(request)
         .blocking(move |cancel| {
@@ -596,10 +933,14 @@ async fn by_thumbnailer(
             if oversized && !installed.limits_memory() {
                 return Err(Missing::Failed);
             }
-            thumbnailers::write_thumbnail(&job, &installed, cancel).ok_or(Missing::Failed)
+            thumbnailers::make_thumbnail(&job, &installed, cancel).map_err(|not_made| match not_made {
+                thumbnailers::NotMade::Failed => Missing::Broken,
+                thumbnailers::NotMade::NoProgram => Missing::Failed,
+                thumbnailers::NotMade::Interrupted => Missing::Later,
+            })
         })
         .await
-        .unwrap_or(Err(Missing::Failed))
+        .unwrap_or(Err(Missing::Later))
 }
 
 /// The thumbnail at `path`, scaled to fit `pixels` square; `None` for a
@@ -607,6 +948,7 @@ async fn by_thumbnailer(
 /// largest standard size, damaged, or slow to read), so the item keeps
 /// its icon.
 fn decode(path: &std::path::Path, pixels: i32) -> Option<gdk::Texture> {
+    trace::event("cache-read", &path.display().to_string());
     let file = gio::File::for_path(path);
     let decoded = picture_guard::decode_to_fit(&file, pixels, pixels, Limits::THUMBNAIL_FILE, None).ok()?;
     Some(gdk::Texture::for_pixbuf(&decoded.pixbuf))
@@ -782,6 +1124,7 @@ mod tests {
             uri: gio::File::for_path(path).uri().to_string(),
             content_type: content_type.to_owned(),
             modified: Some(1_700_000_000),
+            size: None,
             pixels: 128,
             local_only: false,
             target_uri: None,
@@ -829,7 +1172,8 @@ mod tests {
                 ThumbnailFlavor::Normal,
                 1_700_000_000,
             ))
-            .expect("a local thumbnail while the share hangs");
+            .expect("a local thumbnail while the share hangs")
+            .path;
         assert_eq!(
             written,
             thumbnail_file(&cache, &local.uri, ThumbnailFlavor::Normal)
@@ -852,7 +1196,8 @@ mod tests {
         drop(hung);
         let written = context
             .block_on(waiting)
-            .expect("its thumbnail once a slot is free");
+            .expect("its thumbnail once a slot is free")
+            .path;
         assert_eq!(
             written,
             thumbnail_file(&cache, &on_share.uri, ThumbnailFlavor::Normal)
@@ -882,10 +1227,13 @@ mod tests {
                 &writer::Source {
                     uri: request.uri.clone(),
                     modified: 1_700_000_000,
+                    size: None,
+                    mime_type: None,
                 },
                 ThumbnailFlavor::Normal,
                 &gio::Cancellable::new(),
-            ),
+            )
+            .map(|made| made.path),
             Err(writer::Failure::Unreadable)
         );
 
@@ -897,7 +1245,8 @@ mod tests {
                 ThumbnailFlavor::Normal,
                 1_700_000_000,
             ))
-            .expect("a thumbnail");
+            .expect("a thumbnail")
+            .path;
 
         assert!(started.exists(), "the desktop's thumbnailer made it");
         assert_eq!(
@@ -933,7 +1282,8 @@ mod tests {
                 ThumbnailFlavor::Normal,
                 1_700_000_000,
             ))
-            .expect("a thumbnail");
+            .expect("a thumbnail")
+            .path;
 
         assert!(started.exists(), "the desktop's thumbnailer made it");
         assert_eq!(
@@ -965,7 +1315,8 @@ mod tests {
                 ThumbnailFlavor::Normal,
                 1_700_000_000,
             ))
-            .expect("a thumbnail");
+            .expect("a thumbnail")
+            .path;
 
         assert!(!started.exists(), "the app decoded the picture itself");
         assert_eq!(
@@ -1000,10 +1351,13 @@ mod tests {
                 &writer::Source {
                     uri: request.uri.clone(),
                     modified: 1_700_000_000,
+                    size: None,
+                    mime_type: None,
                 },
                 ThumbnailFlavor::Normal,
                 &gio::Cancellable::new(),
-            ),
+            )
+            .map(|made| made.path),
             Err(writer::Failure::Unwritable),
             "the picture reads, but the cache refuses its thumbnail"
         );
@@ -1017,10 +1371,234 @@ mod tests {
         ));
 
         assert_eq!(
-            made,
+            made.map(|made| made.path),
             Err(Missing::Failed),
             "the cache holds no pictures of itself"
         );
         assert!(!started.exists(), "and no program is started for one");
+    }
+
+    /// The colour of a texture's first pixel, as red, green and blue.
+    fn first_pixel(texture: &gdk::Texture) -> (u8, u8, u8) {
+        let mut bytes = vec![0_u8; usize::try_from(texture.width() * texture.height() * 4).expect("small")];
+        texture.download(&mut bytes, usize::try_from(texture.width() * 4).expect("small"));
+        // GDK's default layout: blue, green, red, alpha.
+        (bytes[2], bytes[1], bytes[0])
+    }
+
+    /// A picture of 400 × 200 pixels of `colour`, at `name` in `folder`.
+    fn picture_at(folder: &Path, name: &str, colour: u32) -> PathBuf {
+        let path = folder.join(name);
+        let pixels = Pixbuf::new(Colorspace::Rgb, false, 8, 400, 200).expect("a picture");
+        pixels.fill(colour);
+        pixels.savev(&path, "png", &[]).expect("the picture");
+        path
+    }
+
+    /// The private cache of the test run (check.py gives each test
+    /// program its own `XDG_CACHE_HOME`), or `None` where the cache is not
+    /// a temporary folder, so a test never writes into a real one.
+    fn private_cache() -> Option<PathBuf> {
+        let cache = glib::user_cache_dir();
+        cache.starts_with(std::env::temp_dir()).then_some(cache)
+    }
+
+    /// A thumbnail another program left in the shared cache for the
+    /// current version of a file is shown, and nothing is made; once the
+    /// file changes, its thumbnail is made again and the entry replaced
+    /// with the new time and size, which the next look finds.
+    ///
+    /// parity: VIEW-057
+    #[gtk::test]
+    fn a_cached_thumbnail_is_shown_until_its_file_changes() {
+        let Some(cache) = private_cache() else {
+            return;
+        };
+        let folder = tempfile::tempdir().expect("a temporary folder");
+        // The picture is red; the thumbnail in the cache is green, so the
+        // test tells a cache hit from a thumbnail made again.
+        let item = picture_at(folder.path(), "Lake.png", 0xff00_00ff);
+        let request = PreviewRequest {
+            size: Some(4096),
+            ..request_of(&item, "image/png")
+        };
+        let version = request.version().expect("a version");
+        let cached = Pixbuf::new(Colorspace::Rgb, false, 8, 128, 64).expect("a thumbnail");
+        cached.fill(0x00ff_00ff);
+        let entry = thumbnail_file(&cache, &request.uri, ThumbnailFlavor::Normal);
+        fs::create_dir_all(entry.parent().expect("a folder")).expect("the folder");
+        cached
+            .savev(
+                &entry,
+                "png",
+                &[
+                    ("tEXt::Thumb::URI", request.uri.as_str()),
+                    ("tEXt::Thumb::MTime", "1700000000"),
+                    ("tEXt::Thumb::Size", "4096"),
+                ],
+            )
+            .expect("the entry");
+        let context = glib::MainContext::default();
+
+        let shown = context
+            .block_on(preview(request.clone()))
+            .expect("the cached thumbnail");
+
+        assert_eq!(first_pixel(&shown), (0, 255, 0), "read from the cache, not made");
+        // Shown once, it is kept for the frame a tile is bound on.
+        let kept = kept_preview(&request).expect("kept");
+        assert_eq!(first_pixel(&kept), (0, 255, 0));
+
+        // The file changed: the kept preview and the entry are both stale.
+        let changed = PreviewRequest {
+            modified: Some(1_700_000_100),
+            size: Some(5000),
+            ..request
+        };
+        assert!(kept_preview(&changed).is_none(), "another version is not shown");
+        let made = context.block_on(preview(changed.clone())).expect("made again");
+        assert_eq!(first_pixel(&made), (255, 0, 0), "made from the file itself");
+        let keys = thumbnail_cache::png_keys(&fs::read(&entry).expect("read")).expect("keys");
+        assert_eq!(keys.mtime.as_deref(), Some("1700000100"));
+        assert_eq!(keys.size.as_deref(), Some("5000"));
+        assert!(!keys.describe(&version), "the old version's entry is gone");
+        assert!(thumbnail_cache::look_up(
+            &cache,
+            &changed.version().expect("a version"),
+            ThumbnailFlavor::Normal
+        )
+        .is_some());
+    }
+
+    /// A damaged picture is recorded in the cache's `fail/` folder, and a
+    /// recorded failure keeps a file from being tried again, here or in a
+    /// later run, until the file changes.
+    ///
+    /// parity: VIEW-057
+    #[gtk::test]
+    fn a_failed_file_is_not_tried_again_until_it_changes() {
+        let Some(cache) = private_cache() else {
+            return;
+        };
+        let folder = tempfile::tempdir().expect("a temporary folder");
+        let context = glib::MainContext::default();
+
+        // A PNG cut short after its header: the decoder refuses it as
+        // damaged, which no other thumbnailer would read better.
+        let whole = fs::read(picture_at(folder.path(), "Whole.png", 0x3366_99ff)).expect("read");
+        let damaged = folder.path().join("Damaged.png");
+        fs::write(&damaged, &whole[..whole.len() / 3]).expect("written");
+        let request = request_of(&damaged, "image/png");
+        assert!(context.block_on(preview(request.clone())).is_none());
+        let failure = thumbnail_cache::failure_file(&cache, &request.uri);
+        // The failure is written off the main thread.
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !failure.exists() && Instant::now() < deadline {
+            context.iteration(false);
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(failure.exists(), "recorded in fail/openxplorer");
+        assert!(thumbnail_cache::has_failed(
+            &cache,
+            &request.version().expect("a version")
+        ));
+
+        // A failure an earlier run recorded for a good picture keeps it
+        // from being made, until the picture changes.
+        let item = picture_at(folder.path(), "Recorded.png", 0x3366_99ff);
+        let recorded = request_of(&item, "image/png");
+        thumbnail_cache::record_failure(&cache, &recorded.version().expect("a version")).expect("recorded");
+        assert!(
+            context.block_on(preview(recorded.clone())).is_none(),
+            "not tried again"
+        );
+        assert!(!thumbnail_file(&cache, &recorded.uri, ThumbnailFlavor::Normal).exists());
+        let changed = PreviewRequest {
+            modified: Some(1_700_000_500),
+            ..recorded
+        };
+        assert!(
+            context.block_on(preview(changed)).is_some(),
+            "tried once it changed"
+        );
+    }
+
+    /// A file renamed, or inside a folder renamed, keeps its thumbnail:
+    /// the entry moves to the new URI with the new URI in its keys.
+    ///
+    /// parity: VIEW-057
+    #[gtk::test]
+    fn a_renamed_folder_keeps_its_files_thumbnails() {
+        let Some(cache) = private_cache() else {
+            return;
+        };
+        let folder = tempfile::tempdir().expect("a temporary folder");
+        let before = folder.path().join("Trip");
+        fs::create_dir(&before).expect("the folder");
+        let item = picture_at(&before, "Beach.png", 0x3366_99ff);
+        let metadata = fs::metadata(&item).expect("its metadata");
+        let modified = metadata
+            .modified()
+            .expect("a time")
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("after 1970")
+            .as_secs();
+        let request = PreviewRequest {
+            modified: Some(modified),
+            size: Some(metadata.len()),
+            ..request_of(&item, "image/png")
+        };
+        let context = glib::MainContext::default();
+        context.block_on(preview(request.clone())).expect("made");
+        let old_entry = thumbnail_file(&cache, &request.uri, ThumbnailFlavor::Normal);
+        assert!(old_entry.exists());
+
+        let after = folder.path().join("Trip 2026");
+        fs::rename(&before, &after).expect("renamed");
+        let followed = follow_move_of(&cache, &before, &after);
+
+        let new_uri = gio::File::for_path(after.join("Beach.png")).uri().to_string();
+        assert_eq!(followed, [(request.uri.clone(), new_uri.clone())]);
+        assert!(!old_entry.exists(), "the old entry moved");
+        let moved = Version {
+            uri: new_uri,
+            modified,
+            size: Some(metadata.len()),
+        };
+        assert!(thumbnail_cache::look_up(&cache, &moved, ThumbnailFlavor::Normal).is_some());
+    }
+
+    /// The tiles of one folder share one question to its file system; the
+    /// tile that asked being bound to another item meanwhile, as GTK
+    /// rebinds tiles while it lays a view out, leaves the others to ask
+    /// rather than waiting for ever.
+    ///
+    /// parity: VIEW-057, VIEW-058
+    #[gtk::test]
+    fn a_dropped_network_question_leaves_the_others_their_answer() {
+        use std::future::Future;
+        use std::task::{Context, Waker};
+
+        let folder = tempfile::tempdir().expect("a temporary folder");
+        let uri = |name: &str| gio::File::for_path(folder.path().join(name)).uri().to_string();
+        let (first_uri, second_uri) = (uri("a.jpg"), uri("b.jpg"));
+        let mut first = Box::pin(is_on_network(&first_uri, None));
+        let mut second = Box::pin(is_on_network(&second_uri, None));
+        let mut context = Context::from_waker(Waker::noop());
+        assert!(first.as_mut().poll(&mut context).is_pending(), "the first asks");
+        assert!(
+            second.as_mut().poll(&mut context).is_pending(),
+            "the second waits for it"
+        );
+
+        drop(first);
+
+        let answer = glib::MainContext::default()
+            .block_on(async { glib::future_with_timeout(Duration::from_secs(10), second).await });
+        assert_eq!(
+            answer,
+            Ok(false),
+            "answered, and a temporary folder is on this computer"
+        );
     }
 }

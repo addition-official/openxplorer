@@ -38,16 +38,23 @@ pub enum ThumbnailFlavor {
     Normal,
     /// At most 256 pixels square (`large`).
     Large,
+    /// At most 512 pixels square (`x-large`), for Extra large icons on a
+    /// screen of twice the pixels.
+    XLarge,
+    /// At most 1024 pixels square (`xx-large`).
+    XxLarge,
 }
 
 impl ThumbnailFlavor {
+    /// Every size, smallest first.
+    pub const ALL: [Self; 4] = [Self::Normal, Self::Large, Self::XLarge, Self::XxLarge];
+
     /// The smallest size that shows `pixels` device pixels sharply.
     pub fn for_pixels(pixels: i32) -> Self {
-        if pixels <= Self::Normal.pixels() {
-            Self::Normal
-        } else {
-            Self::Large
-        }
+        Self::ALL
+            .into_iter()
+            .find(|flavor| pixels <= flavor.pixels())
+            .unwrap_or(Self::XxLarge)
     }
 
     /// The longest edge, in pixels.
@@ -55,6 +62,8 @@ impl ThumbnailFlavor {
         match self {
             Self::Normal => 128,
             Self::Large => 256,
+            Self::XLarge => 512,
+            Self::XxLarge => 1024,
         }
     }
 
@@ -63,7 +72,18 @@ impl ThumbnailFlavor {
         match self {
             Self::Normal => "normal",
             Self::Large => "large",
+            Self::XLarge => "x-large",
+            Self::XxLarge => "xx-large",
         }
+    }
+
+    /// This size and every larger one, in that order: a thumbnail of a
+    /// larger size shows sharply when it is shrunk, one of a smaller size
+    /// would not.
+    pub fn and_larger(self) -> impl Iterator<Item = Self> {
+        Self::ALL
+            .into_iter()
+            .filter(move |flavor| flavor.pixels() >= self.pixels())
     }
 }
 
@@ -157,6 +177,19 @@ mod tests {
         );
         assert_eq!(ThumbnailFlavor::for_pixels(96), ThumbnailFlavor::Normal);
         assert_eq!(ThumbnailFlavor::for_pixels(192), ThumbnailFlavor::Large);
+        // Extra large icons on a screen of twice the pixels.
+        assert_eq!(ThumbnailFlavor::for_pixels(512), ThumbnailFlavor::XLarge);
+        assert_eq!(ThumbnailFlavor::for_pixels(513), ThumbnailFlavor::XxLarge);
+        assert_eq!(ThumbnailFlavor::for_pixels(4096), ThumbnailFlavor::XxLarge);
+        assert_eq!(ThumbnailFlavor::XLarge.as_str(), "x-large");
+        assert_eq!(
+            ThumbnailFlavor::Large.and_larger().collect::<Vec<_>>(),
+            [
+                ThumbnailFlavor::Large,
+                ThumbnailFlavor::XLarge,
+                ThumbnailFlavor::XxLarge
+            ]
+        );
         let failed = gio::FileInfo::new();
         failed.set_attribute_boolean("thumbnail::failed", true);
         assert_eq!(cached_thumbnail(&failed), CachedThumbnail::Failed);

@@ -184,6 +184,23 @@ pub(super) struct Job {
     pub modified: u64,
     /// The size of the thumbnail wanted.
     pub flavor: ThumbnailFlavor,
+    /// Its size in bytes, when known, which keeps the thumbnail valid too.
+    pub size: Option<u64>,
+}
+
+/// Why a thumbnailer made no thumbnail.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum NotMade {
+    /// No program of the desktop's makes the type, or none can run here:
+    /// one installed later may.
+    NoProgram,
+    /// The program ran to its end and left no picture worth showing: the
+    /// file is one it cannot read, and is not given to it again until it
+    /// changes, as GNOME's thumbnailer factory does.
+    Failed,
+    /// The program was stopped (the request was dropped, or it outlasted
+    /// its time), or the cache could not be written: it may be tried again.
+    Interrupted,
 }
 
 /// What the user turned external thumbnailers off for in
@@ -501,36 +518,53 @@ fn installed_program(program: &str) -> bool {
 /// Standard asks; `None` when none makes the type, the user turned them
 /// off for it, it failed, or the request was cancelled. Blocks: run it off
 /// the main thread.
+#[cfg(test)]
 pub(super) fn write_thumbnail(
     job: &Job,
     catalogue: &Catalogue,
     cancellation: &gio::Cancellable,
 ) -> Option<PathBuf> {
-    let thumbnailer = catalogue.for_type(&job.content_type)?;
-    let sandbox = catalogue.sandbox.as_ref()?;
+    make_thumbnail(job, catalogue, cancellation)
+        .ok()
+        .map(|made| made.path)
+}
+
+/// Makes the thumbnail of `job` as [`write_thumbnail`] does: the
+/// thumbnail and its picture, or why there is none. Blocks.
+pub(super) fn make_thumbnail(
+    job: &Job,
+    catalogue: &Catalogue,
+    cancellation: &gio::Cancellable,
+) -> Result<writer::Made, NotMade> {
+    let thumbnailer = catalogue.for_type(&job.content_type).ok_or(NotMade::NoProgram)?;
+    let sandbox = catalogue.sandbox.as_ref().ok_or(NotMade::NoProgram)?;
     // A thumbnailer takes a file of this computer, its `%i` being a path: a
     // file on a share, a phone or in an archive is left to the service.
-    let path = gio::File::for_uri(&job.uri).path()?;
+    let path = gio::File::for_uri(&job.uri).path().ok_or(NotMade::NoProgram)?;
     // The program writes its picture in a private folder of its own, never
     // in the cache: the app copies a good picture there itself.
-    let workspace = Workspace::new()?;
+    let workspace = Workspace::new().ok_or(NotMade::Interrupted)?;
     let pixels = job.flavor.pixels();
     let command = sandbox.command(thumbnailer, &path, workspace.path(), pixels);
+    super::trace::event("thumbnailer", &job.uri);
     // One that failed on its own may still have written a good picture, so
     // the picture alone decides; a stopped one left none worth reading.
-    run_with(&command, sandbox.needs_runtime_dir(), cancellation)?;
-    let picture = read_picture(&workspace.path().join(OUTPUT), pixels)?;
+    run_with(&command, sandbox.needs_runtime_dir(), cancellation).ok_or(NotMade::Interrupted)?;
+    let picture = read_picture(&workspace.path().join(OUTPUT), pixels);
     drop(workspace);
     if cancellation.is_cancelled() {
-        return None;
+        return Err(NotMade::Interrupted);
     }
+    let picture = picture.ok_or(NotMade::Failed)?;
     let source = Source {
         uri: job.uri.clone(),
         modified: job.modified,
+        size: job.size,
+        mime_type: Some(job.content_type.clone()),
     };
     // Nothing follows this program, so why the cache refused the picture is
     // of no use here: no thumbnail was made.
-    writer::save_thumbnail(&job.cache_dir, &source, job.flavor, &picture).ok()
+    writer::save_thumbnail(&job.cache_dir, &source, job.flavor, &picture).map_err(|_| NotMade::Interrupted)
 }
 
 /// The poppler program that draws a PDF's pages for the Preview pane.
@@ -1707,6 +1741,7 @@ mod tests {
             content_type: BUNDLE.to_owned(),
             modified: 1_700_000_000,
             flavor: ThumbnailFlavor::Normal,
+            size: None,
         };
         let catalogue = Catalogue::of(&dirs, || Some(Sandbox::Off));
         // Without a sandbox that works here no program is kept at all, and
@@ -1777,6 +1812,7 @@ mod tests {
             content_type: BUNDLE.to_owned(),
             modified: 1_700_000_000,
             flavor: ThumbnailFlavor::Normal,
+            size: None,
         };
         let slow = Catalogue::for_test(vec![Thumbnailer::for_test(
             &[script.to_str().expect("a path"), "%i", "%o", "%s"],
@@ -1821,6 +1857,7 @@ mod tests {
             content_type: BUNDLE.to_owned(),
             modified: 1_700_000_000,
             flavor: ThumbnailFlavor::Normal,
+            size: None,
         };
         let cancellation = gio::Cancellable::new();
 
@@ -1861,6 +1898,7 @@ mod tests {
             content_type: content_type.to_owned(),
             modified: 1_700_000_000,
             flavor: ThumbnailFlavor::Normal,
+            size: None,
         };
 
         assert!(write_thumbnail(&job_of(&png, "image/png"), &catalogue, &gio::Cancellable::new()).is_none());
@@ -1893,6 +1931,7 @@ mod tests {
             content_type: BUNDLE.to_owned(),
             modified: 1_700_000_000,
             flavor: ThumbnailFlavor::Normal,
+            size: None,
         };
         let on = Catalogue::of(&dirs, || Some(Sandbox::Off));
         let off = on.with_disabled(Disabled {
@@ -1934,6 +1973,7 @@ mod tests {
                 content_type: BUNDLE.to_owned(),
                 modified: 1_700_000_000,
                 flavor: ThumbnailFlavor::Normal,
+                size: None,
             };
 
             let written = write_thumbnail(&job, &Catalogue::for_test(vec![entry]), &gio::Cancellable::new())
@@ -2073,6 +2113,7 @@ mod tests {
             content_type: BUNDLE.to_owned(),
             modified: 1_700_000_000,
             flavor: ThumbnailFlavor::Normal,
+            size: None,
         };
 
         let written = write_thumbnail(&job, &catalogue, &gio::Cancellable::new())
@@ -2310,6 +2351,7 @@ mod tests {
             content_type: BUNDLE.to_owned(),
             modified: 1_700_000_000,
             flavor: ThumbnailFlavor::Normal,
+            size: None,
         };
 
         assert!(
