@@ -349,6 +349,60 @@ fn make_default_also_takes_open_and_save_dialogs() {
     );
 }
 
+/// Restore previous gives back only what Make default changed: Open and
+/// Save dialogs the user enabled on their own stay enabled.
+///
+/// parity: INT-030, INT-032
+#[gtk::test]
+fn restore_previous_keeps_dialogs_the_user_enabled_on_their_own() {
+    let default_apps = DefaultAppsTest::open();
+    default_apps
+        .switch_of(super::INCLUDE_SHOW_IN_FOLDER.title)
+        .set_active(false);
+    default_apps
+        .button_in(super::FILE_DIALOGS.title, "Enable")
+        .emit_clicked();
+    wait_until("the dialogs to use the app", || {
+        default_apps
+            .row(super::FILE_DIALOGS.title)
+            .shown_description()
+            .starts_with("Open and Save dialogs: OpenXplorer.")
+    });
+    default_apps.button("Make OpenXplorer default").emit_clicked();
+    wait_until("the card to say so", || {
+        default_apps.card_title() == "OpenXplorer is your default file explorer"
+    });
+    wait_until("Restore previous to be offered", || {
+        default_apps.button("Restore previous").is_sensitive()
+    });
+
+    default_apps.button("Restore previous").emit_clicked();
+    wait_until("Dolphin to open folders again", || {
+        default_apps.handler(MimeType::Directory) == DOLPHIN
+    });
+    default_apps.wait_for_status("the restored status");
+    let written =
+        std::fs::read_to_string(default_apps.portal_file()).expect("the portal configuration stays");
+    assert!(
+        written.contains(&format!(
+            "org.freedesktop.impl.portal.FileChooser={}",
+            crate::config::APP_ID
+        )),
+        "{written}"
+    );
+    assert!(
+        default_apps
+            .row(super::FILE_DIALOGS.title)
+            .shown_description()
+            .starts_with("Open and Save dialogs: OpenXplorer."),
+        "the dialogs stay the user's choice"
+    );
+    assert_eq!(
+        default_apps.test.window.shown_message_text(),
+        "Previous recorded handlers restored."
+    );
+}
+
 /// Make default finishes dialogs enabled before KDE's own apps were
 /// covered: it adds their missing login script, as Enable does.
 ///

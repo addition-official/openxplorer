@@ -112,6 +112,11 @@ const PORTAL_SUBDIR: &str = "xdg-desktop-portal";
 /// The record of what the file held before, in the settings folder.
 const RECORD_FILE_NAME: &str = "file-dialogs.json";
 
+/// The mark, in the settings folder, that Make `OpenXplorer` default turned
+/// the dialogs on: Restore previous turns them off only then, never when
+/// the user enabled them on their own.
+const BY_MAKE_DEFAULT_FILE_NAME: &str = "file-dialogs-by-make-default";
+
 /// The section that holds the preferences.
 const PREFERRED_SECTION: &str = "[preferred]";
 
@@ -446,6 +451,30 @@ impl FileDialogRegistration {
         self.record_path().is_file()
     }
 
+    /// Remembers that Make `OpenXplorer` default turned the dialogs on, so
+    /// Restore previous turns them off again; [`Self::disable`] forgets
+    /// it.
+    ///
+    /// # Errors
+    ///
+    /// [`FileDialogError::Io`] when the mark cannot be written.
+    pub fn remember_enabled_by_make_default(&self) -> Result<(), FileDialogError> {
+        write_text(
+            &self.by_make_default_path(),
+            "Open and Save dialogs were enabled by Make OpenXplorer default.\n",
+        )
+    }
+
+    /// Whether Make `OpenXplorer` default turned the dialogs on and nothing
+    /// turned them off since. Reading only reads.
+    pub fn was_enabled_by_make_default(&self) -> bool {
+        self.by_make_default_path().is_file()
+    }
+
+    fn by_make_default_path(&self) -> PathBuf {
+        self.paths.settings.join(BY_MAKE_DEFAULT_FILE_NAME)
+    }
+
     /// [`Self::is_enabled`] for the portal's folder `only`.
     fn is_enabled_in(&self, only: Option<&Path>) -> bool {
         let Ok(contents) = fs::read_to_string(self.config_file_in(only)) else {
@@ -770,6 +799,7 @@ impl FileDialogRegistration {
             None => self.restore(&self.config_file()?, None)?,
         };
         remove_file(&self.record_path())?;
+        remove_file(&self.by_make_default_path())?;
         Ok(outcome)
     }
 
