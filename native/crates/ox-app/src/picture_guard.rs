@@ -715,13 +715,18 @@ fn gif_size(bytes: &[u8]) -> Declared {
 /// The size in a BMP's information header: an OS/2 core header's two
 /// 16-bit sides, or a Windows header's 32-bit ones, whose height is
 /// negative for rows stored from the top. gdk-pixbuf reserves room for
-/// the whole information header as its length says before it looks at
-/// it, so a length past the longest header (`BITMAPV5HEADER`) is refused.
+/// the whole information header as its length says, and for everything
+/// up to the pixels as the file header's offset says, before it looks at
+/// either, so a length past the longest header (`BITMAPV5HEADER`) and an
+/// offset past [`MAX_BMP_PIXEL_OFFSET`] are refused.
 fn bmp_size(bytes: &[u8]) -> Declared {
-    let Some(header) = field(bytes, 14).map(u32::from_le_bytes) else {
+    let (Some(offset), Some(header)) = (
+        field(bytes, 10).map(u32::from_le_bytes),
+        field(bytes, 14).map(u32::from_le_bytes),
+    ) else {
         return Declared::Incomplete;
     };
-    if header > MAX_BMP_INFO_HEADER {
+    if header > MAX_BMP_INFO_HEADER || offset > MAX_BMP_PIXEL_OFFSET {
         return Declared::Damaged;
     }
     let size = if header == 12 {
@@ -752,6 +757,10 @@ fn bmp_size(bytes: &[u8]) -> Declared {
 
 /// The length of the longest BMP information header, `BITMAPV5HEADER`.
 const MAX_BMP_INFO_HEADER: u32 = 124;
+
+/// The furthest a BMP's pixels may start: far past the longest header, its
+/// color masks and the largest palette a loader reads.
+const MAX_BMP_PIXEL_OFFSET: u32 = 1024 * 1024;
 
 /// The size in a WebP's first chunk: a lossy (VP8) frame's, a lossless
 /// (VP8L) picture's, or an extended file's (VP8X) canvas.
@@ -1335,6 +1344,16 @@ mod tests {
             bmp[14..18].copy_from_slice(&0xD3D3_D328_u32.to_le_bytes());
             assert_eq!(declared_size(&bmp), Declared::Damaged, "{width} x {height}");
             assert_eq!(refusal_by_header(declared_size(&bmp), Limits::DISPLAY), Some(Refusal::Damaged));
+            let mut reader = std::io::Cursor::new(bmp);
+            let decoded = decode_reader_here_to_fit(&mut reader, 64, 64, Limits::DISPLAY, None);
+            assert_eq!(decoded.err(), Some(Refusal::Damaged));
+        }
+        // The offset of the pixels makes the loader reserve room up to
+        // them, so one far past any header and palette is refused too.
+        for offset in [0xFFFF_FFC4_u32, 0x4000_0000] {
+            let mut bmp = bmp_header(12, 8);
+            bmp[10..14].copy_from_slice(&offset.to_le_bytes());
+            assert_eq!(declared_size(&bmp), Declared::Damaged, "offset {offset:#x}");
             let mut reader = std::io::Cursor::new(bmp);
             let decoded = decode_reader_here_to_fit(&mut reader, 64, 64, Limits::DISPLAY, None);
             assert_eq!(decoded.err(), Some(Refusal::Damaged));
