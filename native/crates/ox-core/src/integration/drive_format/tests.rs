@@ -80,6 +80,8 @@ struct Answers {
     set_label_error: Option<&'static str>,
     /// The drive is write-protected.
     read_only: bool,
+    /// The file system's type, `vfat` by default.
+    id_type: Option<&'static str>,
     /// Another drive is at `/dev/sdb1` once the first was read.
     replaced: bool,
 }
@@ -172,7 +174,7 @@ impl FakeUdisks {
                     match property {
                         "Size" => 16_000_000_000_u64.to_variant(),
                         "IdLabel" => "OLD".to_variant(),
-                        "IdType" => "vfat".to_variant(),
+                        "IdType" => swapping.id_type.unwrap_or("vfat").to_variant(),
                         "Drive" => glib::variant::ObjectPath::try_from(STICK.to_owned())
                             .expect("a path")
                             .to_variant(),
@@ -663,8 +665,68 @@ fn a_drive_is_renamed_with_a_label_its_file_system_keeps() {
         (renamed, fake.drive_calls())
     });
 
-    assert_eq!(renamed.expect("renamed"), "HOLIDAY PHO");
+    assert_eq!(
+        renamed.expect("renamed"),
+        Relabelled {
+            label: "HOLIDAY PHO".to_owned(),
+            remounted: None,
+        }
+    );
     assert_eq!(calls, ["Filesystem.SetLabel ('HOLIDAY PHO', @a{sv} {})"]);
+}
+
+/// exFAT and NTFS labels can't be changed while the drive is mounted
+/// (exfatlabel finds the device busy, ntfslabel refuses a mounted one):
+/// the drive is unmounted, renamed and mounted again, at the folder its
+/// new label gives it; a drive in use is not renamed.
+///
+/// parity: DEV-012
+#[test]
+fn an_exfat_or_ntfs_drive_is_renamed_unmounted_and_mounted_again() {
+    for (id_type, label) in [("exfat", "Trip 2026 p"), ("ntfs", "Trip: 2026 photos")] {
+        let answers = Answers {
+            id_type: Some(id_type),
+            ..Answers::default()
+        };
+        let (renamed, calls) = with_udisks(answers, |connection, fake| async move {
+            let facts = drive_facts(&connection, &fake.name(), "/dev/sdb1")
+                .await
+                .expect("the drive");
+            let renamed = set_drive_label(&connection, &fake.name(), &facts, "Trip: 2026 photos").await;
+            (renamed, fake.drive_calls())
+        });
+
+        assert_eq!(
+            renamed.expect("renamed"),
+            Relabelled {
+                label: label.to_owned(),
+                remounted: Some(Ok("/media/demo/USB".to_owned())),
+            },
+            "{id_type}"
+        );
+        assert_eq!(calls.len(), 3, "{calls:?}");
+        assert!(calls[0].starts_with("Filesystem.Unmount"), "{calls:?}");
+        assert_eq!(
+            calls[1],
+            format!("Filesystem.SetLabel ('{label}', @a{{sv}} {{}})")
+        );
+        assert!(calls[2].starts_with("Filesystem.Mount"), "{calls:?}");
+    }
+
+    let in_use = Answers {
+        id_type: Some("exfat"),
+        unmount_error: Some("DeviceBusy"),
+        ..Answers::default()
+    };
+    let (busy, calls) = with_udisks(in_use, |connection, fake| async move {
+        let facts = drive_facts(&connection, &fake.name(), "/dev/sdb1")
+            .await
+            .expect("the drive");
+        let renamed = set_drive_label(&connection, &fake.name(), &facts, "photos").await;
+        (renamed, fake.drive_calls())
+    });
+    assert!(matches!(busy, Err(FormatError::Busy)), "{busy:?}");
+    assert_eq!(calls.len(), 1, "only the Unmount: {calls:?}");
 }
 
 /// A drive removed or swapped meanwhile, a write-protected one and one

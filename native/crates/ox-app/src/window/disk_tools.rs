@@ -360,6 +360,7 @@ impl BrowserWindow {
         };
         let name = mount.name().to_string();
         let (mount, uuid) = (mount.clone(), mount.volume().and_then(|volume| volume.uuid()));
+        let root = uri.to_owned();
         let window = self.downgrade();
         glib::spawn_future_local(async move {
             let target = async {
@@ -376,7 +377,7 @@ impl BrowserWindow {
             let mounted = window.volume_monitor().mounts().contains(&mount);
             match target {
                 Ok((connection, facts)) if is_chosen_drive(mounted, uuid.as_deref(), &facts) => {
-                    window.show_rename_drive_dialog(&name, connection, facts);
+                    window.show_rename_drive_dialog(&name, &root, connection, facts);
                 }
                 Ok(_) => window.show_message(&rename_error_text(&FormatError::NotFound)),
                 Err(error) => window.show_message(&rename_error_text(&error)),
@@ -384,16 +385,38 @@ impl BrowserWindow {
         });
     }
 
-    /// Shows the Rename dialog for the drive `name` that `facts`
-    /// describes; Rename sets the label through UDisks on `connection` and
-    /// closes the dialog, or says in it why the label was not changed.
-    fn show_rename_drive_dialog(&self, name: &str, connection: gio::DBusConnection, facts: DriveFacts) {
+    /// Shows the Rename dialog for the drive `name` mounted at `root`
+    /// that `facts` describes; Rename sets the label through UDisks on
+    /// `connection` and closes the dialog, or says in it why the label was
+    /// not changed. A drive mounted again to be renamed, at a folder named
+    /// after its new label, takes the tabs that showed it there.
+    fn show_rename_drive_dialog(
+        &self,
+        name: &str,
+        root: &str,
+        connection: gio::DBusConnection,
+        facts: DriveFacts,
+    ) {
         let shown = facts.clone();
+        let (window, root) = (self.downgrade(), root.to_owned());
         let dialog = rename_drive_dialog(self, name, &shown, move |dialog, label| {
             let (connection, facts) = (connection.clone(), facts.clone());
-            let form = dialog.downgrade();
+            let (form, window, root) = (dialog.downgrade(), window.clone(), root.clone());
             dialog.run(ox_core::i18n::gettext_static(RENAMING), async move {
                 let renamed = set_drive_label(&connection, UDISKS_NAME, &facts, &label).await;
+                if let (Ok(relabelled), Some(window)) = (&renamed, window.upgrade()) {
+                    match &relabelled.remounted {
+                        Some(Ok(path)) => {
+                            let new_root = ox_core::location::file_uri(std::path::Path::new(path));
+                            window.move_tabs_to_new_root(&root, &new_root);
+                        }
+                        Some(Err(reason)) => window.show_message(&ox_core::i18n::format_message(
+                            "The drive was renamed, but it could not be mounted again: {reason}",
+                            &[("reason", reason.as_str())],
+                        )),
+                        None => {}
+                    }
+                }
                 let Some(dialog) = form.upgrade() else {
                     return;
                 };

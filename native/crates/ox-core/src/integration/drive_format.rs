@@ -527,12 +527,25 @@ pub async fn format_drive(
     })
 }
 
+/// A drive renamed by [`set_drive_label`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Relabelled {
+    /// The label set: the one asked for, fitted to the file system.
+    pub label: String,
+    /// For a drive that had to be unmounted to be renamed: where it is
+    /// mounted again (the folder is named after the new label), or why it
+    /// is not. `None` for a drive renamed while mounted.
+    pub remounted: Option<Result<String, String>>,
+}
+
 /// Renames the drive `facts` describes: sets the label of its file
 /// system to `label`, fitted to what that file system keeps, through
 /// UDisks `service` on `connection`, as Windows' Rename of a drive sets
-/// its volume label. The drive stays mounted; UDisks runs the file
-/// system's labelling program (`fatlabel`, `exfatlabel`, `ntfslabel`,
-/// `e2label`). Returns the label set.
+/// its volume label. UDisks runs the file system's labelling program:
+/// `fatlabel` and `e2label` change a mounted drive, while `exfatlabel`
+/// finds a mounted exFAT drive busy and `ntfslabel` refuses a mounted
+/// NTFS one, so those are unmounted first and mounted again afterwards,
+/// as a format does.
 ///
 /// The drive is read again first, as for a format, so one removed or
 /// swapped since it was chosen is not touched.
@@ -540,14 +553,16 @@ pub async fn format_drive(
 /// # Errors
 ///
 /// [`FormatError::NotFound`] for a drive that is gone or was replaced,
-/// [`FormatError::ReadOnly`] for a write-protected drive, and what
-/// UDisks answered ([`FormatError::from_call`]).
+/// [`FormatError::ReadOnly`] for a write-protected drive,
+/// [`FormatError::Busy`] for one in use that had to be unmounted, and
+/// what UDisks answered ([`FormatError::from_call`]). A drive unmounted
+/// to be renamed is mounted again when the rename fails.
 pub async fn set_drive_label(
     connection: &gio::DBusConnection,
     service: &str,
     facts: &DriveFacts,
     label: &str,
-) -> Result<String, FormatError> {
+) -> Result<Relabelled, FormatError> {
     let current = facts_of(connection, service, facts.object.clone()).await?;
     if !current.is_same_drive(facts) || !current.has_file_system {
         return Err(FormatError::NotFound);
@@ -559,7 +574,25 @@ pub async fn set_drive_label(
         Some(file_system) => file_system.fitted_label(label),
         None => label.trim().to_owned(),
     };
-    call(
+    let offline = matches!(current.file_system, Some(FileSystem::ExFat | FileSystem::Ntfs));
+    let mut unmounted_here = false;
+    if offline {
+        let unmounted = call(
+            connection,
+            service,
+            &facts.object,
+            FILESYSTEM_INTERFACE,
+            "Unmount",
+            &(glib::VariantDict::new(None),).to_variant(),
+        )
+        .await;
+        match unmounted {
+            Ok(_) => unmounted_here = true,
+            Err(error) if is_udisks_error(&error, "NotMounted") => {}
+            Err(error) => return Err(FormatError::from_call(error)),
+        }
+    }
+    let renamed = call(
         connection,
         service,
         &facts.object,
@@ -567,9 +600,21 @@ pub async fn set_drive_label(
         "SetLabel",
         &(label.as_str(), glib::VariantDict::new(None)).to_variant(),
     )
-    .await
-    .map_err(FormatError::from_call)?;
-    Ok(label)
+    .await;
+    let mounted = if unmounted_here {
+        let mounted = mount(connection, service, &facts.object, renamed.is_ok()).await;
+        Some(mounted.map(|path| path.child_value(0).str().unwrap_or_default().to_owned()))
+    } else {
+        None
+    };
+    renamed.map_err(FormatError::from_call)?;
+    let remounted = mounted.map(|mounted| {
+        mounted.map_err(|mut error| {
+            gio::DBusError::strip_remote_error(&mut error);
+            error.message().to_owned()
+        })
+    });
+    Ok(Relabelled { label, remounted })
 }
 
 /// Mounts the file system on the block device `object` through UDisks

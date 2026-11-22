@@ -209,6 +209,49 @@ impl BrowserWindow {
         self.render_tabs();
     }
 
+    /// Moves every tab inside `old_root` to the same place below
+    /// `new_root`, where the same drive is mounted again after it was
+    /// renamed: the tab in front navigates there, and a tab behind it
+    /// lists it when it is next shown.
+    pub(super) fn move_tabs_to_new_root(&self, old_root: &str, new_root: &str) {
+        let (from, to) = (gio::File::for_uri(old_root), gio::File::for_uri(new_root));
+        let moved = |uri: &str| -> Option<String> {
+            let file = gio::File::for_uri(uri);
+            let target = if file.equal(&from) {
+                to.clone()
+            } else {
+                to.resolve_relative_path(from.relative_path(&file)?)
+            };
+            ox_core::location::normalise(&target.uri()).ok()
+        };
+        let (stale, active_to): (Vec<gio::ListStore>, Option<String>) = {
+            let mut session = self.imp().session.borrow_mut();
+            let active = session.active_id();
+            let active_to = session.active().and_then(|tab| moved(tab.uri()));
+            let mut stale = Vec::new();
+            session.change_panes(|tab| {
+                if Some(tab.id) == active {
+                    return;
+                }
+                if let Some(target) = moved(tab.uri()) {
+                    tab.history.push(&target);
+                    tab.forget_location_state();
+                    stale.push(tab.mark_stale());
+                }
+            });
+            (stale, active_to)
+        };
+        self.change_model(|| {
+            for items in &stale {
+                items.remove_all();
+            }
+        });
+        if let Some(target) = active_to {
+            self.navigate_or_report(&target);
+        }
+        self.render_tabs();
+    }
+
     /// Makes every tab inside `root` list again when it is next shown.
     fn mark_stale_inside(&self, root: &str) {
         self.mark_tabs_stale(|uri| is_inside(uri, root));

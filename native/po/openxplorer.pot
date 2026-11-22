@@ -5769,6 +5769,11 @@ msgstr ""
 msgid "The drive was not renamed."
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/disk_tools.rs
+msgid "The drive was renamed, but it could not be mounted again: {reason}"
+msgstr ""
+
 #: crates/ox-app/src/window/disk_tools.rs
 msgid "The tool is not installed."
 msgstr ""
