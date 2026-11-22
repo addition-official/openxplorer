@@ -18362,3 +18362,20 @@ dolphin = "KDE Activities privacy “Remember opened documents”"
 gnome = "GSettings org.gnome.desktop.privacy remember-recent-files and recent-files-max-age (GtkRecentManager honours them automatically)"
 native = "done"
 native_note = "native/crates/ox-app/src/window/tests/sidebar.rs (recent_files_follow_the_desktop_history_setting); native/crates/ox-app/src/app_context/recent_privacy.rs. The app applies the stricter of GTK recent-history settings and GNOME org.gnome.desktop.privacy: while remember-recent-files is off (or recent-files-max-age is 0) an opened file or visited folder is added neither to the desktop's recently used list nor to settings.json, the recent files settings.json holds are forgotten, and the sidebar hides Recent files and Recent locations; with a recent-files-max-age of N days, files opened longer ago are forgotten (settings.json now keeps an \"opened\" time per entry; entries the Python app wrote have none and count as old). The sidebar's Recent files has a menu with \"Clear recent files\", which empties the app's list and the desktop's (GtkRecentManager::purge_items). Without the GNOME schema the GTK history policy still applies. GtkRecentManager prunes the desktop's own list by the same settings."
+
+[[feature]]
+id = "SAFE-023"
+area = "SAFE"
+title = "The trust question before a launcher runs"
+behaviour = "A .desktop launcher that is neither installed (in an applications folder of the user's or the system's data folders) nor marked trusted (metadata::trusted, which GNOME's Allow Launching sets) never starts its command without asking, whatever its execute bit says, as a launcher in Downloads that came out of an archive keeps its execute bit. Dropping items on it, or Run after opening it, asks 'Run this program?': '“<name>” is a launcher that has not been marked as trusted. Launching it runs the command it holds. Launch it only if you trust where it came from.' with Cancel and Trust and Launch, neither of which Enter presses. Cancel runs nothing; Trust and Launch runs it and marks it trusted, as GNOME's Trust and Launch does, so it is not asked about again."
+origin = ["gnome"]
+priority = "must"
+openxplorer = "missing"
+sources = [
+  "https://gitlab.gnome.org/GNOME/nautilus (the Untrusted application launcher question and metadata::trusted)",
+]
+python_tests = []
+bridge = []
+gnome = "metadata::trusted on the launcher, set by Allow Launching and Trust and Launch"
+native = "done"
+native_note = "native/crates/ox-app/src/window/file_drop/launcher.rs (is_marked_trusted, mark_trusted) and native/crates/ox-app/src/window/file_drop/program.rs (run_program, confirm_trust). Tested in native/crates/ox-app/src/window/file_drop/targets/tests.rs (items_dropped_on_a_trusted_launcher_start_its_application, a_downloaded_launcher_asks_before_it_runs)."

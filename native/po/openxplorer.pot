@@ -6038,6 +6038,15 @@ msgstr ""
 msgid "This program has no local path. Mount its share before dropping files on it."
 msgstr ""
 
+#: crates/ox-app/src/window/file_drop/program.rs
+msgid "Trust and Launch"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/file_drop/program.rs
+msgid "“{name}” is a launcher that has not been marked as trusted. Launching it runs the command it holds. Launch it only if you trust where it came from."
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/file_drop/program.rs
 msgid "“{name}” is not a program you can run."
