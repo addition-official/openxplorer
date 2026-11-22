@@ -59,8 +59,8 @@ struct Read {
 /// What is known of the entries of one size.
 #[derive(Debug)]
 enum Names {
-    /// Being listed.
-    Listing,
+    /// Being listed, with the entries written meanwhile.
+    Listing(HashSet<thumbnail_cache::EntryKey>),
     /// Listed: the entries' names.
     Listed(HashSet<thumbnail_cache::EntryKey>),
 }
@@ -185,9 +185,9 @@ pub(super) fn probably_cached(cache_dir: &std::path::Path, uri: &str, flavor: Th
     flavor.and_larger().any(|flavor| {
         NAMES.with_borrow_mut(|names| match names.get(flavor.as_str()) {
             Some(Names::Listed(listed)) => listed.contains(&name),
-            Some(Names::Listing) => false,
+            Some(Names::Listing(_)) => false,
             None => {
-                names.insert(flavor.as_str(), Names::Listing);
+                names.insert(flavor.as_str(), Names::Listing(HashSet::new()));
                 let cache_dir = cache_dir.to_path_buf();
                 glib::spawn_future_local(async move {
                     let listed =
@@ -197,7 +197,7 @@ pub(super) fn probably_cached(cache_dir: &std::path::Path, uri: &str, flavor: Th
                     NAMES.with_borrow_mut(|names| {
                         // Entries written while the folder was listed stay.
                         let mut listed = listed;
-                        if let Some(Names::Listed(written)) = names.remove(flavor.as_str()) {
+                        if let Some(Names::Listing(written)) = names.remove(flavor.as_str()) {
                             listed.extend(written);
                         }
                         names.insert(flavor.as_str(), Names::Listed(listed));
@@ -215,8 +215,8 @@ pub(super) fn note_written(uri: &str, flavor: ThumbnailFlavor) {
         return;
     };
     NAMES.with_borrow_mut(|names| {
-        if let Some(Names::Listed(listed)) = names.get_mut(flavor.as_str()) {
-            listed.insert(name);
+        if let Some(Names::Listed(names) | Names::Listing(names)) = names.get_mut(flavor.as_str()) {
+            names.insert(name);
         }
     });
 }

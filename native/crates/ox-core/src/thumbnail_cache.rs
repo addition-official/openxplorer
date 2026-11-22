@@ -173,19 +173,22 @@ fn chunks(bytes: &[u8]) -> Option<Vec<Chunk<'_>>> {
     Some(found)
 }
 
+/// The longest key value read, once inflated: a URI of a few kilobytes at
+/// most, so a compressed value made to inflate without end is not.
+pub const MAX_KEY_BYTES: usize = 64 * 1024;
+
 /// The keys of the PNG in `bytes`, or `None` for anything that is not a
-/// PNG. Only `tEXt` chunks are read, as the standard writes the keys
-/// there; a chunk cut short ends the reading.
+/// PNG. Keys are read from plain (`tEXt`), compressed (`zTXt`) and
+/// international (`iTXt`) text chunks, as gdk-pixbuf reads them: the
+/// standard writes plain ones, and Qt, which Dolphin's thumbnails are
+/// written with, compresses a value of 40 characters or more. A chunk cut
+/// short ends the reading.
 pub fn png_keys(bytes: &[u8]) -> Option<Keys> {
     let mut keys = Keys::default();
-    for chunk in chunks(bytes)?.iter().filter(|chunk| chunk.kind == b"tEXt") {
-        let Some(split) = chunk.data.iter().position(|byte| *byte == 0) else {
+    for chunk in chunks(bytes)? {
+        let Some((name, value)) = text_of(chunk.kind, chunk.data) else {
             continue;
         };
-        let (name, value) = (&chunk.data[..split], &chunk.data[split + 1..]);
-        // tEXt is Latin-1; the keys the app looks at are written in ASCII,
-        // and a URI's other characters are escaped.
-        let value: String = value.iter().map(|byte| char::from(*byte)).collect();
         let slot = match name {
             b"Thumb::URI" => &mut keys.uri,
             b"Thumb::MTime" => &mut keys.mtime,
@@ -196,6 +199,54 @@ pub fn png_keys(bytes: &[u8]) -> Option<Keys> {
         slot.get_or_insert(value);
     }
     Some(keys)
+}
+
+/// The key and value of a text chunk of `kind`, or `None` for another
+/// chunk or one that cannot be read.
+fn text_of<'a>(kind: &[u8], data: &'a [u8]) -> Option<(&'a [u8], String)> {
+    let split = data.iter().position(|byte| *byte == 0)?;
+    let (name, rest) = (data.get(..split)?, data.get(split + 1..)?);
+    // tEXt and zTXt are Latin-1; the keys the app looks at are written in
+    // ASCII, and a URI's other characters are escaped.
+    let latin1 = |bytes: &[u8]| bytes.iter().map(|byte| char::from(*byte)).collect::<String>();
+    match kind {
+        b"tEXt" => Some((name, latin1(rest))),
+        // The compression method, 0 (zlib), then the compressed text.
+        b"zTXt" => {
+            let (&method, compressed) = rest.split_first()?;
+            (method == 0).then_some(())?;
+            Some((name, latin1(&inflate(compressed)?)))
+        }
+        // Whether it is compressed, the method, the language and the
+        // translated key, each ended by a zero byte, then UTF-8 text.
+        b"iTXt" => {
+            let (&compressed, rest) = rest.split_first()?;
+            let (&method, rest) = rest.split_first()?;
+            let language_end = rest.iter().position(|byte| *byte == 0)?;
+            let rest = rest.get(language_end + 1..)?;
+            let translated_end = rest.iter().position(|byte| *byte == 0)?;
+            let text = rest.get(translated_end + 1..)?;
+            let text = match (compressed, method) {
+                (0, _) => text.to_vec(),
+                (1, 0) => inflate(text)?,
+                _ => return None,
+            };
+            (text.len() <= MAX_KEY_BYTES).then_some(())?;
+            Some((name, String::from_utf8(text).ok()?))
+        }
+        _ => None,
+    }
+}
+
+/// The zlib stream `compressed`, inflated, if it is no longer than
+/// [`MAX_KEY_BYTES`].
+fn inflate(compressed: &[u8]) -> Option<Vec<u8>> {
+    let mut text = Vec::new();
+    flate2::read::ZlibDecoder::new(compressed)
+        .take(MAX_KEY_BYTES as u64 + 1)
+        .read_to_end(&mut text)
+        .ok()?;
+    (text.len() <= MAX_KEY_BYTES).then_some(text)
 }
 
 /// The current entry of `version` in `flavor` or a larger size under the
@@ -295,27 +346,49 @@ pub fn with_keys(png: &[u8], version: &Version, mime_type: Option<&str>) -> Opti
 /// another version (the move changed the file's time, as a copy between
 /// disks may) is left alone. How many entries moved. Blocks.
 pub fn follow_move(cache_dir: &Path, old_uri: &str, moved: &Version) -> usize {
-    let before = Version {
-        uri: old_uri.to_owned(),
-        ..moved.clone()
-    };
-    ThumbnailFlavor::ALL
-        .into_iter()
-        .filter(|flavor| {
-            let old = thumbnail_file(cache_dir, old_uri, *flavor);
+    follow_moves(cache_dir, &[(old_uri.to_owned(), moved.clone())])
+        .iter()
+        .sum()
+}
+
+/// Moves the entries of several files at once, as [`follow_move`] moves
+/// one's, each from its old URI to its new place: every entry is read
+/// before any is removed or written, so files that swapped names in one
+/// batch keep their own thumbnails. How many entries of each file moved.
+/// Blocks.
+pub fn follow_moves(cache_dir: &Path, moves: &[(String, Version)]) -> Vec<usize> {
+    let mut staged = Vec::new();
+    for (index, (old_uri, moved)) in moves.iter().enumerate() {
+        let before = Version {
+            uri: old_uri.clone(),
+            ..moved.clone()
+        };
+        for flavor in ThumbnailFlavor::ALL {
+            let old = thumbnail_file(cache_dir, old_uri, flavor);
             let Some(bytes) = read_entry(&old) else {
-                return false;
+                continue;
             };
             let Some(keys) = png_keys(&bytes).filter(|keys| keys.describe(&before)) else {
-                return false;
+                continue;
             };
             let Some(renamed) = with_keys(&bytes, moved, keys.mime_type.as_deref()) else {
-                return false;
+                continue;
             };
-            let new = thumbnail_file(cache_dir, &moved.uri, *flavor);
-            write_entry(&new, &renamed).is_ok() && (old == new || fs::remove_file(&old).is_ok())
-        })
-        .count()
+            staged.push((index, old, thumbnail_file(cache_dir, &moved.uri, flavor), renamed));
+        }
+    }
+    for (_, old, new, _) in &staged {
+        if old != new {
+            let _ = fs::remove_file(old);
+        }
+    }
+    let mut moved = vec![0; moves.len()];
+    for (index, _, new, renamed) in &staged {
+        if write_entry(new, renamed).is_ok() {
+            moved[*index] += 1;
+        }
+    }
+    moved
 }
 
 /// An entry's name as a number: the MD5 of its URI, which takes 16 bytes
@@ -433,27 +506,37 @@ fn plain_png() -> Vec<u8> {
 
 /// `png` with `keys` written as text chunks after its header.
 fn insert_text(png: &[u8], keys: &[(&str, &str)]) -> Option<Vec<u8>> {
-    let found = chunks(png)?;
-    let header = found.first().filter(|first| first.kind == b"IHDR")?;
-    let mut out = png.get(..header.whole.end)?.to_vec();
+    let mut chunks = Vec::new();
     for (name, value) in keys {
         // A key's value is Latin-1 text; anything else is not written.
         let latin1: Option<Vec<u8>> = value.chars().map(|c| u8::try_from(u32::from(c)).ok()).collect();
         let mut data = name.as_bytes().to_vec();
         data.push(0);
         data.extend(latin1?);
-        out.extend(chunk(*b"tEXt", &data)?);
+        chunks.push((*b"tEXt", data));
+    }
+    insert_chunks(png, &chunks)
+}
+
+/// `png` with `chunks`, each its kind and data, written after its header.
+fn insert_chunks(png: &[u8], chunks_to_add: &[([u8; 4], Vec<u8>)]) -> Option<Vec<u8>> {
+    let found = chunks(png)?;
+    let header = found.first().filter(|first| first.kind == b"IHDR")?;
+    let mut out = png.get(..header.whole.end)?.to_vec();
+    for (kind, data) in chunks_to_add {
+        out.extend(chunk(*kind, data)?);
     }
     out.extend_from_slice(png.get(header.whole.end..)?);
     Some(out)
 }
 
-/// `png` without its `Thumb::` keys and `Software`.
+/// `png` without its `Thumb::` keys and `Software`, plain, compressed or
+/// international.
 fn strip_keys(png: &[u8]) -> Option<Vec<u8>> {
     let found = chunks(png)?;
     let mut out = PNG_SIGNATURE.to_vec();
     for chunk in &found {
-        let is_key = chunk.kind == b"tEXt"
+        let is_key = [&b"tEXt"[..], b"zTXt", b"iTXt"].contains(&chunk.kind)
             && KEY_NAMES.iter().any(|name| {
                 chunk
                     .data
@@ -756,7 +839,20 @@ mod tests {
         let moved = version("file:///home/demo/Pictures/Holiday/Beach.jpg");
         let entry = entry_png(&[("Thumb::URI", old_uri), ("Thumb::MTime", "1700000000")]);
         let normal = put(cache.path(), old_uri, ThumbnailFlavor::Normal, &entry);
-        let large = put(cache.path(), old_uri, ThumbnailFlavor::Large, &entry);
+        // As Qt writes it, with the URI compressed: it moves the same way,
+        // and keeps no copy of its old URI.
+        let mut compressed_uri = b"Thumb::URI\0\0".to_vec();
+        let mut compressed = Vec::new();
+        flate2::read::ZlibEncoder::new(old_uri.as_bytes(), flate2::Compression::default())
+            .read_to_end(&mut compressed)
+            .expect("compressed");
+        compressed_uri.extend(compressed);
+        let qt_entry = insert_chunks(
+            &entry_png(&[("Thumb::MTime", "1700000000")]),
+            &[(*b"zTXt", compressed_uri)],
+        )
+        .expect("a PNG");
+        let large = put(cache.path(), old_uri, ThumbnailFlavor::Large, &qt_entry);
 
         assert_eq!(follow_move(cache.path(), old_uri, &moved), 2);
 
@@ -764,6 +860,10 @@ mod tests {
         for flavor in [ThumbnailFlavor::Normal, ThumbnailFlavor::Large] {
             let hit = look_up(cache.path(), &moved, flavor).expect("moved with the file");
             assert_eq!(hit.flavor, flavor);
+            assert!(chunks(&hit.bytes)
+                .expect("a PNG")
+                .iter()
+                .all(|chunk| chunk.kind != b"zTXt"));
         }
 
         // A copy between disks may give the file a new time: its old entry
@@ -801,5 +901,104 @@ mod tests {
         assert!(names.contains(&entry_key(uri).expect("a key")));
         assert_eq!(entry_name(uri).len(), 32);
         assert!(entry_names(cache.path(), ThumbnailFlavor::Large).is_empty());
+    }
+
+    /// Keys written compressed (`zTXt`), as Qt writes a value of 40
+    /// characters or more, or as international text (`iTXt`), are read
+    /// as plain ones are; a compressed value that inflates past the limit
+    /// is not.
+    ///
+    /// parity: VIEW-057
+    #[test]
+    fn compressed_and_international_keys_are_read() {
+        use std::io::Write as _;
+
+        let item = version("file:///home/demo/Pictures/A%20rather%20long%20folder%20name/Lake.jpg");
+        let zlib = |text: &[u8]| {
+            let mut encoder = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+            encoder.write_all(text).expect("compressed");
+            encoder.finish().expect("compressed")
+        };
+        let mut compressed_uri = b"Thumb::URI\0\0".to_vec();
+        compressed_uri.extend(zlib(item.uri.as_bytes()));
+        let mut international_time = b"Thumb::MTime\0\0\0en\0\0".to_vec();
+        international_time.extend_from_slice(b"1700000000");
+        let mut compressed_size = b"Thumb::Size\0\x01\0\0\0".to_vec();
+        compressed_size.extend(zlib(b"4096"));
+        let png = insert_chunks(
+            &plain_png(),
+            &[
+                (*b"zTXt", compressed_uri),
+                (*b"iTXt", international_time),
+                (*b"iTXt", compressed_size),
+            ],
+        )
+        .expect("a PNG");
+
+        let keys = png_keys(&png).expect("keys");
+        assert_eq!(keys.uri.as_deref(), Some(item.uri.as_str()));
+        assert_eq!(keys.mtime.as_deref(), Some("1700000000"));
+        assert_eq!(keys.size.as_deref(), Some("4096"));
+        assert!(keys.describe(&item));
+
+        // A value that inflates past the limit is no key.
+        let mut bomb = b"Thumb::URI\0\0".to_vec();
+        bomb.extend(zlib(&vec![b'a'; MAX_KEY_BYTES + 1]));
+        let png = insert_chunks(&plain_png(), &[(*b"zTXt", bomb)]).expect("a PNG");
+        assert_eq!(png_keys(&png).expect("keys").uri, None);
+    }
+
+    /// Two files that swap names in one batch rename keep their own
+    /// thumbnails: every entry is read before any is written.
+    ///
+    /// parity: VIEW-057
+    #[test]
+    fn files_that_swap_names_keep_their_own_thumbnails() {
+        let cache = cache();
+        let (a, b) = (
+            "file:///home/demo/Pictures/a.jpg",
+            "file:///home/demo/Pictures/b.jpg",
+        );
+        // Each picture told by a text chunk of its own, which moves with it.
+        let entry = |uri: &str, picture: &str| {
+            entry_png(&[
+                ("Thumb::URI", uri),
+                ("Thumb::MTime", "1700000000"),
+                ("Description", picture),
+            ])
+        };
+        put(
+            cache.path(),
+            a,
+            ThumbnailFlavor::Normal,
+            &entry(a, "picture of a"),
+        );
+        put(
+            cache.path(),
+            b,
+            ThumbnailFlavor::Normal,
+            &entry(b, "picture of b"),
+        );
+        // The same time and size, so each old entry would pass for the
+        // other file.
+        let now_b = version(b);
+        let now_a = version(a);
+
+        let moved = follow_moves(
+            cache.path(),
+            &[(a.to_owned(), now_b.clone()), (b.to_owned(), now_a.clone())],
+        );
+
+        assert_eq!(moved, [1, 1]);
+        let picture = |version: &Version| {
+            let hit = look_up(cache.path(), version, ThumbnailFlavor::Normal).expect("an entry");
+            chunks(&hit.bytes)
+                .expect("a PNG")
+                .iter()
+                .find(|chunk| chunk.data.starts_with(b"Description\0"))
+                .map(|chunk| String::from_utf8_lossy(&chunk.data[12..]).into_owned())
+        };
+        assert_eq!(picture(&now_b).as_deref(), Some("picture of a"), "b is the old a");
+        assert_eq!(picture(&now_a).as_deref(), Some("picture of b"), "a is the old b");
     }
 }

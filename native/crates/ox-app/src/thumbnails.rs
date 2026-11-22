@@ -451,15 +451,9 @@ pub(crate) fn follow_moves(moved: Vec<(String, String)>) {
         return;
     }
     glib::spawn_future_local(async move {
-        let followed = gio::spawn_blocking(move || {
-            let mut followed = Vec::new();
-            for (old, new) in moved {
-                followed.extend(follow_move_of(&cache_dir, &old, &new));
-            }
-            followed
-        })
-        .await
-        .unwrap_or_default();
+        let followed = gio::spawn_blocking(move || follow_moves_of(&cache_dir, &moved))
+            .await
+            .unwrap_or_default();
         for (old_uri, new_uri) in followed {
             MEMORY.with_borrow_mut(|memory| memory.forget(&old_uri));
             for flavor in ThumbnailFlavor::ALL {
@@ -469,13 +463,40 @@ pub(crate) fn follow_moves(moved: Vec<(String, String)>) {
     });
 }
 
-/// Moves the thumbnails of the item moved from `old` to `new`, a file or
-/// a folder of files, in the cache under `cache_dir`: the old and new URIs
-/// of each file whose thumbnails moved. Blocks.
-fn follow_move_of(cache_dir: &Path, old: &Path, new: &Path) -> Vec<(String, String)> {
-    let mut followed = Vec::new();
-    let mut folders = vec![(old.to_path_buf(), new.to_path_buf())];
+/// Moves the thumbnails of the items moved, each from its old path to its
+/// new one in `moved`, files or folders of files, in the cache under
+/// `cache_dir`, all at once ([`thumbnail_cache::follow_moves`]): the old
+/// and new URIs of each file whose thumbnails moved. An item now on a
+/// network file system is passed over: its folder is not listed over the
+/// network, and its thumbnails, if any, are named by another URI. Blocks.
+fn follow_moves_of(cache_dir: &Path, moved: &[(PathBuf, PathBuf)]) -> Vec<(String, String)> {
     let mut seen = 0_usize;
+    let mut files = Vec::new();
+    for (old, new) in moved {
+        if network_fs::is_on_network_filesystem(new) {
+            continue;
+        }
+        files.extend(files_moved(old, new, &mut seen));
+    }
+    let moved_entries = thumbnail_cache::follow_moves(cache_dir, &files);
+    files
+        .into_iter()
+        .zip(moved_entries)
+        .filter(|(_, entries)| *entries > 0)
+        .map(|((old_uri, version), _)| {
+            trace::event("moved", &version.uri);
+            (old_uri, version.uri)
+        })
+        .collect()
+}
+
+/// The files moved from `old` to `new`, the item itself or, for a folder,
+/// the files in it, each its old URI and its version now; at most
+/// [`MOST_FOLLOWED`] items are looked at, counted in `seen`. Links are not
+/// followed. Blocks.
+fn files_moved(old: &Path, new: &Path, seen: &mut usize) -> Vec<(String, Version)> {
+    let mut files = Vec::new();
+    let mut folders = vec![(old.to_path_buf(), new.to_path_buf())];
     while let Some((old, new)) = folders.pop() {
         let Ok(metadata) = std::fs::symlink_metadata(&new) else {
             continue;
@@ -485,9 +506,9 @@ fn follow_move_of(cache_dir: &Path, old: &Path, new: &Path) -> Vec<(String, Stri
                 continue;
             };
             for child in listing.filter_map(Result::ok) {
-                seen += 1;
-                if seen > MOST_FOLLOWED {
-                    return followed;
+                *seen += 1;
+                if *seen > MOST_FOLLOWED {
+                    return files;
                 }
                 folders.push((old.join(child.file_name()), child.path()));
             }
@@ -510,17 +531,16 @@ fn follow_move_of(cache_dir: &Path, old: &Path, new: &Path) -> Vec<(String, Stri
         let Some(modified) = modified else {
             continue;
         };
-        let version = Version {
-            uri: new_uri.to_string(),
-            modified,
-            size: Some(metadata.len()),
-        };
-        if thumbnail_cache::follow_move(cache_dir, &old_uri, &version) > 0 {
-            trace::event("moved", &version.uri);
-            followed.push((old_uri.to_string(), new_uri.to_string()));
-        }
+        files.push((
+            old_uri.to_string(),
+            Version {
+                uri: new_uri.to_string(),
+                modified,
+                size: Some(metadata.len()),
+            },
+        ));
     }
-    followed
+    files
 }
 
 /// How many sharp pictures are kept for a tile scrolled back into view.
@@ -936,7 +956,15 @@ async fn by_decoding(
     let cache_dir = cache_dir.to_path_buf();
     let decoded = making(request)
         .blocking_in_turn(&|| request.on_screen.get(), move |cancel| {
-            writer::write_thumbnail(&cache_dir, &source, flavor, cancel)
+            let made = writer::write_thumbnail(&cache_dir, &source, flavor, cancel);
+            // A refusal is also what a decoder that died says, as one that
+            // used up its processor time over many pictures: the picture
+            // is tried once more, in another decoder, before it is taken
+            // as damaged and recorded as such for good.
+            if made.as_ref().err() == Some(&writer::Failure::Refused) {
+                return writer::write_thumbnail(&cache_dir, &source, flavor, cancel);
+            }
+            made
         })
         .await;
     // A worker that never ran belongs to a request already dropped.
@@ -1629,7 +1657,7 @@ mod tests {
 
         let after = folder.path().join("Trip 2026");
         fs::rename(&before, &after).expect("renamed");
-        let followed = follow_move_of(&cache, &before, &after);
+        let followed = follow_moves_of(&cache, &[(before.clone(), after.clone())]);
 
         let new_uri = gio::File::for_path(after.join("Beach.png")).uri().to_string();
         assert_eq!(followed, [(request.uri.clone(), new_uri.clone())]);
