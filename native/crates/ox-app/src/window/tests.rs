@@ -57,6 +57,7 @@ mod gallery_view;
 mod geometry;
 mod group_by;
 mod group_heading_look;
+mod high_contrast;
 mod hidden_selection;
 mod history;
 mod home_page;
