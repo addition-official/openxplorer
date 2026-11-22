@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! Home's Recent and Favorites rows act on the files they name, as the
-//! rows of Windows 11's Home do: Cut, Copy, Rename and Delete reach the
-//! real file, by its menu and by its keys; Remove from Recent takes a
-//! file off the desktop's recently used list and leaves the file; a
+//! rows of Windows 11's Home do: a Recent row offers Copy and Share, and
+//! no Cut, Rename or Delete, by its menu, its keys or the command bar;
+//! Remove from list takes a file off the desktop's recently used list
+//! and leaves the file; a
 //! renamed file stays in Recent and Favorites under its new name, and one
 //! found gone leaves Recent. A click on blank space selects nothing, and
 //! the Quick access tiles are dragged into a new order. Clicks, keys and drags are
@@ -19,7 +20,9 @@ use crate::test_support::pointer::{screen_point, Button, Pointer};
 use crate::window::home_page;
 use crate::window::menu_popover::MenuPopover;
 
-use super::file_ops_support::{open_dialog, require_private_trash, text_field, wait_for_no_dialog};
+use super::file_ops_support::{
+    dialog_over, open_dialog, require_private_trash, text_field, wait_for_no_dialog,
+};
 use super::home_page::open_quick_access_on_home;
 
 /// The Home page's address.
@@ -114,49 +117,77 @@ fn click_row(pointer: &mut Pointer, test: &TestWindow, name: &str) {
     wait_until("the row to be selected", || row.is_selected() && row.has_focus());
 }
 
-/// A Recent row's menu is Windows 11's menu of a file on Home: Cut, Copy,
-/// Rename and Delete in the icon strip, then Open, Open file location,
-/// Add to Favorites, Remove from Recent, Copy as path, Properties and
-/// "Show more options", which opens the classic menu in its place. A
-/// Favorites row has no Remove from Recent.
+/// A Recent row's menu is Windows 11's (checked on Windows 11, Home >
+/// Recent, 2026-11-22): Copy (and Share, where the desktop can share)
+/// alone in the icon strip, then "Open with" (Enter), Share with where
+/// the computer has a way to share, Open file location, Remove from list,
+/// Add to Favorites, Compress to, Copy as path, Properties, the text
+/// editor's "Edit in", then "Show more options". No Cut, Rename or Delete,
+/// in the strip or behind "Show more options". A Favorites row has no
+/// Remove from list.
 ///
 /// parity: HOME-015, HOME-036
 #[gtk::test]
-fn a_recent_rows_menu_has_the_file_commands_and_remove_from_recent() {
+fn a_recent_rows_menu_is_windows_11s() {
     let (fixture, test) = recent_home(&["plan.txt"]);
     let mut pointer = Pointer::connect();
     let row = home_page::item_named(body(&test), "plan");
     click(&mut pointer, &test, &row, None, Button::Secondary);
     let menu = open_menu(&test);
 
-    assert_eq!(menu.strip_labels(), ["Cut", "Copy", "Rename", "Delete"]);
-    let labels = menu.row_labels();
-    for wanted in [
-        "Open",
-        "Open file location",
-        "Add to Favorites",
-        "Remove from Recent",
-        "Copy as path",
-        "Properties",
-        "Show more options",
-    ] {
-        assert!(labels.contains(&wanted.to_owned()), "{wanted} in {labels:?}");
-    }
+    let strip = menu.strip_labels();
+    assert_eq!(strip.first().map(String::as_str), Some("Copy"), "{strip:?}");
+    assert!(
+        strip
+            .iter()
+            .all(|label| ["Copy", "Share"].contains(&label.as_str())),
+        "{strip:?}"
+    );
+    // Share with and Edit in come where the computer has a way to share
+    // and a text editor; the rest always.
+    let labels: Vec<String> = menu
+        .row_labels()
+        .into_iter()
+        .filter(|label| label != "-" && label != "Share with" && !label.starts_with("Edit in "))
+        .collect();
+    assert_eq!(
+        labels,
+        [
+            "Open with",
+            "Open file location",
+            "Remove from list",
+            "Add to Favorites",
+            "Compress to",
+            "Copy as path",
+            "Properties",
+            "Show more options"
+        ]
+    );
+    let shortcuts: Vec<String> = menu
+        .rows()
+        .iter()
+        .flat_map(descendants::<gtk::Label>)
+        .filter(|label| label.has_css_class("shortcut"))
+        .map(|label| label.text().to_string())
+        .collect();
+    assert_eq!(
+        shortcuts.first().map(String::as_str),
+        Some("Enter"),
+        "{shortcuts:?}"
+    );
     menu.click_row("Show more options");
     let classic = open_menu(&test);
     let classic_labels = classic.row_labels();
-    for wanted in [
-        "Open",
-        "Remove from Recent",
-        "Cut",
-        "Copy",
-        "Delete",
-        "Rename",
-        "Properties",
-    ] {
+    for wanted in ["Open with", "Remove from list", "Copy", "Properties"] {
         assert!(
             classic_labels.contains(&wanted.to_owned()),
             "{wanted} in the classic menu {classic_labels:?}"
+        );
+    }
+    for unwanted in ["Cut", "Rename", "Delete"] {
+        assert!(
+            !classic_labels.contains(&unwanted.to_owned()),
+            "no {unwanted} in the classic menu {classic_labels:?}"
         );
     }
     classic.popdown();
@@ -171,10 +202,10 @@ fn a_recent_rows_menu_has_the_file_commands_and_remove_from_recent() {
     });
     let labels = home_page::menu_labels(body(&test), "plan");
     assert!(labels.contains(&"Remove from Favorites".to_owned()), "{labels:?}");
-    assert!(!labels.contains(&"Remove from Recent".to_owned()), "{labels:?}");
+    assert!(!labels.contains(&"Remove from list".to_owned()), "{labels:?}");
 }
 
-/// Remove from Recent takes the file off the desktop's recently used list
+/// Remove from list takes the file off the desktop's recently used list
 /// and off Home's Recent; the file itself stays.
 ///
 /// parity: HOME-036
@@ -187,7 +218,7 @@ fn remove_from_recent_drops_the_row_and_keeps_the_file() {
     click(&mut pointer, &test, &row, None, Button::Secondary);
     let menu = open_menu(&test);
 
-    menu.click_row("Remove from Recent");
+    menu.click_row("Remove from list");
 
     wait_until("the row to leave Recent", || {
         !recent_names(&test).contains(&"plan".to_owned())
@@ -197,45 +228,53 @@ fn remove_from_recent_drops_the_row_and_keeps_the_file() {
     assert!(!gtk::RecentManager::default().has_item(&plan));
 }
 
-/// Delete, pressed on a Recent row, moves the file to the Recycle Bin, as
-/// in its folder, and the row leaves Recent.
+/// Delete, Shift+Delete, F2 and Ctrl+X do nothing on a Recent row, as
+/// in Windows 11's Home (checked 2026-11-22): no file goes to the Recycle
+/// Bin, no dialog opens, the clipboard keeps what it had, and the row
+/// stays.
 ///
 /// parity: HOME-036
 #[gtk::test]
-fn delete_on_a_recent_row_recycles_the_file_and_drops_the_row() {
+fn delete_f2_and_ctrl_x_do_nothing_on_a_recent_row() {
+    use super::recent_rows::copied_uris;
+
     let (fixture, test) = recent_home(&["plan.txt", "budget.txt"]);
+    test.window.clipboard().set_text("Synthetic text");
     let mut pointer = Pointer::connect();
     click_row(&mut pointer, &test, "plan");
 
     pointer.tap_key(gtk::gdk::Key::Delete);
+    pointer.hold_key(gtk::gdk::Key::Shift_L);
+    pointer.tap_key(gtk::gdk::Key::Delete);
+    pointer.let_go_key(gtk::gdk::Key::Shift_L);
+    pointer.tap_key(gtk::gdk::Key::F2);
+    pointer.hold_key(gtk::gdk::Key::Control_L);
+    pointer.tap_key(gtk::gdk::Key::x);
+    pointer.let_go_key(gtk::gdk::Key::Control_L);
+    wait_for(std::time::Duration::from_millis(800));
 
-    wait_until("the file to go to the Recycle Bin", || {
-        !fixture.path("Documents/plan.txt").exists()
-    });
-    wait_until("the row to leave Recent", || {
-        !recent_names(&test).contains(&"plan".to_owned())
-    });
-    assert!(recent_names(&test).contains(&"budget".to_owned()));
+    assert!(dialog_over(&test).is_none(), "no dialog");
+    assert!(fixture.path("Documents/plan.txt").is_file(), "the file stays");
+    assert_eq!(copied_uris(&test), None, "nothing cut");
+    assert!(recent_names(&test).contains(&"plan".to_owned()));
     assert_eq!(test.window.current_uri().as_deref(), Some(HOME_PAGE));
 }
 
-/// F2 on a Recent row renames the file; Recent goes on listing it under
-/// its new name, as the desktop's list follows the rename, and so does
-/// Favorites.
+/// A rename anywhere in the app keeps the file in Recent and Favorites
+/// under its new name, as the desktop's list follows the rename.
 ///
 /// parity: HOME-036
 #[gtk::test]
-fn f2_on_a_recent_row_renames_the_file_and_recent_follows_it() {
+fn a_renamed_file_stays_in_recent_and_favorites() {
     let (fixture, test) = recent_home(&["plan.txt"]);
-    test.activate("add-to-favorites", Some(&fixture.uri_of("Documents/plan.txt")));
+    let plan = fixture.uri_of("Documents/plan.txt");
+    test.activate("add-to-favorites", Some(&plan));
     wait_until("the favorite", || {
         test.context.settings_data().preferences.favorites.len() == 1
     });
     wait_for(std::time::Duration::from_millis(600));
-    let mut pointer = Pointer::connect();
-    click_row(&mut pointer, &test, "plan");
 
-    pointer.tap_key(gtk::gdk::Key::F2);
+    test.activate("rename-folder", Some(&plan));
     let dialog = open_dialog(&test);
     assert_eq!(dialog.title_text(), "Rename");
     text_field(&dialog).set_text("final plan.txt");
@@ -251,11 +290,11 @@ fn f2_on_a_recent_row_renames_the_file_and_recent_follows_it() {
     });
     let renamed = fixture.uri_of("Documents/final plan.txt");
     assert!(test.window.is_favorite(&renamed), "Favorites follows the rename");
-    assert!(!test.window.is_favorite(&fixture.uri_of("Documents/plan.txt")));
+    assert!(!test.window.is_favorite(&plan));
 }
 
-/// Ctrl+C and Ctrl+X on a Recent row put the file on the clipboard, as
-/// its menu's Copy and Cut do.
+/// Ctrl+C on a Recent row puts the file on the clipboard, as its menu's
+/// Copy does.
 ///
 /// parity: HOME-036
 #[gtk::test]
@@ -347,7 +386,7 @@ fn a_right_click_on_blank_space_clears_the_selection() {
         "{:?}",
         menu.row_labels()
     );
-    assert!(!menu.row_labels().contains(&"Remove from Recent".to_owned()));
+    assert!(!menu.row_labels().contains(&"Remove from list".to_owned()));
     menu.popdown();
     wait_until("nothing selected", || {
         !command_button(&test, "win.copy").is_sensitive()
@@ -458,25 +497,29 @@ fn command_button(test: &TestWindow, action: &str) -> gtk::Button {
         .unwrap_or_else(|| panic!("a button runs {action}"))
 }
 
-/// With a Recent row selected, the command bar's Cut, Copy, Rename and
-/// Delete act on its file, as in Windows 11's Home; with nothing
-/// selected they are grayed out. A click on blank space selects nothing
-/// again.
+/// With a Recent row selected, the command bar enables Copy (and Share,
+/// where the desktop can share) alone; Cut, Paste, Rename and Delete stay
+/// grayed out, as in Windows 11's Home (checked 2026-11-22), and so does
+/// New on Home. A click on blank space grays everything again.
 ///
 /// parity: HOME-036
 #[gtk::test]
-fn the_command_bar_acts_on_the_selected_row() {
-    let (fixture, test) = recent_home(&["plan.txt", "budget.txt"]);
-    let edit = ["win.cut", "win.copy", "win.rename", "win.trash"];
+fn the_command_bar_offers_copy_alone_on_a_recent_row() {
+    let (_fixture, test) = recent_home(&["plan.txt", "budget.txt"]);
+    let edit = ["win.cut", "win.copy", "win.paste", "win.rename", "win.trash"];
     let enabled = |action: &str| command_button(&test, action).is_sensitive();
     for action in edit {
         assert!(!enabled(action), "{action} is grayed out with nothing selected");
     }
+    assert!(!new_is_enabled(&test), "New is grayed out on Home");
     let mut pointer = Pointer::connect();
     click_row(&mut pointer, &test, "plan");
-    for action in edit {
-        wait_until("the command to follow the row", || enabled(action));
+    wait_until("Copy to follow the row", || enabled("win.copy"));
+    wait_for(std::time::Duration::from_millis(300));
+    for action in ["win.cut", "win.paste", "win.rename", "win.trash"] {
+        assert!(!enabled(action), "{action} stays grayed out on a Recent row");
     }
+    assert!(!new_is_enabled(&test), "New is grayed out on Home");
 
     let page = body(&test);
     click(
@@ -487,23 +530,48 @@ fn the_command_bar_acts_on_the_selected_row() {
         Button::Primary,
     );
     wait_until("nothing selected", || !enabled("win.copy"));
+    for action in edit {
+        assert!(!enabled(action), "{action} is grayed out again");
+    }
+}
 
-    click_row(&mut pointer, &test, "plan");
-    wait_until("Delete to follow the row", || enabled("win.trash"));
-    click(
-        &mut pointer,
-        &test,
-        &command_button(&test, "win.trash"),
-        None,
-        Button::Primary,
+/// Whether the command bar's New menu button can be used.
+fn new_is_enabled(test: &TestWindow) -> bool {
+    descendants::<gtk::MenuButton>(test.window.command_bar())
+        .into_iter()
+        .find(|button| button.has_css_class("new-command"))
+        .is_some_and(|button| button.is_sensitive())
+}
+
+/// With nothing selected on Home, the Details pane shows Home's house,
+/// "Home (N items)" with the count the status bar gives, and its hint, as
+/// Windows 11's does (checked 2026-11-22). It showed a yellow folder and
+/// "Home (0 items)".
+///
+/// parity: HOME-036
+#[gtk::test]
+fn the_details_pane_names_home_with_its_items() {
+    use super::support::art_image_showing;
+    use crate::icons::{Art, Icon, Tint};
+
+    let (_fixture, test) = recent_home(&["plan.txt", "budget.txt"]);
+    test.open_details_pane();
+    wait_for_frames(&test.window, 3);
+    let pane = test.window.details_pane();
+    let items = home_page::item_count(body(&test)).expect("Home counts its items");
+    let shown = if items == 1 {
+        "Home (1 item)".to_owned()
+    } else {
+        format!("Home ({items} items)")
+    };
+
+    wait_until("Home in the pane", || pane.shown_name() == shown);
+    assert!(
+        art_image_showing(pane, Art::TintedGlyph(Icon::Home, Tint::Home)).is_some(),
+        "Home's house"
     );
-    wait_until("the file to go to the Recycle Bin", || {
-        !fixture.path("Documents/plan.txt").exists()
-    });
-    assert!(fixture.path("Documents/budget.txt").is_file());
-    wait_until("the row to leave Recent", || {
-        !recent_names(&test).contains(&"plan".to_owned())
-    });
+    assert!(art_image_showing(pane, Art::Folder).is_none(), "no yellow folder");
+    assert!(pane.shows_hint(), "the pane's hint");
 }
 
 /// A row right-clicked and left with Escape does not stay drawn as
