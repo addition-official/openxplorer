@@ -4,16 +4,24 @@
 //!
 //! A view asks for a preview when it binds a row or tile and drops the
 //! request when GTK unbinds it, so rows scrolled past cost nothing more.
-//! A request reads the cache through GIO (`thumbnail::path`,
-//! `thumbnail::is-valid`, `thumbnail::failed`) at low priority. A missing
-//! thumbnail is made by the session's thumbnailer service
+//! As Windows shows a folder's thumbnails at once from its thumbcache, a
+//! folder visited again shows them at once from the shared cache: a
+//! preview shown lately is kept decoded ([`memory`]) and drawn on the
+//! frame its tile is bound ([`kept_preview`]); any other is read from the
+//! cache first ([`reader`]), in batches, its keys checked against the
+//! file's time and size without decoding it ([`thumbnail_cache`]), and a
+//! file a program failed on is not tried again until it changes. A
+//! missing thumbnail is made by the session's thumbnailer service
 //! ([`service`]) when it has one and supports the type, else, for a
 //! picture gdk-pixbuf may read ([`pixbuf_may_read`]), by the app itself
 //! ([`writer`]), which costs less than a program, else by a thumbnailer
 //! the desktop installs for the type ([`thumbnailers`], a program the app
-//! starts in a sandbox). The desktop's thumbnailer is asked for a picture
-//! only when the app cannot read it ([`writer::Failure::Unreadable`]): one
-//! the cache refuses would be refused for the program too, and a dropped
+//! starts in a sandbox), and written to the cache for the next visit and
+//! for the desktop's other programs. The tiles on the screen have theirs
+//! made first ([`Slots::take_in_turn`]). The desktop's thumbnailer is asked
+//! for a picture only when the app cannot read it
+//! ([`writer::Failure::Unreadable`]): one the cache refuses would be
+//! refused for the program too, and a dropped
 //! request needs no picture at all. Only a few are decoded or made at a
 //! time ([`slots`]); a type that cannot be previewed, or a failed attempt,
 //! keeps its icon. Every picture the app decodes itself, and every file it
@@ -334,7 +342,6 @@ pub(crate) async fn preview(request: PreviewRequest) -> Option<gdk::Texture> {
     // kernel share, sshfs, GVfs's FUSE folder): it keeps its icon with
     // network previews off, and is made on the network's slots with them on.
     let on_network = request.on_network || is_on_network(&request.uri, request.target_uri.as_deref()).await;
-    trace::event("network-known", &request.uri);
     if request.local_only && on_network {
         return None;
     }

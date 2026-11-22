@@ -100,7 +100,6 @@ impl FileCell {
         } = started;
         let lookup = glib::spawn_future_local(async move {
             let own = own_pictures(&uri).await;
-            thumbnails::trace::event("own-pictures", &uri);
             own_found.set(own.icon.is_some() || (is_folder && own.folder_picture.is_some()));
             let mut texture = match own.icon {
                 Some(icon) => icon_texture(icon).await,
