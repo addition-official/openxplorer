@@ -82,9 +82,10 @@ const PREVIEW: &str = "preview";
 pub(super) struct Contents {
     stack: gtk::Stack,
     message: gtk::Label,
-    /// The document's icon above [`Self::message`], when nothing converts
-    /// it.
-    message_icon: ArtImage,
+    /// Holds the document's icon above [`Self::message`] when nothing
+    /// converts it, made for each message so that no hidden icon stays in
+    /// the pane.
+    message_icon_room: gtk::Box,
     text: gtk::TextView,
     text_scroller: gtk::ScrolledWindow,
     /// Holds the picture shown, made for each picture so that no empty
@@ -112,17 +113,14 @@ impl Contents {
             .max_width_chars(28)
             .css_classes(["preview-message"])
             .build();
-        let message_icon = ArtImage::new(Art::Folder, MESSAGE_ICON_SIZE);
-        message_icon.set_halign(gtk::Align::Center);
-        message_icon.set_visible(false);
-        message_icon.add_css_class("preview-message-icon");
+        let message_icon_room = gtk::Box::builder().halign(gtk::Align::Center).build();
         let message_box = gtk::Box::builder()
             .orientation(gtk::Orientation::Vertical)
             .spacing(MARGIN)
             .halign(gtk::Align::Center)
             .valign(gtk::Align::Center)
             .build();
-        message_box.append(&message_icon);
+        message_box.append(&message_icon_room);
         message_box.append(&message);
         stack.add_named(&message_box, Some(MESSAGE));
 
@@ -184,7 +182,7 @@ impl Contents {
         Self {
             stack,
             message,
-            message_icon,
+            message_icon_room,
             text,
             text_scroller,
             picture_room,
@@ -195,7 +193,7 @@ impl Contents {
 
     /// Shows `words`, translated, in the middle of the pane.
     fn show_message(&self, words: &str) {
-        self.message_icon.set_visible(false);
+        self.remove_message_icon();
         self.message.set_text(&ox_core::i18n::gettext(words));
         self.stack.set_visible_child_name(MESSAGE);
     }
@@ -204,15 +202,23 @@ impl Contents {
     /// middle of the pane.
     fn show_message_with_icon(&self, words: &str, art: Art) {
         self.show_message(words);
-        self.message_icon.set_art(art, MESSAGE_ICON_SIZE);
-        self.message_icon.set_visible(true);
+        let icon = ArtImage::new(art, MESSAGE_ICON_SIZE);
+        icon.add_css_class("preview-message-icon");
+        self.message_icon_room.append(&icon);
+    }
+
+    /// Removes the icon above the message, if there is one.
+    fn remove_message_icon(&self) {
+        while let Some(icon) = self.message_icon_room.first_child() {
+            self.message_icon_room.remove(&icon);
+        }
     }
 
     /// Empties every page, so nothing of the item before shows while the
     /// next one is read.
     fn clear(&self) {
         self.message.set_text("");
-        self.message_icon.set_visible(false);
+        self.remove_message_icon();
         self.stack.set_visible_child_name(MESSAGE);
         self.text.buffer().set_text("");
         self.picture_room.set_child(gtk::Widget::NONE);
@@ -508,9 +514,12 @@ impl DetailsPane {
     #[cfg(test)]
     pub(in crate::window) fn preview_message_icon(&self) -> Option<Art> {
         let contents = self.contents();
-        (self.preview_message().is_some() && contents.message_icon.is_visible())
-            .then(|| contents.message_icon.art())
-            .flatten()
+        self.preview_message()?;
+        contents
+            .message_icon_room
+            .first_child()
+            .and_downcast::<ArtImage>()?
+            .art()
     }
 
     /// The size of the picture shown, for tests.
