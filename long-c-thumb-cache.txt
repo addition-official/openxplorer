@@ -1,0 +1,47 @@
+STATUS: DONE
+HEAD: long-c-thumb-cache b36df652
+QUESTION: Thumbnails of files deleted or sent to the Recycle Bin stay in ~/.cache/thumbnails (the standard says to remove them; GNOME and KDE mostly don't; Windows keeps them in thumbcache_*.db, a known privacy complaint). This branch only moves the entries of files the app moves or renames. Should it also remove the entries of files it deletes or recycles?
+NOTE: A revisited folder shows its thumbnails at once, as Windows does from thumbcache, from the freedesktop shared cache (normal, large, x-large, xx-large; MD5 of the URI).
+- Lookup: the app reads the cache first, itself. It parses Thumb::URI, Thumb::MTime and Thumb::Size (when present) from the PNG text chunks in safe Rust, without decoding. A larger size stands in for a smaller one. GIO's thumbnail::* query is now used only for files without a known time.
+- Batched reads: current entries are decoded in the sandboxed decoder pool, 12 per request to one decoder, each answer handed back as it comes. A crashing picture is refused alone and the rest of its batch goes to a new decoder.
+- Memory: a 96 MB LRU of shown thumbnails, checked against mtime and size, draws a same-session revisit on the tile's first frame, also with network previews off (the default) however long ago the folder was found local.
+- No icon flash: the cache's entry names are listed in the background once a view with thumbnails is set up, so a tile whose entry exists hides its type icon (250 ms at most) until the read lands. Decoders start in the background then too. Thumbnails show as soon as they are read; a custom icon found later replaces one.
+- Generation: off the main thread as before, with tiles on the screen first (GTK binds about 190 for 30 visible). A cell counts as on screen only once it is laid out. A new photo costs 1 decode instead of 3.
+- Writes: 0600 temp file (O_EXCL, O_NOFOLLOW) in 0700 folders, renamed into place, with Size and Mimetype keys.
+- Failures: damaged pictures, and files a desktop thumbnailer ran to the end on and gave up on, go to thumbnails/fail/openxplorer. With gnome-thumbnail-factory's failures, they are not retried until the file changes.
+- Moves: a file the app moves or renames (via the undo journal, so Undo and Redo too), and every file of a moved folder up to 5,000, keeps its entries. The keys are rewritten with the pixels untouched; an entry from another version is left alone.
+- Policy: "Always show icons" starts and reads nothing. x-large is used for Extra large icons at 2x, and the service is asked for it only if GetFlavors lists it.
+- Cleanup: left to the desktop. The Interface guide (docs.json, regenerated) says so, as Windows leaves it to Disk Cleanup / Storage; no button added.
+- Tools: OX_THUMBNAIL_TRACE plus native/tools/thumbnail-bench.py measure all of this.
+- Cache layout is generic for long-d-doc-previews: anything written through writer::save_thumbnail or the desktop thumbnailers gets the same keys and is read back through the same batched path.
+- Root: check.py stops at display_scale in this container because the app refuses to run as root ("Run OpenXplorer as your regular desktop user, not with sudo"), so every test binary was also run through check.py's run_isolated as an unprivileged user.
+
+PASS benchmark, medians of 3 runs, before (upstream 5d21fd3e + the same trace) -> after, 2,000 photos, Large icons, 30 tiles on screen, private Xvfb, unprivileged user, throwaway HOME, xdotool input; "after first tile" excludes app start-up:
+  photos cold: all visible 2,294 -> 1,681 ms from launch, 1,084 -> 512 ms after first tile; decodes 579 -> 193
+  photos same-session revisit: 163 -> 74 ms (89 -> 3 after first tile); first frame 0 -> 30 of 30
+  photos restart: 688 -> 432 ms (278 -> 58); no icon flash 0 -> 30 of 30; 193 reads in 18 batches
+  photos cache drop (posix_fadvise DONTNEED on folder and cache): 747 -> 446 ms (263 -> 60); no icon flash 30 of 30
+  mixed (photos, MP4 via ffmpegthumbnailer, PDF via evince-thumbnailer, in bwrap) cold: 2,928 -> 1,162 ms (2,510 -> 796); decodes 360 -> 120; thumbnailers 80 -> 80
+  mixed revisit 113 -> 52 ms; restart 632 -> 397 ms; cache drop 625 -> 394 ms
+PASS paging down a new 2,000-photo folder for 4.7 s while thumbnails are made: main-loop stalls of 34 ms or more 0/1/3 per run, longest 37 ms (before 1/0/0, 35 ms); about 577 made meanwhile in both
+PASS interop (release build, Xvfb, unprivileged user): gio info reports thumbnail::is-valid TRUE for the app's entries and FALSE after the file changes; entries 0600 in 0700 folders with Thumb::URI, MTime, Size, Mimetype
+PASS new tests, written first and seen failing:
+  ox-core thumbnail_cache (9: hit, mtime/size/URI misses, larger flavor, broken/linked/oversized entries, fail cache incl. GNOME's, atomic 0600 writes, key rewrite, moves, listing)
+  flavors; undo moved_items
+  ox-app: batch decode with a crash, LRU eviction and versions, cached thumbnail until the file changes, fail/ recorded and honored, renamed folder keeps thumbnails, dropped network question, on-screen slots first
+PASS all 87 test binaries at 9e992f6a via check.py's run_isolated as an unprivileged user: 4,995 passed, 4 failed, all pre-existing or unrelated:
+  2 sandboxed-thumbnailer tests, identical on upstream as the same user (bwrap in this container)
+  location_fixture_drift and network_python (Python-app comparisons, untouched code)
+  one earlier ox-app run also failed home_has_no_band_under_the_titles_and_its_tiles_do_not_touch once (flaky: passes alone 3/3 and in the other two full runs)
+PASS ox-app lib at HEAD b36df652, same way: 2,647 passed, 2 failed (the same 2 sandbox tests); the last commit changed only ox-app
+PASS doctests; check.py through parity tests, parity/check.py, i18n, driver tests, drawn-icon guard, rustfmt, Clippy -D warnings (Rust 1.92.0 as CI); parity/check.py alone; sync-docs --check; audit-public-data on the changed docs
+FAIL none of this branch's
+NOT TESTED: tumbler (no thumbnailer service in this container: the service path, GetFlavors and x-large there); KDE/Dolphin reading the app's entries; HiDPI x-large by hand; a real reboot (page-cache drop used instead)
+
+VM CHECK:
+- Open a folder of a few hundred photos in Large icons, close the app, open it again: every visible tile should show its photo within a blink, never its type icon first
+- Rename a photo folder in the app and reopen it: no thumbnails made again (no CPU spike)
+- Folder Options > View > Always show icons, never thumbnails: no thumbnails, and nothing new under ~/.cache/thumbnails
+- A damaged JPEG/PDF: keeps its icon; ~/.cache/thumbnails/fail/openxplorer/ has its entry; touching the file makes the app try again
+- On XFCE (tumbler) and KDE (Dolphin): thumbnails made by one app are shown by the other without being made again
+- Windows 11: whether a cached folder's thumbnails appear on the very first frame after a restart; that Explorer has no Clear thumbnail cache command (Disk Cleanup / Storage > Temporary files > Thumbnails only)
