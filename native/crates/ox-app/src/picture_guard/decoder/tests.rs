@@ -372,6 +372,50 @@ fn an_unused_decoder_is_stopped_when_its_time_is_up() {
     );
 }
 
+/// A decoder that ended while it waited in the pool, as one started by
+/// a worker thread is ended by its sandbox's `--die-with-parent` once
+/// that thread exits, is not handed the next picture: a new decoder
+/// decodes it.
+#[test]
+fn a_decoder_that_ended_while_idle_is_replaced() {
+    let folder = tempfile::tempdir().expect("a temporary folder");
+    let path = saved_png(folder.path(), "Harbor.png", 120, 80);
+    let pool = Pool::new(child_words());
+    let decode = || {
+        let file = std::fs::File::open(&path).expect("opened");
+        pool.decode(Source::Reader(Box::new(file)), 60, 60, Limits::DISPLAY, None)
+    };
+    assert_eq!(decode().expect("decoded").pixbuf.width(), 60);
+    let idle = pool
+        .idle
+        .lock()
+        .expect("the pool")
+        .first()
+        .map(|decoder| decoder.child.0.id())
+        .expect("an idle decoder");
+    let ended = std::process::Command::new("kill")
+        .args(["-KILL", &idle.to_string()])
+        .status()
+        .expect("kill");
+    assert!(ended.success());
+    std::thread::sleep(Duration::from_millis(200));
+
+    let decoded = decode();
+
+    assert_eq!(decoded.expect("decoded by a new decoder").pixbuf.width(), 60);
+    let now = pool
+        .idle
+        .lock()
+        .expect("the pool")
+        .first()
+        .map(|decoder| decoder.child.0.id());
+    assert!(now.is_some_and(|now| now != idle), "a new decoder is kept");
+    assert!(
+        !Path::new(&format!("/proc/{idle}")).exists(),
+        "the decoder that ended was reaped, not handed the picture"
+    );
+}
+
 /// The answers' frames are found after other output, and one larger than
 /// its limit, cut short or missing is no answer.
 #[test]
