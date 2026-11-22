@@ -760,9 +760,12 @@ fn bmp_size(bytes: &[u8]) -> Declared {
 
 /// What an icon's or cursor's directory says: gdk-pixbuf reserves room
 /// from the start of the file to an image's data, as the image's entry
-/// gives its offset and length, before it reads the image; an entry past
-/// [`MAX_ICON_DATA_END`] is refused. Each image's size is read by the
-/// loader itself, and is at most 256 pixels square in the directory.
+/// gives its offset and length, and rows as wide as the image's bitmap
+/// header says, before it reads the image. An entry past
+/// [`MAX_ICON_DATA_END`] or inside the directory, and a bitmap header
+/// wider or taller than [`MAX_ICON_EDGE`], are refused; a bitmap header
+/// past the start read before deciding is left to the loader. Each image's
+/// size is read by the loader itself.
 fn icon_size(bytes: &[u8]) -> Declared {
     let Some(count) = field(bytes, 4).map(u16::from_le_bytes) else {
         return Declared::Incomplete;
@@ -775,16 +778,45 @@ fn icon_size(bytes: &[u8]) -> Declared {
     if bytes.len() < directory {
         return Declared::Incomplete;
     }
-    let past_limit = bytes[6..directory].chunks_exact(16).any(|entry| {
+    let mut incomplete = false;
+    for entry in bytes[6..directory].chunks_exact(16) {
         let word = |at: usize| u32::from_le_bytes([entry[at], entry[at + 1], entry[at + 2], entry[at + 3]]);
-        word(12).saturating_add(word(8)) > MAX_ICON_DATA_END
-    });
-    if past_limit {
-        Declared::Damaged
+        let (length, offset) = (word(8), word(12));
+        let at = usize::try_from(offset).unwrap_or(usize::MAX);
+        if offset.saturating_add(length) > MAX_ICON_DATA_END || at < directory {
+            return Declared::Damaged;
+        }
+        // A PNG image's size is read by the loader as any PNG's is.
+        match starts_with(bytes.get(at..).unwrap_or_default(), PNG_SIGNATURE) {
+            Some(true) => continue,
+            Some(false) => {}
+            None => {
+                incomplete |= at < HEADER_LIMIT;
+                continue;
+            }
+        }
+        let sides = field(bytes, at + 4).zip(field(bytes, at + 8));
+        match sides.map(|(width, height)| (i32::from_le_bytes(width), i32::from_le_bytes(height))) {
+            // The height counts the image and its mask.
+            Some((width, height))
+                if width.unsigned_abs() > MAX_ICON_EDGE || height.unsigned_abs() > 2 * MAX_ICON_EDGE =>
+            {
+                return Declared::Damaged;
+            }
+            Some(_) => {}
+            None => incomplete |= at + 12 <= HEADER_LIMIT,
+        }
+    }
+    if incomplete {
+        Declared::Incomplete
     } else {
         Declared::Unknown
     }
 }
+
+/// The widest and tallest an icon's bitmap may be: icons are at most 256
+/// pixels square, and this leaves room for larger ones some programs write.
+const MAX_ICON_EDGE: u32 = 1024;
 
 /// The furthest an icon's image data may end: far past any icon a program
 /// writes, which holds a few pictures of at most 256 pixels square.
@@ -1397,6 +1429,23 @@ mod tests {
             let mut reader = std::io::Cursor::new(far);
             let decoded = decode_reader_here_to_fit(&mut reader, 64, 64, Limits::DISPLAY, None);
             assert_eq!(decoded.err(), Some(Refusal::Damaged));
+        }
+        // An image inside the directory, or a bitmap far wider or taller
+        // than any icon's, makes the loader reserve rows of that width.
+        let mut inside = icon.clone();
+        inside[6 + 12..6 + 16].copy_from_slice(&0_u32.to_le_bytes());
+        assert_eq!(declared_size(&inside), Declared::Damaged);
+        let image = usize::try_from(u32::from_le_bytes(icon[18..22].try_into().expect("an offset")))
+            .expect("an offset");
+        assert!(
+            !icon[image..].starts_with(PNG_SIGNATURE),
+            "gdk-pixbuf writes bitmaps into icons"
+        );
+        for (width, height) in [(289_865_731_i32, 32_i32), (16, -1_000_000)] {
+            let mut wide = icon.clone();
+            wide[image + 4..image + 8].copy_from_slice(&width.to_le_bytes());
+            wide[image + 8..image + 12].copy_from_slice(&height.to_le_bytes());
+            assert_eq!(declared_size(&wide), Declared::Damaged, "{width} x {height}");
         }
         // The directory is read whole before deciding, and one longer
         // than the start read before deciding is refused.
