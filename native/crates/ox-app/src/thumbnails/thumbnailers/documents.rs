@@ -1514,6 +1514,41 @@ mod tests {
         );
     }
 
+    /// A document changed after its PDF was made is converted again and
+    /// shows its new text, even when it keeps its size and was changed
+    /// within the same second: the old PDF is never shown for it.
+    ///
+    /// parity: VIEW-070
+    #[test]
+    fn a_changed_document_is_never_shown_from_its_old_pdf() {
+        let folder = tempfile::tempdir().expect("a temporary folder");
+        let Some(converter) = test_office(&folder.path().join("cache")) else {
+            return;
+        };
+        let item = folder.path().join("Minutes.odt");
+        office_documents::write(&item, Kind::Odt, "First version AAAA");
+        let first = converter
+            .pdf(&item, Priority::Preview, &gio::Cancellable::new())
+            .expect("converted");
+        let size = fs::metadata(&item).expect("meta").len();
+        let modified = fs::metadata(&item).expect("meta").modified().expect("mtime");
+
+        office_documents::write(&item, Kind::Odt, "Second version BBB");
+        assert_eq!(fs::metadata(&item).expect("meta").len(), size, "the same size");
+        let file = fs::File::options().write(true).open(&item).expect("open");
+        file.set_modified(modified + Duration::from_millis(1))
+            .expect("mtime");
+        let second = converter
+            .pdf(&item, Priority::Preview, &gio::Cancellable::new())
+            .expect("converted again");
+
+        assert_ne!(first, second);
+        if let Some(text) = office_documents::pdf_text(&second) {
+            assert!(text.contains("Second version BBB"), "{text}");
+            assert!(!text.contains("First version"), "{text}");
+        }
+    }
+
     /// A document's macros never run: the test document's macro, which
     /// would replace its text when it is opened, leaves it as it is. A
     /// damaged document, one that needs a password and a file that only
