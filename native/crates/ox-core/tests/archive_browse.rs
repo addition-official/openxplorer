@@ -568,7 +568,9 @@ fn a_member_shorter_than_its_recorded_size_is_not_opened() {
     let previews = temporary.path().join("previews");
     let browser = in_memory_browser(zip_recording_size("readme.txt", b"", 40), &previews);
     let cancel = Cancellation::new();
-    let listing = browser.list("file:///short.zip", "", &cancel).expect("the archive lists");
+    let listing = browser
+        .list("file:///short.zip", "", &cancel)
+        .expect("the archive lists");
     assert_eq!(
         listing.entries[0].kind,
         ArchiveEntryKind::File {
@@ -578,7 +580,11 @@ fn a_member_shorter_than_its_recorded_size_is_not_opened() {
     );
     let result = browser.preview_member("file:///short.zip", "readme.txt", &cancel);
     assert_eq!(result.unwrap_err(), ArchiveError::TruncatedMember);
-    let left = if previews.exists() { files_below(&previews) } else { Vec::new() };
+    let left = if previews.exists() {
+        files_below(&previews)
+    } else {
+        Vec::new()
+    };
     assert!(left.is_empty(), "{left:?}");
     // A member as long as it says is opened.
     let browser = in_memory_browser(zip_recording_size("readme.txt", b"hello", 5), &previews);

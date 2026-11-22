@@ -177,8 +177,10 @@ fn list(key: &glib::KeyFile, field: &str) -> Vec<String> {
 #[cfg(feature = "fuzzing")]
 pub(crate) fn fuzz_service_menu(path: &Path, uris: &[String]) {
     for action in desktop_actions(path) {
-        let selection: Vec<(String, String)> =
-            uris.iter().map(|uri| (uri.clone(), "text/plain".to_owned())).collect();
+        let selection: Vec<(String, String)> = uris
+            .iter()
+            .map(|uri| (uri.clone(), "text/plain".to_owned()))
+            .collect();
         let _ = action.accepts(&selection);
         let _ = action.command(uris, "/home/alex/Documents");
     }

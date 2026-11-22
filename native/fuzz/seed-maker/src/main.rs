@@ -13,7 +13,10 @@ fn main() {
     match arguments.first().map(String::as_str) {
         Some("zst") => {
             let plain = std::fs::read(&arguments[1]).expect("the input");
-            let packed = ruzstd::encoding::compress_to_vec(plain.as_slice(), ruzstd::encoding::CompressionLevel::Fastest);
+            let packed = ruzstd::encoding::compress_to_vec(
+                plain.as_slice(),
+                ruzstd::encoding::CompressionLevel::Fastest,
+            );
             std::fs::write(&arguments[2], packed).expect("the output");
         }
         Some("7z") => {
@@ -47,11 +50,19 @@ fn seven_zip(mode: &str, members: &[String]) -> Vec<u8> {
     if mode == "plain" || mode == "copy" {
         for (name, data) in files {
             let entry = ArchiveEntry::new_file(&name);
-            writer.push_archive_entry(entry, Some(data.as_slice())).expect("a file");
+            writer
+                .push_archive_entry(entry, Some(data.as_slice()))
+                .expect("a file");
         }
     } else {
-        let entries = files.iter().map(|(name, _)| ArchiveEntry::new_file(name)).collect();
-        let readers = files.into_iter().map(|(_, data)| SourceReader::new(Cursor::new(data))).collect();
+        let entries = files
+            .iter()
+            .map(|(name, _)| ArchiveEntry::new_file(name))
+            .collect();
+        let readers = files
+            .into_iter()
+            .map(|(_, data)| SourceReader::new(Cursor::new(data)))
+            .collect();
         writer.push_archive_entries(entries, readers).expect("the files");
     }
     writer.finish().expect("finished").into_inner()

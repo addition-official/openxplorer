@@ -102,7 +102,10 @@ mod tests {
     /// without reserving room for them (found by fuzzing).
     #[test]
     fn a_message_count_past_the_file_is_refused() {
-        let mut bytes = write(&[(String::new(), "Content-Type: text/plain; charset=UTF-8\n".to_owned())]);
+        let mut bytes = write(&[(
+            String::new(),
+            "Content-Type: text/plain; charset=UTF-8\n".to_owned(),
+        )]);
         bytes[8..12].copy_from_slice(&u32::MAX.to_le_bytes());
         assert_eq!(read(&bytes), None);
         bytes[8..12].copy_from_slice(&0x1880_0000_u32.to_le_bytes());

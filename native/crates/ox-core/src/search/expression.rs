@@ -476,7 +476,12 @@ fn or(one: &Clauses, two: &Clauses) -> Clauses {
                 break 'pairs;
             }
             // Only the terms kept are copied.
-            let clause = first.iter().chain(second).take(MAX_TERMS_PER_CLAUSE).cloned().collect();
+            let clause = first
+                .iter()
+                .chain(second)
+                .take(MAX_TERMS_PER_CLAUSE)
+                .cloned()
+                .collect();
             clauses.push(clause);
         }
     }
@@ -515,7 +520,9 @@ fn negated(clauses: Clauses) -> Clauses {
             .collect();
         negated.push(clause);
         // The last clause's choice moves fastest, as `or` pairs them.
-        let Some(position) = (0..picked.len()).rev().find(|&position| picked[position] + 1 < choices[position].len())
+        let Some(position) = (0..picked.len())
+            .rev()
+            .find(|&position| picked[position] + 1 < choices[position].len())
         else {
             break;
         };
@@ -535,7 +542,12 @@ mod tests {
         let reference = |clauses: &Clauses| -> Clauses {
             clauses
                 .iter()
-                .map(|clause| clause.iter().map(|term| vec![not(term.clone())]).collect::<Clauses>())
+                .map(|clause| {
+                    clause
+                        .iter()
+                        .map(|term| vec![not(term.clone())])
+                        .collect::<Clauses>()
+                })
                 .reduce(|one, two| or(&one, &two))
                 .unwrap_or_default()
         };
@@ -548,11 +560,17 @@ mod tests {
                 seed % below
             };
             let clauses: Clauses = (0..=next(5))
-                .map(|clause| (0..=next(4)).map(|term| word(&format!("w{clause}{term}"))).collect())
+                .map(|clause| {
+                    (0..=next(4))
+                        .map(|term| word(&format!("w{clause}{term}")))
+                        .collect()
+                })
                 .collect();
             assert_eq!(negated(clauses.clone()), reference(&clauses), "{clauses:?}");
         }
-        let wide: Clauses = (0..9).map(|clause| (0..3).map(|term| word(&format!("{clause}{term}"))).collect()).collect();
+        let wide: Clauses = (0..9)
+            .map(|clause| (0..3).map(|term| word(&format!("{clause}{term}"))).collect())
+            .collect();
         assert_eq!(negated(wide.clone()), reference(&wide));
         assert_eq!(negated(wide).len(), MAX_CLAUSES);
     }
@@ -563,16 +581,23 @@ mod tests {
     #[test]
     fn negated_groups_inside_groups_are_read_quickly() {
         let found = "re\"htory\"\u{d}01 \u{0}\u{c}\u{c}\u{0}\u{c}\u{fffd}t\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}NOT\u{c}\u{c}\u{c}(L\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}NOT\u{c}\u{c}\u{c}(L\u{c}\u{fffd}\u{c}\u{c}\u{c}\u{3}\u{c}\u{2}\u{c}\u{c}$\u{c}OR\u{c}\u{c}\u{c}\u{c}(\u{c}\u{c}!\u{c}\u{c}\u{c}\u{c}\u{c}NOT\u{c}W\u{fffd}\u{c}(L\u{c}\u{c}\u{c}\u{0}\u{0}\u{0}\u{c}\u{c}\u{c}\u{c}\u{0}\u{0}\u{0}\u{0}G*****\u{c}\u{c}\u{c}\u{c}D\u{1}P\u{1f}\u{c}!\u{c}\u{c}\u{fffd}\u{0}\u{0}\u{0}\u{c}\u{c}\u{c}NOT%%%%%t \u{0}\u{c}\u{c}\u{0}\u{c}\u{0}E\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}NOT\u{c}\u{c}\u{c}(L\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}NOT\u{c}\u{c}\u{c}(L\u{c}\u{c}\u{c}\u{c}\u{c}\u{3}\u{c}\u{2}\u{c}\u{c}\u{c}\u{c}OR\u{c}\u{c}\u{c}\u{c}(\u{c}\u{c}!\u{c}:\u{fffd}/\u{fffd}t d\u{c}\u{c}\u{c}(L\u{c}\u{c}\u{c}\u{c}\u{c}%%%%%%%%%%%%%%%%%%%%%%%%% fileext:\u{fffd}/\u{fffd}t d\u{fffd}\u{fffd}\u{fffd}%%%%%%%%%%%%%%t \u{0}\u{c}\u{c}\u{0}\u{c}\u{0}E\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}NOT\u{c}\u{c}\u{c}(L\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}\u{c}NOT\u{c}\u{c}\u{c}(L\u{c}\u{c}\u{c}\u{c}\u{c}\u{3}\u{c}\u{2}\u{c}\u{c}\u{c}\u{c}OR\u{c}\u{c}\u{c}\u{c}(\u{c}\u{c}!\u{c}:\u{fffd}/\u{fffd}t d\u{fffd}\u{fffd}\u{fffd}ed";
-        let mut nested = String::new();
-        for level in 0..12 {
-            nested.push_str(&format!("NOT (a{level} b{level} OR c{level} d{level} "));
-        }
+        let nested = (0..12).fold(String::new(), |mut text, level| {
+            let _ = std::fmt::Write::write_fmt(
+                &mut text,
+                format_args!("NOT (a{level} b{level} OR c{level} d{level} "),
+            );
+            text
+        });
         for query in [nested, found.to_owned()] {
             let started = std::time::Instant::now();
             let clauses = parse(&query, &lower);
             assert!(clauses.len() <= MAX_CLAUSES);
             assert!(clauses.iter().all(|clause| clause.len() <= MAX_TERMS_PER_CLAUSE));
-            assert!(started.elapsed() < std::time::Duration::from_millis(200), "{:?}", started.elapsed());
+            assert!(
+                started.elapsed() < std::time::Duration::from_millis(200),
+                "{:?}",
+                started.elapsed()
+            );
         }
     }
 

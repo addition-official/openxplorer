@@ -54,7 +54,10 @@ fn input(data: &[u8]) -> Option<Input<'_>> {
     // the archives it read last by their location, length and start.
     let file = crc32fast::hash(archive);
     Some(Input {
-        uri: format!("file:///home/alex/Downloads/{file:08x}/{}", NAMES[usize::from(options & 7)]),
+        uri: format!(
+            "file:///home/alex/Downloads/{file:08x}/{}",
+            NAMES[usize::from(options & 7)]
+        ),
         archive,
         password: options & 0x08 != 0,
         selection: options & 0x10 != 0,
@@ -158,10 +161,24 @@ pub fn list_inspect_preview(data: &[u8]) {
 fn check_preview(path: &Path, size: u64) {
     let previews = scratch().join("previews");
     let folder = path.parent().expect("a copy's folder");
-    assert_eq!(folder.parent(), Some(previews.as_path()), "a copy at {}", path.display());
+    assert_eq!(
+        folder.parent(),
+        Some(previews.as_path()),
+        "a copy at {}",
+        path.display()
+    );
     let metadata = fs::symlink_metadata(path).expect("the copy");
-    assert!(metadata.is_file(), "a copy that is no plain file: {}", path.display());
-    assert_eq!(metadata.len(), size, "the copy of {} is not as long as listed", path.display());
+    assert!(
+        metadata.is_file(),
+        "a copy that is no plain file: {}",
+        path.display()
+    );
+    assert_eq!(
+        metadata.len(),
+        size,
+        "the copy of {} is not as long as listed",
+        path.display()
+    );
 }
 
 /// Extracts the archive into a new folder in an empty folder, as Extract
@@ -195,7 +212,13 @@ pub fn extract(data: &[u8]) {
     if input.selection {
         let listed = browser(&input)
             .list(&input.uri, "", &cancel)
-            .map(|listing| listing.entries.into_iter().map(|entry| entry.member).collect::<Vec<_>>())
+            .map(|listing| {
+                listing
+                    .entries
+                    .into_iter()
+                    .map(|entry| entry.member)
+                    .collect::<Vec<_>>()
+            })
             .unwrap_or_default();
         extractor = extractor.with_selection(&listed);
     }
@@ -257,9 +280,21 @@ pub fn zip_generated(data: &[u8]) {
 }
 
 /// The options byte and the ZIP the choices describe.
+// Each member's records are written in the order they lie in the file;
+// split up, the layout would be harder to follow.
+#[allow(clippy::too_many_lines)]
 fn generated_zip(choices: &mut Choices<'_>) -> (u8, Vec<u8>) {
     use std::io::Write;
-    const NAMES: [&str; 8] = ["Docs/", "Docs/a.txt", "../up.txt", "/root.txt", "b\\c.txt", "link", "Docs/..", "x/./y"];
+    const NAMES: [&str; 8] = [
+        "Docs/",
+        "Docs/a.txt",
+        "../up.txt",
+        "/root.txt",
+        "b\\c.txt",
+        "link",
+        "Docs/..",
+        "x/./y",
+    ];
     let options = choices.byte();
     let count = choices.byte() % 8 + 1;
     let mut zip = Vec::new();
@@ -284,7 +319,11 @@ fn generated_zip(choices: &mut Choices<'_>) -> (u8, Vec<u8>) {
             2 => (8, content.clone()),
             _ => (u16::from(choices.byte() % 100), content.clone()),
         };
-        let crc = if flags & 2 == 0 { crc32fast::hash(&content) } else { 0x1234_5678 };
+        let crc = if flags & 2 == 0 {
+            crc32fast::hash(&content)
+        } else {
+            0x1234_5678
+        };
         let mut general = 0_u16;
         if flags & 4 != 0 {
             general |= 1; // encrypted
@@ -319,7 +358,11 @@ fn generated_zip(choices: &mut Choices<'_>) -> (u8, Vec<u8>) {
             } else {
                 choices.bytes(48)
             };
-            let checksum = if choices.byte() & 1 == 0 { crc32fast::hash(&name) } else { 7 };
+            let checksum = if choices.byte() & 1 == 0 {
+                crc32fast::hash(&name)
+            } else {
+                7
+            };
             let mut field = vec![1];
             field.extend_from_slice(&checksum.to_le_bytes());
             field.extend_from_slice(&unicode);
@@ -327,8 +370,18 @@ fn generated_zip(choices: &mut Choices<'_>) -> (u8, Vec<u8>) {
             extra.extend_from_slice(&u16::try_from(field.len()).unwrap_or(0).to_le_bytes());
             extra.extend_from_slice(&field);
         }
-        let local_name = if flags & 0x80 != 0 { b"other.txt".to_vec() } else { name.clone() };
-        let small = |value: usize| if zip64 { u32::MAX } else { u32::try_from(value).unwrap_or(u32::MAX) };
+        let local_name = if flags & 0x80 != 0 {
+            b"other.txt".to_vec()
+        } else {
+            name.clone()
+        };
+        let small = |value: usize| {
+            if zip64 {
+                u32::MAX
+            } else {
+                u32::try_from(value).unwrap_or(u32::MAX)
+            }
+        };
         let offset = zip.len();
         let word = |bytes: &mut Vec<u8>, value: u32| bytes.extend_from_slice(&value.to_le_bytes());
         let half = |bytes: &mut Vec<u8>, value: u16| bytes.extend_from_slice(&value.to_le_bytes());
@@ -355,7 +408,13 @@ fn generated_zip(choices: &mut Choices<'_>) -> (u8, Vec<u8>) {
         for value in [crc, small(packed.len()), small(content.len())] {
             word(&mut directory, value);
         }
-        for value in [u16::try_from(name.len()).unwrap_or(0), u16::try_from(extra.len()).unwrap_or(0), 0, 0, 0] {
+        for value in [
+            u16::try_from(name.len()).unwrap_or(0),
+            u16::try_from(extra.len()).unwrap_or(0),
+            0,
+            0,
+            0,
+        ] {
             half(&mut directory, value);
         }
         word(&mut directory, attributes);
@@ -379,7 +438,13 @@ fn generated_zip(choices: &mut Choices<'_>) -> (u8, Vec<u8>) {
 }
 
 /// The second byte of a fix-up input: which compression wraps the TAR.
-const COMPRESSIONS: [&str; 5] = ["Fuzz.tar", "Fuzz.tar.gz", "Fuzz.tar.bz2", "Fuzz.tar.xz", "Fuzz.tar.zst"];
+const COMPRESSIONS: [&str; 5] = [
+    "Fuzz.tar",
+    "Fuzz.tar.gz",
+    "Fuzz.tar.bz2",
+    "Fuzz.tar.xz",
+    "Fuzz.tar.zst",
+];
 
 /// [`list_inspect_preview`] and [`extract`] on an archive whose checksums
 /// are made right first, so mutations reach the parsers behind them: the
@@ -420,7 +485,9 @@ fn compress(kind: usize, tar: &[u8]) -> Vec<u8> {
             encoder.finish().unwrap_or_default()
         }
         3 => {
-            let Ok(mut encoder) = lzma_rust2::XzWriter::new(Vec::new(), lzma_rust2::XzOptions::with_preset(0)) else {
+            let Ok(mut encoder) =
+                lzma_rust2::XzWriter::new(Vec::new(), lzma_rust2::XzOptions::with_preset(0))
+            else {
                 return Vec::new();
             };
             let _ = encoder.write_all(tar);
@@ -445,7 +512,9 @@ fn fix_tar(tar: &mut [u8]) {
         let digits = format!("{sum:06o}\0 ");
         block[148..156].copy_from_slice(&digits.as_bytes()[digits.len() - 8..]);
         let size = tar_size(&block[124..136]).unwrap_or(0);
-        let data_blocks = size.div_ceil(512).min(u64::try_from(tar.len()).unwrap_or(u64::MAX));
+        let data_blocks = size
+            .div_ceil(512)
+            .min(u64::try_from(tar.len()).unwrap_or(u64::MAX));
         at = at
             .saturating_add(512)
             .saturating_add(usize::try_from(data_blocks * 512).unwrap_or(usize::MAX));
@@ -455,9 +524,9 @@ fn fix_tar(tar: &mut [u8]) {
 /// A TAR size field: octal, or base-256 when its first bit is set.
 fn tar_size(field: &[u8]) -> Option<u64> {
     if field.first().is_some_and(|byte| byte & 0x80 != 0) {
-        return field[1..]
-            .iter()
-            .try_fold(0_u64, |value, &byte| value.checked_mul(256)?.checked_add(u64::from(byte)));
+        return field[1..].iter().try_fold(0_u64, |value, &byte| {
+            value.checked_mul(256)?.checked_add(u64::from(byte))
+        });
     }
     let digits: String = field
         .iter()

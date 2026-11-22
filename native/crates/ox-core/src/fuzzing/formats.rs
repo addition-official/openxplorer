@@ -38,7 +38,10 @@ pub fn parse(data: &[u8]) {
             crate::network::fuzz_mount_helper(words, &text);
         }
         2 => {
-            let words: Vec<OsString> = input.split(|&byte| byte == 0).map(|word| OsString::from_vec(word.to_vec())).collect();
+            let words: Vec<OsString> = input
+                .split(|&byte| byte == 0)
+                .map(|word| OsString::from_vec(word.to_vec()))
+                .collect();
             crate::admin_delete::fuzz_request(words.clone());
             crate::update::fuzz_install_request(words);
         }
@@ -91,11 +94,15 @@ fn plan(line: &str) {
         .and_then(|rest| rest.split_once('/'))
         .expect("the share is //server/share");
     assert!(
-        server.chars().all(|c| c.is_ascii_alphanumeric() || ".-".contains(c)),
+        server
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || ".-".contains(c)),
         "server {server:?} from {line:?}"
     );
     assert!(
-        share.chars().all(|c| c.is_ascii_alphanumeric() || " ._$-".contains(c)),
+        share
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || " ._$-".contains(c)),
         "share {share:?} from {line:?}"
     );
     let reference = mount_plan("smb://server/share", user).expect("a plain share");
@@ -103,21 +110,38 @@ fn plan(line: &str) {
         (&plan.mount_unit, &reference.mount_unit),
         (&plan.automount_unit, &reference.automount_unit),
     ] {
-        assert_eq!(made.lines().count(), plain.lines().count(), "{made:?} from {line:?}");
-        assert!(!made.chars().any(|c| c.is_control() && c != '\n'), "{made:?} from {line:?}");
+        assert_eq!(
+            made.lines().count(),
+            plain.lines().count(),
+            "{made:?} from {line:?}"
+        );
+        assert!(
+            !made.chars().any(|c| c.is_control() && c != '\n'),
+            "{made:?} from {line:?}"
+        );
     }
     for command in [&plan.command, &plan.remove_command] {
-        assert!(!command.chars().any(char::is_control), "{command:?} from {line:?}");
+        assert!(
+            !command.chars().any(char::is_control),
+            "{command:?} from {line:?}"
+        );
         let words = glib::shell_parse_argv(command.as_str()).expect("the command parses");
-        assert_eq!(words.get(3).and_then(|word| word.to_str()), Some(plan.share.as_str()));
+        assert_eq!(
+            words.get(3).and_then(|word| word.to_str()),
+            Some(plan.share.as_str())
+        );
     }
-    assert!(plan.target_path.starts_with(&plan.mountpoint), "{:?}", plan.target_path);
     assert!(
-        !plan
-            .target_path
-            .components()
-            .any(|part| matches!(part, std::path::Component::ParentDir | std::path::Component::CurDir)),
-        "{:?} from {line:?}",
-        plan.target_path
+        plan.target_path.starts_with(&plan.mountpoint),
+        "{}",
+        plan.target_path.display()
+    );
+    assert!(
+        !plan.target_path.components().any(|part| matches!(
+            part,
+            std::path::Component::ParentDir | std::path::Component::CurDir
+        )),
+        "{} from {line:?}",
+        plan.target_path.display()
     );
 }

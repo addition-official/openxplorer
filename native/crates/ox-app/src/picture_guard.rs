@@ -55,11 +55,11 @@ mod decoder;
 mod vector;
 
 pub(crate) use decoder::run_as_decoder;
-pub(crate) use vector::run_as_drawer;
 #[cfg(feature = "fuzzing")]
 pub(crate) use decoder::{fuzz_answer, fuzz_serve};
 #[cfg(feature = "fuzzing")]
 pub(crate) use vector::fuzz_vector_answer;
+pub(crate) use vector::run_as_drawer;
 
 /// The most pixels a raster picture may have to be decoded for display:
 /// 64 megapixels (8192 × 8192), more than any camera's photo, 256 MB
@@ -1026,7 +1026,10 @@ pub(crate) fn fuzz_headers(bytes: &[u8], cuts: &[usize]) {
     }
     pieces.push(&bytes[from..]);
     let pieces_feed = feed(&mut pieces.into_iter());
-    assert_eq!(whole_feed, pieces_feed, "feeding in pieces differs from feeding whole");
+    assert_eq!(
+        whole_feed, pieces_feed,
+        "feeding in pieces differs from feeding whole"
+    );
 }
 
 /// The byte that ends a GIF.
@@ -1379,13 +1382,18 @@ mod tests {
         let icon = pixbuf.save_to_bufferv("ico", &[]).expect("an icon");
         assert_eq!(declared_size(&icon), Declared::Unknown);
         let mut reader = std::io::Cursor::new(icon.clone());
-        let decoded = decode_reader_here_to_fit(&mut reader, 64, 64, Limits::DISPLAY, None).expect("the icon");
+        let decoded =
+            decode_reader_here_to_fit(&mut reader, 64, 64, Limits::DISPLAY, None).expect("the icon");
         assert_eq!((decoded.width, decoded.height), (16, 16));
         for (offset, size) in [(0x4849_4441_u32, 40_u32), (22, 0xFFFF_FF00)] {
             let mut far = icon.clone();
             far[6 + 8..6 + 12].copy_from_slice(&size.to_le_bytes());
             far[6 + 12..6 + 16].copy_from_slice(&offset.to_le_bytes());
-            assert_eq!(declared_size(&far), Declared::Damaged, "offset {offset:#x}, size {size:#x}");
+            assert_eq!(
+                declared_size(&far),
+                Declared::Damaged,
+                "offset {offset:#x}, size {size:#x}"
+            );
             let mut reader = std::io::Cursor::new(far);
             let decoded = decode_reader_here_to_fit(&mut reader, 64, 64, Limits::DISPLAY, None);
             assert_eq!(decoded.err(), Some(Refusal::Damaged));
@@ -1407,7 +1415,10 @@ mod tests {
             let mut bmp = bmp_header(width, height);
             bmp[14..18].copy_from_slice(&0xD3D3_D328_u32.to_le_bytes());
             assert_eq!(declared_size(&bmp), Declared::Damaged, "{width} x {height}");
-            assert_eq!(refusal_by_header(declared_size(&bmp), Limits::DISPLAY), Some(Refusal::Damaged));
+            assert_eq!(
+                refusal_by_header(declared_size(&bmp), Limits::DISPLAY),
+                Some(Refusal::Damaged)
+            );
             let mut reader = std::io::Cursor::new(bmp);
             let decoded = decode_reader_here_to_fit(&mut reader, 64, 64, Limits::DISPLAY, None);
             assert_eq!(decoded.err(), Some(Refusal::Damaged));
@@ -1427,7 +1438,14 @@ mod tests {
             let mut bmp = bmp_header(32, 16);
             bmp[14..18].copy_from_slice(&header.to_le_bytes());
             bmp.resize(14 + 124 + 16, 0);
-            assert!(matches!(declared_size(&bmp), Declared::Size { width: 32, height: 16, .. }));
+            assert!(matches!(
+                declared_size(&bmp),
+                Declared::Size {
+                    width: 32,
+                    height: 16,
+                    ..
+                }
+            ));
         }
     }
 

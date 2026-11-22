@@ -141,7 +141,9 @@ fn service_menu(bytes: &[u8]) {
     let path = folder.path().join("fuzz.desktop");
     std::fs::write(&path, bytes).expect("the service menu");
     let uris = [
-        gio::File::for_path("/home/alex/Documents/Report.txt").uri().to_string(),
+        gio::File::for_path("/home/alex/Documents/Report.txt")
+            .uri()
+            .to_string(),
         "smb://nas.example/share/Notes.txt".to_owned(),
     ];
     crate::service_actions::fuzz_service_menu(&path, &uris);
