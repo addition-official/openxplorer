@@ -6,14 +6,21 @@ use gtk::prelude::*;
 use ox_core::settings::Theme;
 
 use super::icons::{assert_same_colour, painted_colour, ContrastGuard, TRANSITION_TIME};
-use crate::test_support::harness::{descendants, skin, wait_for, wait_for_frames, Fixture, TestWindow, ThemeGuard};
+use crate::test_support::harness::{
+    descendants, skin, wait_for, wait_for_frames, Fixture, TestWindow, ThemeGuard,
+};
 
 /// The drawn row of the Details view that is selected.
 fn selected_row(test: &TestWindow) -> gtk::Widget {
     let details = test.window.folder_pane().details().column_view().clone();
     descendants::<gtk::Widget>(&details)
         .into_iter()
-        .filter(|widget| widget.css_name() == "row" && widget.parent().is_some_and(|parent| parent.css_name() == "listview"))
+        .filter(|widget| {
+            widget.css_name() == "row"
+                && widget
+                    .parent()
+                    .is_some_and(|parent| parent.css_name() == "listview")
+        })
         .find(|row| row.state_flags().contains(gtk::StateFlags::SELECTED))
         .expect("a selected row is drawn")
 }
@@ -47,8 +54,16 @@ fn high_contrast_rings_the_selection_in_the_text_colour() {
             .expect("the row shows its name")
             .color();
         let middle = row.width() / 2;
-        assert_same_colour(painted_colour(&row, middle, 0), text, &format!("{theme:?}: the top edge"));
+        assert_same_colour(
+            painted_colour(&row, middle, 0),
+            text,
+            &format!("{theme:?}: the top edge"),
+        );
         let bottom = row.height() - 1;
-        assert_same_colour(painted_colour(&row, middle, bottom), text, &format!("{theme:?}: the bottom edge"));
+        assert_same_colour(
+            painted_colour(&row, middle, bottom),
+            text,
+            &format!("{theme:?}: the bottom edge"),
+        );
     }
 }
