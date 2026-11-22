@@ -567,6 +567,7 @@ mod tests {
     /// Every GIO code a file operation meets reads as the Windows error for
     /// the same failure, whatever GIO's message says.
     #[test]
+    #[expect(clippy::too_many_lines, reason = "one case per code")]
     fn gio_codes_read_as_the_windows_error() {
         use gio::IOErrorEnum as Io;
         let cases = [
@@ -742,6 +743,7 @@ mod tests {
     /// as GIO's "Error splicing file: Input/output error" does under any
     /// GIO code.
     #[test]
+    #[expect(clippy::too_many_lines, reason = "one case per code")]
     fn errno_values_read_as_the_windows_error() {
         use rustix::io::Errno;
         let cases = [

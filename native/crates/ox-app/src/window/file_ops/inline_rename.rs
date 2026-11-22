@@ -428,20 +428,17 @@ impl BrowserWindow {
             };
             renamed = again;
         }
-        match renamed {
-            Ok(renamed) => {
-                // Before the folder is listed again, which rebinds the cell.
-                self.close_name_editor(cell);
-                match self.take_rename_next() {
-                    Some(next) => self.finish_rename_and_continue(&renamed, next),
-                    None => self.finish_rename_in_place(&renamed),
-                }
+        if let Ok(renamed) = renamed {
+            // Before the folder is listed again, which rebinds the cell.
+            self.close_name_editor(cell);
+            match self.take_rename_next() {
+                Some(next) => self.finish_rename_and_continue(&renamed, next),
+                None => self.finish_rename_in_place(&renamed),
             }
-            Err(_) => {
-                self.take_rename_next();
-                editor.set_sensitive(true);
-                editor.grab_focus();
-            }
+        } else {
+            self.take_rename_next();
+            editor.set_sensitive(true);
+            editor.grab_focus();
         }
     }
 
