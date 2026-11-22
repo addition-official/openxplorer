@@ -138,7 +138,7 @@ msgid "File commands"
 msgstr ""
 
 #: crates/ox-app/resources/ui/details-pane.ui
-msgid "Select a single file to get more information."
+msgid "Select a single file to get more information and share your cloud content."
 msgstr ""
 
 #: crates/ox-app/resources/ui/network-sign-in.ui
@@ -569,7 +569,7 @@ msgstr ""
 msgid "Capacity"
 msgstr ""
 
-#: crates/ox-app/src/dialogs/format_drive.rs crates/ox-app/src/properties/drive_tab.rs
+#: crates/ox-app/src/dialogs/format_drive.rs crates/ox-app/src/properties/drive_tab.rs crates/ox-app/src/window/details_pane/content.rs
 msgid "File system"
 msgstr ""
 
@@ -959,7 +959,7 @@ msgstr ""
 msgid "Date accessed"
 msgstr ""
 
-#: crates/ox-app/src/folder_view/sort_roles.rs crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-core/src/grouping.rs
+#: crates/ox-app/src/folder_view/sort_roles.rs crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs crates/ox-core/src/grouping.rs
 msgid "Date created"
 msgstr ""
 
@@ -5728,6 +5728,18 @@ msgstr ""
 
 #: crates/ox-app/src/window/details_pane/content.rs
 msgid "Space"
+msgstr ""
+
+#: crates/ox-app/src/window/details_pane/content.rs
+msgid "Space free"
+msgstr ""
+
+#: crates/ox-app/src/window/details_pane/content.rs
+msgid "Space used"
+msgstr ""
+
+#: crates/ox-app/src/window/details_pane/content.rs
+msgid "Total size"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
