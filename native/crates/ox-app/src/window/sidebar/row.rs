@@ -280,6 +280,7 @@ pub(super) fn sidebar_row(entry: &SidebarEntry, look: RowLook, collapsed: bool) 
     let level = match entry.level {
         RowLevel::Place | RowLevel::Group => 1,
         RowLevel::Child => 2,
+        RowLevel::Grandchild => 3,
     };
     row.update_property(&[
         gtk::accessible::Property::Label(&entry.label),
