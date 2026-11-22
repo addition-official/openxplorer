@@ -26,6 +26,7 @@ mod collapsing;
 mod drop_spots;
 pub(super) mod entries;
 pub(super) mod menu;
+pub(super) mod network_tree;
 mod row;
 
 use std::cell::RefCell;
@@ -98,7 +99,8 @@ mod imp {
         /// Whether anything is hidden, which "Show all entries" lists.
         pub(super) anything_hidden: Cell<bool>,
         /// The sections collapsed with their chevron or the arrow keys
-        /// (SIDE-033).
+        /// (SIDE-033). Network starts collapsed, as in Windows 11, where
+        /// expanding it looks for the computers on the network.
         pub(super) collapsed: RefCell<Vec<Section>>,
         /// The collapsed section a drag is held over, and the wait before
         /// it expands (DND-027).
@@ -118,6 +120,7 @@ mod imp {
     impl ObjectImpl for Sidebar {
         fn constructed(&self) {
             self.parent_constructed();
+            self.collapsed.replace(vec![Section::Network]);
             self.obj().build_pane();
         }
 
@@ -176,6 +179,7 @@ impl Sidebar {
         self.open_places_in_tabs_on_ctrl_click(&list);
         self.open_menus_on_right_click(&list);
         self.collapse_sections_with_arrow_keys(&list);
+        self.toggle_sections_on_double_click(&list);
         let scroller = gtk::ScrolledWindow::builder()
             .hscrollbar_policy(gtk::PolicyType::Never)
             // The list is never narrower than the narrowest saved sidebar.
@@ -745,6 +749,7 @@ mod tests {
             pinned: false,
             menu: None,
             eject: None,
+            expander: None,
         }
     }
 
