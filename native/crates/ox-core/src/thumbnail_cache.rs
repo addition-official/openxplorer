@@ -150,8 +150,10 @@ fn chunks(bytes: &[u8]) -> Option<Vec<Chunk<'_>>> {
     let mut at = PNG_SIGNATURE.len();
     while let Some(head) = bytes.get(at..at + 8) {
         let length = usize::try_from(u32::from_be_bytes(head[..4].try_into().ok()?)).ok()?;
+        // The length, the kind, the data and the checksum; a chunk cut
+        // short ends the reading.
         let end = at.checked_add(12)?.checked_add(length)?;
-        let Some(data) = bytes.get(at + 8..at + 8 + length) else {
+        let Some(data) = bytes.get(at + 8..end - 4) else {
             break;
         };
         if end > bytes.len() {

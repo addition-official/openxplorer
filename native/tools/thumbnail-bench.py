@@ -325,6 +325,33 @@ def run_folder(label: str, folder: Path, root: Path, binary: Path, environment: 
     return results
 
 
+def run_scroll(folder: Path, root: Path, binary: Path, environment: dict[str, str]) -> dict[str, object]:
+    """Scrolls a folder seen for the first time with Page Down while its
+    thumbnails are made, and counts the main loop's stalls (the app's
+    `stall` events: no 5 ms timer for 34 ms or more)."""
+    trace = Path(environment['OX_THUMBNAIL_TRACE'])
+    since = monotonic_us()
+    app, window = launch(binary, folder, environment, root / 'stderr.log')
+    try:
+        if not window:
+            raise SystemExit('The window did not appear')
+        wait_until_settled(trace, since, app)
+        started = monotonic_us()
+        for _ in range(40):
+            xdotool('key', '--window', window, 'Page_Down')
+            time.sleep(0.1)
+        ended = monotonic_us()
+        events = wait_until_settled(trace, started, app)
+    finally:
+        stop(app)
+    stalls = [int(detail) for stamp, kind, detail in events
+              if kind == 'stall' and started <= stamp <= ended and detail.isdigit()]
+    made = sum(1 for stamp, kind, _ in events if kind in ('generate', 'thumbnailer') and stamp <= ended)
+    return {'phase': 'fast scroll', 'folder': 'photos (new)', 'stalls': len(stalls),
+            'longest_stall_ms': max(stalls, default=0), 'made_while_scrolling': made,
+            'scroll_ms': round((ended - started) / 1000)}
+
+
 def print_table(results: list[dict[str, object]]) -> None:
     """The results as a Markdown table."""
     columns = [('folder', 'Folder'), ('phase', 'Visit'), ('first_bind_ms', 'First tile (ms)'),
@@ -391,6 +418,15 @@ def inner(arguments: argparse.Namespace) -> int:
         results += run_folder('mixed', mixed, root, arguments.binary, environment, screenshots,
                               arguments.on_screen)
         print_table(results)
+        if arguments.scroll:
+            scrolled = root / 'home' / 'Pictures' / 'New photos'
+            scrolled.mkdir(parents=True)
+            make_photos(scrolled, arguments.photos, seed=3)
+            result = run_scroll(scrolled, root, arguments.binary, environment)
+            results.append(result)
+            print(f"| Fast scroll of a new folder | {result['scroll_ms']} ms | stalls of 34 ms or more: "
+                  f"{result['stalls']} | longest: {result['longest_stall_ms']} ms | "
+                  f"thumbnails made meanwhile: {result['made_while_scrolling']} |")
         if arguments.json:
             Path(arguments.json).write_text(json.dumps(results, indent=2) + '\n')
         if arguments.keep_trace:
@@ -412,6 +448,8 @@ def main() -> int:
     parser.add_argument('--on-screen', type=int, default=30,
                         help='how many tiles the 1400 x 950 window shows (6 columns of 5 rows at Large icons)')
     parser.add_argument('--json', help='write the results here as JSON')
+    parser.add_argument('--scroll', action='store_true',
+                        help='also scroll a new folder with Page Down and count main-loop stalls')
     parser.add_argument('--keep-trace', help="copy the app's trace here")
     parser.add_argument('--screenshots', help='save a picture of the screen after each visit in this folder')
     parser.add_argument('--user', default='nobody',
@@ -432,6 +470,8 @@ def main() -> int:
     command = ['xvfb-run', '-a', '-s', '-screen 0 1440x1000x24', 'dbus-run-session', '--',
                sys.executable, str(Path(__file__).resolve()), INNER, '--binary', str(arguments.binary.resolve()),
                '--photos', str(arguments.photos), '--on-screen', str(arguments.on_screen)]
+    if arguments.scroll:
+        command.append('--scroll')
     for option, value in (('--json', arguments.json), ('--keep-trace', arguments.keep_trace),
                           ('--screenshots', arguments.screenshots)):
         if value:

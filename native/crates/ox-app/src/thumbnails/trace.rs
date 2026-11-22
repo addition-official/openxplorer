@@ -44,3 +44,28 @@ pub(crate) fn event(event: &str, detail: &str) {
     let mut file = file.lock().unwrap_or_else(PoisonError::into_inner);
     let _ = file.write_all(line.as_bytes());
 }
+
+/// How often the main loop is looked at while the trace is written.
+const HEARTBEAT: std::time::Duration = std::time::Duration::from_millis(5);
+
+/// A gap between two heartbeats this long is written as a `stall`: the
+/// main loop was held up for at least this long, a frame or more missed.
+const STALL: std::time::Duration = std::time::Duration::from_millis(34);
+
+/// Writes a `stall` event, with its length in milliseconds, whenever the
+/// main loop does not come back to a 5 ms timer for longer than two frames:
+/// what scrolling feels as a stutter. Does nothing without the trace.
+pub(crate) fn watch_main_loop() {
+    if !enabled() {
+        return;
+    }
+    let last = std::cell::Cell::new(std::time::Instant::now());
+    gtk::glib::timeout_add_local(HEARTBEAT, move || {
+        let now = std::time::Instant::now();
+        let gap = now.duration_since(last.replace(now));
+        if gap >= STALL {
+            event("stall", &gap.as_millis().to_string());
+        }
+        gtk::glib::ControlFlow::Continue
+    });
+}
