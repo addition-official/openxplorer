@@ -23,15 +23,15 @@ NOTE: A revisited folder shows its thumbnails at once, as Windows does from thum
 - Cache layout is generic for long-d-doc-previews: anything written through writer::save_thumbnail or the desktop thumbnailers gets the same keys and is read back through the same batched path.
 - Root: check.py stops at display_scale in this container because the app refuses to run as root ("Run OpenXplorer as your regular desktop user, not with sudo"), so every test binary was also run through check.py's run_isolated as an unprivileged user.
 
-PASS benchmark at HEAD 00b00987, medians of 3 runs each, the two builds run by turns in the same hour, before (upstream 5d21fd3e + the same trace) -> after, 2,000 photos, Large icons, 30 tiles on screen, private Xvfb, unprivileged user, throwaway HOME, xdotool input; "after first tile" excludes app start-up:
-  photos cold: all visible 2,196 -> 1,734 ms from launch, 1,075 -> 491 ms after first tile; decodes 579 -> 193
-  photos same-session revisit: 131 -> 71 ms (72 -> 3 after first tile); first frame 0 -> 30 of 30
-  photos restart: 670 -> 467 ms (258 -> 62); no icon flash 0 -> 30 of 30; 193 reads in 18 batches
-  photos cache drop (posix_fadvise DONTNEED on folder and cache): 644 -> 471 ms (252 -> 68); no icon flash 30 of 30
-  mixed (photos, MP4 via ffmpegthumbnailer, PDF via evince-thumbnailer, in bwrap) cold: 3,035 -> 1,098 ms (2,682 -> 685); decodes 360 -> 120; thumbnailers 80 -> 80
-  mixed revisit 124 -> 62 ms (75 -> 4); restart 650 -> 487 ms (239 -> 73); cache drop 663 -> 631 ms (291 -> 71)
+PASS benchmark at HEAD 00b00987, medians of 6 runs each, the two builds run by turns, before (upstream 5d21fd3e + the same trace) -> after, 2,000 photos, Large icons, 30 tiles on screen, private Xvfb, unprivileged user, throwaway HOME, xdotool input; "after first tile" excludes app start-up:
+  photos cold: all visible 2,338 -> 1,742 ms from launch, 1,114 -> 511 ms after first tile; decodes 579 -> 193
+  photos same-session revisit: 161 -> 73 ms (89 -> 3 after first tile); first frame 0 -> 30 of 30
+  photos restart: 673 -> 500 ms (263 -> 67); no icon flash 0 -> 30 of 30; 193 reads in 18 batches
+  photos cache drop (posix_fadvise DONTNEED on folder and cache): 780 -> 621 ms (282 -> 67); no icon flash 30 of 30
+  mixed (photos, MP4 via ffmpegthumbnailer, PDF via evince-thumbnailer, in bwrap) cold: 3,196 -> 1,081 ms (2,799 -> 672); decodes 360 -> 120; thumbnailers 80 -> 80
+  mixed revisit 124 -> 64 ms (78 -> 4); restart 647 -> 493 ms (236 -> 73); cache drop 695 -> 473 ms (302 -> 60)
   sets taken earlier in the night (9f5546de) agree; the VM's speed drifted
-PASS paging down a new 2,000-photo folder for 4.7 s while thumbnails are made, 7 interleaved pairs at HEAD: main-loop stalls of 34 ms or more 32 in all before (longest 49 ms) vs 14 after (longest 42 ms)
+PASS paging down a new 2,000-photo folder for 4.7 s while thumbnails are made, 10 interleaved pairs at HEAD: main-loop stalls of 34 ms or more 50 in all before (longest 49 ms) vs 20 after (longest 42 ms)
 PASS memory (VmRSS, single runs): after scrolling a cold 2,000-photo folder to the end and back, 341 MB before -> 357 MB after; warm, 267 -> 286 MB; a 200,000-entry cache's name index adds 5.6 MB
 PASS interop (release build, Xvfb, unprivileged user): gio info reports thumbnail::is-valid TRUE for the app's entries and FALSE after the file changes; entries 0600 in 0700 folders with Thumb::URI, MTime, Size, Mimetype
 PASS new tests (the ox-core cache tests and the cache-name key test were written first and seen failing; the app tests were written with their code):
