@@ -189,3 +189,20 @@ picture_decode          6,526,446
 picture_headers        13,773,668
 text_preview           12,225,257
 Found since last update: 0. Running: archive_list, archive_extract, archive_fixup, archive_zipgen (all with the lift check), picture_decode (now also as thumbnail cache files), picture_headers, media_details, text_preview.
+
+== 2026-11-22 04:00 CST ==
+Executions so far (all runs):
+app_protocols             421,336
+archive_extract         2,927,473
+archive_fixup             962,610
+archive_list-vp           331,496
+archive_list           11,225,726
+archive_zipgen          1,401,144
+core_formats            8,850,616
+core_text              13,954,436
+media_details          73,164,652
+media_streams               8,968
+picture_decode          7,778,844
+picture_headers        16,016,708
+text_preview           15,869,547
+Found since last update: 0. text_preview paused again (no new coverage); a second archive_list instance runs with value profiling (archive_list-vp), sharing the corpus.
