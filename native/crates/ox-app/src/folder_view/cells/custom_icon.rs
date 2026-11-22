@@ -79,6 +79,7 @@ impl FileCell {
         let imp = self.imp();
         // A wait for the item shown before ends with it.
         imp.icon_wait.set(imp.icon_wait.get().wrapping_add(1));
+        imp.binding.set(imp.binding.get().wrapping_add(1));
         imp.custom_icon.set_visible(false);
         imp.folder_picture.show_texture(None);
         imp.image.set_opacity(1.0);
@@ -100,11 +101,13 @@ impl FileCell {
         } = started;
         let lookup = glib::spawn_future_local(async move {
             let own = own_pictures(&uri).await;
-            own_found.set(own.icon.is_some() || (is_folder && own.folder_picture.is_some()));
             let mut texture = match own.icon {
                 Some(icon) => icon_texture(icon).await,
                 None => None,
             };
+            // Only a custom icon that could be drawn takes the preview's
+            // place; one missing or damaged leaves it.
+            own_found.set(texture.is_some());
             // A folder's picture sits on the folder at Medium icons and
             // larger, and takes the small icon's place in Details, List
             // and Small icons, as Windows draws it there.
@@ -197,9 +200,12 @@ impl FileCell {
         let own_found = Rc::new(Cell::new(false));
         let reading = preview.filter(|_| shown_at_once.is_none()).map(|request| {
             let (cell, own_found) = (self.downgrade(), Rc::clone(&own_found));
+            let binding = self.imp().binding.get();
             Reading(Some(glib::spawn_future_local(async move {
                 let texture = thumbnails::preview(request).await.filter(is_big_enough_to_see)?;
-                if let Some(cell) = cell.upgrade().filter(|_| !own_found.get()) {
+                // Shown only on a cell that still shows this item.
+                let same_item = |cell: &FileCell| cell.imp().binding.get() == binding;
+                if let Some(cell) = cell.upgrade().filter(|cell| same_item(cell) && !own_found.get()) {
                     thumbnails::trace::event("shown", &uri);
                     cell.show_picture(&texture);
                 }
@@ -273,7 +279,9 @@ impl FileCell {
     /// Drops the lookup of a custom icon or preview still running, as for
     /// a row GTK unbinds when it scrolls away.
     pub(crate) fn cancel_picture_lookup(&self) {
-        if let Some(lookup) = self.imp().picture_lookup.take() {
+        let imp = self.imp();
+        imp.binding.set(imp.binding.get().wrapping_add(1));
+        if let Some(lookup) = imp.picture_lookup.take() {
             lookup.abort();
         }
     }
@@ -311,8 +319,13 @@ struct Reading(Option<glib::JoinHandle<Option<gdk::Texture>>>);
 
 impl Reading {
     /// The preview, once read.
+    /// The preview, once read. Dropped while it waits, as an aborted
+    /// lookup drops it, it stops the reading too: a glib task whose handle
+    /// is dropped would go on, detached.
     async fn finish(mut self) -> Option<gdk::Texture> {
-        self.0.take()?.await.ok().flatten()
+        let read = self.0.as_mut()?.await.ok().flatten();
+        self.0 = None;
+        read
     }
 }
 
@@ -386,4 +399,40 @@ fn decode(uri: &str) -> Option<gdk::Texture> {
     let decoded =
         picture_guard::decode_to_fit(&file, ICON_PIXELS, ICON_PIXELS, Limits::DISPLAY, None).ok()?;
     Some(gdk::Texture::for_pixbuf(&decoded.pixbuf))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use super::*;
+
+    /// A tile's lookup dropped while it waits for the preview being read,
+    /// as when GTK binds the tile to another item, stops that reading too:
+    /// a reading left running would paint the old item's picture on the
+    /// tile.
+    ///
+    /// parity: VIEW-057
+    #[gtk::test]
+    fn a_lookup_dropped_while_it_waits_stops_its_reading() {
+        let context = glib::MainContext::default();
+        let finished = Rc::new(Cell::new(false));
+        let flag = Rc::clone(&finished);
+        let reading = Reading(Some(glib::spawn_future_local(async move {
+            glib::timeout_future(Duration::from_millis(50)).await;
+            flag.set(true);
+            None
+        })));
+        let lookup = glib::spawn_future_local(async move { reading.finish().await });
+        for _ in 0..5 {
+            context.iteration(false);
+        }
+
+        // As `cancel_picture_lookup` does: aborted, and its handle dropped.
+        lookup.abort();
+        drop(lookup);
+        context.block_on(glib::timeout_future(Duration::from_millis(200)));
+
+        assert!(!finished.get(), "the reading stopped with its lookup");
+    }
 }
