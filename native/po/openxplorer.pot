@@ -598,7 +598,7 @@ msgstr ""
 msgid "Add a network folder to your sidebar: a Windows share, or a folder on an SSH, FTP, WebDAV or NFS server."
 msgstr ""
 
-#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/window/command_bar/menus.rs crates/ox-app/src/window/sidebar/menu.rs
+#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/window/command_bar/menus.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/sidebar/menu.rs
 msgid "Add a network location"
 msgstr ""
 
@@ -647,7 +647,7 @@ msgstr ""
 msgid "Specify the drive letter for the connection and the folder that you want to connect to:"
 msgstr ""
 
-#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/drive_tab.rs crates/ox-app/src/properties/general_tab.rs crates/ox-app/src/properties/security_tab/advanced.rs crates/ox-app/src/properties/selection_view.rs crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-core/src/grouping.rs
+#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/properties/drive_tab.rs crates/ox-app/src/properties/general_tab.rs crates/ox-app/src/properties/security_tab/advanced.rs crates/ox-app/src/properties/selection_view.rs crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-core/src/grouping.rs
 msgid "Type"
 msgstr ""
 
@@ -987,7 +987,7 @@ msgstr ""
 msgid "Date modified"
 msgstr ""
 
-#: crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs
+#: crates/ox-app/src/folder_view/sorting.rs
 msgid "Folder path"
 msgstr ""
 
@@ -1630,6 +1630,10 @@ msgstr ""
 msgid "Composers"
 msgstr ""
 
+#: crates/ox-app/src/properties/details_rows.rs crates/ox-core/src/entry/classify.rs
+msgid "Computer"
+msgstr ""
+
 #: crates/ox-app/src/properties/details_rows.rs
 msgid "Conductors"
 msgstr ""
@@ -1690,6 +1694,10 @@ msgstr ""
 msgid "File"
 msgstr ""
 
+#: crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-app/src/window/home_page.rs
+msgid "File location"
+msgstr ""
+
 #: crates/ox-app/src/properties/details_rows.rs
 msgid "Flash"
 msgstr ""
@@ -1745,10 +1753,6 @@ msgstr ""
 
 #: crates/ox-app/src/properties/details_rows.rs
 msgid "Image"
-msgstr ""
-
-#: crates/ox-app/src/properties/details_rows.rs
-msgid "Item type"
 msgstr ""
 
 #: crates/ox-app/src/properties/details_rows.rs
@@ -1905,6 +1909,11 @@ msgstr[1] ""
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/properties/details_rows.rs
 msgid "{flash}, red-eye reduction"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/properties/details_rows.rs
+msgid "{name} (this PC)"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -5082,7 +5091,7 @@ msgstr ""
 msgid "Cut (Ctrl+X)"
 msgstr ""
 
-#: crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/file_ops/delete_label.rs crates/ox-app/src/window/folder_tree/menu.rs crates/ox-app/src/window/shortcuts_window.rs crates/ox-core/src/ops/undo.rs
+#: crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/file_ops/delete_label.rs crates/ox-app/src/window/folder_tree/menu.rs crates/ox-app/src/window/shortcuts_window.rs crates/ox-core/src/ops/undo.rs
 msgid "Delete"
 msgstr ""
 
@@ -5497,6 +5506,11 @@ msgstr ""
 msgid "Duplicate"
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/context_menu/entries.rs
+msgid "Edit in {name}"
+msgstr ""
+
 #: crates/ox-app/src/window/context_menu/entries.rs
 msgid "Extract here"
 msgstr ""
@@ -5580,6 +5594,10 @@ msgid "Restore previous versions"
 msgstr ""
 
 #: crates/ox-app/src/window/context_menu/entries.rs
+msgid "Restore the item to compress or share it."
+msgstr ""
+
+#: crates/ox-app/src/window/context_menu/entries.rs
 msgid "Select only one item for this command."
 msgstr ""
 
@@ -5641,10 +5659,6 @@ msgstr ""
 
 #: crates/ox-app/src/window/desktop_link.rs
 msgid "This link points to an address OpenXplorer cannot open."
-msgstr ""
-
-#: crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-app/src/window/home_page.rs
-msgid "File location"
 msgstr ""
 
 #: crates/ox-app/src/window/details_pane/content.rs
@@ -7600,6 +7614,10 @@ msgid "Map network drive…"
 msgstr ""
 
 #: crates/ox-app/src/window/sidebar/menu.rs
+msgid "Pin current folder to Quick access"
+msgstr ""
+
+#: crates/ox-app/src/window/sidebar/menu.rs
 msgid "Show Network"
 msgstr ""
 
@@ -8591,10 +8609,6 @@ msgstr ""
 
 #: crates/ox-core/src/clipboard/pasted.rs
 msgid "The picture on the clipboard is too large to paste."
-msgstr ""
-
-#: crates/ox-core/src/entry/classify.rs
-msgid "Computer"
 msgstr ""
 
 #: crates/ox-core/src/entry/classify.rs
