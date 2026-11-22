@@ -159,8 +159,8 @@ mod tests {
     use super::*;
 
     /// A cancelled mount ends the listing quietly; GIO's refusals keep
-    /// their kind, in Windows' words (pass 15), and the service's own
-    /// refusals their words.
+    /// their kind, in Windows' words, and the service's own refusals their
+    /// words.
     #[test]
     fn a_failed_mount_is_reported_as_the_listing_reports_errors() {
         let not_found = gtk::glib::Error::new(gtk::gio::IOErrorEnum::NotFound, "No such share");
