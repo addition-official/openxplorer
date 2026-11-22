@@ -16,7 +16,7 @@ use crate::window::tests::file_ops_support::{
 
 /// Opening a shortcut to a folder goes to the folder itself, as Windows
 /// does, not into the shortcut's own path: the address bar and Up then
-/// lead from where the folder really is.
+/// lead from where the folder really is, Up selecting the folder.
 ///
 /// parity: OPEN-027
 #[gtk::test]
@@ -35,6 +35,16 @@ fn a_folder_shortcut_opens_the_folder_at_its_own_address() {
 
     wait_until("the folder the shortcut points to", || {
         test.window.current_uri() == Some(fixture.uri_of("Documents")) && !test.window.is_loading()
+    });
+
+    // Up goes to the folder's own parent, with the folder selected, as in
+    // Windows 11 (checked in a Windows 11 VM).
+    test.activate("up", None);
+    wait_until("the folder's parent", || {
+        test.window.current_uri() == Some(fixture.uri()) && !test.window.is_loading()
+    });
+    wait_until("the folder to be selected", || {
+        test.selected_names() == ["Documents"]
     });
 }
 

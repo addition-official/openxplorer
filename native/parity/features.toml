@@ -4782,7 +4782,7 @@ native_note = "native/crates/ox-app/src/window/quiet_tooltips.rs (install_toolti
 id = "VIEW-074"
 area = "VIEW"
 title = "Launchers look and are named like shortcuts"
-behaviour = "A .desktop launcher is a shortcut as Windows has them: its icon carries the link arrow in the bottom-left corner, as a symbolic link's does and as Windows draws its shortcut overlay, and its name never shows '.desktop', whatever 'File name extensions' says, as Windows never shows a shortcut's '.lnk' (NeverShowExt); renaming one edits the name without '.desktop' and keeps it. The launcher's own Icon= picture is not drawn: the view draws only the app's bundled Fluent art."
+behaviour = "A .desktop launcher is a shortcut as Windows has them: its icon carries the link arrow in the bottom-left corner, as a symbolic link's does and as Windows draws its shortcut overlay, and its name never shows '.desktop', whatever 'File name extensions' says, as Windows never shows a shortcut's '.lnk' (NeverShowExt); renaming one edits the name without '.desktop' and keeps it. A shortcut (a symbolic link the app types 'Shortcut') shows its own Size and Date modified, the link's, as Windows shows a .lnk's (a few bytes, '1 KB'), not its target's, a folder's shortcut included, which is never counted as a folder; and sorting by name puts a folder's shortcut among the files, not the folders, as Windows 11 does (both checked in a Windows 11 VM). The launcher's own Icon= picture is not drawn: the view draws only the app's bundled Fluent art."
 origin = ["openxplorer"]
 priority = "could"
 openxplorer = "missing"
@@ -4793,7 +4793,7 @@ sources = [
 python_tests = []
 bridge = []
 native = "partial"
-native_note = "native/crates/ox-app/src/icons/emblem.rs (is_launcher; links_and_read_only_items_carry_their_emblems) and native/crates/ox-app/src/folder_view/shown_name.rs (launcher_extension; a_launchers_desktop_extension_is_always_hidden). Partial: the launcher's Icon= picture is not shown."
+native_note = "native/crates/ox-app/src/icons/emblem.rs (is_launcher; links_and_read_only_items_carry_their_emblems) and native/crates/ox-app/src/folder_view/shown_name.rs (launcher_extension; a_launchers_desktop_extension_is_always_hidden), native/crates/ox-core/src/entry/enumerate.rs (list_shortcuts_own_facts; a_shortcut_lists_its_own_size_and_date), native/crates/ox-app/src/folder_view/model/sorters.rs (a_folder_shortcut_sorts_among_the_files) and folder_view/details/column_text.rs (a_folder_shortcut_shows_its_own_size). Partial: the launcher's Icon= picture is not shown."
 
 [[feature]]
 id = "SEL-001"
