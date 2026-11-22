@@ -51,6 +51,10 @@ const DRIVE_XML: &str = r#"<node>
       <arg type="a{sv}" name="options" direction="in"/>
       <arg type="s" name="mount_path" direction="out"/>
     </method>
+    <method name="SetLabel">
+      <arg type="s" name="label" direction="in"/>
+      <arg type="a{sv}" name="options" direction="in"/>
+    </method>
   </interface>
 </node>"#;
 
@@ -72,6 +76,10 @@ struct Answers {
     format_error: Option<&'static str>,
     /// The UDisks error `Mount` answers.
     mount_error: Option<&'static str>,
+    /// The UDisks error `SetLabel` answers.
+    set_label_error: Option<&'static str>,
+    /// The drive is write-protected.
+    read_only: bool,
     /// Another drive is at `/dev/sdb1` once the first was read.
     replaced: bool,
 }
@@ -143,6 +151,7 @@ impl FakeUdisks {
                         "Unmount" => answering.unmount_error,
                         "Format" => answering.format_error,
                         "Mount" => answering.mount_error,
+                        "SetLabel" => answering.set_label_error,
                         _ => None,
                     };
                     match (error, method) {
@@ -157,6 +166,9 @@ impl FakeUdisks {
                 })
                 .property(move |_, _, _, _, property| {
                     let swapped = swapping.replaced && reads.get() > 0;
+                    if property == "ReadOnly" {
+                        return swapping.read_only.to_variant();
+                    }
                     match property {
                         "Size" => 16_000_000_000_u64.to_variant(),
                         "IdLabel" => "OLD".to_variant(),
@@ -634,4 +646,64 @@ fn a_removed_or_write_protected_drive_is_not_formatted() {
     assert!(matches!(gone, Err(FormatError::NotFound)), "{gone:?}");
     assert!(matches!(protected, Err(FormatError::ReadOnly)), "{protected:?}");
     assert!(calls.is_empty(), "{calls:?}");
+}
+
+/// Renaming a drive sets the label of its file system through UDisks,
+/// fitted to what the file system keeps (FAT32: 11 capitals), on the
+/// drive read again first, without unmounting it.
+///
+/// parity: DEV-012
+#[test]
+fn a_drive_is_renamed_with_a_label_its_file_system_keeps() {
+    let (renamed, calls) = with_udisks(Answers::default(), |connection, fake| async move {
+        let facts = drive_facts(&connection, &fake.name(), "/dev/sdb1")
+            .await
+            .expect("the drive");
+        let renamed = set_drive_label(&connection, &fake.name(), &facts, "Holiday: photos 2026").await;
+        (renamed, fake.drive_calls())
+    });
+
+    assert_eq!(renamed.expect("renamed"), "HOLIDAY PHO");
+    assert_eq!(calls, ["Filesystem.SetLabel ('HOLIDAY PHO', @a{sv} {})"]);
+}
+
+/// A drive removed or swapped meanwhile, a write-protected one and one
+/// UDisks refuses (in use, or a password dismissed) are not renamed, and
+/// say why.
+///
+/// parity: DEV-012
+#[test]
+fn a_gone_protected_or_refused_drive_is_not_renamed() {
+    let rename = |answers: Answers| {
+        with_udisks(answers, |connection, fake| async move {
+            let facts = drive_facts(&connection, &fake.name(), "/dev/sdb1")
+                .await
+                .expect("the drive");
+            let renamed = set_drive_label(&connection, &fake.name(), &facts, "photos").await;
+            (renamed, fake.drive_calls())
+        })
+    };
+
+    let (swapped, calls) = rename(Answers {
+        replaced: true,
+        ..Answers::default()
+    });
+    assert!(matches!(swapped, Err(FormatError::NotFound)), "{swapped:?}");
+    assert!(calls.is_empty(), "{calls:?}");
+    let (protected, calls) = rename(Answers {
+        read_only: true,
+        ..Answers::default()
+    });
+    assert!(matches!(protected, Err(FormatError::ReadOnly)), "{protected:?}");
+    assert!(calls.is_empty(), "{calls:?}");
+    let (busy, _) = rename(Answers {
+        set_label_error: Some("DeviceBusy"),
+        ..Answers::default()
+    });
+    assert!(matches!(busy, Err(FormatError::Busy)), "{busy:?}");
+    let (dismissed, _) = rename(Answers {
+        set_label_error: Some("NotAuthorizedDismissed"),
+        ..Answers::default()
+    });
+    assert!(matches!(dismissed, Err(FormatError::Cancelled)), "{dismissed:?}");
 }

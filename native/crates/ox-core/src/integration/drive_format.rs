@@ -527,6 +527,51 @@ pub async fn format_drive(
     })
 }
 
+/// Renames the drive `facts` describes: sets the label of its file
+/// system to `label`, fitted to what that file system keeps, through
+/// UDisks `service` on `connection`, as Windows' Rename of a drive sets
+/// its volume label. The drive stays mounted; UDisks runs the file
+/// system's labelling program (`fatlabel`, `exfatlabel`, `ntfslabel`,
+/// `e2label`). Returns the label set.
+///
+/// The drive is read again first, as for a format, so one removed or
+/// swapped since it was chosen is not touched.
+///
+/// # Errors
+///
+/// [`FormatError::NotFound`] for a drive that is gone or was replaced,
+/// [`FormatError::ReadOnly`] for a write-protected drive, and what
+/// UDisks answered ([`FormatError::from_call`]).
+pub async fn set_drive_label(
+    connection: &gio::DBusConnection,
+    service: &str,
+    facts: &DriveFacts,
+    label: &str,
+) -> Result<String, FormatError> {
+    let current = facts_of(connection, service, facts.object.clone()).await?;
+    if !current.is_same_drive(facts) || !current.has_file_system {
+        return Err(FormatError::NotFound);
+    }
+    if current.read_only {
+        return Err(FormatError::ReadOnly);
+    }
+    let label = match current.file_system {
+        Some(file_system) => file_system.fitted_label(label),
+        None => label.trim().to_owned(),
+    };
+    call(
+        connection,
+        service,
+        &facts.object,
+        FILESYSTEM_INTERFACE,
+        "SetLabel",
+        &(label.as_str(), glib::VariantDict::new(None)).to_variant(),
+    )
+    .await
+    .map_err(FormatError::from_call)?;
+    Ok(label)
+}
+
 /// Mounts the file system on the block device `object` through UDisks
 /// `service` on `connection`, letting polkit ask for a password when
 /// `may_ask`.
