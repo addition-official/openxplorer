@@ -18,7 +18,7 @@ mod drops;
 mod follow;
 mod menu;
 
-pub(super) use menu::expand_to_open_item;
+pub(super) use menu::expand_to_current_item;
 mod model;
 
 use std::cell::{Cell, OnceCell, RefCell};

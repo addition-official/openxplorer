@@ -48,10 +48,10 @@ impl FolderTree {
         }
         let walk = imp.walk.get() + 1;
         imp.walk.set(walk);
-        // With "Expand to open folder" off, as in Windows' navigation pane,
+        // With "Expand to current folder" off, as in Windows' navigation pane,
         // the folder shown is selected only where the tree already shows
         // it; no folder opens on the way.
-        if !options.expand_to_open {
+        if !options.expand_to_current {
             let position = self.shown_position(&shown);
             selection.set_selected(position.unwrap_or(gtk::INVALID_LIST_POSITION));
             return;
