@@ -95,6 +95,8 @@ enum Question {
     InsideSource,
     /// "Interrupted Action": an unexpected error.
     Unexpected,
+    /// "Interrupted Action": the destination's drive may not be written.
+    WriteProtected,
 }
 
 /// What the dialog says, in Windows' words.
@@ -169,6 +171,11 @@ fn wording(question: Question, item: &FailedItem, is_folder: bool, folder: &str)
             gettext("The destination folder is a subfolder of the source folder."),
             String::new(),
         ),
+        Question::WriteProtected => (
+            gettext("Interrupted Action"),
+            gettext("The disk is write-protected."),
+            gettext("Remove the write-protection or use another disk."),
+        ),
         Question::Unexpected => (
             gettext("Interrupted Action"),
             unexpected_heading(item.mode, is_folder),
@@ -180,6 +187,13 @@ fn wording(question: Question, item: &FailedItem, is_folder: bool, folder: &str)
         heading,
         message,
     }
+}
+
+/// Whether `error` is the system's "The media is write protected.",
+/// after the path of the item it names, if any.
+fn is_write_protected(error: &str) -> bool {
+    let sentence = error.rsplit_once(": ").map_or(error, |(_, sentence)| sentence);
+    SystemError::from_sentence(sentence) == Some(ox_core::system_error::WRITE_PROTECT)
 }
 
 /// The line under "An unexpected error…": Windows' error code line
@@ -283,6 +297,53 @@ fn space_texts(
         needed,
         drive,
     }
+}
+
+/// What `entry` shows under its name: for a picture whose `dimensions`
+/// are known, "Item type", "Dimensions" and "Size", as Windows' item
+/// lines show a picture; for anything else [`facts_lines`].
+fn facts_lines_of(entry: &Entry, dimensions: Option<(i32, i32)>) -> Vec<String> {
+    let (Some((width, height)), false) = (dimensions, entry.is_dir) else {
+        return facts_lines(entry);
+    };
+    let mut lines = Vec::new();
+    if !entry.type_label.is_empty() {
+        lines.push(format_message(
+            "Item type: {type}",
+            &[("type", &entry.type_label)],
+        ));
+    }
+    let dimensions = format!("{width} x {height}");
+    lines.push(format_message(
+        "Dimensions: {dimensions}",
+        &[("dimensions", &dimensions)],
+    ));
+    if let Some(size) = entry.size {
+        let size = format::size_text(Some(size));
+        lines.push(format_message("Size: {size}", &[("size", &size)]));
+    }
+    lines
+}
+
+/// The width and height of the picture at `uri`, read from its header off
+/// the main thread, when it is a local file the system can decode; a
+/// share's picture is not read, so a slow share never holds the question.
+async fn picture_dimensions(uri: &str) -> Option<(i32, i32)> {
+    let path = gio::File::for_uri(uri)
+        .path()
+        .filter(|_| !uri.contains("/gvfs/"))?;
+    if !uri.starts_with("file://") {
+        return None;
+    }
+    let read = gio::spawn_blocking(move || {
+        gtk::gdk_pixbuf::Pixbuf::file_info(&path).map(|(_, width, height)| (width, height))
+    });
+    glib::future_with_timeout(crate::bounded_io::MAIN_THREAD_WAIT, read)
+        .await
+        .ok()
+        .and_then(Result::ok)
+        .flatten()
+        .filter(|&(width, height)| width > 0 && height > 0)
 }
 
 /// What `entry` shows under its name: "Type", "Size" and "Date modified"
@@ -529,9 +590,16 @@ impl BrowserWindow {
             .filter(|line| !line.is_empty())
             .collect::<Vec<_>>()
             .join("\n\n");
-        let lines = entry.as_ref().map(facts_lines).unwrap_or_default();
+        let dimensions = picture_dimensions(&shown_uri).await;
+        let lines = entry
+            .as_ref()
+            .map(|entry| facts_lines_of(entry, dimensions))
+            .unwrap_or_default();
         let card = || item_card(&name, icon_of(entry.as_ref(), &name), &lines).upcast::<gtk::Widget>();
         let panel = self.panel_for_operation(cancel);
+        // Windows asks about a write-protected drive without "Do this for
+        // all current items", and with More details greyed.
+        let write_protected = question == Question::WriteProtected;
         let administrator = matches!(question, Question::DestinationDenied | Question::AdminDelete);
         // A refusal cannot be tried again: Skip comes first, then Cancel.
         let refused = question == Question::InsideSource;
@@ -549,8 +617,12 @@ impl BrowserWindow {
                 caption: wording.caption.clone(),
                 text: text.clone(),
                 card: card(),
-                details: self.failure_details(item),
-                for_all: item.more_items,
+                details: if write_protected {
+                    Vec::new()
+                } else {
+                    self.failure_details(item)
+                },
+                for_all: item.more_items && !write_protected,
                 first,
                 second: (!refused).then(|| gettext("Skip")),
                 cancel: true,
@@ -727,6 +799,9 @@ impl BrowserWindow {
             FailureCause::InUse => (Question::InUse, item.uri.clone()),
             FailureCause::NotFound => (Question::NotFound, item.uri.clone()),
             FailureCause::InsideSource => (Question::InsideSource, item.uri.clone()),
+            FailureCause::Other if is_write_protected(&item.error) => {
+                (Question::WriteProtected, item.uri.clone())
+            }
             FailureCause::NoSpace | FailureCause::Other | FailureCause::NeedsAttention => {
                 (Question::Unexpected, item.uri.clone())
             }
@@ -859,6 +934,36 @@ mod tests {
         assert_eq!(
             unexpected.message,
             "Error 0x8007045D: The request could not be performed because of an I/O device error."
+        );
+    }
+
+    /// A drive that may not be written says so as Windows 11 does (checked
+    /// on a Windows 11 VM with a write-protected USB stick): "The disk is
+    /// write-protected." and what to do, with no error code line.
+    ///
+    /// parity: OPS-047
+    #[test]
+    fn a_write_protected_drive_is_said_in_windows_words() {
+        let mut failed = item(TransferMode::Copy, FailureCause::Other);
+        failed.error = ox_core::transfer::TransferError::from(gtk::glib::Error::new(
+            gio::IOErrorEnum::ReadOnly,
+            "Error creating directory “/media/sample/STICK/beach.jpg”: Read-only file system",
+        ))
+        .to_string();
+        assert!(is_write_protected(&failed.error), "{}", failed.error);
+        assert!(!is_write_protected("Access is denied."));
+        let said = wording(Question::WriteProtected, &failed, false, "");
+        assert_eq!(
+            (
+                said.caption.as_str(),
+                said.heading.as_str(),
+                said.message.as_str()
+            ),
+            (
+                "Interrupted Action",
+                "The disk is write-protected.",
+                "Remove the write-protection or use another disk."
+            )
         );
     }
 

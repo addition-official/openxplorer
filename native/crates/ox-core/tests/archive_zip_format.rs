@@ -163,10 +163,7 @@ fn a_local_header_naming_another_file_is_refused() {
         header: b"report.exe".to_vec(),
     };
     assert_eq!(error, ArchiveError::Format(expected));
-    assert_eq!(
-        error.to_string(),
-        "The Compressed (zipped) Folder is invalid."
-    );
+    assert_eq!(error.to_string(), "The Compressed (zipped) Folder is invalid.");
 }
 
 /// Member data that runs into the next member is the overlapping-members

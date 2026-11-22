@@ -468,7 +468,7 @@ fn network_says_when_discovery_is_turned_off() {
     );
     assert_eq!(
         parts.text.tooltip_text().as_deref(),
-        Some("Location is not supported")
+        Some("The request is not supported.")
     );
     assert!(test.names().is_empty());
     capture(&test.window, "native-network-discovery-off.png");
@@ -638,7 +638,7 @@ fn an_unmounted_share_is_mounted_once_then_listed_again() {
 
 /// A share the server refuses, or that dropped off the network, says so
 /// in plain words that name it, as Windows Explorer does, with the
-/// system's own message only under Details. Nothing on the page is
+/// system's error code and words, in Windows', only under Details. Nothing on the page is
 /// selected when it shows or takes the keyboard, and Try again stays.
 /// The share is on a host that does not exist, and the mount is the
 /// test's.
@@ -658,9 +658,9 @@ fn an_offline_share_says_so_plainly_and_names_it() {
     test.window
         .navigate("smb://example.invalid/Studio/Photos")
         .expect("an SMB share");
-    wait_until("the failed mount", || {
-        test.window.load_error().as_deref() == Some(RAW)
-    });
+    wait_until("the failed mount", || test.window.load_error().is_some());
+    let error = test.window.load_error().unwrap_or_default();
+    assert!(!error.contains(RAW), "Windows' words, not Samba's: {error}");
     test.wait_for_listing("the failed listing");
 
     let pane = test.window.folder_pane();
@@ -682,9 +682,10 @@ fn an_offline_share_says_so_plainly_and_names_it() {
         .find(|expander| expander.is_visible() && expander.label().as_deref() == Some("Details"))
         .expect("the system's error is under Details");
     let detail = details.child().and_downcast::<gtk::Label>();
-    assert!(
-        detail.is_some_and(|label| label.text().contains(RAW)),
-        "the raw error stays under Details"
+    assert_eq!(
+        detail.map(|label| label.text().to_string()).as_deref(),
+        Some("Error code: 0x80070035\nThe network path was not found."),
+        "Windows' error code and words under Details"
     );
     details.set_expanded(true);
     let labels = descendants::<gtk::Label>(&page.root);
