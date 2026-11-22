@@ -293,6 +293,8 @@ fn large_icons_show_a_documents_first_page_from_the_shared_cache() {
     }
     wait_for(Duration::from_millis(500));
     crate::test_support::harness::capture_in_both_themes(&test.window, "document-thumbnails-large-icons");
+    drop(test);
+    no_office_left_running();
 }
 
 /// In Large icons, while a workbook that takes half a minute holds the
@@ -332,6 +334,21 @@ fn the_selection_goes_before_a_slow_thumbnail() {
         start.elapsed()
     );
     assert!(start.elapsed() < documents::TIMEOUT / 2);
+    drop(test);
+    no_office_left_running();
+}
+
+/// Waits until no `LibreOffice` runs for the user, which a closed
+/// window's thumbnails must not leave behind for the tests after it.
+fn no_office_left_running() {
+    let start = Instant::now();
+    while running_offices() > 0 {
+        assert!(
+            start.elapsed() < Duration::from_secs(5),
+            "LibreOffice was left running"
+        );
+        wait_for(Duration::from_millis(50));
+    }
 }
 
 /// The longest the main loop may spend on one event while the selection
