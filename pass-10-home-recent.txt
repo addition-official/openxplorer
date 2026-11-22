@@ -1,0 +1,56 @@
+STATUS: DONE
+HEAD: pass-10-home-recent 9e9453e7 (git rev-parse origin/pass-10-home-recent for the full hash)
+QUESTION: pass-4-nav-pane (5cb3a27c) and network-like-windows both list Network's computers in the navigation pane, in two incompatible ways (ToggleNetworkComputer and network_computers.rs vs ToggleComputer and sidebar/network_tree.rs). To merge pass-6 and pass-7, which carry pass-4's, this branch keeps network-like-windows' (SIDE-035, from the job that owns Network and checked it against real Samba) and reverts 5cb3a27c in its own labeled commit. pass-4's own computer tests (nav_pane.rs) leave with it. Keep that choice, or should pass-4's version win?
+NOTE: Fixed on Home (with "Open Quick access on Home" on): Recent and Favorites rows now act on their files as in Windows 11's Home: menu with Cut, Copy, Rename, Delete in the strip, Open, Open file location, Add/Remove Favorites, Remove from Recent (Recent rows), Copy as path, Properties, Show more options (classic menu with the same commands); keys Ctrl+C, Ctrl+X, F2 (Rename dialog), Delete (Recycle Bin), Shift+Delete (asks); the command bar's Cut, Copy, Rename and Delete follow a selected row (they stayed grayed out); a click on blank space with either button clears the selection. Remove from Recent takes the file off recently-used.xbel and its row off Recent, the file stays. Any rename in the app now keeps the file in Recent and Favorites (its place kept; files inside a renamed folder too); before, it dropped out of Recent and the favorite pointed at nothing. A Recent file found gone says "Item Not Found" and its row now leaves Recent (it stayed). Quick access tiles drag into a new order (left half before, right half after, blank space at the end), saved as the navigation pane's quickOrder. On Wayland a right-clicked tile or row stayed drawn as pressed after its menu closed; fixed in the shared place menus.
+NOTE: Not changed, checked and working: what goes into Recent (files opened from the app and from other apps through recently-used.xbel appear live; opening from Home moves the file to the top; the desktop's 30-day limit applies; missing files are left out by GVfs); Clear OpenXplorer history empties Recent and keeps Favorites and pins (guard test added, it passed before too); Favorites add/remove; columns Name, Date accessed, File location; search from Home ("Search Home", results "in Home", files found); keyboard (existing tests plus F2, Delete, Ctrl+C on rows); 500 recently used files: Home lists the newest 50, the whole list reads in about 50 ms through GVfs, and 30 changes in a burst cost about 0.15 s of the app's CPU; the Recent files place lists all 500 and follows changes live. Home's Recent list is flat (no Today/Yesterday groups), as the earlier Windows 11 measurements of Home show the first row right under the column titles; date groups exist in grouped folder views, where they follow the day (existing group_day code and tests).
+NOTE: Home's blank-space menu is pass-6-context-menu's (View, Sort by and Group by grayed, Undo/Redo while they can run, Show more options, checked on Windows 11 26200). This branch first added its own, then dropped it in the merge in favor of pass-6's; it keeps only the selection clearing.
+NOTE: Merged network-like-windows (holds pass-1, 2, 5, 8, 9), pass-3-rename, pass-4-nav-pane up to bfde1fb8, then pass-6-context-menu with 5cb3a27c reverted (see QUESTION), and pass-7-views. Conflicts: place_menus.rs (kept both HomeFile and network's Network menu), home_page.rs (kept this branch's place-menu path, which already has pass-6's kept-popover crash fix), sidebar/menu.rs imports, features.toml HOME-014 (network's wording plus HOME-036), apps/web/public/assets/markdown.json (regenerated with tools/sync-docs.py from the merged docs.json, which also refreshed docs/interface.md and docs/network-shares.md and their downloadable copies); .pot regenerated; no .po touched.
+NOTE: Nothing security-related found.
+PASS test-first, real XTEST clicks, keys and drags (window/tests/home_recent.rs): a_recent_rows_menu_has_the_file_commands_and_remove_from_recent (strip was empty), remove_from_recent_drops_the_row_and_keeps_the_file, delete_on_a_recent_row_recycles_the_file_and_drops_the_row, f2_on_a_recent_row_renames_the_file_and_recent_follows_it, ctrl_c_on_a_recent_row_copies_the_file, the_command_bar_acts_on_the_selected_row, a_tile_dragged_onto_another_moves_there: each failed before its fix and passes after
+PASS a_recent_file_found_gone_leaves_recent: passed once by timing before the fix; with the list allowed to settle it fails without the fix (checked by disabling it) and passes with it
+PASS a_right_click_on_blank_space_clears_the_selection (written after the merge took pass-6's blank-space menu; the selection clearing is this branch's)
+PASS guards that passed before any change: clearing_history_empties_recent_and_keeps_favorites; a_right_clicked_row_is_not_left_drawn_as_pressed (Xvfb cannot show the Wayland bug)
+PASS Wayland pressed look: real right-click, Escape, click on blank space with xdotool in Weston nested on the private Xvfb: the row stayed drawn as pressed before the fix, not after (screenshots in chat)
+PASS ox-core a_renamed_favorite_keeps_its_place_under_its_new_name (no move_favorites before)
+PASS real input on the built app (xdotool, private Xvfb and Weston, unprivileged user, throwaway HOME, mp3, mp4, pdf, jpg, docx, odt, zip, 7z, broken pdf and mp4, odd and Unicode names, 2 GB sparse file): Home listed, external recently-used.xbel additions appear live, opening from Home records and moves to top, missing and over-30-day files left out, Item Not Found for a file deleted elsewhere, 500 recent files, Recent files place with 500, search from Home, new row menus and command bar; captures 1x light and dark kept in chat; no CRITICAL, Bail out, panic or signal in the app's stderr
+PASS after all merges: Home tests 40/40 (home_page and home_recent), page_menus 5/5
+PASS full run at 242eea81 plus the stylesheet test fix, every test executable isolated with check.py's run_isolated as an unprivileged user, Python app from v2.0.0 provided: 5,091 passed / 30 failed; 27 admin_copy/admin_delete::parent_path (root-owned checkout) and python_fixture_matches_desktop_core_py and fuse_export_paths_match_native_opening_py fail identically by name on unchanged main 5d21fd3e built here; the 30th, theme::stylesheets focus_rings_sit_on_controls_and_items_not_around_the_file_list, passes on main and failed from pass-3-rename's aa60ccd6 (its CSS added :not(.renaming), its test was not updated; fails on pass-3's tip too); test updated in 286352f0, stylesheets 12/12 pass. No Bail out, CRITICAL or signal in any log
+PASS check.py's inventory, driver and icon-guard steps (parity unit tests, parity/check.py, i18n check, tools tests, icon guard); rustfmt --check; tools/sync-docs.py --check; tools/audit-public-data.py (no issues)
+PASS Clippy -D warnings with Rust 1.97, allowing only duration_suboptimal_units, map_unwrap_or and decimal_bitwise_operands, which fail in untouched files on unchanged main too
+FAIL check.py end to end: stops at Clippy on unchanged main too with this toolchain (above), so tests ran per executable; doctests not run
+NOT TESTED: Orca; translations of the two new strings (Remove from Recent; Could not remove from Recent: {error}); a share's file in Recent (no network here); rename in place (not built)
+
+VM CHECK
+Use File Explorer's Home in the Windows 11 VM, with a few recently opened files. None of these is on a Microsoft page.
+
+1. Remove from Recent
+   Steps: Home > Recent, right-click a file.
+   Look for: the exact wording ("Remove from Recent"?), which icons are in the top strip (this branch: Cut, Copy, Rename, Delete; is Share there?), and the order of the other rows. After choosing it, the file should stay on disk and leave the list.
+
+2. Delete and Rename from Recent
+   Steps: Home > Recent, click a file, press Delete; on another file press F2.
+   Look for: Delete moves the real file to the Recycle Bin and the row disappears (this branch does that). F2: does Windows rename in place in the row? (this branch opens the Rename dialog). After a rename, is the file still in Recent under its new name? (this branch: yes, and in Favorites too).
+
+3. Command bar on Home
+   Steps: Home > Recent, click a file, look at the command bar; click blank space.
+   Look for: Cut, Copy, Rename, Share, Delete enabled with the row selected, grayed out after the click on blank space (this branch: same, without Share).
+
+4. A recent file deleted elsewhere
+   Steps: Open a .txt from Documents in Notepad, close it, delete it in another Explorer window, go back to Home (no F5).
+   Look for: whether the row is still listed, and what opening it says. This branch keeps the row until Home is drawn again or the file is opened ("Item Not Found"), then drops it.
+
+5. Reordering Quick access tiles
+   Steps: Home, drag the Pictures tile onto the right half of the Downloads tile.
+   Look for: whether Windows reorders the tiles (and the navigation pane) and draws an insertion mark while dragging. This branch reorders both, without a mark.
+
+6. Favorites order
+   Steps: Add three files to Favorites one after another (right-click > Add to favorites), open Home > Favorites.
+   Look for: newest first or oldest first. This branch lists them in the order added, oldest first.
+
+7. How many files Recent shows
+   Steps: Open 30 or more different files, then look at Home > Recent.
+   Look for: how many rows Windows lists (this branch: up to 50), and whether any Today / Yesterday / Earlier headings appear (this branch: none).
+
+8. Classic menu near the bottom
+   Steps: Make the window short, right-click the last Recent row > Show more options.
+   Look for: whether the classic menu opens upward to fit. This branch's runs off the bottom of the screen.
