@@ -37,10 +37,11 @@ PASS all 87 test binaries at 9e992f6a via check.py's run_isolated as an unprivil
   one earlier ox-app run also failed home_has_no_band_under_the_titles_and_its_tiles_do_not_touch once (flaky: passes alone 3/3 and in the other two full runs)
 PASS all 87 test binaries at 77ae92d6, same way: 4,996 passed, 4 failed (the same 4 as above)
 PASS ox-app thumbnails and decoder tests at HEAD 9f5546de (spelling only since 77ae92d6), rustfmt and Clippy -D warnings
+PASS tumbler 4.18.1 (installed here, D-Bus activated on a private session bus with the throwaway HOME): GetFlavors lists xx-large, x-large, large, normal; at 1x Large icons it makes normal and at 2x Extra large icons x-large (512 px) thumbnails of 6 photos and an MP4, the app shows them all, and on the next launch reads all 7 from the cache without asking tumbler again; tumbler's Thumb::MTime has microseconds (1795342906.979486), which the app reads to the second
 PASS 2x scale by hand (GDK_SCALE=2, Xvfb, unprivileged user): Large icons write large entries, Extra large icons write x-large (512 x 341) entries
 PASS doctests; check.py through parity tests, parity/check.py, i18n, driver tests, drawn-icon guard, rustfmt, Clippy -D warnings (Rust 1.92.0 as CI); parity/check.py alone; sync-docs --check; audit-public-data on the changed docs
 FAIL none of this branch's
-NOT TESTED: tumbler (no thumbnailer service in this container: the service path, GetFlavors and x-large there); KDE/Dolphin reading the app's entries; a real reboot (page-cache drop used instead)
+NOT TESTED: KDE/Dolphin reading the app's entries; a real reboot (page-cache drop used instead)
 
 VM CHECK:
 - Open a folder of a few hundred photos in Large icons, close the app, open it again: every visible tile should show its photo within a blink, never its type icon first

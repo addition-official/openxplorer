@@ -61,7 +61,6 @@ The two builds were run by turns, 3 times each, in the same hour. Earlier sets t
 
 - Whether Windows 11 File Explorer draws a cached folder's thumbnails on its first frame after a restart, or shows blank tiles or icons first.
 - The default of GNOME's thumbnail housekeeping (`org.gnome.desktop.thumbnail-cache` `maximum-age`, 180 days) on Zorin OS 17/18.
-- Whether tumbler on XFCE lists `x-large` in `GetFlavors`. Without it, the app makes x-large thumbnails itself or with the desktop's thumbnailers.
 - That Dolphin finds the app's entries valid. GIO, and so Files, does: `gio info` reports `thumbnail::is-valid: TRUE` for the app's entries, and FALSE once the file changes.
 
 ## Question
@@ -83,6 +82,7 @@ Thumbnails of files that were deleted or sent to the Recycle Bin stay in the cac
 - **Other checks:** `check.py` up to the Rust tests (the parity tests and `parity/check.py`, i18n, the driver tests, the drawn-icon guard, rustfmt and Clippy with `-D warnings` on Rust 1.92.0) passes, and `parity/check.py` passes alone. `tools/sync-docs.py --check` passes after regenerating the guides from `docs.json`.
 - **Benchmark:** the table above (`thumbnail-bench.py --scroll`).
 - **Interop:** the release build was run by hand on a private Xvfb display as an unprivileged user with a throwaway HOME, then `gio info` was checked on its entries (0600 files in 0700 folders, with all four keys).
+- **Tumbler 4.18.1**, D-Bus activated on a private session bus with the throwaway HOME. `GetFlavors` lists all four sizes. At 1x Large icons it makes `normal` thumbnails, and at 2x Extra large icons `x-large` ones (512 px), of 6 photos and an MP4. The app shows them all, and on the next launch reads all 7 from the cache without asking tumbler again. Tumbler writes `Thumb::MTime` with microseconds (`1795342906.979486`), which the app reads to the second.
 - **2x scale by hand** (`GDK_SCALE=2`): Large icons write `large` entries, and Extra large icons write 512 × 341 `x-large` entries.
 - The website's pictures of the app were not changed, and no website build was run.
 
