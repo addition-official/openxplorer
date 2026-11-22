@@ -545,6 +545,10 @@ msgstr ""
 msgid "The '{label}' device can now be safely removed from the computer."
 msgstr ""
 
+#: crates/ox-app/src/devices.rs
+msgid "This device is currently in use. Close any programs or windows that might be using the device, and then try again."
+msgstr ""
+
 #: crates/ox-app/src/dialog/fields.rs crates/ox-core/src/format.rs
 msgid "Not provided"
 msgstr ""
@@ -643,7 +647,7 @@ msgstr ""
 msgid "Specify the drive letter for the connection and the folder that you want to connect to:"
 msgstr ""
 
-#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/drive_tab.rs crates/ox-app/src/properties/general_tab.rs crates/ox-app/src/properties/security_tab/advanced.rs crates/ox-app/src/properties/selection_view.rs crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-core/src/grouping.rs
+#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/properties/drive_tab.rs crates/ox-app/src/properties/general_tab.rs crates/ox-app/src/properties/security_tab/advanced.rs crates/ox-app/src/properties/selection_view.rs crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-core/src/grouping.rs
 msgid "Type"
 msgstr ""
 
@@ -983,7 +987,7 @@ msgstr ""
 msgid "Date modified"
 msgstr ""
 
-#: crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs
+#: crates/ox-app/src/folder_view/sorting.rs
 msgid "Folder path"
 msgstr ""
 
@@ -1626,6 +1630,10 @@ msgstr ""
 msgid "Composers"
 msgstr ""
 
+#: crates/ox-app/src/properties/details_rows.rs crates/ox-core/src/entry/classify.rs
+msgid "Computer"
+msgstr ""
+
 #: crates/ox-app/src/properties/details_rows.rs
 msgid "Conductors"
 msgstr ""
@@ -1686,6 +1694,10 @@ msgstr ""
 msgid "File"
 msgstr ""
 
+#: crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-app/src/window/home_page.rs
+msgid "File location"
+msgstr ""
+
 #: crates/ox-app/src/properties/details_rows.rs
 msgid "Flash"
 msgstr ""
@@ -1741,10 +1753,6 @@ msgstr ""
 
 #: crates/ox-app/src/properties/details_rows.rs
 msgid "Image"
-msgstr ""
-
-#: crates/ox-app/src/properties/details_rows.rs
-msgid "Item type"
 msgstr ""
 
 #: crates/ox-app/src/properties/details_rows.rs
@@ -1901,6 +1909,11 @@ msgstr[1] ""
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/properties/details_rows.rs
 msgid "{flash}, red-eye reduction"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/properties/details_rows.rs
+msgid "{name} (this PC)"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -5507,6 +5520,11 @@ msgstr ""
 msgid "Duplicate"
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/context_menu/entries.rs
+msgid "Edit in {name}"
+msgstr ""
+
 #: crates/ox-app/src/window/context_menu/entries.rs
 msgid "Extract here"
 msgstr ""
@@ -5651,10 +5669,6 @@ msgstr ""
 
 #: crates/ox-app/src/window/desktop_link.rs
 msgid "This link points to an address OpenXplorer cannot open."
-msgstr ""
-
-#: crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-app/src/window/home_page.rs
-msgid "File location"
 msgstr ""
 
 #: crates/ox-app/src/window/details_pane/content.rs
@@ -6615,6 +6629,10 @@ msgstr ""
 
 #: crates/ox-app/src/window/folder_size_scan.rs
 msgid "Select a folder or share to calculate its size."
+msgstr ""
+
+#: crates/ox-app/src/window/folder_tree/menu.rs
+msgid "Expand to open folder"
 msgstr ""
 
 #: crates/ox-app/src/window/folder_tree/menu.rs
@@ -7596,6 +7614,10 @@ msgstr ""
 msgid "Show all entries"
 msgstr ""
 
+#: crates/ox-app/src/window/sidebar/menu.rs
+msgid "Show all folders"
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/sidebar/menu.rs
 msgid "{verb} section “{name}”"
@@ -8572,10 +8594,6 @@ msgstr ""
 
 #: crates/ox-core/src/clipboard/pasted.rs
 msgid "The picture on the clipboard is too large to paste."
-msgstr ""
-
-#: crates/ox-core/src/entry/classify.rs
-msgid "Computer"
 msgstr ""
 
 #: crates/ox-core/src/entry/classify.rs
@@ -9717,6 +9735,11 @@ msgstr ""
 msgid "Undo can only rename an item back within its own folder."
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-core/src/ops/rename.rs
+msgid "You don't have permission to rename “{name}” here."
+msgstr ""
+
 #: crates/ox-core/src/ops/report.rs
 msgid "Operation stopped"
 msgstr ""
@@ -9912,6 +9935,11 @@ msgstr ""
 
 #: crates/ox-core/src/ops/undo.rs
 msgid "Undo Restore"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-core/src/ops/undo_apply.rs
+msgid "An item named “{name}” is already in “{folder}”, so Undo left it in “{left_in}”."
 msgstr ""
 
 #: crates/ox-core/src/ops/unfinished.rs
@@ -10301,6 +10329,11 @@ msgstr ""
 
 #: crates/ox-core/src/transfer/engine.rs
 msgid "Only copies and moves can rename an item."
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-core/src/transfer/engine.rs
+msgid "The copy at {uri} could not be written to its drive, so the original was kept. {error}"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.

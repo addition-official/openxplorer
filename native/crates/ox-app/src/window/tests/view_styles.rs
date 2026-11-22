@@ -942,6 +942,80 @@ fn the_compact_view_places_items_down_columns() {
     assert!(adjustment.value() > 0.0);
 }
 
+/// Small icons (Ctrl+Shift+4) as Windows 11 lays them out (checked in
+/// the Windows 11 VM, build 26200): a 16-pixel icon left of each name,
+/// items filling rows left to right in columns about 310 pixels apart at
+/// 100%, the view scrolling down. A name wider than its column is cut.
+///
+/// parity: VIEW-005, VIEW-010
+#[gtk::test]
+fn small_icons_put_the_icon_left_of_each_name_across_rows() {
+    let fixture = Fixture::with_files(150);
+    fixture.write("Budget 2026 (2).txt");
+    fixture.write("Annual harbor survey with every appendix and the long correspondence.txt");
+    let test = TestWindow::open(&fixture.uri());
+    let pane = test.window.folder_pane();
+    let cell = |position| {
+        pane.owners()
+            .file_cell_at(position, &pane.view_widget())
+            .expect("a realized item")
+    };
+    test.activate("view", Some("small"));
+    wait_for_frames(&test.window, 4);
+    let view = pane.view_widget();
+    let first = cell(0);
+    let bounds = first.compute_bounds(&view).expect("bounds");
+    let next = cell(1).compute_bounds(&view).expect("bounds");
+    assert!(
+        (bounds.y() - next.y()).abs() < 1.0,
+        "the next item is beside it, on the same row"
+    );
+    let small = next.x() - bounds.x();
+    assert!(
+        (305.0..=315.0).contains(&small),
+        "Small icons' columns are about 310 pixels apart: {small}"
+    );
+    let columns = pane.icon_view().grid().max_columns();
+    assert!(columns >= 2, "several columns across");
+    let below = cell(columns).compute_bounds(&view).expect("bounds");
+    assert!(
+        (below.x() - bounds.x()).abs() < 1.0,
+        "the next row starts under the first item"
+    );
+    assert!(below.y() > bounds.y());
+    assert!(bounds.height() < 30.0, "one line per item: {}", bounds.height());
+    let (icon, name) = first.icon_and_name();
+    let icon = icon.compute_bounds(&first).expect("an icon");
+    let name = name.compute_bounds(&first).expect("a name");
+    assert!(
+        (icon.width() - 16.0).abs() < 0.5,
+        "a 16-pixel icon: {}",
+        icon.width()
+    );
+    assert!(
+        icon.x() + icon.width() <= name.x(),
+        "the icon is left of the name"
+    );
+    assert!(
+        (icon.y() + icon.height() / 2.0 - (name.y() + name.height() / 2.0)).abs() < 3.0,
+        "the icon and name share a line"
+    );
+    assert!(first.name().starts_with("Annual"));
+    assert!(first.name_is_elided(), "a name wider than the column is cut");
+    let budget = cell(1);
+    assert_eq!(budget.name(), "Budget 2026 (2)");
+    assert!(!budget.name_is_elided(), "Budget 2026 (2) fits whole");
+    let gap = small - bounds.width();
+    assert!((0.0..=6.0).contains(&gap), "a narrow gap between columns: {gap}");
+    let layout = pane.icon_view();
+    assert_eq!(layout.grid().orientation(), gtk::Orientation::Vertical);
+    assert_eq!(
+        layout.scroll_adjustment(),
+        layout.both_scroll_adjustments()[0],
+        "it scrolls down"
+    );
+}
+
 /// A folder expands in place beneath its row, collapses again, and Back
 /// returns to it expanded.
 ///
