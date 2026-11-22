@@ -129,17 +129,19 @@ pub fn suggested_name(location: &ShortcutLocation) -> String {
             || path.display().to_string(),
             |name| name.to_string_lossy().into_owned(),
         ),
+        // Read from the address itself: GVfs' SMB backend names a share's
+        // URI after its server.
         ShortcutLocation::Address(uri) if uri.starts_with("smb:") => {
-            let file = gio::File::for_uri(uri);
-            file.basename()
-                .map(|name| name.to_string_lossy().into_owned())
-                .filter(|name| name != "/" && !name.is_empty())
-                .or_else(|| {
-                    crate::location::split_location(uri)
-                        .ok()
-                        .map(|parts| parts.authority)
-                })
-                .unwrap_or_else(|| uri.clone())
+            let parts = crate::location::split_location(uri).ok();
+            let share = parts.as_ref().and_then(|parts| {
+                let last = parts.path.trim_end_matches('/').rsplit('/').next()?;
+                let name = glib::Uri::unescape_string(last, None::<&str>)?;
+                (!name.is_empty()).then(|| name.to_string())
+            });
+            let server = parts
+                .map(|parts| parts.authority)
+                .filter(|server| !server.is_empty());
+            share.or(server).unwrap_or_else(|| uri.clone())
         }
         ShortcutLocation::Address(_) => crate::i18n::gettext(NEW_INTERNET_SHORTCUT),
     }
