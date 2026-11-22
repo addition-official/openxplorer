@@ -173,3 +173,19 @@ text_preview            8,338,769
 Found and fixed since last update: 0. Not a bug: a 4 KB search query of ~40 nested NOT groups takes 0.3 s under ASan alone (it hit the 2 s limit only while the fuzzers ran at nice 19 beside the tests).
 Checks finished. All 87 test executables and the doctests ran through check.py's run_isolated with Rust 1.92.0: 82 passed as tester; ox_core's library tests passed as tester once its folder was no longer world-writable (my own setup had made it so; the 24 parent-path tests then pass) and its one root-only failure (an unreadable fstab is readable to root) passes as tester; doctests passed. Failing, and failing the same way on upstream main 5d21fd3e built the same way: integration_file_chooser (GLib critical made fatal), location_fixture_drift and network_python (Python 3.13 here vs the system's 3.12 gi), and ox_app's settings_page::tests::every_preference_switch_saves_persists_and_turns_back_exactly (2,642 of 2,643 pass).
 Fuzzers back at normal priority; the extraction targets now also check Extract here's lift of a lone folder.
+
+== 2026-11-22 03:30 CST ==
+Executions so far (all runs):
+app_protocols             421,336
+archive_extract         2,573,845
+archive_fixup             819,013
+archive_list           10,651,340
+archive_zipgen          1,119,022
+core_formats            8,850,616
+core_text              13,954,436
+media_details          66,761,116
+media_streams               8,968
+picture_decode          6,526,446
+picture_headers        13,773,668
+text_preview           12,225,257
+Found since last update: 0. Running: archive_list, archive_extract, archive_fixup, archive_zipgen (all with the lift check), picture_decode (now also as thumbnail cache files), picture_headers, media_details, text_preview.
