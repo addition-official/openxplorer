@@ -12,15 +12,16 @@
 //! | Another program holds it | File In Use (Folder …) | The action can't be completed because the file is open in another program · Close the file and try again. | Try Again · Skip · Cancel |
 //! | It is gone | Item Not Found | Could not find this item · This is no longer located in <folder>. Verify the item's location and try again. | Try Again · Skip · Cancel |
 //! | A folder would go into a folder inside it | Interrupted Action | The destination folder is a subfolder of the source folder. | Skip · Cancel |
-//! | Anything else | Interrupted Action | An unexpected error is keeping you from copying the file. … · the system's error | Try Again · Skip · Cancel |
+//! | Anything else | Interrupted Action | An unexpected error is keeping you from copying the file. … · Error 0x8007048F: The device is not connected. | Try Again · Skip · Cancel |
 //! | Something to sort out by hand, such as a kept backup | Interrupted Action | An unexpected error is keeping you from copying the file. … · what happened and where | OK, shown after Cancel too |
 //!
 //! Each names the item as Windows does: its icon and name, then its Type,
 //! Size and Date modified (a folder's Date created; for the destination
 //! folder, the folder's). "Do this for all current items", shown while
 //! other items remain, makes Skip skip, and Continue continue, every later
-//! item without asking. The system's own words are kept only for the
-//! unexpected error, as Windows shows its error text there. The progress
+//! item without asking. The system's error is shown only for the
+//! unexpected error, as Windows shows it there: its error code line, in
+//! Windows' words ([`SystemError::code_line`]). The progress
 //! window's More details shows where the item is and where it was going.
 //!
 //! Continue, with the administrator shield "Open as administrator" shows,
@@ -60,6 +61,7 @@ use ox_core::format;
 use ox_core::i18n::{format_message, gettext};
 use ox_core::location::parent_location;
 use ox_core::ops::{permanent_delete_confirmation, DeleteSubject, FailureAsker};
+use ox_core::system_error::SystemError;
 use ox_core::transfer::{Cancellation, FailedItem, FailureAnswer, FailureCause, TransferMode};
 
 use super::worker_question::worker_question;
@@ -169,7 +171,7 @@ fn wording(question: Question, item: &FailedItem, is_folder: bool, folder: &str)
         Question::Unexpected => (
             gettext("Interrupted Action"),
             unexpected_heading(item.mode, is_folder),
-            item.error.clone(),
+            error_code_line(&item.error),
         ),
     };
     Wording {
@@ -177,6 +179,17 @@ fn wording(question: Question, item: &FailedItem, is_folder: bool, folder: &str)
         heading,
         message,
     }
+}
+
+/// The line under "An unexpected error…": Windows' error code line
+/// ("Error 0x8007048F: The device is not connected.") for an error the
+/// system reported, or `error` itself, a message of the app's own that has
+/// no code.
+fn error_code_line(error: &str) -> String {
+    // The item is named above the line, so a path the error names is left
+    // out of it.
+    let sentence = error.rsplit_once(": ").map_or(error, |(_, sentence)| sentence);
+    SystemError::from_sentence(sentence).map_or_else(|| error.to_owned(), SystemError::code_line)
 }
 
 /// "An unexpected error is keeping you from copying the file. …", by what
@@ -674,7 +687,7 @@ mod tests {
         FailedItem {
             mode,
             name: "Reports/2026/plan.docx".into(),
-            error: "Input/output error".into(),
+            error: "The request could not be performed because of an I/O device error.".into(),
             more_items: true,
             cause,
             uri: "file:///home/sample/Reports/2026/plan.docx".into(),
@@ -766,7 +779,33 @@ mod tests {
         assert!(unexpected
             .heading
             .starts_with("An unexpected error is keeping you from copying the file."));
-        assert_eq!(unexpected.message, "Input/output error");
+        assert_eq!(
+            unexpected.message,
+            "Error 0x8007045D: The request could not be performed because of an I/O device error."
+        );
+    }
+
+    /// The unexpected error's line is Windows' error code line, for an
+    /// error the engine read from the system; a message of the app's own,
+    /// which has no code, is shown as it is.
+    ///
+    /// parity: OPS-047
+    #[test]
+    fn an_unexpected_error_shows_its_error_code() {
+        let pulled = ox_core::transfer::TransferError::from(gtk::glib::Error::new(
+            gio::IOErrorEnum::Failed,
+            "Error splicing file: Transport endpoint is not connected",
+        ));
+        let mut failed = item(TransferMode::Copy, FailureCause::Other);
+        failed.error = pulled.to_string();
+        let said = wording(Question::Unexpected, &failed, false, "");
+        assert_eq!(said.message, "Error 0x8007048F: The device is not connected.");
+        failed.error = "/media/sample/USB/plan.docx: The device is not connected.".into();
+        let said = wording(Question::Unexpected, &failed, false, "");
+        assert_eq!(said.message, "Error 0x8007048F: The device is not connected.");
+        failed.error = "Incomplete staging folder left at /media/sample/USB. Inspect it before removing it.".into();
+        let said = wording(Question::Unexpected, &failed, false, "");
+        assert_eq!(said.message, failed.error);
     }
 
     /// A full drive says how much the item needs and what to do, as

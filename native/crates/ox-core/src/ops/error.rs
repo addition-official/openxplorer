@@ -3,11 +3,13 @@
 //!
 //! Ports `error_payload` in `v2.0.0:desktop/gio_backend.py` for the operations of
 //! this module: every failure carries the message the user sees and maps to
-//! the code the Python bridge reported (OPS-037). GIO, transfer, location
+//! the code the Python bridge reported (OPS-037). A GIO or local I/O error
+//! says what Windows says for it ([`SystemError`](crate::system_error::SystemError)), never GIO's message. GIO, transfer, location
 //! and local I/O errors convert with `?`, so each operation reports the
 //! first failure in the wording of the layer that refused it.
 
 use crate::location::LocationError;
+use crate::system_error::{describe, describe_io};
 use crate::transfer::TransferError;
 
 /// Why a file operation was refused or failed. `Display` is the message
@@ -102,7 +104,7 @@ impl From<TransferError> for OpsError {
 /// user's cancellation.
 impl From<glib::Error> for OpsError {
     fn from(error: glib::Error) -> Self {
-        let message = error.message().to_owned();
+        let message = describe(&error);
         match error.kind::<gio::IOErrorEnum>() {
             Some(gio::IOErrorEnum::Cancelled) => OpsError::Cancelled,
             Some(gio::IOErrorEnum::NotMounted) => OpsError::NotMounted(message),
@@ -128,7 +130,7 @@ impl From<LocationError> for OpsError {
 /// `FileExistsError` and `PermissionError` have in Python.
 impl From<std::io::Error> for OpsError {
     fn from(error: std::io::Error) -> Self {
-        let message = error.to_string();
+        let message = describe_io(&error);
         match error.kind() {
             std::io::ErrorKind::NotFound => OpsError::NotFound(message),
             std::io::ErrorKind::AlreadyExists => OpsError::Exists(message),
@@ -257,7 +259,8 @@ mod tests {
     }
 
     /// A write to a drive mounted read-only shows the system's own error,
-    /// from GIO and from local I/O alike, as Windows Explorer does.
+    /// from GIO and from local I/O alike, in Windows' words, as Windows
+    /// Explorer does.
     ///
     /// parity: DEV-015
     #[test]
@@ -266,10 +269,27 @@ mod tests {
             gio::IOErrorEnum::ReadOnly,
             "Read-only file system",
         ));
-        let read_only = std::io::Error::from_raw_os_error(30);
-        let expected = read_only.to_string();
-        let from_io = OpsError::from(read_only);
-        assert_eq!(from_gio.to_string(), "Read-only file system");
-        assert_eq!(from_io.to_string(), expected);
+        let from_io = OpsError::from(std::io::Error::from_raw_os_error(30));
+        assert_eq!(from_gio.to_string(), "The media is write protected.");
+        assert_eq!(from_io.to_string(), "The media is write protected.");
+    }
+
+    /// GIO's message never reaches the user: the error says what Windows
+    /// says for the same failure, after the path of the item GIO named.
+    #[test]
+    fn gio_messages_read_as_the_windows_error() {
+        let cases = [
+            (gio::IOErrorEnum::PermissionDenied, "Error opening file “/home/ada/a.txt”: Permission denied", "/home/ada/a.txt: Access is denied."),
+            (gio::IOErrorEnum::NotFound, "Error when getting information for file “/home/ada/a.txt”: No such file or directory", "/home/ada/a.txt: The system cannot find the file specified."),
+            (gio::IOErrorEnum::NoSpace, "Error writing to file: No space left on device", "There is not enough space on the disk."),
+            (gio::IOErrorEnum::Failed, "Error splicing file: Input/output error", "The request could not be performed because of an I/O device error."),
+            (gio::IOErrorEnum::FilenameTooLong, "Error renaming file “/home/ada/x”: File name too long", "/home/ada/x: The filename or extension is too long."),
+        ];
+        for (kind, gio_message, expected) in cases {
+            let error = OpsError::from(glib::Error::new(kind, gio_message));
+            assert_eq!(error.to_string(), expected, "{gio_message}");
+        }
+        let local = OpsError::from(std::io::Error::from_raw_os_error(13));
+        assert_eq!(local.to_string(), "Access is denied.");
     }
 }
