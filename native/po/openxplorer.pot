@@ -1491,7 +1491,7 @@ msgstr ""
 msgid "Sharing"
 msgstr ""
 
-#: crates/ox-app/src/properties.rs crates/ox-app/src/window/command_bar/menus.rs crates/ox-core/src/entry/type_label.rs
+#: crates/ox-app/src/properties.rs crates/ox-app/src/window/command_bar/menus.rs crates/ox-app/src/window/send_to.rs crates/ox-core/src/entry/type_label.rs
 msgid "Shortcut"
 msgstr ""
 
@@ -4886,7 +4886,7 @@ msgstr ""
 msgid "This item is not a regular file or a readable folder."
 msgstr ""
 
-#: crates/ox-app/src/window/activation/broken_shortcut.rs crates/ox-app/src/window/file_ops/delete.rs crates/ox-app/src/window/file_ops/extension_confirm.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/file_ops/rename_conflict.rs crates/ox-app/src/window/folder_options.rs crates/ox-app/src/window/picker.rs
+#: crates/ox-app/src/window/activation/broken_shortcut.rs crates/ox-app/src/window/file_ops/delete.rs crates/ox-app/src/window/file_ops/extension_confirm.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/file_ops/rename_conflict.rs crates/ox-app/src/window/folder_options.rs crates/ox-app/src/window/picker.rs crates/ox-app/src/window/send_to.rs
 msgid "No"
 msgstr ""
 
@@ -4904,7 +4904,7 @@ msgstr ""
 msgid "The item ‘{name}’ that this shortcut refers to has been changed or moved, so this shortcut will no longer work properly.\n\nDo you want to delete this shortcut?"
 msgstr ""
 
-#: crates/ox-app/src/window/activation/broken_shortcut.rs crates/ox-app/src/window/file_ops/delete.rs crates/ox-app/src/window/file_ops/extension_confirm.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/file_ops/rename_conflict.rs crates/ox-app/src/window/folder_options.rs crates/ox-app/src/window/picker.rs
+#: crates/ox-app/src/window/activation/broken_shortcut.rs crates/ox-app/src/window/file_ops/delete.rs crates/ox-app/src/window/file_ops/extension_confirm.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/file_ops/rename_conflict.rs crates/ox-app/src/window/folder_options.rs crates/ox-app/src/window/picker.rs crates/ox-app/src/window/send_to.rs
 msgid "Yes"
 msgstr ""
 
@@ -7299,6 +7299,10 @@ msgstr ""
 
 #: crates/ox-app/src/window/send_to.rs
 msgid "Only files on this computer or on a mounted share can be sent by Bluetooth."
+msgstr ""
+
+#: crates/ox-app/src/window/send_to.rs
+msgid "OpenXplorer can’t create a shortcut here.\n\nDo you want the shortcut to be placed on the desktop instead?"
 msgstr ""
 
 #: crates/ox-app/src/window/send_to.rs
