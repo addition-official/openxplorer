@@ -2,7 +2,7 @@
 //! One entry per visible application for Open with, and the code-editor
 //! shortcuts. Ports `CatalogTests` of `v2.0.0:desktop/tests/test_v06.py`.
 
-use ox_core::integration::{editor_shortcuts, unique_applications};
+use ox_core::integration::{default_text_editor, editor_shortcuts, unique_applications, ApplicationInfo};
 
 use super::{app, TestApplication, OWN_ID};
 
@@ -142,4 +142,77 @@ fn applications_are_listed_by_name() {
     );
 
     assert_eq!(ids(&offered), ["m.desktop", "z.desktop", "a.desktop"]);
+}
+
+/// An application with the desktop file's `Categories`.
+struct Categorized(TestApplication, &'static str);
+
+impl ApplicationInfo for Categorized {
+    fn id(&self) -> Option<String> {
+        self.0.id()
+    }
+
+    fn display_name(&self) -> String {
+        self.0.display_name()
+    }
+
+    fn should_show(&self) -> bool {
+        self.0.should_show()
+    }
+
+    fn supports_files(&self) -> bool {
+        self.0.supports_files()
+    }
+
+    fn supports_uris(&self) -> bool {
+        self.0.supports_uris()
+    }
+
+    fn categories(&self) -> Option<String> {
+        Some(self.1.to_owned())
+    }
+}
+
+/// "Edit in <editor>" names the default text editor, as Windows names
+/// Notepad for a .txt whatever opens it: the default application for
+/// plain text when it is a text editor, else the first text editor among
+/// the others. A word processor that opens .txt files is no text editor,
+/// and the app itself is never offered.
+///
+/// parity: OPEN-015
+#[test]
+fn the_default_text_editor_is_a_text_editor_even_when_a_word_processor_opens_text() {
+    let writer = || {
+        Categorized(
+            app("fictional-writer.desktop", "Fictional Writer"),
+            "Office;WordProcessor;",
+        )
+    };
+    let editor = || {
+        Categorized(
+            app("fictional-editor.desktop", "Fictional Editor"),
+            "Utility;TextEditor;",
+        )
+    };
+    let other = || {
+        Categorized(
+            app("other-editor.desktop", "Other Editor"),
+            "Development;TextEditor;",
+        )
+    };
+    let own = || Categorized(app(OWN_ID, "OpenXplorer"), "Utility;TextEditor;");
+
+    let chosen = default_text_editor(Some(writer()), [own(), writer(), editor(), other()]);
+    let chosen = chosen.expect("a text editor");
+    assert_eq!(chosen.id, "fictional-editor.desktop");
+    assert_eq!(chosen.name, "Fictional Editor");
+
+    let chosen = default_text_editor(Some(other()), [editor(), other()]);
+    assert_eq!(
+        chosen.map(|editor| editor.id).as_deref(),
+        Some("other-editor.desktop")
+    );
+
+    assert!(default_text_editor(Some(writer()), [writer()]).is_none());
+    assert!(default_text_editor(None::<Categorized>, []).is_none());
 }

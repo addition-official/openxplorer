@@ -212,6 +212,7 @@ impl BrowserWindow {
             None => self.default_sidebar_width(),
         };
         workspace.set_position(start);
+        self.remember_wanted_sidebar_width();
         self.save_sidebar_width_after_drags();
         self.keep_sidebar_within_limit();
         self.reset_sidebar_on_double_click();
@@ -304,7 +305,62 @@ impl BrowserWindow {
             return;
         }
         let wanted = self.default_sidebar_width();
-        workspace.set_position(wanted.min(limit));
+        // The new default is what the sidebar takes back when the window
+        // is wide enough.
+        self.imp().sidebar_wanted.set(Some(wanted));
+        self.set_fitted_sidebar_position(wanted.min(limit));
+    }
+
+    /// Notes every width the sidebar is given, by a drag, the keyboard or
+    /// a reset, as the one to show while there is room, except the
+    /// window's own fits to its width.
+    fn remember_wanted_sidebar_width(&self) {
+        self.imp().sidebar_wanted.set(Some(self.workspace().position()));
+        self.workspace().connect_position_notify(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |workspace| {
+                if !window.imp().fitting_sidebar.get() {
+                    window.imp().sidebar_wanted.set(Some(workspace.position()));
+                }
+            }
+        ));
+    }
+
+    /// Moves the sidebar to `position` to fit the window, without taking
+    /// it for the width wanted.
+    fn set_fitted_sidebar_position(&self, position: i32) {
+        let imp = self.imp();
+        imp.fitting_sidebar.set(true);
+        self.workspace().set_position(position);
+        imp.fitting_sidebar.set(false);
+    }
+
+    /// Narrows the sidebar to leave the folder pane its room in a window
+    /// that narrowed, and widens it back to the width wanted as the window
+    /// widens, as Windows' navigation pane gives way to the files; nothing
+    /// is saved. Runs after the allocation under way, as moving the pane
+    /// during one would start it again.
+    pub(super) fn fit_sidebar_to_window(&self) {
+        let imp = self.imp();
+        if imp.sidebar_fit_pending.replace(true) {
+            return;
+        }
+        glib::idle_add_local_once(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move || {
+                window.imp().sidebar_fit_pending.set(false);
+                let (Some(wanted), Some(limit)) = (window.imp().sidebar_wanted.get(), window.sidebar_limit())
+                else {
+                    return;
+                };
+                let fitted = wanted.min(limit);
+                if window.workspace().position() != fitted {
+                    window.set_fitted_sidebar_position(fitted);
+                }
+            }
+        ));
     }
 
     /// Shows the default sidebar and the columns' default widths, without
@@ -365,32 +421,41 @@ impl BrowserWindow {
     }
 
     /// Saves the sidebar width when the user finishes dragging it, never
-    /// for the window's own layout changes.
+    /// for the window's own layout changes. It watches the button itself:
+    /// `GtkPaned` claims the press on its handle, which cancels any
+    /// gesture of ours before the edge has moved, so a gesture's end never
+    /// saw a drag.
     fn save_sidebar_width_after_drags(&self) {
         let workspace = self.workspace();
-        let drag = gtk::GestureDrag::new();
-        drag.set_propagation_phase(gtk::PropagationPhase::Capture);
-        // Where the drag started, shared by its begin and end handlers.
-        let start = Rc::new(Cell::new(0));
-        drag.connect_drag_begin(glib::clone!(
-            #[strong]
-            start,
-            #[weak(rename_to = paned)]
-            workspace,
-            move |_, _, _| start.set(paned.position())
-        ));
-        drag.connect_drag_end(glib::clone!(
+        let buttons = gtk::EventControllerLegacy::new();
+        buttons.set_propagation_phase(gtk::PropagationPhase::Capture);
+        // Where the handle was when the primary button went down.
+        let start: Rc<Cell<Option<i32>>> = Rc::default();
+        buttons.connect_event(glib::clone!(
             #[weak(rename_to = window)]
             self,
             #[weak(rename_to = paned)]
             workspace,
-            move |_, _, _| {
-                if paned.position() != start.get() {
-                    window.save_preference(Preference::SidebarWidth(paned.position()));
+            #[upgrade_or]
+            glib::Propagation::Proceed,
+            move |_, event| {
+                let is_primary = event
+                    .downcast_ref::<gtk::gdk::ButtonEvent>()
+                    .is_some_and(|button| button.button() == gtk::gdk::BUTTON_PRIMARY);
+                match event.event_type() {
+                    gtk::gdk::EventType::ButtonPress if is_primary => start.set(Some(paned.position())),
+                    gtk::gdk::EventType::ButtonRelease if is_primary => {
+                        let moved = start.take().is_some_and(|from| from != paned.position());
+                        if moved {
+                            window.save_preference(Preference::SidebarWidth(paned.position()));
+                        }
+                    }
+                    _ => {}
                 }
+                glib::Propagation::Proceed
             }
         ));
-        workspace.add_controller(drag);
+        workspace.add_controller(buttons);
     }
 
     /// Saves one preference. A failure leaves the change in this window and
