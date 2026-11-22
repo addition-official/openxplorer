@@ -68,6 +68,12 @@ const COMPACT_ICON_GAP: i32 = 6;
 /// Compact view caps its columns the same way).
 const COMPACT_NAME_CHARS: i32 = 28;
 
+/// The narrowest a Small icons item's name asks to be, in characters: its
+/// column's width comes from the stylesheet (`small_icons_rule` in
+/// `theme/fonts.rs`), and the name fills it, ending in an ellipsis only
+/// when it is wider.
+const SMALL_ICONS_NAME_CHARS: i32 = 1;
+
 /// Lines of name a tile shows (`.tile-name{max-height:33px}` at a 1.35
 /// line height).
 const TILE_NAME_LINES: i32 = 2;
@@ -123,6 +129,9 @@ pub(crate) enum CellLayout {
     /// A compact-view item: a small icon left of a name
     /// [`COMPACT_NAME_CHARS`] wide (VIEW-008).
     CompactItem,
+    /// A Small icons item: a 16-pixel icon left of a name that fills its
+    /// column, as Windows 11 draws Small icons.
+    SmallIconItem,
     /// One of Explorer's Tiles: the icon left of three lines, the name,
     /// the type and, for a file, the size (VIEW-071).
     Tile,
@@ -231,6 +240,11 @@ mod imp {
         pub(super) icon_size: Cell<i32>,
         /// The text field in the name's place while the item is renamed.
         pub(super) name_editor: RefCell<Option<gtk::Entry>>,
+        /// The item the cell shows, so binding it again keeps a rename in
+        /// place going.
+        pub(super) bound: glib::WeakRef<crate::folder_view::item::FileItem>,
+        /// The row or tile marked `.renaming` while the name is edited.
+        pub(super) renaming_item: glib::WeakRef<gtk::Widget>,
         /// The item's custom icon (PROP-016) or preview (VIEW-057), shown
         /// in place of the art.
         pub(super) custom_icon: gtk::Picture,
@@ -239,6 +253,9 @@ mod imp {
         pub(super) folder_picture: super::FolderPicture,
         /// Whether the cell is an icon-view tile.
         pub(super) is_tile: Cell<bool>,
+        /// Whether a heading the cell shows has no chevron: List's
+        /// headings, whose groups never collapse (VIEW-022).
+        pub(super) heading_without_chevron: Cell<bool>,
         /// Whether the cell is a Details row's Name cell, whose group
         /// heading spans the whole row.
         pub(super) is_details_row: Cell<bool>,
@@ -339,7 +356,20 @@ impl FileCell {
         match layout {
             CellLayout::DetailsRow => cell.lay_out_as_row(),
             CellLayout::IconTile => cell.lay_out_as_tile(),
-            CellLayout::CompactItem => cell.lay_out_as_compact_item(),
+            CellLayout::CompactItem => {
+                cell.lay_out_as_compact_item(COMPACT_NAME_CHARS);
+                // Grouped, List heads each group's column with its title
+                // alone, as Windows 11 does.
+                cell.add_css_class("item-cell");
+                cell.imp().heading_without_chevron.set(true);
+            }
+            CellLayout::SmallIconItem => {
+                cell.lay_out_as_compact_item(SMALL_ICONS_NAME_CHARS);
+                cell.imp().label.set_hexpand(true);
+                // Grouped, a heading's row draws on its slots' cells
+                // (VIEW-022), as in the other icon sizes.
+                cell.add_css_class("item-cell");
+            }
             CellLayout::Tile => cell.lay_out_with_lines(false),
             CellLayout::ContentRow => cell.lay_out_with_lines(true),
         }
@@ -382,6 +412,7 @@ impl FileCell {
         };
         if !self.has_css_class(GROUP_SLOT_CLASS) {
             self.hide_name_editor();
+            imp.bound.set(None);
             let row = self.slot_row();
             let hidden: Vec<(gtk::Widget, bool)> =
                 std::iter::successors(self.first_child(), WidgetExt::next_sibling)
@@ -409,6 +440,7 @@ impl FileCell {
         let kind = slot.kind();
         let is_heading = kind == SlotKind::Heading;
         hit.set_visible(is_heading);
+        chevron.set_visible(!imp.heading_without_chevron.get());
         line.set_visible(kind != SlotKind::Blank);
         row.set_visible(true);
         if let Some(span) = row.parent() {
@@ -703,9 +735,10 @@ impl FileCell {
         label.set_single_line_mode(true);
     }
 
-    /// The check box and the icon left of a one-line name
-    /// [`COMPACT_NAME_CHARS`] wide.
-    fn lay_out_as_compact_item(&self) {
+    /// The check box and the icon left of a one-line name `name_chars`
+    /// wide: [`COMPACT_NAME_CHARS`] in List, at least
+    /// [`SMALL_ICONS_NAME_CHARS`] in Small icons, whose column sets it.
+    fn lay_out_as_compact_item(&self, name_chars: i32) {
         self.set_orientation(gtk::Orientation::Horizontal);
         self.set_spacing(COMPACT_ICON_GAP);
         self.put_check_before_icon();
@@ -713,8 +746,8 @@ impl FileCell {
         label.set_xalign(0.0);
         label.set_ellipsize(pango::EllipsizeMode::End);
         label.set_single_line_mode(true);
-        label.set_width_chars(COMPACT_NAME_CHARS);
-        label.set_max_width_chars(COMPACT_NAME_CHARS);
+        label.set_width_chars(name_chars);
+        label.set_max_width_chars(name_chars);
     }
 
     /// The icon above a centred name wrapped to [`TILE_NAME_LINES`].
@@ -727,6 +760,9 @@ impl FileCell {
         // own size, so nothing moves.
         let imp = self.imp();
         imp.is_tile.set(true);
+        // Grouped, a heading's row draws its height, hover, selection and
+        // focus on the cells of its slots, as in Tiles (VIEW-022).
+        self.add_css_class("item-cell");
         imp.icon_frame.set_halign(gtk::Align::Fill);
         imp.image.set_halign(gtk::Align::Center);
         imp.custom_icon.set_halign(gtk::Align::Center);
@@ -750,11 +786,18 @@ impl FileCell {
     }
 
     /// Shows `item`: its art and its name, and in Tiles and Content its
-    /// type, size and date modified. A rename in place ends: the cell now
-    /// shows another item, or the same one listed again.
+    /// type, size and date modified. A rename in place ends when the cell
+    /// now shows another item, or the same one listed again; it goes on
+    /// when GTK binds the same item again because only whether it is
+    /// selected changed, as a click away from the name field does before
+    /// the field hears that it lost the keyboard (OPS-010).
     pub(crate) fn bind(&self, item: &FileItem) {
-        self.hide_name_editor();
         let imp = self.imp();
+        let is_same_item = imp.bound.upgrade().is_some_and(|bound| bound == *item);
+        imp.bound.set(Some(item));
+        if !is_same_item {
+            self.hide_name_editor();
+        }
         self.show_art(item);
         imp.label.set_text(&item.entry().name);
         if imp.shows_item_lines.get() {
@@ -845,6 +888,7 @@ impl FileCell {
     /// the name's own line in Tiles and Content.
     pub(crate) fn show_name_editor(&self, editor: &gtk::Entry) {
         self.hide_name_editor();
+        self.mark_item_being_renamed(true);
         let imp = self.imp();
         self.name_box().insert_child_after(editor, Some(&imp.label));
         imp.label.set_visible(false);
@@ -852,16 +896,23 @@ impl FileCell {
     }
 
     /// Whether `point`, in the cell's coordinates, is on the name's text
-    /// rather than beside it.
+    /// rather than beside it. A tile's name is centered in its label, so
+    /// the text is where Pango lays its lines out, not at the label's
+    /// left edge (OPS-011).
     pub(crate) fn name_text_contains(&self, point: gtk::graphene::Point) -> bool {
         let label = &self.imp().label;
         let Some(point) = self.compute_point(label, &point).filter(|_| label.is_visible()) else {
             return false;
         };
         let (left, top) = label.layout_offsets();
-        let (width, height) = label.layout().pixel_size();
+        let (_, lines) = label.layout().pixel_extents();
         #[expect(clippy::cast_precision_loss, reason = "label sizes are small")]
-        let text = gtk::graphene::Rect::new(left as f32, top as f32, width as f32, height as f32);
+        let text = gtk::graphene::Rect::new(
+            (left + lines.x()) as f32,
+            (top + lines.y()) as f32,
+            lines.width() as f32,
+            lines.height() as f32,
+        );
         text.contains_point(&point)
     }
 
@@ -891,6 +942,28 @@ impl FileCell {
         };
         self.name_box().remove(&editor);
         imp.label.set_visible(true);
+        self.mark_item_being_renamed(false);
+    }
+
+    /// Marks the row or tile that holds the cell while its name is edited
+    /// in place (`.renaming`), which then draws no focus outline, as
+    /// Windows 11 draws none around an item being renamed (OPS-010).
+    fn mark_item_being_renamed(&self, renaming: bool) {
+        let marked = &self.imp().renaming_item;
+        // The one marked, even when the cell has left it since.
+        if let Some(item) = marked.upgrade() {
+            item.remove_css_class(RENAMING_CLASS);
+        }
+        marked.set(None);
+        if !renaming {
+            return;
+        }
+        let item = std::iter::successors(self.parent(), WidgetExt::parent)
+            .find(|widget| matches!(widget.css_name().as_str(), "row" | "child"));
+        if let Some(item) = item {
+            item.add_css_class(RENAMING_CLASS);
+            marked.set(Some(&item));
+        }
     }
 
     /// Whether the name is cut short with an ellipsis where it is shown.
@@ -902,6 +975,14 @@ impl FileCell {
     #[cfg(test)]
     pub(crate) fn name(&self) -> String {
         self.imp().label.text().to_string()
+    }
+
+    /// The icon's frame and the name label, for tests of where a view
+    /// draws them.
+    #[cfg(test)]
+    pub(crate) fn icon_and_name(&self) -> (gtk::Widget, gtk::Widget) {
+        let imp = self.imp();
+        (imp.icon_frame.clone().upcast(), imp.label.clone().upcast())
     }
 
     /// The art the icon shows, for tests.
@@ -993,6 +1074,9 @@ pub(crate) fn connect_mapped_file_cells(
         }
     });
 }
+
+/// The CSS class of the row or tile whose name is edited in place.
+const RENAMING_CLASS: &str = "renaming";
 
 /// Whether `widget` is part of a grid slot that shows no item and is no
 /// heading's row (a blank), or the grid's child holding one: blank space

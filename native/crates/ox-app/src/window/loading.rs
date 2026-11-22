@@ -58,6 +58,7 @@ use crate::locations::Page;
 use super::listing_state::{ListingEnd, ListingState, ReloadTiming};
 use super::session::TabId;
 use super::BrowserWindow;
+pub(super) use mount_retry::at_remote_home;
 use mount_retry::MountRetry;
 
 /// Whether a change to the folder of a tab waits until the tab is shown:
@@ -358,7 +359,30 @@ impl BrowserWindow {
                 glib::clone!(
                     #[weak(rename_to = window)]
                     self,
-                    move |problem| window.finish_network_listing(&run, problem)
+                    move |computers| window.context().remember_computers(computers)
+                ),
+                glib::clone!(
+                    #[weak(rename_to = window)]
+                    self,
+                    move |problem: Option<crate::network::DiscoveryProblem>| {
+                        window.finish_network_listing(&run, problem.map(|problem| problem.reason()));
+                    }
+                ),
+            );
+        }
+        // A computer Network found lists its shares and its other services.
+        if let Some(computer) = self.context().network().computer_at(&start.uri) {
+            return loader::list_computer(
+                computer,
+                glib::clone!(
+                    #[weak(rename_to = window)]
+                    self,
+                    move |entries| window.receive_batch(&batch_run, entries)
+                ),
+                glib::clone!(
+                    #[weak(rename_to = window)]
+                    self,
+                    move |result| window.finish_load(&run, result)
                 ),
             );
         }
@@ -601,9 +625,56 @@ impl BrowserWindow {
             (true, [first, ..]) => self.folder_pane().reveal(*first),
             _ => {}
         }
-        if renames && !positions.is_empty() {
-            self.continue_renaming();
+        if let Some(&first) = positions.first().filter(|_| reveals || renames) {
+            self.finish_revealing(first, renames);
         }
+    }
+
+    /// Scrolls the item at `position`, just revealed, whole into view once
+    /// the list has laid its rows out, then renames it in place when
+    /// `renames`. A row just added at the end of a long list is past the
+    /// end the list measured before it, so the first scroll stops a row
+    /// short and its name field would take no keys (OPS-001, OPS-002).
+    /// Any input meanwhile drops the rename, as the user moved on.
+    fn finish_revealing(&self, position: u32, renames: bool) {
+        /// Frames to wait for the row to show whole before renaming anyway.
+        const MOST_FRAMES: u32 = 10;
+        let pane = self.folder_pane();
+        let view = pane.view_widget();
+        if pane.shows_whole_item(position) || !view.is_mapped() {
+            if renames {
+                self.continue_renaming();
+            }
+            return;
+        }
+        let generation = self.imp().input_generation.get();
+        let frames = std::cell::Cell::new(0);
+        // The window's frames, which go on while it shows, whichever view
+        // the pane switches to meanwhile.
+        self.add_tick_callback(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            #[upgrade_or]
+            glib::ControlFlow::Break,
+            move |_, _| {
+                frames.set(frames.get() + 1);
+                let pane = window.folder_pane();
+                if window.imp().input_generation.get() != generation {
+                    return glib::ControlFlow::Break;
+                }
+                let Some(selected) = pane.model().first_selected() else {
+                    return glib::ControlFlow::Break;
+                };
+                if !pane.shows_whole_item(selected) && frames.get() < MOST_FRAMES {
+                    pane.scroll_into_view(selected);
+                    return glib::ControlFlow::Continue;
+                }
+                if renames {
+                    window.continue_renaming();
+                }
+                glib::ControlFlow::Break
+            }
+        ));
     }
 
     /// Puts the view back where a moved tab (TAB-039) or Back and Forward

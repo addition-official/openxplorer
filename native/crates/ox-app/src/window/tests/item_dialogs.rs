@@ -1917,6 +1917,93 @@ fn change_opens_open_with_over_the_properties_window() {
     cover.destroy();
 }
 
+/// Change... in Properties changes which app opens the file's type, as
+/// in Windows, and opens nothing: the chooser asks "Select a default app
+/// for .txt files", lists the current app under "Default app" and the
+/// others under "More options", and offers "Set default" instead of
+/// "Just once" and "Always"; Set default makes the chosen app the default, closes the
+/// chooser and shows the new app in Opens with.
+///
+/// parity: PROP-003, OPEN-012
+#[gtk::test]
+fn change_sets_the_default_app_without_opening_the_file() {
+    const ENTRIES: [(&str, &str); 2] = [
+        ("io.winspace.PropertiesViewer.desktop", "Properties Viewer"),
+        ("io.winspace.PropertiesEditor.desktop", "Properties Editor"),
+    ];
+    let applications = glib::user_data_dir().join("applications");
+    assert!(
+        applications.starts_with(std::env::temp_dir())
+            && glib::user_config_dir().starts_with(std::env::temp_dir()),
+        "tests run with private XDG folders"
+    );
+    fs::create_dir_all(&applications).expect("the private data folder");
+    for (id, name) in ENTRIES {
+        let entry =
+            format!("[Desktop Entry]\nType=Application\nName={name}\nExec=true %F\nMimeType=text/plain;\n");
+        fs::write(applications.join(id), entry).expect("the fixture entry");
+    }
+    wait_until("GIO to read the entries", || {
+        ENTRIES
+            .iter()
+            .all(|(id, _)| crate::integration::installed_application(id).is_some())
+    });
+    for (id, _) in ENTRIES {
+        crate::integration::installed_application(id)
+            .expect("installed")
+            .add_supports_type("text/plain")
+            .expect("the private config folder is writable");
+    }
+    crate::integration::installed_application(ENTRIES[0].0)
+        .expect("installed")
+        .set_as_default_for_type("text/plain")
+        .expect("the private config folder is writable");
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    test.context.record_launches();
+    test.select_named("Notes 2.txt");
+    test.activate("properties", None);
+    let window = test.wait_for_properties("Notes 2 Properties");
+    let general = general(&window);
+    assert_eq!(
+        value_after(&general, "Opens with:").as_deref(),
+        Some("Properties Viewer")
+    );
+
+    press(&general, "Change...");
+    let open_with = || {
+        gtk::Window::list_toplevels()
+            .into_iter()
+            .filter_map(|toplevel| toplevel.downcast::<OpenWithDialog>().ok())
+            .find(WidgetExt::is_visible)
+    };
+    wait_until("Open with", || {
+        open_with().is_some_and(|dialog| dialog.is_listed())
+    });
+    let dialog = open_with().expect("Open with is open");
+    assert_eq!(dialog.heading_text(), "Select a default app for .txt files");
+    assert_eq!(dialog.section_headings(), ["Default app", "More options"]);
+    assert_eq!(dialog.footer_buttons(), ["Set default", "Cancel"]);
+    dialog.select_named("Properties Editor");
+    settle();
+    capture_dialog(&dialog, "native-open-with-set-default.png");
+    press(&dialog, "Set default");
+
+    wait_until("Open with to close", || open_with().is_none());
+    let default = gtk::gio::AppInfo::default_for_type("text/plain", false).and_then(|app| app.id());
+    assert_eq!(default.as_deref(), Some(ENTRIES[1].0), "the default changed");
+    assert!(test.context.recorded_launches().is_empty(), "nothing opened");
+    wait_until("Opens with to follow", || {
+        value_after(&general, "Opens with:").as_deref() == Some("Properties Editor")
+    });
+    assert!(!window.is_closed(), "Properties stays open");
+
+    gtk::gio::AppInfo::reset_type_associations("text/plain");
+    for (id, _) in ENTRIES {
+        fs::remove_file(applications.join(id)).expect("the fixture entry");
+    }
+}
+
 /// Escape closes Properties as Cancel does.
 ///
 /// parity: PROP-001, ACC-004
@@ -1977,6 +2064,44 @@ fn calculate_folder_size_shows_the_size_in_the_view_and_the_bar() {
     capture(&test.window, "native-size-scan.png");
     test.activate("cancel-size-scan", None);
     assert!(!strip.is_visible(), "Dismiss hides the finished bar");
+}
+
+/// A folder measured while its row is on screen shows its size in the
+/// Size column as soon as the scan ends, not only once the list is drawn
+/// again for another reason (the bar closing, a scroll).
+///
+/// parity: PROP-026
+#[gtk::test]
+fn a_measured_folder_shows_its_size_in_its_row_at_once() {
+    let fixture = Fixture::standard();
+    fs::write(fixture.path("Documents").join("a.txt"), b"0123456789").expect("fixture file");
+    let test = TestWindow::open(&fixture.uri());
+    let view = test.window.folder_pane().details().clone();
+    let shows = |text: &str| {
+        descendants::<gtk::Label>(view.column_view())
+            .iter()
+            .any(|label| label.is_drawable() && label.text() == text)
+    };
+    wait_until("the rows drawn", || shows("Notes 2.txt") || shows("Notes 2"));
+    assert!(!shows("10 bytes"));
+    let pane = test.window.folder_pane();
+    let notes = test.position_of("Notes 2.txt");
+    pane.reveal(notes);
+    wait_until("the keyboard on Notes 2", || {
+        pane.focused_position() == Some(notes)
+    });
+
+    test.activate("calculate-folder-size-of", Some(&fixture.uri_of("Documents")));
+
+    let strip = test.window.size_strip();
+    wait_until("the scan to end", || strip.button_label() == "Dismiss");
+    wait_until("the size in the Documents row", || shows("10 bytes"));
+    wait_for_frames(&test.window, 2);
+    assert_eq!(
+        pane.focused_position(),
+        Some(notes),
+        "the keyboard stays where it was"
+    );
 }
 
 /// parity: PROP-026, PROP-029
@@ -2945,4 +3070,55 @@ fn a_link_renamed_in_properties_to_a_known_type_hides_its_extension_after() {
     wait_until("the title to follow the rename", || {
         window.title_text() == "memo Properties"
     });
+}
+
+/// Whether Windows' balloon about forbidden characters shows under
+/// `field`.
+fn shows_name_balloon(field: &gtk::Entry) -> bool {
+    descendants::<gtk::Popover>(field)
+        .iter()
+        .any(|balloon| balloon.has_css_class("name-balloon") && balloon.is_visible())
+}
+
+/// As in Windows 11's Properties, the name box refuses a character
+/// Windows forbids in names as it is typed, with the balloon renaming in
+/// place shows, so a name typed there can be copied to a Windows share
+/// or a USB stick; and a name ending in periods or spaces loses them, as
+/// a rename in place trims them: "Papers. " names the folder "Papers".
+/// The key is a real one on the private display.
+///
+/// parity: PROP-005
+#[gtk::test]
+fn the_name_in_properties_refuses_forbidden_characters_and_trims_its_end() {
+    let fixture = Fixture::standard();
+    fs::create_dir(fixture.path("Album")).expect("a folder");
+    // Before the window opens, which a new pointer would put away.
+    let mut pointer = crate::test_support::pointer::Pointer::connect();
+    let test = TestWindow::open(&fixture.uri());
+    test.select_named("Album");
+    test.activate("properties", None);
+    let window = test.wait_for_properties("Album Properties");
+    let name = name_field(&window);
+    name.grab_focus();
+    name.set_position(-1);
+    wait_until("the name box takes the keyboard", || {
+        name.has_focus() || name.first_child().is_some_and(|text| text.has_focus())
+    });
+    let (x, y) = crate::test_support::pointer::screen_point(&mut pointer, &name, (10.0, 10.0), (40, 40));
+    pointer.move_to(x, y);
+
+    pointer.tap_key(gtk::gdk::Key::slash);
+    wait_until("the balloon", || shows_name_balloon(&name));
+    let refused = name.text();
+    name.set_text("Papers. ");
+    press(&window, "Apply");
+    wait_until("the rename", || fixture.path("Papers").is_dir());
+
+    assert_eq!(refused, "Album", "the slash is refused");
+    assert!(
+        !fixture.path("Papers. ").exists(),
+        "the period and space are trimmed"
+    );
+    wait_until("the trimmed name in the box", || name.text() == "Papers");
+    window.close();
 }
