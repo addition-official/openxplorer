@@ -23,13 +23,21 @@ Copy, cut and paste between OpenXplorer and other apps were tested with real key
 3. `text/uri-list` gives a mounted share's items (CIFS mount or GVfs FUSE export, found without mounting) as their local `file://` paths, as a drag does. `application/x-kde4-urilist`, which KDE apps prefer, keeps the `smb://` addresses. So do this app's format and GNOME's. (CLIP-004)
 4. Names with a line break or a tab go on the clipboard escaped (`%0A`), one line per item, with no text format. Another app's list holding one pastes. NUL stays refused. (CLIP-005)
 
+After a check on Windows 11 (2026-11-22):
+
+5. A cut item fades only its icon. Its name and its Date modified, Type and Size columns stay at full strength, in Details and in icon views. (CLIP-002)
+
+"Paste pictures as new files" stays on by default, as the owner chose. Turned off in Settings, a picture leaves Paste grayed, as in Windows 11.
+
+Terminals that ask for text still get the copied files' paths while "Also copy paths as text" is on (the default), as GNOME Files gives them. Windows' classic console pastes nothing; Windows Terminal was not checked.
+
 The parity notes, the user guide (`docs.json` and the generated Markdown) and `openxplorer.pot` are updated. No `.po` file is changed.
 
 ## Tests
 
-- New: `window/tests/clipboard_lifetime.rs` (3 tests) and `clipboard_shares.rs` (1). In ox-core `clipboard/tests.rs`: two share tests, and the line-break test rewritten. Each failed before its fix and passes after.
+- New: `window/tests/clipboard_lifetime.rs` (3 tests), `clipboard_shares.rs` (1) and `cut_look.rs` (2, on drawn pixels). In ox-core `clipboard/tests.rs`: two share tests, and the line-break test rewritten. Each failed before its fix and passes after.
 - Real input, private Xvfb, unprivileged user, throwaway home: Ctrl+C, close the window, paste in Thunar, then copy text elsewhere and the process exits. The same on KWin Wayland with wl-paste and wl-copy. A cut pasted with Klipper running leaves Paste disabled, and a second Ctrl+V does nothing. Eight odd names (line break, unicode, quotes, `$HOME`, backticks) reach Chrome and another folder. Files on a local Samba share mounted through GVfs reach Chrome (193 and 10,867 bytes), Konsole (quoted local paths) and Dolphin. The FUSE export is stood in for by a folder link, because this container refuses FUSE mounts.
-- rustfmt, Clippy with `-D warnings` (Rust 1.92.0), `parity/check.py`, `i18n.py check` and `sync-docs.py --check` pass. Every test executable ran through `check.py`'s isolation as an unprivileged user. Before the merges the branch failed exactly the same 31 tests as unchanged main (this container's Python, sandboxing and mounts). After merging the other passes, 6 more fail the same on `pass-15-errors` alone, and one timing flake passed 3 of 3 runs alone.
+- rustfmt, Clippy with `-D warnings` (Rust 1.92.0), `parity/check.py`, `i18n.py check` and `sync-docs.py --check` pass. Every test executable ran through `check.py`'s isolation as an unprivileged user: 5,158 passed and 31 failed, exactly the 31 that fail on unchanged main in this container (its Python, sandboxing and mounts).
 
 ## Limitations
 
