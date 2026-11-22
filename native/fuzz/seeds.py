@@ -319,6 +319,25 @@ def picture_files():
     pictures['webp-extended'] = saved(image.convert('RGBA'), 'WEBP', exif=exif)
     pictures['tiff'] = saved(image, 'TIFF')
     pictures['ico'] = saved(image, 'ICO')
+    pictures['tga'] = saved(image, 'TGA')
+    pictures['tga-rle'] = saved(image, 'TGA', compression='tga_rle')
+    pictures['ppm'] = saved(image, 'PPM')
+    pictures['pgm'] = saved(image.convert('L'), 'PPM')
+    pictures['pbm'] = saved(image.convert('1'), 'PPM')
+    pictures['ppm-ascii'] = b'P3\n2 2\n255\n255 0 0  0 255 0\n0 0 255  255 255 255\n'
+    pictures['xbm'] = saved(image.convert('1'), 'XBM')
+    pictures['xpm'] = (b'/* XPM */\nstatic char *fuzz[] = {\n"4 2 2 1",\n"  c None",\n". c #FF0000",\n'
+                       b'" .. ",\n".  ."\n};\n')
+    pictures['icns'] = saved(image.resize((16, 16)), 'ICNS')
+    cursor = bytearray(saved(image.resize((16, 16)), 'ICO'))
+    cursor[2:4] = b'\x02\x00'
+    pictures['cur'] = bytes(cursor)
+    icon = saved(image.resize((16, 16)), 'ICO')
+    anih = struct.pack('<9I', 36, 1, 1, 0, 0, 0, 0, 10, 1)
+    frames = b'LIST' + struct.pack('<I', 4 + 8 + len(icon)) + b'fram' + b'icon' + struct.pack('<I', len(icon)) + icon
+    body = b'ACON' + b'anih' + struct.pack('<I', len(anih)) + anih + frames
+    pictures['ani'] = b'RIFF' + struct.pack('<I', len(body)) + body
+    pictures['jp2'] = saved(image, 'JPEG2000')
     pictures['svg'] = (b'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="10">'
                        b'<rect width="16" height="10" fill="#c33"/><circle cx="5" cy="5" r="3"/></svg>')
     return pictures
