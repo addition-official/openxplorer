@@ -6734,7 +6734,7 @@ msgid "Select a folder or share to calculate its size."
 msgstr ""
 
 #: crates/ox-app/src/window/folder_tree/menu.rs
-msgid "Expand to open folder"
+msgid "Expand to current folder"
 msgstr ""
 
 #: crates/ox-app/src/window/folder_tree/menu.rs
@@ -7726,6 +7726,14 @@ msgstr ""
 
 #: crates/ox-app/src/window/sidebar/menu.rs
 msgid "Pin current folder to Quick access"
+msgstr ""
+
+#: crates/ox-app/src/window/sidebar/menu.rs
+msgid "Show Network"
+msgstr ""
+
+#: crates/ox-app/src/window/sidebar/menu.rs
+msgid "Show This PC"
 msgstr ""
 
 #: crates/ox-app/src/window/sidebar/menu.rs
