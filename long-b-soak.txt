@@ -1,24 +1,213 @@
-STATUS: RUNNING
+STATUS: DONE
 
-Long job B: overnight real-use soak of upstream main 5d21fd3e (release build),
-23:00 CST to 06:30 CST, crossing midnight in America/Chicago.
+Long job B: the real long-use soak of OpenXplorer upstream main 5d21fd3e
+Run: 2026-11-21 23:00:51 to 2026-11-22 06:30:00 America/Chicago (7.5 hours,
+across midnight). Branch: long-b-soak (aaefe16d, 4d9379d5, 5178f87b).
 
-So far (03:40 CST):
-- Midnight: date group headings moved Today -> Yesterday by themselves at
-  00:00:01 (Downloads and Recent files). With relative dates on, the rows
-  under them (and every row of an ungrouped folder) kept "Today at ..."
-  even after input and F5. Fixed on long-b-soak (4d9379d5); confirmed on the
-  fixed release build across midnight under libfaketime.
-- Child processes: idle picture decoders (bwrap --die-with-parent) died with
-  the GIO worker thread that started them and sat in the pool as zombies.
-  Fixed on long-b-soak (aaefe16d). Soak restarted on the fixed build 00:44.
-- Samba outage 01:36-01:46: unavailable page with Try again; typed
-  navigation gives a "Connection refused" toast. The scripted restart of
-  smbd failed (harness permissions), recovery verified by hand at 01:59.
-  Second outage scheduled 04:15.
-- Idle CPU ~0.1%. Watches flat. Idle RSS on the fixed build 227 -> 421 ->
-  430 -> 485 -> 489 MiB; glibc in-use heap 232.8 -> 235.6 MiB across a burst
-  (the rest is freed memory the allocator keeps). Still watching.
-- check.py (unprivileged user, Rust 1.92, Python 3.12 as CI): lints and all
-  executables pass except tests that fail the same way on upstream 5d21fd3e
-  in this container (sandboxed thumbnailers, admin_copy /tmp checks).
+RESULT IN SHORT
+- Two defects found and fixed, tests first: (1) idle picture decoders died
+  with the worker thread that started them and sat as zombie children;
+  (2) relative "Today at" dates did not follow midnight. Soak restarted on
+  the fixed build at 00:44 and ran to 06:30 clean.
+- No leak in memory, fds, threads, inotify watches or caches. Idle CPU
+  settles at 0.08-0.15 % every time.
+- Midnight: date groups move Today -> Yesterday by themselves (PASS on
+  upstream); the rows' "Today at" text did not (FAIL on upstream, PASS on
+  the fixed build). Details below.
+- Samba share stopped twice for 10 minutes: no hang, no crash, recovery
+  without a restart or a new sign-in.
+- The app never exited or crashed (app-exits.log empty).
+
+SETUP
+- Build: release build of upstream main 5d21fd3e (23:00:51 to 00:44), then the
+  fixed build long-b-soak 4d9379d5 (00:44 to 06:30); the later commit 5178f87b
+  changes a test only. Same settings, caches and keyring across the restart.
+- Unprivileged user "soak", throwaway HOME, TZ=America/Chicago, private Xvfb
+  :77 (1920x1080), own D-Bus session, gnome-keyring (share password saved
+  there by the app's sign-in dialog), GVfs with gvfsd-smb, AT-SPI bus,
+  openbox, bubblewrap and ffmpegthumbnailer so the app's sandboxed
+  thumbnailers and picture decoders run as on a desktop.
+- Local Samba 4.19 share smb://127.0.0.1/team (808 files), stopped and
+  started on purpose.
+- Files (all generated, fictional): 3,200 photos (JPEG with EXIF, some PNG),
+  40 MP3, 15 MP4, 200 PDFs, 300 DOCX/XLSX/PPTX, ZIP/tar.gz/tar.xz/7z and a
+  nested ZIP, and "Big folder" with 20,000 files. 23,770 files in HOME.
+- Settings a daily user would turn on through the Settings page: Open Quick
+  access on Home, Reopen my tabs, Relative dates (Today, Yesterday); Recent
+  files grouped by Date modified; Downloads grouped by date (the default).
+- Driver: xdotool, keyboard and mouse only. Bursts of 8 to 15 minutes, idle
+  stretches of 20 to 40 minutes. Activities: browsing and scrolling, the
+  20,000-file folder in all eight views, Preview and Details panes walking
+  photos, PDFs, office files, MP3 and MP4, Properties, copy, move, rename,
+  delete to the Recycle Bin and undo, new folders, tabs (open, cycle, close,
+  reopen closed tab), new windows, search, ZIP/tar/7z browsing and copying
+  out, the Samba share, opening files (a stand-in viewer), Home.
+- Sampling: every minute (fine.csv) and every 15 minutes (soak.csv): RSS,
+  PSS, open fds, threads, child processes (all descendants), inotify watches
+  from /proc/<pid>/fdinfo, CPU over the last minute, and the sizes of
+  settings.json, folder-location-history.json (never created), session.json,
+  recently-used.xbel, ~/.cache/winspace and ~/.cache/thumbnails. Glibc heap
+  in use (malloc_stats through gdb) once per idle stretch from 02:50.
+
+START VS END VS PEAK (from the 15-minute CSV)
+Segment 1 is upstream 5d21fd3e until the restart, segment 2 the fixed build.
+"child processes" counts every descendant: a sandboxed decoder is three
+processes (bwrap, its init, the decoder).
+
+Segment pid 18376: 2026-11-21 23:00:51 to 2026-11-22 00:30:00 (7 quarter-hour samples)
+  metric                            start        end       peak  peak at
+  RSS (MiB)                           288        598        598  00:30
+  PSS (MiB)                           257        559        559  00:30
+  open fds                             31         44         45  23:45
+  threads                              24         29         29  23:45
+  child processes                       2          2          4  23:15
+  inotify watches                       9         10         10  23:45
+  CPU % last minute                    22         13         22  23:15
+  settings.json (B)                  2620       3475       3475  00:30
+  folder history (B)                    -          -          -
+  session.json (B)                   1523       1288       3276  23:15
+  recently-used.xbel (B)            10175      14625      14625  00:30
+  ~/.cache/winspace (KiB)            4160       4160       4160  23:15
+  ~/.cache/thumbnails (KiB)          7742      15545      15545  00:30
+  thumbnail files                    1140       2316       2316  00:30
+  ~/.cache total (KiB)              13554      22762      22762  00:30
+
+Segment pid 11744: 2026-11-22 00:45:00 to 2026-11-22 06:30:00 (24 quarter-hour samples)
+  metric                            start        end       peak  peak at
+  RSS (MiB)                           227        492        492  06:15
+  PSS (MiB)                           195        452        452  06:30
+  open fds                             27         40         41  02:00
+  threads                              23         28         33  06:00
+  child processes                       0         12         12  01:15
+  inotify watches                       8          8          9  01:15
+  CPU % last minute                  0.12       0.12         21  04:45
+  settings.json (B)                  3474       4992       4992  03:30
+  folder history (B)                    -          -          -
+  session.json (B)                   1215       1483       5237  05:00
+  recently-used.xbel (B)            14625      19742      19742  06:15
+  ~/.cache/winspace (KiB)            4160       4160       4160  01:00
+  ~/.cache/thumbnails (KiB)         15545      18281      18281  06:15
+  thumbnail files                    2316       2749       2749  06:15
+  ~/.cache total (KiB)              22763      25499      25499  06:15
+
+Glibc heap of the fixed build, sampled 5 minutes into each idle stretch:
+  02:50  held 474.7 MiB  in use 222.0 MiB
+  03:25  held 478.6 MiB  in use 224.7 MiB
+  04:13  held 479.6 MiB  in use 224.6 MiB
+  04:35  held 479.6 MiB  in use 220.7 MiB
+  04:54  held 480.6 MiB  in use 224.8 MiB
+  05:35  held 480.9 MiB  in use 224.9 MiB
+  06:15  held 480.9 MiB  in use 220.1 MiB
+  06:26  held 480.9 MiB  in use 220.1 MiB
+In-use memory is flat for 3.5 hours of bursts. RSS rose from 227 MiB after
+launch to ~490 MiB within the first two hours of use and then held (485 at
+03:08, 489 at 03:44, 491 at 05:00, 492 at 06:30); the difference from the
+in-use figure is memory glibc keeps after the peaks (the 20,000-file folder
+in all eight views, archives, previews), not live objects.
+
+MIDNIGHT RESULT
+Captures (timestamped in the image): /srv/soak/captures/midnight/ on the
+test machine. Four windows: Downloads (grouped by date, the default), Recent
+files (grouped by Date modified), Home (Quick access + Recent list), and an
+ungrouped Details folder (Documents/Office). Relative dates on.
+- 23:59:00, no input: headings "Today"; rows "Today at 10:45 PM" etc.
+- 00:00:20, no input: Downloads and Recent headings now read "Yesterday" by
+  themselves (the window's midnight timer). PASS for the groups. But every
+  row under the new "Yesterday" heading still read "Today at 11:38 PM" /
+  "Today at 10:45 PM", and the ungrouped Office folder still read "Today at
+  10:45 PM". FAIL for the dates.
+- 00:02:00, no input: unchanged.
+- 00:20:01, first key press (Down): only the row that was redrawn (the newly
+  selected one) read "Yesterday at 10:45 PM"; the rest still "Today at".
+- 00:20:15 after activating each window, 00:20:26 after F5 in each window:
+  still mixed "Today at" / "Yesterday at" rows.
+- Home: its Recent list writes absolute "Date accessed" dates
+  (11/21/2026 11:38 PM) and has no Today/Yesterday groups, so it had nothing
+  to change and stayed correct. Home in this build does not group by day.
+- Fix 4d9379d5. Confirmed on the fixed release build by running it under
+  libfaketime from 23:58:40 across midnight with no input: Downloads headings
+  moved to "Yesterday" and "Last week", rows read "Yesterday at 9:00 PM", the
+  ungrouped folder read "Yesterday at 9:00 PM", the day-before row read
+  "11/20/2026 9:00 AM". The real midnight of this run was crossed on the
+  upstream build only; the fixed build ran from 00:44.
+
+LEAKS AND DEFECTS FOUND AND FIXED
+1. Zombie picture decoders (aaefe16d). At every idle stretch the upstream
+   build kept 3-4 dead bwrap children. Cause, confirmed with strace in a
+   separate instance: bubblewrap's --die-with-parent (PR_SET_PDEATHSIG) kills
+   the sandbox when the *thread* that started it ends; the decoder pool was
+   filled from GIO worker threads that retire after an idle spell, so idle
+   decoders were SIGKILLed at once and stayed unreaped in the pool until the
+   next picture failed on them and started a new sandbox. Fix: decoders are
+   started from one long-lived thread; a dead idle decoder is detected with
+   waitid(WNOWAIT) and dropped (reaped) instead of being handed a picture.
+   Guard tests: a_pooled_decoder_outlives_the_thread_that_started_it,
+   a_decoder_that_died_while_idle_is_replaced_not_refused (the test decoder
+   now dies with its starting thread, as bubblewrap's does). After the fix the
+   soak shows no zombies; the idle pool keeps four live decoders (~46 MiB PSS
+   in all), which is what the pool was meant to do.
+2. Stale "Today at" dates after midnight (4d9379d5, test fix 5178f87b).
+   Cause: follow_the_day regrouped grouped views but never redrew the date
+   cells, and an ungrouped view was not touched at all. Fix: the details view
+   remembers the day its relative dates were written from and redraws the
+   date columns when the window follows the day; the cells use the same clock
+   as the groups (ox-core column_date_text_at). Guard tests:
+   relative_dates_move_on_when_the_day_changes,
+   relative_dates_under_the_groups_move_on_when_the_day_changes.
+
+STILL GROWING (expected or bounded; not fixed)
+- recently-used.xbel 10.0 -> 19.3 KiB: GTK's recently used list, one entry
+  per file opened or folder visited; GTK ages entries out (desktop policy).
+- ~/.cache/thumbnails 7.6 -> 17.9 MiB, 1,140 -> 2,749 files: one thumbnail per
+  newly seen picture or video, as the freedesktop cache works; the desktop's
+  own cleaner trims it. It only grew when new files were viewed.
+- settings.json 2.6 -> 4.9 KiB: per-folder view settings as folders get their
+  own view (bounded by the app's folder-view list).
+- session.json moves between 0.3 and 5.2 KiB with the tabs open; each tab's
+  saved history is capped at 200 entries. The in-memory back/forward list of
+  a tab has no cap (about 100-200 bytes per navigation), too small to show in
+  the heap numbers above; left as is.
+- ~/.cache/winspace stayed at 4.1 MiB (search index); folder-location-
+  history.json was never created by this use.
+
+SAMBA
+- 01:36-01:46: share stopped while open in a tab with the Preview pane on.
+  F5 showed "This location is unavailable" with Try again; typed navigation
+  to the share showed a "Connection refused" toast within a second. No hang,
+  CPU back to idle. The scripted restart of smbd at 01:46 failed (harness
+  error: I had changed the ownership of Samba's lock folder); recovery was
+  checked by hand at 01:59: typed navigation to the share opened in 0.2 s
+  through the existing GVfs mount.
+- 04:28-04:38: second outage, same behavior; 34 s after smbd came back the
+  share listed its 305 photos with no new sign-in.
+- Observation, not changed: typed navigation to a share that is down shows
+  GIO's "Connection refused" toast, while F5 shows the Windows-style
+  unavailable page.
+
+OTHER NOTES
+- session.json holds the tabs of the last active window only; with four
+  windows open, a restart reopens one (design, not a leak).
+- The disk allowance filled for a few minutes around 01:45 while I built the
+  tests (my build, not the app); the app's settings and session files stayed
+  intact. The disk-full minutes fall inside the first Samba outage.
+- Driver activities over the night (each one to five minutes of input):
+  previews 23, file operations 18, search 15, browse 13, tabs 11,
+  Properties 9, network 9, big folder in all views 8, archives 7, new
+  windows 6, opening files 5, Home 5, plus the midnight and Samba protocols;
+  dialogs closed by the driver: Properties windows, two Interrupted Action
+  dialogs caused by my own setup (a root-owned folder), one Replace or Skip.
+
+CHECKS RUN (as an unprivileged user; the app refuses root)
+- python3 native/tools/check.py with Rust 1.92 and Python 3.12 (as CI):
+  inventories, parity tests, i18n, tool tests, drawn-icon guard, cargo fmt,
+  cargo clippy -D warnings: pass. Test executables: pass except tests that
+  fail the same way on upstream 5d21fd3e in this container (two
+  sandboxed-thumbnailer tests in ox_app, nine admin_copy tests in ox_core).
+  Two ox_app UI tests timed out under load and passed on rerun. check.py
+  stops at its first failing executable, so the executables after ox_app and
+  the doctests were run with check.py's own isolation; all pass except the
+  admin_copy tests above. Stable Clippy 1.97 flags pre-existing
+  Duration::from_secs lints in untouched files; CI pins 1.92.
+- python3 native/parity/check.py: pass (final run 05:45).
+- Not run: a Next.js build or website checks (no website change); no
+  Windows server; no Wayland session (X11 under Xvfb only).
