@@ -61,11 +61,11 @@ const MAKING_AT_ONCE: usize = 2;
 const NETWORK_MAKING_AT_ONCE: usize = 2;
 /// How many decoded previews are kept.
 const MAX_KEPT: usize = 512;
-/// The smallest edge, in device pixels, `LibreOffice` draws a document's
-/// thumbnail for: Medium icons and larger. A row of Details, List or
+/// The smallest edge, in device pixels, at which an office document shows
+/// its thumbnail: Medium icons and larger. A row of Details, List or
 /// Small icons keeps the document's type icon, as Windows draws it there,
-/// unless the cache has its thumbnail already; a page 16 pixels tall
-/// shows nothing of it, and costs a run of `LibreOffice`.
+/// even when the cache has its thumbnail: a page 16 pixels tall shows
+/// nothing of it, and would cost a run of `LibreOffice` to make.
 const SMALLEST_DOCUMENT_THUMBNAIL: i32 = 40;
 
 /// Which items of the folder shown get previews.
@@ -276,6 +276,9 @@ fn making(request: &PreviewRequest) -> Rc<Slots> {
 
 /// The preview `request` asks for, or `None` when the item keeps its icon.
 pub(crate) async fn preview(request: PreviewRequest) -> Option<gdk::Texture> {
+    if keeps_type_icon(&request) {
+        return None;
+    }
     let key = request.key();
     // A file of this computer's tree may be on a share mounted there (a
     // kernel share, sshfs, GVfs's FUSE folder): it keeps its icon with
@@ -504,7 +507,7 @@ async fn make_thumbnail(request: &PreviewRequest) -> Result<PathBuf, Missing> {
             if made || !is_document(request) {
                 return made.then_some(path).ok_or(Missing::Failed);
             }
-            if request.pixels < SMALLEST_DOCUMENT_THUMBNAIL {
+            if keeps_type_icon(request) {
                 return Err(Missing::Later);
             }
         }
@@ -557,7 +560,7 @@ async fn make_thumbnail_with(
         // No program of the desktop's drew the document, and it is on
         // this computer: LibreOffice may draw it.
         Err(Missing::Failed) if is_document(request) && !request.on_network => {
-            if request.pixels < SMALLEST_DOCUMENT_THUMBNAIL {
+            if keeps_type_icon(request) {
                 // Asked again at a size it is drawn for.
                 return Err(Missing::Later);
             }
@@ -565,6 +568,12 @@ async fn make_thumbnail_with(
         }
         outcome => outcome,
     }
+}
+
+/// Whether `request`'s item keeps its type icon at its size: an office
+/// document in a row smaller than [`SMALLEST_DOCUMENT_THUMBNAIL`].
+fn keeps_type_icon(request: &PreviewRequest) -> bool {
+    request.pixels < SMALLEST_DOCUMENT_THUMBNAIL && is_document(request)
 }
 
 /// Whether `request` is for an office document ([`documents::is_document`]).
@@ -858,6 +867,33 @@ mod tests {
             target_uri: None,
             on_network: false,
         }
+    }
+
+    /// An office document keeps its type icon in rows of Details, List
+    /// and Small icons, as in Windows, and shows its thumbnail from Medium
+    /// icons up; a picture shows its thumbnail at every size.
+    ///
+    /// parity: VIEW-057
+    #[gtk::test]
+    fn a_document_keeps_its_type_icon_in_small_rows() {
+        let at = |name: &str, content_type: &str, pixels: i32| PreviewRequest {
+            pixels,
+            ..request_of(Path::new(&format!("/tmp/Examples/{name}")), content_type)
+        };
+        let docx = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        assert!(keeps_type_icon(&at("Plan.docx", docx, 16)));
+        assert!(keeps_type_icon(&at("Plan.docx", docx, 32)));
+        assert!(keeps_type_icon(&at("Budget.ods", "application/zip", 16)));
+        assert!(!keeps_type_icon(&at("Plan.docx", docx, 48)));
+        assert!(!keeps_type_icon(&at("Plan.docx", docx, 96)));
+        assert!(!keeps_type_icon(&at("Harbor.png", "image/png", 16)));
+        assert!(!keeps_type_icon(&at("Report.pdf", "application/pdf", 16)));
+        assert!(
+            glib::MainContext::default()
+                .block_on(preview(at("Plan.docx", docx, 16)))
+                .is_none(),
+            "no thumbnail is even looked up for a row"
+        );
     }
 
     /// An office document's thumbnail is its first page, framed in light
