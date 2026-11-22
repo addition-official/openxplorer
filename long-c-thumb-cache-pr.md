@@ -14,8 +14,8 @@ Windows keeps its thumbnails in `thumbcache_*.db`, so a folder of photos opened 
 
 - **The cache is looked up first, by the app itself.** Each entry's `Thumb::URI`, `Thumb::MTime` and (when present) `Thumb::Size` are read from its PNG text chunks in safe Rust, without decoding the picture. A stale entry or a recorded failure therefore costs no decode. A larger size stands in for a missing smaller one; a smaller one never stands in for a larger one, which would blur. Before, the lookup went through GIO's `thumbnail::*` attributes and only looked at the size GIO picked.
 - **Cached reads still go through the sandboxed decoder pool, in batches.** The reads of one layout are gathered until the main loop is idle and sent 12 at a time to one decoder process in one request. Each answer is handed back as soon as it is decoded, the first tiles bound first. A picture that crashes its decoder is refused alone, and the rest of its batch goes to a new decoder.
-- **Recently shown thumbnails stay in memory** (96 MB, least recently shown first out), checked against the file's time and size. A folder visited again in the same run, or a row scrolled back, draws its thumbnails on the frame it binds them. With network thumbnails off, as by default, this works however long ago its folder was found to be on this computer.
-- **No icon flash.** The names of the cache's entries are listed once in the background, as soon as a view with thumbnails is set up. A tile whose thumbnail the cache holds then waits for it without its type icon (250 ms at most), instead of showing the icon and replacing it a moment later. Decoders are started in the background at the same time.
+- **Recently shown thumbnails stay in memory** (64 MB, each kept at the size it is shown, least recently shown first out; about 2,700 photos at Large icons), checked against the file's time and size. A folder visited again in the same run, or a row scrolled back, draws its thumbnails on the frame it binds them. With network thumbnails off, as by default, this works however long ago its folder was found to be on this computer.
+- **No icon flash.** The names of the cache's entries are listed once in the background, as soon as a view with thumbnails is set up. They are kept as 128-bit numbers: 5.6 MB for a cache of 200,000 entries. A tile whose thumbnail the cache holds then waits for it without its type icon (250 ms at most), instead of showing the icon and replacing it a moment later. Decoders are started in the background at the same time.
 - **A thumbnail shows as soon as it is read.** It no longer waits for the custom-icon metadata query, which runs at low priority behind the layout. A custom icon found later takes the thumbnail's place.
 - **New thumbnails never block the UI, and the visible ones come first.** They are made off the main thread, one fewer at a time than the processors (2 or 3; 2 before). A request for a tile off the screen waits outside the queue while tiles on the screen wait. GTK binds about 190 tiles of Large icons for the 30 a window shows, and before, it made them in bind order. A thumbnail the app makes is shown from the picture it decoded, instead of being read back from disk. It costs one decode instead of three.
 - **Writes follow the standard.** A new entry is encoded in the app, written to a temporary file created 0600 (exclusive, no symlink following) in a 0700 folder, then renamed into place. Entries now carry `Thumb::Size` and `Thumb::Mimetype` too.
@@ -37,22 +37,24 @@ Run by `native/tools/thumbnail-bench.py` (added here) on a private Xvfb display,
 
 | Folder | Visit | All visible, from launch (ms) | All visible, after the first tile (ms) | Tile bound → its thumbnail, median (ms) | Visible tiles drawn with their thumbnail on their first frame | Visible tiles that never showed their type icon first | Pictures decoded | Thumbnailers started |
 |---|---|---|---|---|---|---|---|---|
-| Photos | Cold | 2,294 → 1,577 | 1,084 → 464 | 747 → 324 | 0 → 0 of 30 | 0 → 0 of 30 | 579 → 193 | 0 → 0 |
-| Photos | Same-session revisit | 163 → 86 | 89 → 3 | 88 → 0 | 0 → 30 of 30 | 0 → 30 of 30 | 0 → 0 | 0 → 0 |
-| Photos | Restart | 688 → 453 | 278 → 58 | 204 → 37 | 0 → 0 of 30 | 0 → 30 of 30 | 193 → 195 (18 batches) | 0 → 0 |
-| Photos | Cache drop | 747 → 445 | 263 → 58 | 206 → 39 | 0 → 0 of 30 | 0 → 30 of 30 | 193 → 195 (18 batches) | 0 → 0 |
-| Mixed | Cold | 2,928 → 931 | 2,510 → 555 | 1,444 → 382 | 0 → 0 of 30 | 0 → 0 of 30 | 360 → 120 | 80 → 80 |
-| Mixed | Same-session revisit | 113 → 52 | 63 → 2 | 62 → 0 | 0 → 30 of 30 | 0 → 30 of 30 | 0 → 0 | 0 → 0 |
-| Mixed | Restart | 632 → 407 | 218 → 33 | 168 → 32 | 0 → 0 of 30 | 0 → 30 of 30 | 120 → 120 (11 batches) | 0 → 0 |
-| Mixed | Cache drop | 625 → 436 | 283 → 36 | 209 → 36 | 0 → 0 of 30 | 0 → 30 of 30 | 120 → 120 (11 batches) | 0 → 0 |
+| Photos | Cold | 2,535 → 2,134 | 1,065 → 584 | 710 → 397 | 0 → 0 of 30 | 0 → 0 of 30 | 579 → 193 | 0 → 0 |
+| Photos | Same-session revisit | 141 → 77 | 82 → 3 | 81 → 0 | 0 → 30 of 30 | 0 → 30 of 30 | 0 → 0 | 0 → 0 |
+| Photos | Restart | 698 → 500 | 273 → 70 | 212 → 43 | 0 → 0 of 30 | 0 → 30 of 30 | 193 → 195 (18 batches) | 0 → 0 |
+| Photos | Cache drop | 914 → 493 | 284 → 64 | 205 → 40 | 0 → 0 of 30 | 0 → 30 of 30 | 193 → 195 (18 batches) | 0 → 0 |
+| Mixed | Cold | 3,303 → 1,210 | 2,923 → 755 | 1,565 → 426 | 0 → 0 of 30 | 0 → 0 of 30 | 360 → 120 | 80 → 80 |
+| Mixed | Same-session revisit | 117 → 72 | 62 → 4 | 58 → 0 | 0 → 30 of 30 | 0 → 30 of 30 | 0 → 0 | 0 → 0 |
+| Mixed | Restart | 729 → 496 | 258 → 61 | 186 → 21 | 0 → 1 of 30 | 0 → 30 of 30 | 120 → 144 (in batches) | 0 → 0 |
+| Mixed | Cache drop | 773 → 530 | 268 → 62 | 201 → 23 | 0 → 0 of 30 | 0 → 30 of 30 | 120 → 144 (in batches) | 0 → 0 |
+
+The two builds were run by turns, 3 times each, in the same hour. Earlier sets taken hours before gave the same picture with lower times all round; the virtual machine's speed drifted over the night. The extra decodes after a restart of the mixed folder are tiles GTK bound twice while laying out, whose reads had already been sent.
 
 - **Restarts and cache drops:** the cache is now read in batches of up to 12 per decoder request. Before, each tile cost one GIO query and one decoder request.
 - **Cold visits:**
   - Each new photo costs one decode instead of three. Before, there was a look for an earlier thumbnail that decoded a missing file, then the decode, then a read-back of the written PNG.
   - Visible tiles are made first.
-  - Thumbnails are made one fewer at a time than the processors, between 2 and 3: 3 on this 4-processor machine, where 2 slots gave 512 ms (photos) and 796 ms (mixed) after the first tile. A 2-processor computer keeps 2.
-  - All 193 bound tiles of the cold photo folder are done in about 1.9 s, against 2.3 s before.
-- **Paging down through a new folder** of 2,000 photos for 4.7 s while its thumbnails are made, 8 runs each: the main loop missed its 5 ms timer for 34 ms or more 16 times in all here (longest 39 ms), against 14 times before (longest 52 ms). That is no measurable difference.
+  - Thumbnails are made one fewer at a time than the processors, between 2 and 3: 3 on this 4-processor machine. In an earlier set, 2 slots gave 512 ms (photos) and 796 ms (mixed) after the first tile, against 464 ms and 555 ms with 3. A 2-processor computer keeps 2.
+- **Paging down through a new folder** of 2,000 photos for 4.7 s while its thumbnails are made, 3 interleaved runs each: the main loop missed its 5 ms timer for 34 ms or more 2, 6 and 2 times before (longest 40 ms), against 1, 1 and 0 after (longest 35 ms). About 570 thumbnails were made meanwhile in both. Other interleaved scroll-only runs gave 4, 11 and 6 stalls before against 4, 7 and 1 after: no regression, and the stalls come mostly from the machine.
+- **Memory:** resident memory after scrolling through the cold 2,000-photo folder and back is 341 MB before and 357 MB after. After a restart, with the cache warm, it is 267 MB before and 286 MB after. These are single runs measured from `/proc/<pid>/status`; the picture decoders are separate processes and are not counted.
 - **First frame after a restart:** after a restart, a tile still cannot show its thumbnail on its very first frame. The read takes 35 ms or so, and holding the window's first frame back for it would be slower overall. The tile shows nothing in the icon's place until then, so there is no icon flash.
 
 ## NOT CONFIRMED
@@ -69,14 +71,14 @@ Thumbnails of files that were deleted or sent to the Recycle Bin stay in the cac
 ## How it was tested
 
 - **Tests first:**
-  - New core tests in `ox-core/src/thumbnail_cache.rs`: a current entry of another program is a hit; changed time, size or URI misses; a larger size serves a smaller one; damaged, linked and oversized entries miss without panicking; failures hold until the file changes, including GNOME's; writes are atomic and 0600; keys are replaced with the pixels kept; a moved file keeps its thumbnails; the cache's names are listed. All were seen to fail before the implementation.
+  - New core tests in `ox-core/src/thumbnail_cache.rs`: a current entry of another program is a hit; changed time, size or URI misses; a larger size serves a smaller one; damaged, linked and oversized entries miss without panicking; failures hold until the file changes, including GNOME's; writes are atomic and 0600; keys are replaced with the pixels kept; a moved file keeps its thumbnails; the cache's names are listed. All were seen to fail before the implementation, as was the test of the cache names kept as numbers. The app tests below were written together with their code.
   - Also in ox-core: x-large and xx-large flavors, and the moved items of rename, move and Replace records.
   - App tests: a batch decoded by one decoder with a crashing picture refused alone; the memory's eviction and version checks; a cached thumbnail shown until its file changes, then made again and its entry replaced; a damaged picture recorded in `fail/` and a recorded failure not tried again until the file changes; a renamed folder keeping its files' thumbnails; a dropped network check not leaving other tiles waiting; tiles on the screen taking slots first.
   - The existing test that "Always show icons" turns thumbnails off everywhere still passes.
-- **Every test binary** was run through `check.py`'s own isolation (`run_isolated`) as an unprivileged user, because the app refuses to run as root and `check.py` stops there in this container. 4,995 tests passed and 4 failed.
+- **Every test binary** was run through `check.py`'s own isolation (`run_isolated`) as an unprivileged user, because the app refuses to run as root and `check.py` stops there in this container. At 77ae92d6, the last code change, 4,996 tests passed and 4 failed. The commit after it only fixes spellings in tests and the bench, and its tests and Clippy pass.
   - The two sandboxed-thumbnailer tests fail identically on unchanged upstream as the same user, because bubblewrap cannot run in this container.
   - The two Python-app comparison tests, `location_fixture_drift` and `network_python`, touch nothing changed here; the first is already noted as failing on main in this environment.
-  - These are the results at 9e992f6a. The ox-app suite was run again after each later commit (which changed only ox-app); at 1e736cf3, 2,648 passed and 2 failed (the same sandbox tests).
+  - One earlier run of the ox-app suite also failed `home_has_no_band_under_the_titles_and_its_tiles_do_not_touch` once. It is a timing flake: it passes alone 3 of 3 times and in every other full run.
   - The doctests pass.
 - **Other checks:** `check.py` up to the Rust tests (the parity tests and `parity/check.py`, i18n, the driver tests, the drawn-icon guard, rustfmt and Clippy with `-D warnings` on Rust 1.92.0) passes, and `parity/check.py` passes alone. `tools/sync-docs.py --check` passes after regenerating the guides from `docs.json`.
 - **Benchmark:** the table above (`thumbnail-bench.py --scroll`).

@@ -1,11 +1,11 @@
 STATUS: DONE
-HEAD: long-c-thumb-cache 1e736cf3
+HEAD: long-c-thumb-cache 9f5546de
 QUESTION: Thumbnails of files deleted or sent to the Recycle Bin stay in ~/.cache/thumbnails (the standard says to remove them; GNOME and KDE mostly don't; Windows keeps them in thumbcache_*.db, a known privacy complaint). This branch only moves the entries of files the app moves or renames. Should it also remove the entries of files it deletes or recycles?
 NOTE: A revisited folder shows its thumbnails at once, as Windows does from thumbcache, from the freedesktop shared cache (normal, large, x-large, xx-large; MD5 of the URI).
 - Lookup: the app reads the cache first, itself. It parses Thumb::URI, Thumb::MTime and Thumb::Size (when present) from the PNG text chunks in safe Rust, without decoding. A larger size stands in for a smaller one. GIO's thumbnail::* query is now used only for files without a known time.
 - Batched reads: current entries are decoded in the sandboxed decoder pool, 12 per request to one decoder, each answer handed back as it comes. A crashing picture is refused alone and the rest of its batch goes to a new decoder.
-- Memory: a 96 MB LRU of shown thumbnails, checked against mtime and size, draws a same-session revisit on the tile's first frame, also with network previews off (the default) however long ago the folder was found local.
-- No icon flash: the cache's entry names are listed in the background once a view with thumbnails is set up, so a tile whose entry exists hides its type icon (250 ms at most) until the read lands. Decoders start in the background then too. Thumbnails show as soon as they are read; a custom icon found later replaces one.
+- Memory: a 64 MB LRU of shown thumbnails (kept at the size shown, about 2,700 Large-icon photos), checked against mtime and size, draws a same-session revisit on the tile's first frame, also with network previews off (the default) however long ago the folder was found local.
+- No icon flash: the cache's entry names are listed in the background once a view with thumbnails is set up (as 128-bit numbers: 5.6 MB for 200,000 entries), so a tile whose entry exists hides its type icon (250 ms at most) until the read lands. Decoders start in the background then too. Thumbnails show as soon as they are read; a custom icon found later replaces one.
 - Generation: off the main thread, on one fewer slot than the processors (2 to 3, was 2), with tiles on the screen first (GTK binds about 190 for 30 visible). A cell counts as on screen only once it is laid out. A new photo costs 1 decode instead of 3.
 - Writes: 0600 temp file (O_EXCL, O_NOFOLLOW) in 0700 folders, renamed into place, with Size and Mimetype keys.
 - Failures: damaged pictures, and files a desktop thumbnailer ran to the end on and gave up on, go to thumbnails/fail/openxplorer. With gnome-thumbnail-factory's failures, they are not retried until the file changes.
@@ -16,16 +16,18 @@ NOTE: A revisited folder shows its thumbnails at once, as Windows does from thum
 - Cache layout is generic for long-d-doc-previews: anything written through writer::save_thumbnail or the desktop thumbnailers gets the same keys and is read back through the same batched path.
 - Root: check.py stops at display_scale in this container because the app refuses to run as root ("Run OpenXplorer as your regular desktop user, not with sudo"), so every test binary was also run through check.py's run_isolated as an unprivileged user.
 
-PASS benchmark, medians of 3 runs, before (upstream 5d21fd3e + the same trace) -> after, 2,000 photos, Large icons, 30 tiles on screen, private Xvfb, unprivileged user, throwaway HOME, xdotool input; "after first tile" excludes app start-up:
-  photos cold: all visible 2,294 -> 1,577 ms from launch, 1,084 -> 464 ms after first tile; decodes 579 -> 193
-  photos same-session revisit: 163 -> 86 ms (89 -> 3 after first tile); first frame 0 -> 30 of 30
-  photos restart: 688 -> 453 ms (278 -> 58); no icon flash 0 -> 30 of 30; 193 reads in 18 batches
-  photos cache drop (posix_fadvise DONTNEED on folder and cache): 747 -> 445 ms (263 -> 58); no icon flash 30 of 30
-  mixed (photos, MP4 via ffmpegthumbnailer, PDF via evince-thumbnailer, in bwrap) cold: 2,928 -> 931 ms (2,510 -> 555); decodes 360 -> 120; thumbnailers 80 -> 80
-  mixed revisit 113 -> 52 ms; restart 632 -> 407 ms; cache drop 625 -> 436 ms
-PASS paging down a new 2,000-photo folder for 4.7 s while thumbnails are made, 8 runs each: 16 main-loop stalls of 34 ms or more in all, longest 39 ms (before: 14, longest 52 ms); no measurable difference
+PASS benchmark, medians of 3 runs each, the two builds run by turns in the same hour, before (upstream 5d21fd3e + the same trace) -> after, 2,000 photos, Large icons, 30 tiles on screen, private Xvfb, unprivileged user, throwaway HOME, xdotool input; "after first tile" excludes app start-up:
+  photos cold: all visible 2,535 -> 2,134 ms from launch, 1,065 -> 584 ms after first tile; decodes 579 -> 193
+  photos same-session revisit: 141 -> 77 ms (82 -> 3 after first tile); first frame 0 -> 30 of 30
+  photos restart: 698 -> 500 ms (273 -> 70); no icon flash 0 -> 30 of 30; 193 reads in 18 batches
+  photos cache drop (posix_fadvise DONTNEED on folder and cache): 914 -> 493 ms (284 -> 64); no icon flash 30 of 30
+  mixed (photos, MP4 via ffmpegthumbnailer, PDF via evince-thumbnailer, in bwrap) cold: 3,303 -> 1,210 ms (2,923 -> 755); decodes 360 -> 120; thumbnailers 80 -> 80
+  mixed revisit 117 -> 72 ms (62 -> 4); restart 729 -> 496 ms (258 -> 61); cache drop 773 -> 530 ms (268 -> 62)
+  earlier sets taken hours before agree, with lower times all round (the VM's speed drifted over the night)
+PASS paging down a new 2,000-photo folder for 4.7 s while thumbnails are made, interleaved: main-loop stalls of 34 ms or more 2/6/2 before (longest 40 ms) vs 1/1/0 after (35 ms); scroll-only runs 4/11/6 vs 4/7/1; no regression
+PASS memory (VmRSS, single runs): after scrolling a cold 2,000-photo folder to the end and back, 341 MB before -> 357 MB after; warm, 267 -> 286 MB; a 200,000-entry cache's name index adds 5.6 MB
 PASS interop (release build, Xvfb, unprivileged user): gio info reports thumbnail::is-valid TRUE for the app's entries and FALSE after the file changes; entries 0600 in 0700 folders with Thumb::URI, MTime, Size, Mimetype
-PASS new tests, written first and seen failing:
+PASS new tests (the ox-core cache tests and the cache-name key test were written first and seen failing; the app tests were written with their code):
   ox-core thumbnail_cache (9: hit, mtime/size/URI misses, larger flavor, broken/linked/oversized entries, fail cache incl. GNOME's, atomic 0600 writes, key rewrite, moves, listing)
   flavors; undo moved_items
   ox-app: batch decode with a crash, LRU eviction and versions, cached thumbnail until the file changes, fail/ recorded and honored, renamed folder keeps thumbnails, dropped network question, on-screen slots first
@@ -33,8 +35,8 @@ PASS all 87 test binaries at 9e992f6a via check.py's run_isolated as an unprivil
   2 sandboxed-thumbnailer tests, identical on upstream as the same user (bwrap in this container)
   location_fixture_drift and network_python (Python-app comparisons, untouched code)
   one earlier ox-app run also failed home_has_no_band_under_the_titles_and_its_tiles_do_not_touch once (flaky: passes alone 3/3 and in the other two full runs)
-PASS ox-app lib at b36df652, same way: 2,647 passed, 2 failed (the same 2 sandbox tests)
-PASS ox-app lib at HEAD 1e736cf3, same way: 2,648 passed, 2 failed (the same 2 sandbox tests)
+PASS all 87 test binaries at 77ae92d6, same way: 4,996 passed, 4 failed (the same 4 as above)
+PASS ox-app thumbnails and decoder tests at HEAD 9f5546de (spelling only since 77ae92d6), rustfmt and Clippy -D warnings
 PASS 2x scale by hand (GDK_SCALE=2, Xvfb, unprivileged user): Large icons write large entries, Extra large icons write x-large (512 x 341) entries
 PASS doctests; check.py through parity tests, parity/check.py, i18n, driver tests, drawn-icon guard, rustfmt, Clippy -D warnings (Rust 1.92.0 as CI); parity/check.py alone; sync-docs --check; audit-public-data on the changed docs
 FAIL none of this branch's
