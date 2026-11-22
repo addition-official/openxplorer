@@ -353,19 +353,7 @@ impl BrowserWindow {
                 glib::clone!(
                     #[weak(rename_to = window)]
                     self,
-                    move |entries| {
-                        // The navigation pane lists them under Network too.
-                        let servers: Vec<ox_core::network::DiscoveredServer> = entries
-                            .iter()
-                            .map(|entry| ox_core::network::DiscoveredServer {
-                                uri: entry.uri.clone(),
-                                label: entry.name.clone(),
-                                host: String::new(),
-                            })
-                            .collect();
-                        window.remember_computers(&servers);
-                        window.receive_batch(&batch_run, entries);
-                    }
+                    move |entries| window.receive_batch(&batch_run, entries)
                 ),
                 glib::clone!(
                     #[weak(rename_to = window)]

@@ -191,8 +191,4 @@ fn a_real_double_click_on_a_folder_of_the_tree_opens_and_closes_it() {
         Some(fixture.uri()),
         "it stays on the folder"
     );
-    // Off the window and past the double-click time before it is
-    // destroyed (see nav_pane.rs `let_go`).
-    pointer.move_to(1430, 990);
-    crate::test_support::harness::wait_for(std::time::Duration::from_millis(700));
 }
