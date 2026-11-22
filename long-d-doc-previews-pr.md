@@ -14,7 +14,7 @@ Windows 11's Preview pane shows Word, Excel and PowerPoint files through Office'
 Now, when LibreOffice is installed:
 
 - **Preview pane.** A Word, Excel or PowerPoint file (docx, docm, doc, xlsx, xlsm, xls, pptx, pptm, ppt) or an OpenDocument text, spreadsheet or presentation (odt, ods, odp and their templates) shows its pages one under the other, scrollable, drawn the way the pane already draws a PDF's.
-- **Thumbnails.** At Medium icons and larger, a document's first page is its thumbnail, framed by a light gray line so a mostly white page still reads as a page. It is written into the shared freedesktop cache through the app's existing writer (`Thumb::URI`, `Thumb::MTime`). Rows of Details, List and Small icons keep the type icon, as Windows draws them, unless the cache already has a thumbnail.
+- **Thumbnails.** At Medium icons and larger, a document's first page is its thumbnail, framed by a light gray line so a mostly white page still reads as a page. It is written into the shared freedesktop cache through the app's existing writer (`Thumb::URI`, `Thumb::MTime`). Rows of Details, List and Small icons keep the type icon, as Windows draws them, even when the cache has the thumbnail. The Details pane shows it.
 - **Without LibreOffice** (or without bubblewrap or poppler's `pdftoppm`), the pane says "No preview available." under the document's icon. Nothing fails loudly.
 
 How it runs:
@@ -48,7 +48,7 @@ All runs used the unprivileged `tester` account with check.py's isolation: priva
   - 75 of 88 binaries pass, and the doctests pass.
   - The 12 failing ox-core binaries (Python-interop, `admin_copy` and versions suites) are untouched by this branch.
   - ox-app: 2,654 passed. Its failures are the 7 that also fail on main in the same isolation, plus one timing-sensitive test per run that passes alone.
-- New converter tests (17) and window tests (4) run where LibreOffice, pdftoppm and a working bubblewrap are installed, and skip with a note elsewhere. Here, LibreOffice 24.2 was used:
+- New converter tests (17) and window tests (5) run where LibreOffice, pdftoppm and a working bubblewrap are installed, and skip with a note elsewhere. Here, LibreOffice 24.2 was used:
   - each kind converts in 0.46–0.67 s;
   - a cache hit takes about 70 µs;
   - a slow workbook is stopped at 15.0 s;
@@ -58,7 +58,9 @@ All runs used the unprivileged `tester` account with check.py's isolation: priva
   - a document changed to the same size 1 ms later is converted again and never shown from its old PDF;
   - a docx embedding a 20000×20000 picture converts in 13 s at a 664 MiB peak.
 - Preview pane, cold, from selection to first page: small documents 0.58–0.88 s; a 600-paragraph docx 1.3 s, a 3,000-row xlsx 2.0–2.2 s, a 120-slide pptx 1.0–1.1 s. Selecting a document again takes 106–170 ms, including the pane's 90 ms settle.
-- Real X input (XTEST) through 50 mixed documents with the Preview pane, then the Details pane: the longest main-loop step was 6.7–48 ms. No LibreOffice was left running, and nothing was written beside the documents.
+- Real X input (XTEST) through 50 mixed documents with the Preview pane, then the Details pane, then in Large icons while every thumbnail was made: the longest main-loop step was 4.7–48 ms. No LibreOffice was left running, and nothing was written beside the documents.
+- With a 30-second workbook's thumbnail converting, the selected document showed in 0.76 s. The test fails when preemption is disabled.
+- A sandboxed conversion works beside the user's own running LibreOffice and leaves it alone.
 - The real app, driven with xdotool on a private Xvfb, 1x in light and dark, through the same 50 documents: every keypress showed within 0.49 s (screenshot-based timing). The first document after launch shows its page, and no LibreOffice remains after quitting.
 - LibreOffice's peak memory per conversion was 175–322 MiB.
 - The real app in Large icons (Ctrl+Shift+2), with real keys moving the selection while thumbnails were made: every visible document got its framed first page (47 thumbnails in 66 s), the damaged and noise files kept their icons, and no decoder failures occurred.
