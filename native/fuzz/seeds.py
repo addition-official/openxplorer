@@ -43,6 +43,13 @@ def write(target, name, data):
 def archive_seed(name, option, data):
     for target in ('archive_list', 'archive_extract'):
         write(target, name, bytes([option]) + data)
+    # archive_fixup takes plain TARs, compressing them itself, and 7z.
+    kind = option & 7
+    if kind == TAR:
+        for compression in range(5):
+            write('archive_fixup', f'{name}-{compression}', bytes([option & ~7, compression]) + data)
+    elif kind == SEVEN:
+        write('archive_fixup', name, bytes([option & ~7, 0]) + data)
 
 
 def zip_with(method, members, **options):

@@ -208,6 +208,117 @@ pub fn extract(data: &[u8]) {
     }
 }
 
+/// The second byte of a fix-up input: which compression wraps the TAR.
+const COMPRESSIONS: [&str; 5] = ["Fuzz.tar", "Fuzz.tar.gz", "Fuzz.tar.bz2", "Fuzz.tar.xz", "Fuzz.tar.zst"];
+
+/// [`list_inspect_preview`] and [`extract`] on an archive whose checksums
+/// are made right first, so mutations reach the parsers behind them: the
+/// first byte is the options byte, the second picks a compression for a
+/// TAR, and the rest is a TAR (each header's checksum is set, walking the
+/// headers as a reader does) or a 7z (its start and next header CRCs are
+/// set), compressed here as the second byte says.
+pub fn fixed_up(data: &[u8]) {
+    let [options, compression, archive @ ..] = data else {
+        return;
+    };
+    let mut archive = archive.to_vec();
+    let (name_index, packed) = if archive.starts_with(b"7z\xBC\xAF\x27\x1C") {
+        fix_seven_zip(&mut archive);
+        (1, archive)
+    } else {
+        fix_tar(&mut archive);
+        let kind = usize::from(*compression) % COMPRESSIONS.len();
+        (2 + kind, compress(kind, &archive))
+    };
+    let mut input = vec![(options & !7) | u8::try_from(name_index).unwrap_or(7)];
+    input.extend_from_slice(&packed);
+    list_inspect_preview(&input);
+    extract(&input);
+}
+
+fn compress(kind: usize, tar: &[u8]) -> Vec<u8> {
+    use std::io::Write;
+    match kind {
+        1 => {
+            let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+            let _ = encoder.write_all(tar);
+            encoder.finish().unwrap_or_default()
+        }
+        2 => {
+            let mut encoder = bzip2::write::BzEncoder::new(Vec::new(), bzip2::Compression::fast());
+            let _ = encoder.write_all(tar);
+            encoder.finish().unwrap_or_default()
+        }
+        3 => {
+            let Ok(mut encoder) = lzma_rust2::XzWriter::new(Vec::new(), lzma_rust2::XzOptions::with_preset(0)) else {
+                return Vec::new();
+            };
+            let _ = encoder.write_all(tar);
+            encoder.finish().unwrap_or_default()
+        }
+        4 => ruzstd::encoding::compress_to_vec(tar, ruzstd::encoding::CompressionLevel::Fastest),
+        _ => tar.to_vec(),
+    }
+}
+
+/// Sets the checksum of each TAR header, from the first, skipping each
+/// member's data by the size its header gives.
+fn fix_tar(tar: &mut [u8]) {
+    let mut at = 0_usize;
+    while let Some(block) = tar.get_mut(at..at + 512) {
+        if block.iter().all(|&byte| byte == 0) {
+            at += 512;
+            continue;
+        }
+        block[148..156].fill(b' ');
+        let sum: u64 = block.iter().map(|&byte| u64::from(byte)).sum();
+        let digits = format!("{sum:06o}\0 ");
+        block[148..156].copy_from_slice(&digits.as_bytes()[digits.len() - 8..]);
+        let size = tar_size(&block[124..136]).unwrap_or(0);
+        let data_blocks = size.div_ceil(512).min(u64::try_from(tar.len()).unwrap_or(u64::MAX));
+        at = at
+            .saturating_add(512)
+            .saturating_add(usize::try_from(data_blocks * 512).unwrap_or(usize::MAX));
+    }
+}
+
+/// A TAR size field: octal, or base-256 when its first bit is set.
+fn tar_size(field: &[u8]) -> Option<u64> {
+    if field.first().is_some_and(|byte| byte & 0x80 != 0) {
+        return field[1..]
+            .iter()
+            .try_fold(0_u64, |value, &byte| value.checked_mul(256)?.checked_add(u64::from(byte)));
+    }
+    let digits: String = field
+        .iter()
+        .map(|&byte| char::from(byte))
+        .filter(char::is_ascii_digit)
+        .collect();
+    u64::from_str_radix(&digits, 8).ok()
+}
+
+/// Sets a 7z's next header CRC, when the next header is inside it, and
+/// its start header CRC.
+fn fix_seven_zip(archive: &mut [u8]) {
+    if archive.len() < 32 {
+        return;
+    }
+    let word = |bytes: &[u8], at: usize| u64::from_le_bytes(bytes[at..at + 8].try_into().unwrap_or_default());
+    let offset = word(archive, 12);
+    let size = word(archive, 20);
+    let next = usize::try_from(offset)
+        .ok()
+        .and_then(|offset| offset.checked_add(32))
+        .zip(usize::try_from(size).ok())
+        .and_then(|(start, size)| Some(start..start.checked_add(size)?));
+    if let Some(next) = next.filter(|next| next.end <= archive.len()) {
+        let crc = crc32fast::hash(&archive[next]);
+        archive[28..32].copy_from_slice(&crc.to_le_bytes());
+    }
+    let crc = crc32fast::hash(&archive[12..32]);
+    archive[8..12].copy_from_slice(&crc.to_le_bytes());
+}
+
 fn names(folder: &Path) -> Vec<String> {
     fs::read_dir(folder)
         .map(|entries| {

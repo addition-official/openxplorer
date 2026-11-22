@@ -94,3 +94,10 @@ path = "fuzz_targets/media_streams.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "archive_fixup"
+path = "fuzz_targets/archive_fixup.rs"
+test = false
+doc = false
+bench = false

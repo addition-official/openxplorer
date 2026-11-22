@@ -26,8 +26,9 @@ pub(crate) fn fuzz_streams(bytes: &[u8], folder: &std::path::Path) {
     }
     let uri = gio::File::for_path(&path).uri();
     let size = u64::try_from(bytes.len()).ok();
+    // Both kinds read the streams alike; the rows differ.
+    let details = read_details(&uri, MediaKind::Video, size);
     for kind in [MediaKind::Video, MediaKind::Audio] {
-        let details = read_details(&uri, kind, size);
         let _ = crate::properties::pane_media_rows(kind, &details);
     }
 }
