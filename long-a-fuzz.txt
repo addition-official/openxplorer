@@ -138,3 +138,20 @@ picture_headers        11,281,265
 text_preview            8,338,769
 Found and fixed since last update: 0 (six fuzzers at nice 19 beside the checks).
 check.py with Rust 1.92.0 as root: parity tests and parity/check.py, i18n check, driver tests, drawn-icon guard, rustfmt and clippy -D warnings passed; the app refuses to run as root ("Run OpenXplorer as your regular desktop user"), so display_scale failed there. The 87 test executables now run through check.py's run_isolated as the unprivileged user tester (debug info off to fit the disk allowance). So far 55 passed; failed: location_fixture_drift (known to fail on main: Python 3.13 parses smb://[V1.x]), network_python (the retired Python app imports gi, built for the system Python 3.12, not /usr/local's 3.13), integration_file_chooser (a GLib critical made fatal in another_program_cannot_close_the_dialog; code not touched here, to be rerun and compared with main).
+
+== 2026-11-22 02:56 CST ==
+Executions so far (all runs):
+app_protocols             421,336
+archive_extract         2,248,232
+archive_fixup             654,580
+archive_list            9,771,698
+archive_zipgen            780,266
+core_formats            8,543,318
+core_text              13,615,244
+media_details          57,679,847
+media_streams               8,968
+picture_decode          4,967,618
+picture_headers        11,281,265
+text_preview            8,338,769
+Found and fixed since last update: 0.
+Tests as tester: ox-app's 2,643 library tests ran; 1 failed, settings_page::tests::every_preference_switch_saves_persists_and_turns_back_exactly ("timed out waiting for Pictures to be turned back"), which fails the same way, run alone, on upstream main 5d21fd3e built the same way. integration_file_chooser also fails the same way on main (GLib critical made fatal, exit 133). Remaining executables still running.
