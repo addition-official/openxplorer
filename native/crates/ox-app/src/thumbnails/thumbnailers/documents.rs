@@ -1551,6 +1551,34 @@ mod tests {
         assert_eq!(fs::read_dir(folder.path()).expect("listing").count(), 3);
     }
 
+    /// A decompression bomb, a Word document of two megabytes whose text
+    /// unpacks to 256 MiB, four times the sandbox's file-size limit, is stopped within
+    /// the time limit, and nothing is left running or written beside it.
+    ///
+    /// parity: VIEW-070
+    #[test]
+    fn a_decompression_bomb_is_stopped_by_the_limits() {
+        let folder = tempfile::tempdir().expect("a temporary folder");
+        let Some(converter) = test_office(&folder.path().join("cache")) else {
+            return;
+        };
+        let bomb = folder.path().join("Bomb.docx");
+        office_documents::write_bomb(&bomb, 256);
+        assert!(fs::metadata(&bomb).expect("written").len() < 4 * 1024 * 1024);
+
+        let before = Instant::now();
+        let outcome = converter.pdf(&bomb, Priority::Preview, &gio::Cancellable::new());
+        let took = before.elapsed();
+
+        eprintln!("the bomb: {outcome:?} after {took:?}");
+        assert!(
+            matches!(outcome, Err(Failure::Failed | Failure::TimedOut)),
+            "{outcome:?}"
+        );
+        assert!(took < TIMEOUT + Duration::from_secs(3), "{took:?}");
+        assert_eq!(fs::read_dir(folder.path()).expect("listing").count(), 1);
+    }
+
     /// A document larger than the size limit, a folder and a pipe are
     /// refused without starting `LibreOffice`.
     ///

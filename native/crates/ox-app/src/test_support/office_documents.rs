@@ -195,6 +195,51 @@ pub(crate) fn write_slow_spreadsheet(path: &Path, count: usize) {
     fs::write(path, zip(&parts)).expect("the test document");
 }
 
+/// Writes a Word document at `path` of about two megabytes whose text
+/// unpacks to `megabytes` mebibytes, as a decompression bomb does.
+pub(crate) fn write_bomb(path: &Path, megabytes: usize) {
+    use gtk::gio;
+    use gtk::prelude::*;
+
+    let paragraph = format!("<w:p><w:r><w:t>{}</w:t></w:r></w:p>", "A".repeat(2000));
+    let chunk = paragraph.repeat(1024 * 1024 / paragraph.len() + 1);
+    let head =
+        b"<w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:body>";
+    let tail = b"</w:body></w:document>";
+    let compressor = gio::ZlibCompressor::new(gio::ZlibCompressorFormat::Raw, 9);
+    let memory = gio::MemoryOutputStream::new_resizable();
+    let stream = gio::ConverterOutputStream::new(&memory, &compressor);
+    let mut crc = Crc32::new();
+    let mut size = 0_usize;
+    let mut write = |bytes: &[u8]| {
+        stream
+            .write_all(bytes, gio::Cancellable::NONE)
+            .expect("compressed");
+        crc.add(bytes);
+        size += bytes.len();
+    };
+    write(head);
+    for _ in 0..megabytes {
+        write(chunk.as_bytes());
+    }
+    write(tail);
+    stream.close(gio::Cancellable::NONE).expect("closed");
+    let deflated = memory.steal_as_bytes().to_vec();
+    let mut parts: Vec<Entry> = docx(&[])
+        .into_iter()
+        .filter(|(name, _)| name != "word/document.xml")
+        .map(|(name, bytes)| Entry::stored(name, bytes))
+        .collect();
+    parts.push(Entry {
+        name: "word/document.xml".to_owned(),
+        crc: crc.finish(),
+        size: u32::try_from(size).expect("under 4 GiB"),
+        method: 8,
+        bytes: deflated,
+    });
+    fs::write(path, zip_entries(&parts)).expect("the test document");
+}
+
 /// Writes 64 KiB of noise at `path`.
 pub(crate) fn write_noise(path: &Path) {
     fs::write(path, noise(64 * 1024, 11)).expect("the test file");
@@ -442,40 +487,75 @@ fn pptx(slides: &[String]) -> Parts {
     package
 }
 
+/// A part of a ZIP archive: its name, the checksum and size of its
+/// bytes unpacked, how they are packed (0 stored, 8 deflated) and the
+/// bytes as packed.
+struct Entry {
+    name: String,
+    crc: u32,
+    size: u32,
+    method: u16,
+    bytes: Vec<u8>,
+}
+
+impl Entry {
+    /// `bytes` stored as `name`, unpacked.
+    fn stored(name: String, bytes: Vec<u8>) -> Self {
+        let mut crc = Crc32::new();
+        crc.add(&bytes);
+        Self {
+            name,
+            crc: crc.finish(),
+            size: u32::try_from(bytes.len()).expect("a small part"),
+            method: 0,
+            bytes,
+        }
+    }
+}
+
 /// A ZIP archive of `parts`, in their order, without compression.
 fn zip(parts: &[(String, Vec<u8>)]) -> Vec<u8> {
+    let entries: Vec<Entry> = parts
+        .iter()
+        .map(|(name, bytes)| Entry::stored(name.clone(), bytes.clone()))
+        .collect();
+    zip_entries(&entries)
+}
+
+/// A ZIP archive of `entries`, in their order.
+fn zip_entries(entries: &[Entry]) -> Vec<u8> {
     let mut archive = Vec::new();
     let mut directory = Vec::new();
     let to_u32 = |value: usize| u32::try_from(value).expect("a small archive");
     let to_u16 = |value: usize| u16::try_from(value).expect("a short name");
-    for (name, bytes) in parts {
+    for entry in entries {
         let offset = to_u32(archive.len());
-        let crc = crc32(bytes);
-        let size = to_u32(bytes.len());
-        let name_length = to_u16(name.len());
-        // The local header: version 2.0, no flags, stored, a fixed time.
+        let packed = to_u32(entry.bytes.len());
+        let name_length = to_u16(entry.name.len());
+        let method = entry.method.to_le_bytes();
+        // The local header: version 2.0, no flags, the method, a fixed time.
         archive.extend_from_slice(&0x0403_4b50_u32.to_le_bytes());
-        archive.extend_from_slice(&[20, 0, 0, 0, 0, 0, 0, 0, 0x21, 0x00]);
-        archive.extend_from_slice(&crc.to_le_bytes());
-        archive.extend_from_slice(&size.to_le_bytes());
-        archive.extend_from_slice(&size.to_le_bytes());
+        archive.extend_from_slice(&[20, 0, 0, 0, method[0], method[1], 0, 0, 0x21, 0x00]);
+        archive.extend_from_slice(&entry.crc.to_le_bytes());
+        archive.extend_from_slice(&packed.to_le_bytes());
+        archive.extend_from_slice(&entry.size.to_le_bytes());
         archive.extend_from_slice(&name_length.to_le_bytes());
         archive.extend_from_slice(&0_u16.to_le_bytes());
-        archive.extend_from_slice(name.as_bytes());
-        archive.extend_from_slice(bytes);
+        archive.extend_from_slice(entry.name.as_bytes());
+        archive.extend_from_slice(&entry.bytes);
         directory.extend_from_slice(&0x0201_4b50_u32.to_le_bytes());
-        directory.extend_from_slice(&[20, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0x21, 0x00]);
-        directory.extend_from_slice(&crc.to_le_bytes());
-        directory.extend_from_slice(&size.to_le_bytes());
-        directory.extend_from_slice(&size.to_le_bytes());
+        directory.extend_from_slice(&[20, 0, 20, 0, 0, 0, method[0], method[1], 0, 0, 0x21, 0x00]);
+        directory.extend_from_slice(&entry.crc.to_le_bytes());
+        directory.extend_from_slice(&packed.to_le_bytes());
+        directory.extend_from_slice(&entry.size.to_le_bytes());
         directory.extend_from_slice(&name_length.to_le_bytes());
         // No extra field or comment, disk 0, no attributes.
         directory.extend_from_slice(&[0; 12]);
         directory.extend_from_slice(&offset.to_le_bytes());
-        directory.extend_from_slice(name.as_bytes());
+        directory.extend_from_slice(entry.name.as_bytes());
     }
     let directory_offset = to_u32(archive.len());
-    let count = to_u16(parts.len());
+    let count = to_u16(entries.len());
     archive.extend_from_slice(&directory);
     archive.extend_from_slice(&0x0605_4b50_u32.to_le_bytes());
     archive.extend_from_slice(&[0, 0, 0, 0]);
@@ -487,20 +567,30 @@ fn zip(parts: &[(String, Vec<u8>)]) -> Vec<u8> {
     archive
 }
 
-/// The CRC-32 a ZIP archive keeps of `bytes`.
-fn crc32(bytes: &[u8]) -> u32 {
-    let mut crc = !0_u32;
-    for &byte in bytes {
-        crc ^= u32::from(byte);
-        for _ in 0..8 {
-            crc = if crc & 1 == 1 {
-                (crc >> 1) ^ 0xedb8_8320
-            } else {
-                crc >> 1
-            };
+/// The CRC-32 a ZIP archive keeps of a part's bytes, added in pieces.
+struct Crc32(u32);
+
+impl Crc32 {
+    fn new() -> Self {
+        Self(!0)
+    }
+
+    fn add(&mut self, bytes: &[u8]) {
+        for &byte in bytes {
+            self.0 ^= u32::from(byte);
+            for _ in 0..8 {
+                self.0 = if self.0 & 1 == 1 {
+                    (self.0 >> 1) ^ 0xedb8_8320
+                } else {
+                    self.0 >> 1
+                };
+            }
         }
     }
-    !crc
+
+    fn finish(&self) -> u32 {
+        !self.0
+    }
 }
 
 #[cfg(test)]
@@ -510,6 +600,9 @@ mod tests {
     /// The checksum is ZIP's own: that of "123456789" is CBF43926.
     #[test]
     fn the_checksum_is_zips() {
-        assert_eq!(crc32(b"123456789"), 0xcbf4_3926);
+        let mut crc = Crc32::new();
+        crc.add(b"1234");
+        crc.add(b"56789");
+        assert_eq!(crc.finish(), 0xcbf4_3926);
     }
 }
