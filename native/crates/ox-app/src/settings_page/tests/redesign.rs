@@ -251,6 +251,8 @@ fn every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages() {
         "Music icon",
         "Code icon",
         "File name endings",
+        // The Details view's sort arrow (VIEW-014).
+        "Column header style",
     ];
     for title in added_since {
         settings.row(title);
