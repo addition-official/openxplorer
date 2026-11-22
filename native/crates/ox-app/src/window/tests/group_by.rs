@@ -215,7 +215,7 @@ fn shown_relative_dates(test: &TestWindow) -> Vec<String> {
     let column_view = test.window.folder_pane().details().column_view().clone();
     descendants::<gtk::Label>(&column_view)
         .into_iter()
-        .filter(|label| label.is_mapped())
+        .filter(WidgetExt::is_mapped)
         .map(|label| label.text().to_string())
         .filter(|text| text.starts_with("Today at ") || text.starts_with("Yesterday at "))
         .collect()
