@@ -171,6 +171,26 @@ mod imp {
         /// The timer that lets the contents count as opaque again once
         /// the menu has faded in.
         pub(super) opaque_again: RefCell<Option<SourceId>>,
+        /// What a kept menu does once it has closed, for its current
+        /// opening only ([`super::MenuPopover::after_close`]).
+        pub(super) after_close: RefCell<AfterClose>,
+    }
+
+    /// What a kept menu runs as it closes.
+    type CloseWork = Box<dyn FnOnce(&super::MenuPopover)>;
+
+    /// The work a kept menu does once it has closed.
+    #[derive(Default)]
+    pub(crate) struct AfterClose(pub(super) Option<CloseWork>);
+
+    impl std::fmt::Debug for AfterClose {
+        fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.write_str(if self.0.is_some() {
+                "AfterClose(set)"
+            } else {
+                "AfterClose(none)"
+            })
+        }
     }
 
     #[glib::object_subclass]
@@ -272,6 +292,8 @@ mod imp {
 
     impl WidgetImpl for MenuPopover {
         fn show(&self) {
+            // A kept menu opens afresh: nothing chosen yet.
+            self.chose.set(false);
             // Before GTK places the menu, so it is placed at its full size.
             self.obj().open_below_button_again();
             self.obj().fit_to_monitor();
@@ -582,6 +604,11 @@ impl MenuPopover {
         menu
     }
 
+    /// Whether the menu has the classic look.
+    pub(super) fn is_classic(&self) -> bool {
+        self.imp().style.get() == MenuStyle::Classic
+    }
+
     /// Replaces the menu's entries.
     pub(super) fn set_entries(&self, entries: Vec<MenuEntry>) {
         self.imp().entries.replace(entries);
@@ -716,6 +743,11 @@ impl MenuPopover {
                 row.remove_css_class(css_class);
             }
         }
+    }
+
+    /// The entries, dividers included, as the menu shows them now.
+    pub(in crate::window) fn entries(&self) -> Vec<MenuEntry> {
+        self.imp().entries.borrow().clone()
     }
 
     /// The items, one per row, without the dividers.
@@ -947,6 +979,42 @@ impl MenuPopover {
     /// submenus, was chosen.
     pub(super) fn chose_an_item(&self) -> bool {
         self.imp().chose.get()
+    }
+
+    /// The menu `owner` keeps under `name`, made and parented to it the
+    /// first time, then shown again each time, as the file list keeps its
+    /// menu. A menu made for one opening and unparented once it closed
+    /// left GTK (4.14) holding the pointer's focus on a row of its
+    /// unrealized popup when a pointer event reached the hidden popup in
+    /// between: the window's next layout then asked that gone surface for
+    /// the pointer (`gdk_surface_request_motion` on NULL, a crash). A kept
+    /// menu's popup lives as long as its owner.
+    pub(in crate::window) fn kept_by(owner: &impl IsA<gtk::Widget>, name: &str) -> MenuPopover {
+        let owner = owner.upcast_ref::<gtk::Widget>();
+        let kept = super::widget_tree::children(owner)
+            .filter_map(|child| child.downcast::<MenuPopover>().ok())
+            .find(|menu| menu.widget_name() == name);
+        if let Some(menu) = kept {
+            return menu;
+        }
+        let menu = MenuPopover::new(Vec::new());
+        menu.set_widget_name(name);
+        menu.set_parent(owner);
+        menu.connect_closed(|menu| {
+            if let Some(after) = menu.imp().after_close.take().0 {
+                after(menu);
+            }
+        });
+        menu
+    }
+
+    /// Runs `after` as this opening of a kept menu ([`Self::kept_by`])
+    /// closes, before its chosen item runs, in place of what an earlier
+    /// opening asked for.
+    pub(in crate::window) fn after_close(&self, after: impl FnOnce(&MenuPopover) + 'static) {
+        self.imp()
+            .after_close
+            .replace(imp::AfterClose(Some(Box::new(after))));
     }
 
     /// The menu this one is a submenu of, if it is one.
@@ -1251,7 +1319,7 @@ impl MenuPopover {
     /// The pointer rests on the row at `index`, or on none: after
     /// [`SUBMENU_DELAY`], that row's submenu opens, or the open one closes
     /// when the pointer rests on another row. Leaving the rows keeps an
-    /// open submenu open, as Windows does.
+    /// open submenu open, as Windows 11 does (checked on build 26200).
     fn rest_on(&self, index: Option<usize>) {
         if self.imp().hover.borrow().0 == index {
             return;
@@ -1740,8 +1808,5 @@ fn item_row(item: &MenuItem, check: CheckMark, marks: MarkColumn, glyphs: GlyphC
 /// keyboard focus to the menu button's inner toggle, which does not take
 /// the menu button's name, so both carry it.
 pub(super) fn name_menu_button(button: &gtk::MenuButton, name: &str) {
-    button.update_property(&[gtk::accessible::Property::Label(name)]);
-    if let Some(toggle) = button.first_child() {
-        toggle.update_property(&[gtk::accessible::Property::Label(name)]);
-    }
+    crate::accessible_names::describe_menu_button(button, Some(name));
 }

@@ -263,19 +263,16 @@ impl Settings {
 
     /// Adds the file at `uri` to Favorites, at the end, or removes it
     /// (HOME-014), changing only that entry of `favorites` as the file now
-    /// holds it. Favorites change only while Home shows them ("Open Quick
-    /// access on Home", `home_quick_access`, as the file holds it when the
-    /// change runs): a menu opened before the option was turned off
-    /// changes nothing. Returns the resulting preferences.
+    /// holds it. Favorites change whatever Home shows, as Windows 11's Add
+    /// to Favorites always pins to Home's Favorites; Home lists them while
+    /// "Open Quick access on Home" is on. Returns the resulting
+    /// preferences.
     ///
     /// # Errors
     ///
     /// Every error of [`update_preferences`](Self::update_preferences).
     pub fn set_favorite(&mut self, uri: &str, favorite: bool) -> Result<Preferences, SettingsError> {
         self.mutate(|data| {
-            if !data.preferences.home_quick_access {
-                return Ok(data.preferences.clone());
-            }
             // Compared and kept in the canonical form, so the address
             // GIO gives the file finds the favorite it added (HOME-014).
             let Some(key) = favorite_key(uri) else {
@@ -286,6 +283,33 @@ impl Settings {
             if favorite {
                 favorites.push(key);
             }
+            let update = PreferencesUpdate {
+                favorites: Some(favorites),
+                ..PreferencesUpdate::default()
+            };
+            data.preferences.apply(&update);
+            Ok(data.preferences.clone())
+        })
+    }
+
+    /// Follows a rename or move of the item at `from` to `to` in Favorites
+    /// (HOME-036): a favorite that is that item, or is inside it when it is
+    /// a folder, keeps its place in the list under its new address, as
+    /// Windows' Favorites go on naming a renamed file. Nothing else changes,
+    /// and nothing is saved when no favorite is affected. Returns the
+    /// resulting preferences.
+    ///
+    /// # Errors
+    ///
+    /// Every error of [`update_preferences`](Self::update_preferences).
+    pub fn move_favorites(&mut self, from: &str, to: &str) -> Result<Preferences, SettingsError> {
+        self.mutate(|data| {
+            let (Some(from), Some(to)) = (favorite_key(from), favorite_key(to)) else {
+                return Ok(data.preferences.clone());
+            };
+            let Some(favorites) = moved_favorites(&data.preferences.favorites, &from, &to) else {
+                return Ok(data.preferences.clone());
+            };
             let update = PreferencesUpdate {
                 favorites: Some(favorites),
                 ..PreferencesUpdate::default()
@@ -580,6 +604,32 @@ impl Settings {
         }
         Ok(())
     }
+}
+
+/// `favorites` with the item at `from` moved to `to`, both in their
+/// canonical form ([`favorite_key`]): the favorite that is it, and every
+/// one inside it, renamed in place. `None` when no favorite is affected.
+fn moved_favorites(favorites: &[String], from: &str, to: &str) -> Option<Vec<String>> {
+    if from == to {
+        return None;
+    }
+    let inside = format!("{}/", from.trim_end_matches('/'));
+    let mut moved = false;
+    let favorites = favorites
+        .iter()
+        .map(|kept| {
+            if kept == from {
+                moved = true;
+                to.to_owned()
+            } else if let Some(rest) = kept.strip_prefix(&inside) {
+                moved = true;
+                format!("{}/{rest}", to.trim_end_matches('/'))
+            } else {
+                kept.clone()
+            }
+        })
+        .collect();
+    moved.then_some(favorites)
 }
 
 #[cfg(test)]

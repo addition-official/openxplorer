@@ -745,38 +745,69 @@ fn a_favorite_is_added_and_removed_by_its_gio_address() {
         .is_empty());
 }
 
-/// Favorites change only while "Open Quick access on Home" is on, as the
-/// file holds it when the change runs: a command from a menu opened
-/// before the option was turned off, in this window or another, adds or
-/// removes nothing (HOME-014).
+/// Favorites change whatever Home shows, as Windows 11's Add to
+/// Favorites always pins to Home's Favorites: a file added while Home
+/// shows the home folder is listed once "Open Quick access on Home" is
+/// turned on, and a later window's change keeps the others (HOME-014).
 ///
 /// parity: HOME-014
 #[test]
-fn favorites_change_only_while_home_shows_them() {
+fn favorites_change_whatever_home_shows() {
     let root = temporary_folder();
     let mut store = Settings::open(root.path());
     let notes = "file:///home/ana/Notes.txt";
     let plan = "file:///home/ana/Plan.txt";
-    let option = |on: bool| PreferencesUpdate {
-        home_quick_access: Some(on),
-        ..PreferencesUpdate::default()
-    };
-    store.set_favorite(notes, true).expect("ignored while off");
-    assert!(Settings::open(root.path())
-        .snapshot()
-        .preferences
-        .favorites
-        .is_empty());
-
-    store.update_preferences(&option(true)).expect("on");
-    store.set_favorite(notes, true).expect("added");
-    // Another window turns the option off; this store has not read it.
-    Settings::open(root.path())
-        .update_preferences(&option(false))
-        .expect("off elsewhere");
-    store.set_favorite(plan, true).expect("ignored");
-    store.set_favorite(notes, false).expect("ignored");
+    store.set_favorite(notes, true).expect("added while off");
     let preferences = Settings::open(root.path()).snapshot().preferences;
     assert_eq!(preferences.favorites, [notes]);
+    assert!(!preferences.home_quick_access, "the option stays as it was");
+
+    store.set_favorite(plan, true).expect("added");
+    store.set_favorite(notes, false).expect("removed");
+    let preferences = Settings::open(root.path()).snapshot().preferences;
+    assert_eq!(preferences.favorites, [plan]);
     assert!(!preferences.home_quick_access);
+}
+
+/// A renamed favorite, or a favorite inside a renamed folder, keeps its
+/// place in Favorites under its new address; the others stay as they are
+/// (HOME-036).
+///
+/// parity: HOME-036
+#[test]
+fn a_renamed_favorite_keeps_its_place_under_its_new_name() {
+    let root = temporary_folder();
+    let mut store = Settings::open(root.path());
+    store
+        .update_preferences(&PreferencesUpdate {
+            home_quick_access: Some(true),
+            ..PreferencesUpdate::default()
+        })
+        .expect("on");
+    let notes = "file:///home/ana/Notes.txt";
+    let plan = "file:///home/ana/Work/Plan.txt";
+    let photo = "file:///home/ana/Work%20old/Beach.jpg";
+    for favorite in [notes, plan, photo] {
+        store.set_favorite(favorite, true).expect("added");
+    }
+
+    store
+        .move_favorites(notes, "file:///home/ana/Notes%20(final).txt")
+        .expect("renamed");
+    store
+        .move_favorites("file:///home/ana/Work", "file:///home/ana/Projects")
+        .expect("folder renamed");
+    store
+        .move_favorites("file:///home/ana/Unrelated.txt", "file:///home/ana/Other.txt")
+        .expect("nothing to follow");
+
+    let preferences = Settings::open(root.path()).snapshot().preferences;
+    assert_eq!(
+        preferences.favorites,
+        [
+            favorite_key("file:///home/ana/Notes%20(final).txt").unwrap(),
+            "file:///home/ana/Projects/Plan.txt".to_owned(),
+            photo.to_owned(),
+        ]
+    );
 }

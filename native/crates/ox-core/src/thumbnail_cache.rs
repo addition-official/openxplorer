@@ -678,7 +678,7 @@ mod tests {
 
         let hit = look_up(cache.path(), &item, ThumbnailFlavor::Normal).expect("the larger entry");
         assert_eq!(hit.flavor, ThumbnailFlavor::XLarge);
-        assert_eq!(look_up(cache.path(), &item, ThumbnailFlavor::XxLarge), None);
+        assert_eq!(look_up(cache.path(), &item, ThumbnailFlavor::XXLarge), None);
     }
 
     /// Damaged files, links and files too large to be thumbnails are no

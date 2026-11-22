@@ -51,7 +51,7 @@ use std::time::{Duration, Instant};
 use gtk::gdk_pixbuf::{Pixbuf, PixbufFormat};
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib};
-use ox_core::entry::{cached_thumbnail, CachedThumbnail, Entry, ThumbnailFlavor, THUMBNAIL_ATTRIBUTES};
+use ox_core::entry::{cached_thumbnail_for, CachedThumbnail, Entry, ThumbnailFlavor, THUMBNAIL_ATTRIBUTES};
 use ox_core::settings::{ViewOptions, PREVIEW_SIZE_LIMIT};
 use ox_core::thumbnail_cache::{self, Version};
 
@@ -355,6 +355,7 @@ pub(crate) async fn preview(request: PreviewRequest) -> Option<gdk::Texture> {
     if request.local_only && on_network {
         return None;
     }
+    note_kept_previews_used();
     if let Some(texture) = remembered(&request) {
         trace::event("kept-hit", &request.uri);
         return Some(texture);
@@ -372,6 +373,7 @@ pub(crate) async fn preview(request: PreviewRequest) -> Option<gdk::Texture> {
             request.size,
         );
     });
+    note_kept_previews_used();
     Some(texture)
 }
 
@@ -402,7 +404,9 @@ pub(crate) fn kept_preview(request: &PreviewRequest) -> Option<gdk::Texture> {
     if request.local_only && !known_local(request) {
         return None;
     }
-    remembered(request)
+    let texture = remembered(request)?;
+    note_kept_previews_used();
+    Some(texture)
 }
 
 fn remembered(request: &PreviewRequest) -> Option<gdk::Texture> {
@@ -543,6 +547,61 @@ fn files_moved(old: &Path, new: &Path, seen: &mut usize) -> Vec<(String, Version
     files
 }
 
+thread_local! {
+    /// When a view last asked for a preview.
+    static LAST_PREVIEW_ASKED: std::cell::Cell<Option<std::time::Instant>> = const { std::cell::Cell::new(None) };
+    /// Set while a check for unused previews is due.
+    static FORGETTING_PREVIEWS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Notes that a view asked for a preview now. The previews kept for rows
+/// and tiles scrolled back into view are dropped once no view asked for
+/// one for [`picture_guard::unused_limit`]: the rows shown hold their own,
+/// and the photos of a folder left long ago, up to [`MEMORY_BUDGET`] of
+/// previews and 48 tile-sized pictures, are otherwise held for as long as
+/// the app runs. A folder visited again after that reads them back from
+/// the shared cache, in batches ([`reader`]).
+fn note_kept_previews_used() {
+    LAST_PREVIEW_ASKED.set(Some(std::time::Instant::now()));
+    if !FORGETTING_PREVIEWS.replace(true) {
+        forget_kept_previews_after(picture_guard::unused_limit());
+    }
+}
+
+/// Drops the kept previews after `delay`, unless a view asked for one
+/// since, which puts it off.
+fn forget_kept_previews_after(delay: std::time::Duration) {
+    glib::timeout_add_local_once(delay, || {
+        let limit = picture_guard::unused_limit();
+        let unused = LAST_PREVIEW_ASKED.get().map_or(limit, |asked| asked.elapsed());
+        if unused < limit {
+            forget_kept_previews_after(limit.saturating_sub(unused));
+            return;
+        }
+        FORGETTING_PREVIEWS.set(false);
+        forget_kept_previews();
+    });
+}
+
+/// Lets the next preview start a check for unused previews with the
+/// limit as it is now, for tests that shorten it.
+#[cfg(test)]
+pub(crate) fn restart_unused_check() {
+    FORGETTING_PREVIEWS.set(false);
+}
+
+/// Lets go of every kept preview and sharp picture.
+fn forget_kept_previews() {
+    MEMORY.with_borrow_mut(Memory::clear);
+    SHARP_KEPT.with_borrow_mut(Vec::clear);
+}
+
+/// How many previews and sharp pictures are kept now, for tests.
+#[cfg(test)]
+pub(crate) fn kept_preview_count() -> usize {
+    MEMORY.with_borrow(Memory::len) + SHARP_KEPT.with_borrow(Vec::len)
+}
+
 /// How many sharp pictures are kept for a tile scrolled back into view.
 const SHARP_KEPT_COUNT: usize = 48;
 
@@ -570,6 +629,7 @@ pub(crate) async fn sharp_picture(request: PreviewRequest, width: i32, height: i
             .find(|(seen, _)| *seen == key)
             .map(|(_, texture)| texture.clone())
     });
+    note_kept_previews_used();
     if let Some(texture) = kept {
         return Some(texture);
     }
@@ -603,6 +663,7 @@ pub(crate) async fn sharp_picture(request: PreviewRequest, width: i32, height: i
         }
         kept.push((key, texture.clone()));
     });
+    note_kept_previews_used();
     Some(texture)
 }
 
@@ -843,7 +904,10 @@ async fn thumbnail_known_to_gio(request: &PreviewRequest) -> Option<gdk::Texture
         )
         .await
         .ok()?;
-    let CachedThumbnail::Valid(path) = cached_thumbnail(&info) else {
+    // A thumbnail smaller than the one asked for is not shown stretched:
+    // GIO reports whichever size it found.
+    let wanted = ThumbnailFlavor::for_pixels(request.pixels);
+    let CachedThumbnail::Valid(path) = cached_thumbnail_for(&info, wanted) else {
         return None;
     };
     let pixels = request.pixels;
@@ -884,7 +948,7 @@ async fn make_thumbnail(
     version: &Version,
 ) -> Result<Option<Made>, Missing> {
     if let Some(service) = service::service().await {
-        if service.supports(&request.uri, &request.content_type) && service.has_flavor(flavor) {
+        if service.supports(&request.uri, &request.content_type) && service.makes(flavor) {
             let _slot = making(request).take_in_turn(&|| request.on_screen.get()).await;
             let made = service.make(&request.uri, &request.content_type, flavor).await;
             return if made { Ok(None) } else { Err(Missing::Failed) };
@@ -1042,6 +1106,42 @@ mod tests {
     use ox_core::entry::thumbnail_file;
 
     use super::*;
+
+    /// Scrolling through thousands of photos at Extra large icons on a
+    /// 200 % screen kept up to 512 previews of up to 512 × 512 pixels,
+    /// a megabyte each; the kept previews now stay within a budget in
+    /// bytes as well as in number.
+    ///
+    /// parity: VIEW-057
+    #[gtk::test]
+    fn the_kept_previews_stay_within_their_budget() {
+        let picture = |edge: i32| {
+            let stride = usize::try_from(edge * 4).expect("an edge");
+            let bytes =
+                glib::Bytes::from_owned(vec![0x80_u8; stride * usize::try_from(edge).expect("an edge")]);
+            gdk::MemoryTexture::new(edge, edge, gdk::MemoryFormat::R8g8b8a8, &bytes, stride)
+                .upcast::<gdk::Texture>()
+        };
+        forget_kept_previews();
+        for number in 0..120 {
+            MEMORY.with_borrow_mut(|memory| {
+                memory.put(
+                    (format!("file:///Photos/Harbor%20{number}.jpg"), 512),
+                    picture(512),
+                    Some(1),
+                    None,
+                );
+            });
+            let bytes = MEMORY.with_borrow(Memory::bytes);
+            assert!(
+                bytes <= MEMORY_BUDGET,
+                "{bytes} bytes kept after {number} previews"
+            );
+        }
+        assert!(MEMORY.with_borrow(Memory::len) > 0, "previews are still kept");
+        forget_kept_previews();
+        assert_eq!(kept_preview_count(), 0);
+    }
 
     /// A picture whose type no loader declares is still decoded, and a
     /// file that is no picture never reaches gdk-pixbuf.
@@ -1209,6 +1309,52 @@ mod tests {
             target_uri: None,
             on_network: false,
             on_screen: OnScreen::default(),
+        }
+    }
+
+    /// A picture shown in Details first gets a 128-pixel thumbnail; shown
+    /// at Extra large icons next (256 pixels), or at Large icons on a
+    /// screen at 200 %, it gets one made at that size, never the small one
+    /// stretched and blurred, which GIO reports as the item's thumbnail.
+    ///
+    /// parity: VIEW-057
+    #[gtk::test]
+    fn a_larger_view_does_not_stretch_a_smaller_thumbnail() {
+        let folder = tempfile::tempdir().expect("a temporary folder");
+        let item = folder.path().join("photo.png");
+        let picture = Pixbuf::new(Colorspace::Rgb, false, 8, 1200, 900).expect("a picture");
+        picture.fill(0x3366_99ff);
+        picture.savev(&item, "png", &[]).expect("the picture");
+        let modified = fs::metadata(&item)
+            .and_then(|metadata| metadata.modified())
+            .expect("its time")
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("after 1970")
+            .as_secs();
+        let request = |pixels| PreviewRequest {
+            modified: Some(modified),
+            pixels,
+            ..request_of(&item, "image/png")
+        };
+        let context = glib::MainContext::default();
+        let cache = glib::user_cache_dir();
+        context
+            .block_on(preview(request(16)))
+            .expect("a thumbnail for Details");
+        assert!(
+            thumbnail_file(&cache, &request(16).uri, ThumbnailFlavor::Normal).exists(),
+            "a normal thumbnail for Details"
+        );
+        for (pixels, flavor) in [(256, ThumbnailFlavor::Large), (512, ThumbnailFlavor::XLarge)] {
+            let texture = context
+                .block_on(preview(request(pixels)))
+                .expect("the larger preview");
+            assert!(
+                thumbnail_file(&cache, &request(pixels).uri, flavor).exists(),
+                "a {} thumbnail made for {pixels} pixels",
+                flavor.as_str()
+            );
+            assert_eq!(texture.width(), pixels, "drawn from a {pixels}-pixel thumbnail");
         }
     }
 

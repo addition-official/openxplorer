@@ -12,6 +12,7 @@ use gtk::prelude::*;
 use ox_core::entry::EntryError;
 use ox_core::i18n::{format_message, gettext};
 use ox_core::location::{is_server_location, is_smb_location, is_smb_server, split_location};
+use ox_core::system_error::SystemError;
 
 use crate::icons::{self, Icon};
 
@@ -60,9 +61,11 @@ impl EmptyState {
     /// What the page says about `uri`, which `error` kept from being
     /// listed. A share or server that refused the connection or dropped
     /// off the network is named in plain words, as Windows Explorer names
-    /// it ("\\\\server\\share is unavailable."), with the system's message
-    /// ("Software caused connection abort") under Details. Every other
-    /// error is already said for people, and is shown as it is.
+    /// it ("\\\\server\\share is unavailable."), with Windows' error code
+    /// and words under Details ("Error code: 0x80070079", "The semaphore
+    /// timeout period has expired."), and so is a drive whose driver
+    /// stopped answering. Every other error is already said for people,
+    /// and is shown as it is.
     pub(super) fn unavailable(uri: &str, error: &EntryError) -> EmptyState {
         // Only an archive that can't be read gets the archive page; a
         // folder or file a readable archive does not have (a typed or
@@ -72,7 +75,24 @@ impl EmptyState {
             return EmptyState::ArchiveUnavailable(error.to_string());
         }
         let raw = match error {
-            EntryError::Failed(raw) | EntryError::NotMounted(raw) if is_server_location(uri) => raw,
+            EntryError::Failed(raw) | EntryError::NotMounted(raw) | EntryError::NotConnected(raw)
+                if is_server_location(uri) =>
+            {
+                raw
+            }
+            // A drive that stopped answering, in Windows' words for a
+            // drive that is not there, with the system's error under
+            // Details.
+            EntryError::NotConnected(raw) => {
+                let location = gtk::gio::File::for_uri(uri).parse_name().to_string();
+                return EmptyState::Unavailable {
+                    message: format_message(
+                        "{location} is not accessible. The device is not ready.",
+                        &[("location", &location)],
+                    ),
+                    details: (!raw.trim().is_empty()).then(|| code_details(raw, false)),
+                };
+            }
             _ => {
                 return EmptyState::Unavailable {
                     message: error.to_string(),
@@ -97,7 +117,7 @@ impl EmptyState {
                  turned on, and then try again.",
                 &[("location", &location)],
             ),
-            details: (!raw.trim().is_empty()).then(|| raw.clone()),
+            details: (!raw.trim().is_empty()).then(|| network_details(raw)),
         }
     }
 
@@ -116,6 +136,35 @@ impl EmptyState {
         } else {
             EmptyState::EmptyFolder
         }
+    }
+}
+
+/// What Details says about a share that cannot be reached, as Windows'
+/// "Network Error" says it under "See details": the error code, then its
+/// words. A message that is not one of the system's errors is shown as it
+/// is.
+fn network_details(message: &str) -> String {
+    code_details(message, true)
+}
+
+/// Windows' error code, then its words, for the system's error `message`,
+/// as a share's or, when not `on_network`, a drive's Details say it.
+fn code_details(message: &str, on_network: bool) -> String {
+    let error = SystemError::from_sentence(message);
+    let error = if on_network {
+        error.map(SystemError::on_network)
+    } else {
+        error
+    };
+    match error {
+        Some(error) => format_message(
+            "Error code: {code}\n{message}",
+            &[
+                ("code", &format!("0x{:08X}", error.hresult())),
+                ("message", &error.message()),
+            ],
+        ),
+        None => message.to_owned(),
     }
 }
 
@@ -367,6 +416,67 @@ mod tests {
         assert_eq!(
             EmptyState::empty_listing("file:///tmp/empty"),
             EmptyState::EmptyFolder
+        );
+    }
+
+    /// A drive whose driver stopped answering (a FUSE driver such as
+    /// ntfs-3g or exfat-fuse that quit, as when the stick it read was
+    /// pulled out) is named as Windows names a drive that is not there,
+    /// "<location> is not accessible. The device is not ready.", with the
+    /// system's error in Windows' words and code under Details.
+    ///
+    /// parity: VIEW-048
+    #[test]
+    fn a_drive_that_stopped_answering_is_not_ready() {
+        let raw =
+            "Error opening directory \u{2018}/media/demo/STICK\u{2019}: Transport endpoint is not connected";
+        let error = EntryError::from(gtk::glib::Error::new(gtk::gio::IOErrorEnum::NotConnected, raw));
+
+        let state = EmptyState::unavailable("file:///media/demo/STICK", &error);
+
+        assert_eq!(
+            state,
+            EmptyState::Unavailable {
+                message: "/media/demo/STICK is not accessible. The device is not ready.".to_owned(),
+                details: Some("Error code: 0x8007048F\nThe device is not connected.".to_owned()),
+            }
+        );
+    }
+    /// A share that stopped answering is named as Windows names it, and
+    /// Details holds Windows' error code and its words, never GIO's or
+    /// Samba's message: a server that does not answer or refuses is "The
+    /// network path was not found.", as Windows says it.
+    ///
+    /// parity: VIEW-047
+    #[test]
+    fn an_unreachable_share_shows_the_windows_error_code_under_details() {
+        let error = EntryError::from(gtk::glib::Error::new(
+            gtk::gio::IOErrorEnum::Failed,
+            "Failed to mount Windows share: Connection timed out",
+        ));
+        let EmptyState::Unavailable { message, details } = EmptyState::unavailable("smb://nas/Team", &error)
+        else {
+            panic!("the unavailable page");
+        };
+        assert!(
+            message.contains("is unavailable. Make sure you are connected"),
+            "{message}"
+        );
+        assert_eq!(
+            details.as_deref(),
+            Some("Error code: 0x80070035\nThe network path was not found.")
+        );
+        let refused = EntryError::from(gtk::glib::Error::new(
+            gtk::gio::IOErrorEnum::Failed,
+            "Failed to mount Windows share: Connection refused",
+        ));
+        let EmptyState::Unavailable { details, .. } = EmptyState::unavailable("smb://nas/Team", &refused)
+        else {
+            panic!("the unavailable page");
+        };
+        assert_eq!(
+            details.as_deref(),
+            Some("Error code: 0x80070035\nThe network path was not found.")
         );
     }
 }

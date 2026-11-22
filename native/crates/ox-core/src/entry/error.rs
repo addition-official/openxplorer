@@ -6,11 +6,13 @@
 //! the code the Python backend reports.
 
 use crate::location::LocationError;
+use crate::system_error::SystemError;
 
 /// Why a folder could not be listed, or an item inspected or pinned.
 ///
-/// Messages come from GIO, from the `location` module's validation or from
-/// the Python app's wording, and are shown to the user as they are.
+/// Messages are the system's error in Windows' words ([`SystemError`]),
+/// the `location` module's validation or the Python app's wording, and are
+/// shown to the user as they are.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum EntryError {
     /// The location belongs to a volume or share that is not mounted yet;
@@ -29,6 +31,11 @@ pub enum EntryError {
     /// The backend cannot list this location.
     #[error("{0}")]
     NotSupported(String),
+    /// The location's drive or connection stopped answering
+    /// (`G_IO_ERROR_NOT_CONNECTED`): a FUSE driver that quit, as when the
+    /// stick it read was pulled out, or a connection that dropped.
+    #[error("{0}")]
+    NotConnected(String),
     /// The work was cancelled; not an error to show.
     #[error("{}", crate::i18n::gettext("Operation cancelled."))]
     Cancelled,
@@ -59,7 +66,7 @@ impl EntryError {
             Self::NotDirectory(_) => "not-directory",
             Self::NotSupported(_) => "not-supported",
             Self::Cancelled => "cancelled",
-            Self::Location(_) | Self::NotPinnable | Self::Failed(_) => "error",
+            Self::Location(_) | Self::NotPinnable | Self::NotConnected(_) | Self::Failed(_) => "error",
         }
     }
 
@@ -74,7 +81,7 @@ impl EntryError {
 impl From<glib::Error> for EntryError {
     /// Sorts a GIO error into the cases the interface handles differently.
     fn from(error: glib::Error) -> Self {
-        let message = error.message().to_owned();
+        let message = SystemError::from_glib(&error).message();
         match error.kind::<gio::IOErrorEnum>() {
             Some(gio::IOErrorEnum::NotMounted) => Self::NotMounted(message),
             Some(gio::IOErrorEnum::PermissionDenied) => Self::PermissionDenied(message),
@@ -82,6 +89,7 @@ impl From<glib::Error> for EntryError {
             Some(gio::IOErrorEnum::NotDirectory) => Self::NotDirectory(message),
             Some(gio::IOErrorEnum::NotSupported) => Self::NotSupported(message),
             Some(gio::IOErrorEnum::Cancelled) => Self::Cancelled,
+            Some(gio::IOErrorEnum::NotConnected) => Self::NotConnected(message),
             _ => Self::Failed(message),
         }
     }
@@ -129,6 +137,10 @@ mod tests {
                 code: "cancelled",
             },
             Case {
+                kind: gio::IOErrorEnum::NotConnected,
+                code: "error",
+            },
+            Case {
                 kind: gio::IOErrorEnum::Failed,
                 code: "error",
             },
@@ -145,9 +157,19 @@ mod tests {
         assert!(!io_error(gio::IOErrorEnum::NotFound).needs_mount());
     }
 
+    /// GIO's message, with its path, is not shown: the error says what
+    /// Windows says.
     #[test]
-    fn messages_are_shown_as_given() {
-        assert_eq!(io_error(gio::IOErrorEnum::NotFound).to_string(), "message");
+    fn gio_messages_read_as_the_windows_error() {
+        let denied = EntryError::from(glib::Error::new(
+            gio::IOErrorEnum::PermissionDenied,
+            "Error opening directory “/home/ada/Private”: Permission denied",
+        ));
+        assert_eq!(denied, EntryError::PermissionDenied("Access is denied.".into()));
+        assert_eq!(
+            io_error(gio::IOErrorEnum::NotFound).to_string(),
+            "The system cannot find the file specified."
+        );
         assert_eq!(EntryError::Cancelled.to_string(), "Operation cancelled.");
     }
 

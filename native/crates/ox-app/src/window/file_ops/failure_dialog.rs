@@ -12,15 +12,16 @@
 //! | Another program holds it | File In Use (Folder …) | The action can't be completed because the file is open in another program · Close the file and try again. | Try Again · Skip · Cancel |
 //! | It is gone | Item Not Found | Could not find this item · This is no longer located in <folder>. Verify the item's location and try again. | Try Again · Skip · Cancel |
 //! | A folder would go into a folder inside it | Interrupted Action | The destination folder is a subfolder of the source folder. | Skip · Cancel |
-//! | Anything else | Interrupted Action | An unexpected error is keeping you from copying the file. … · the system's error | Try Again · Skip · Cancel |
+//! | Anything else | Interrupted Action | An unexpected error is keeping you from copying the file. … · Error 0x8007048F: The device is not connected. | Try Again · Skip · Cancel |
 //! | Something to sort out by hand, such as a kept backup | Interrupted Action | An unexpected error is keeping you from copying the file. … · what happened and where | OK, shown after Cancel too |
 //!
 //! Each names the item as Windows does: its icon and name, then its Type,
 //! Size and Date modified (a folder's Date created; for the destination
 //! folder, the folder's). "Do this for all current items", shown while
 //! other items remain, makes Skip skip, and Continue continue, every later
-//! item without asking. The system's own words are kept only for the
-//! unexpected error, as Windows shows its error text there. The progress
+//! item without asking. The system's error is shown only for the
+//! unexpected error, as Windows shows it there: its error code line, in
+//! Windows' words ([`SystemError::code_line`]). The progress
 //! window's More details shows where the item is and where it was going.
 //!
 //! Continue, with the administrator shield "Open as administrator" shows,
@@ -59,15 +60,17 @@ use ox_core::entry::{entry_from_info, Entry, ATTRIBUTES};
 use ox_core::format;
 use ox_core::i18n::{format_message, gettext};
 use ox_core::location::parent_location;
-use ox_core::ops::{permanent_delete_confirmation, DeleteSubject, FailureAsker};
+use ox_core::ops::{permanent_delete_confirmation, DeleteSubject, FailureAsker, OpsError};
+use ox_core::system_error::SystemError;
 use ox_core::transfer::{Cancellation, FailedItem, FailureAnswer, FailureCause, TransferMode};
 
 use super::worker_question::worker_question;
+use crate::dialog::Dialog;
 use crate::icons::{self, FileType, Icon};
 use crate::window::transfer_panel::{
     location_name, FailureChoice, FailureView, FirstButton, SpaceTexts, TransferPanel,
 };
-use crate::window::BrowserWindow;
+use crate::window::{BrowserWindow, ButtonStyle};
 
 /// The edge of the item's icon.
 const ITEM_ICON_SIZE: i32 = 48;
@@ -169,7 +172,7 @@ fn wording(question: Question, item: &FailedItem, is_folder: bool, folder: &str)
         Question::Unexpected => (
             gettext("Interrupted Action"),
             unexpected_heading(item.mode, is_folder),
-            item.error.clone(),
+            error_code_line(&item.error),
         ),
     };
     Wording {
@@ -177,6 +180,58 @@ fn wording(question: Question, item: &FailedItem, is_folder: bool, folder: &str)
         heading,
         message,
     }
+}
+
+/// The line under "An unexpected error…": Windows' error code line
+/// ("Error 0x8007048F: The device is not connected.") for an error the
+/// system reported, or `error` itself, a message of the app's own that has
+/// no code.
+fn error_code_line(error: &str) -> String {
+    // The item is named above the line, so a path the error names is left
+    // out of it.
+    let sentence = error.rsplit_once(": ").map_or(error, |(_, sentence)| sentence);
+    SystemError::from_sentence(sentence).map_or_else(|| error.to_owned(), SystemError::code_line)
+}
+
+/// What Windows asks when renaming `name`, a folder when `is_folder`, in
+/// `folder` failed with `error`, or `None` for a failure that is said
+/// another way: a cancellation, or a taken name, which has questions of
+/// its own. Access denied, an item in use and an item gone have Windows'
+/// own questions; anything else is "Interrupted Action" with the error
+/// code line.
+fn rename_wording(error: &OpsError, is_folder: bool, folder: &str) -> Option<Wording> {
+    let said = error.to_string();
+    let sentence = said
+        .rsplit_once(": ")
+        .map_or(said.as_str(), |(_, sentence)| sentence);
+    let in_use = SystemError::from_sentence(sentence) == Some(ox_core::system_error::SHARING_VIOLATION);
+    let question = match error {
+        OpsError::Cancelled | OpsError::Exists(_) => return None,
+        OpsError::PermissionDenied(_) => Question::AccessDenied,
+        OpsError::NotFound(_) => Question::NotFound,
+        _ if in_use => Question::InUse,
+        _ => Question::Unexpected,
+    };
+    let renamed = FailedItem {
+        mode: TransferMode::Move,
+        name: String::new(),
+        error: said.clone(),
+        more_items: false,
+        cause: FailureCause::Other,
+        uri: String::new(),
+        destination_folder: None,
+        needed: None,
+        administrator: false,
+    };
+    let mut wording = wording(question, &renamed, is_folder, folder);
+    if question == Question::Unexpected {
+        wording.heading = gettext(if is_folder {
+            crate::i18n::message_id("An unexpected error is keeping you from renaming the folder. If you continue to receive this error, you can use the error code to search for help with this problem.")
+        } else {
+            crate::i18n::message_id("An unexpected error is keeping you from renaming the file. If you continue to receive this error, you can use the error code to search for help with this problem.")
+        });
+    }
+    Some(wording)
 }
 
 /// "An unexpected error is keeping you from copying the file. …", by what
@@ -399,6 +454,41 @@ fn last_name(name: &str) -> &str {
 }
 
 impl BrowserWindow {
+    /// Asks, as Windows does when a rename fails, whether to try renaming
+    /// the item at `uri`, called `name`, again: its caption, what went
+    /// wrong, the item, and Try Again or Cancel. True for Try Again. A
+    /// failure Windows has no such question for (a cancellation, a taken
+    /// name) is shown in the message line instead, and answers false.
+    pub(in crate::window) async fn ask_to_rename_again(
+        &self,
+        uri: &str,
+        name: &str,
+        is_folder: bool,
+        error: &OpsError,
+    ) -> bool {
+        let folder = parent_location(uri)
+            .map(|folder| self.imp().locations.borrow().display_location(&folder))
+            .unwrap_or_default();
+        let Some(said) = rename_wording(error, is_folder, &folder) else {
+            if !error.is_cancelled() {
+                self.show_message(&error.to_string());
+            }
+            return false;
+        };
+        let text = [said.heading.as_str(), name, said.message.as_str()]
+            .into_iter()
+            .filter(|line| !line.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+        let dialog = Dialog::new(self, &said.caption, &text);
+        let again = dialog.add_button(&gettext("Try Again"), ButtonStyle::Accent);
+        dialog.add_button(&gettext("Cancel"), ButtonStyle::Bordered);
+        dialog.open();
+        let answer = dialog.next_response().await;
+        dialog.finish();
+        answer == Some(again)
+    }
+
     /// An asker for the worker of the operation `cancel` stops: each
     /// question opens over this window, or in that operation's action for a
     /// full drive, and waits.
@@ -674,7 +764,7 @@ mod tests {
         FailedItem {
             mode,
             name: "Reports/2026/plan.docx".into(),
-            error: "Input/output error".into(),
+            error: "The request could not be performed because of an I/O device error.".into(),
             more_items: true,
             cause,
             uri: "file:///home/sample/Reports/2026/plan.docx".into(),
@@ -766,7 +856,34 @@ mod tests {
         assert!(unexpected
             .heading
             .starts_with("An unexpected error is keeping you from copying the file."));
-        assert_eq!(unexpected.message, "Input/output error");
+        assert_eq!(
+            unexpected.message,
+            "Error 0x8007045D: The request could not be performed because of an I/O device error."
+        );
+    }
+
+    /// The unexpected error's line is Windows' error code line, for an
+    /// error the engine read from the system; a message of the app's own,
+    /// which has no code, is shown as it is.
+    ///
+    /// parity: OPS-047
+    #[test]
+    fn an_unexpected_error_shows_its_error_code() {
+        let pulled = ox_core::transfer::TransferError::from(gtk::glib::Error::new(
+            gio::IOErrorEnum::Failed,
+            "Error splicing file: Transport endpoint is not connected",
+        ));
+        let mut failed = item(TransferMode::Copy, FailureCause::Other);
+        failed.error = pulled.to_string();
+        let said = wording(Question::Unexpected, &failed, false, "");
+        assert_eq!(said.message, "Error 0x8007048F: The device is not connected.");
+        failed.error = "/media/sample/USB/plan.docx: The device is not connected.".into();
+        let said = wording(Question::Unexpected, &failed, false, "");
+        assert_eq!(said.message, "Error 0x8007048F: The device is not connected.");
+        failed.error =
+            "Incomplete staging folder left at /media/sample/USB. Inspect it before removing it.".into();
+        let said = wording(Question::Unexpected, &failed, false, "");
+        assert_eq!(said.message, failed.error);
     }
 
     /// A full drive says how much the item needs and what to do, as

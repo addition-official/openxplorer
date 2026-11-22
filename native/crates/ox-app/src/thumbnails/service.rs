@@ -53,8 +53,8 @@ pub(super) struct Service {
     connection: gio::DBusConnection,
     /// URI scheme and MIME type pairs from `GetSupported`.
     supported: HashSet<(String, String)>,
-    /// The sizes it makes, from `GetFlavors`: tumbler made only `normal`
-    /// and `large` before 4.18.
+    /// The sizes it makes, from `GetFlavors`: often only `normal` and
+    /// `large`, so the app makes the larger ones itself.
     flavors: HashSet<String>,
     outcomes: Rc<RefCell<Outcomes>>,
     _signals: Vec<gio::SignalSubscription>,
@@ -113,6 +113,7 @@ impl Service {
             .ok()
             .and_then(|reply| reply.get::<(Vec<String>,)>())
             .map_or_else(
+                // The standard's first two sizes, which every service makes.
                 || {
                     [ThumbnailFlavor::Normal, ThumbnailFlavor::Large]
                         .map(|flavor| flavor.as_str().to_owned())
@@ -140,7 +141,7 @@ impl Service {
     }
 
     /// Whether the service makes thumbnails in `flavor`.
-    pub(super) fn has_flavor(&self, flavor: ThumbnailFlavor) -> bool {
+    pub(super) fn makes(&self, flavor: ThumbnailFlavor) -> bool {
         self.flavors.contains(flavor.as_str())
     }
 

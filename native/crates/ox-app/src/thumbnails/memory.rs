@@ -126,10 +126,23 @@ impl Memory {
         }
     }
 
+    /// Lets go of every kept preview.
+    pub(super) fn clear(&mut self) {
+        self.kept.clear();
+        self.by_use.clear();
+        self.bytes = 0;
+    }
+
     /// How many previews are kept.
     #[cfg(test)]
     pub(super) fn len(&self) -> usize {
         self.kept.len()
+    }
+
+    /// What the kept previews' pixels take.
+    #[cfg(test)]
+    pub(super) fn bytes(&self) -> usize {
+        self.bytes
     }
 }
 

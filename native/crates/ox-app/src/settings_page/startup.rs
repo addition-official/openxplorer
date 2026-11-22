@@ -40,8 +40,8 @@ const HOME_QUICK_ACCESS: RowText = RowText {
 
 const RESTORE_SESSION: RowText = RowText {
     title: "Reopen my tabs when OpenXplorer starts",
-    description: "Starting OpenXplorer without a folder reopens the tabs and split panes the last \
-                  window had.",
+    description: "Starting OpenXplorer without a folder reopens every window with the tabs and split \
+                  panes it had.",
     keywords: "restore previous tabs at startup session remember reopen restore tabs last time \
                startup logon restore previous folder windows at logon",
 };
@@ -129,7 +129,10 @@ fn startup_folder_row(page: &SettingsPage) -> SettingRow {
     let field = gtk::Entry::builder()
         .placeholder_text(ox_core::i18n::gettext("Home"))
         .hexpand(true)
-        .width_chars(36)
+        // 36 characters when there is room, down to 12 at a large text
+        // size in a narrow window, rather than widening the page.
+        .width_chars(12)
+        .max_width_chars(36)
         .build();
     field.update_property(&[gtk::accessible::Property::Label(STARTUP_FOLDER.title)]);
     page.follow_preferences(glib::clone!(

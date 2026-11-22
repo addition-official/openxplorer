@@ -23,7 +23,20 @@ use crate::devices::Removal;
 use crate::locations::Page;
 use crate::window::{ButtonStyle, Dialog};
 
+use super::session::{Direction, TabId};
 use super::BrowserWindow;
+
+/// The tabs a removal moved to Home before it ran, to put back where they
+/// were when the drive could not be removed.
+#[derive(Debug)]
+struct MovedTabs {
+    /// The home folder they were moved to.
+    home: String,
+    /// The tabs behind the one in front that were on the drive.
+    behind: Vec<TabId>,
+    /// Whether the tab in front was on the drive.
+    front: bool,
+}
 
 /// The note of "Disconnect this mount?", under the location.
 const DISCONNECT_NOTE: &str = crate::i18n::message_id(
@@ -107,7 +120,8 @@ impl BrowserWindow {
         }
     }
 
-    /// "Disconnect this mount?" with the location, then Disconnect.
+    /// "Disconnect this mount?" with the location, then Disconnect, which
+    /// Enter presses, as Windows' Disconnect goes ahead.
     fn confirm_disconnect(&self, uri: &str) {
         let address = self.imp().locations.borrow().display_location(uri);
         let message = format!("{address}\n\n{DISCONNECT_NOTE}");
@@ -123,13 +137,13 @@ impl BrowserWindow {
                 window.run_removal(&uri, Removal::Disconnect);
             }
         ));
-        dialog.open();
+        dialog.open_on_primary_button();
     }
 
     /// Stops reading the tabs on the drive, then removes it.
     fn run_removal(&self, uri: &str, removal: Removal) {
         let label = self.drive_label(uri);
-        self.move_tabs_home_from(uri);
+        let moved = self.move_tabs_home_from(uri);
         let mounts = self.volume_monitor().mounts();
         let operation = gtk::MountOperation::new(Some(self));
         let activity = self.write_activity();
@@ -140,25 +154,38 @@ impl BrowserWindow {
                 .perform(&mounts, &uri, operation.upcast_ref(), activity)
                 .await;
             if let Some(window) = window.upgrade() {
-                window.finish_removal(&uri, &label, removal, removed);
+                window.finish_removal(&uri, &label, removal, removed, &moved);
             }
         });
     }
 
     /// Shows what the removal did. After Disconnect the window shows
     /// Network, as app.js does; after Eject or Safely remove a tab that
-    /// went back onto the drive meanwhile shows This PC.
-    fn finish_removal(&self, uri: &str, label: &str, removal: Removal, removed: Result<(), NetworkError>) {
+    /// went back onto the drive meanwhile shows This PC. When the drive
+    /// could not be removed, the tabs `moved` to Home go back to where
+    /// they were, as Windows leaves its windows on a drive still in use.
+    fn finish_removal(
+        &self,
+        uri: &str,
+        label: &str,
+        removal: Removal,
+        removed: Result<(), NetworkError>,
+        moved: &MovedTabs,
+    ) {
         if let Err(error) = removed {
+            self.return_moved_tabs(moved);
             if !Removal::is_reported_by_desktop(&error) {
-                self.show_failure(removal.failure_title(), &error.to_string());
+                self.show_failure(removal.failure_title(), &Removal::failure_detail(&error));
             }
             return;
         }
         let was_inside = self.current_uri().is_some_and(|current| is_inside(&current, uri));
         self.mark_stale_inside(uri);
         match removal {
-            Removal::Disconnect => self.navigate_or_report(Page::Network.uri()),
+            Removal::Disconnect => {
+                self.forget_mapped_drives_inside(uri);
+                self.navigate_or_report(Page::Network.uri());
+            }
             Removal::Eject | Removal::SafelyRemove if was_inside => {
                 self.navigate_or_report(Page::ThisPc.uri());
             }
@@ -167,6 +194,26 @@ impl BrowserWindow {
         if let Some(message) = removal.done_message(label) {
             self.show_message(&message);
         }
+    }
+
+    /// Disconnect of a mapped drive ends its mapping, as in Windows: the
+    /// shares mapped to a letter at or inside the disconnected `root`, for
+    /// this session or saved, are forgotten, so no row of it is left in
+    /// the navigation pane or This PC (B1). A saved network location
+    /// without a letter stays, as Windows keeps network locations.
+    fn forget_mapped_drives_inside(&self, root: &str) {
+        let mapped: Vec<String> = self
+            .network_locations()
+            .into_iter()
+            .filter(|location| location.is_saved)
+            .filter(|location| crate::dialogs::drive_letter(&location.label).is_some())
+            .filter(|location| ox_core::network::is_at_or_inside(&location.uri, root))
+            .map(|location| location.uri)
+            .collect();
+        for uri in mapped {
+            self.forget_saved_location(&uri);
+        }
+        self.context().forget_mapped_shares_inside(root);
     }
 
     /// The name of the drive that holds `uri`, for the message after it
@@ -181,17 +228,18 @@ impl BrowserWindow {
 
     /// Moves every tab inside `root` to Home: the tab in front navigates
     /// there, and a tab behind it stops reading the drive and lists Home
-    /// when it is next shown.
-    fn move_tabs_home_from(&self, root: &str) {
+    /// when it is next shown. Returns the tabs it moved.
+    fn move_tabs_home_from(&self, root: &str) -> MovedTabs {
         let home = file_uri(&glib::home_dir());
+        let mut behind = Vec::new();
         let (stale, is_active_inside): (Vec<gio::ListStore>, bool) = {
             let mut session = self.imp().session.borrow_mut();
             let active = session.active_id();
             let is_active_inside = session.active().is_some_and(|tab| is_inside(tab.uri(), root));
             let mut stale = Vec::new();
             session.change_panes(|tab| {
-                if Some(tab.id) != active && is_inside(tab.uri(), root) {
-                    tab.history.push(&home);
+                if Some(tab.id) != active && is_inside(tab.uri(), root) && tab.history.push(&home) {
+                    behind.push(tab.id);
                     tab.forget_location_state();
                     stale.push(tab.mark_stale());
                 }
@@ -205,6 +253,81 @@ impl BrowserWindow {
         });
         if is_active_inside {
             self.navigate_or_report(&home);
+        }
+        self.render_tabs();
+        MovedTabs {
+            home,
+            behind,
+            front: is_active_inside,
+        }
+    }
+
+    /// Puts the tabs `moved` to Home back on the folders they showed,
+    /// unless they left Home meanwhile: the tab in front goes back, and a
+    /// tab behind it lists its folder again when it is next shown.
+    fn return_moved_tabs(&self, moved: &MovedTabs) {
+        let stale: Vec<gio::ListStore> = {
+            let mut session = self.imp().session.borrow_mut();
+            let mut stale = Vec::new();
+            session.change_panes(|tab| {
+                if moved.behind.contains(&tab.id) && tab.uri() == moved.home && tab.history.drop_last() {
+                    tab.forget_location_state();
+                    stale.push(tab.mark_stale());
+                }
+            });
+            stale
+        };
+        self.change_model(|| {
+            for items in &stale {
+                items.remove_all();
+            }
+        });
+        let front_at_home = self.current_uri().is_some_and(|uri| uri == moved.home);
+        if moved.front && front_at_home {
+            self.go_history(Direction::Backward);
+        }
+        self.render_tabs();
+    }
+
+    /// Moves every tab inside `old_root` to the same place below
+    /// `new_root`, where the same drive is mounted again after it was
+    /// renamed: the tab in front navigates there, and a tab behind it
+    /// lists it when it is next shown.
+    pub(super) fn move_tabs_to_new_root(&self, old_root: &str, new_root: &str) {
+        let (from, to) = (gio::File::for_uri(old_root), gio::File::for_uri(new_root));
+        let moved = |uri: &str| -> Option<String> {
+            let file = gio::File::for_uri(uri);
+            let target = if file.equal(&from) {
+                to.clone()
+            } else {
+                to.resolve_relative_path(from.relative_path(&file)?)
+            };
+            ox_core::location::normalise(&target.uri()).ok()
+        };
+        let (stale, active_to): (Vec<gio::ListStore>, Option<String>) = {
+            let mut session = self.imp().session.borrow_mut();
+            let active = session.active_id();
+            let active_to = session.active().and_then(|tab| moved(tab.uri()));
+            let mut stale = Vec::new();
+            session.change_panes(|tab| {
+                if Some(tab.id) == active {
+                    return;
+                }
+                if let Some(target) = moved(tab.uri()) {
+                    tab.history.push(&target);
+                    tab.forget_location_state();
+                    stale.push(tab.mark_stale());
+                }
+            });
+            (stale, active_to)
+        };
+        self.change_model(|| {
+            for items in &stale {
+                items.remove_all();
+            }
+        });
+        if let Some(target) = active_to {
+            self.navigate_or_report(&target);
         }
         self.render_tabs();
     }
