@@ -102,3 +102,22 @@ Found and fixed since last update: 1
 Also: clippy with Rust 1.92.0 (the CI version) is clean for ox-core and ox-app, all targets, with and without the fuzzing feature; rustfmt applied. (Stable 1.97's clippy flags duration_suboptimal_units in 5 untouched upstream files; CI uses 1.92.0.)
 Rotation: app_protocols, text_preview, picture_headers, core_text and pe_icons/truetype paused after their coverage stopped growing; archive_extract restarted with archive_list's corpus; archive_zipgen running without length control.
 Open: as before (Matroska in the media reader, inside GStreamer).
+
+== 2026-11-22 02:07 CST ==
+Executions so far (all runs):
+app_protocols             421,336
+archive_extract         2,248,232
+archive_fixup             405,201
+archive_list            8,514,112
+archive_zipgen            343,740
+core_formats            6,989,336
+core_text              13,615,244
+media_details          43,811,610
+media_streams               8,968
+picture_decode          2,838,371
+picture_headers        11,281,265
+text_preview            8,338,769
+Found and fixed since last update: 0
+Not bugs: a media_streams input that stalled 10 s while the machine was overloaded runs in 0.4 s on its own (GStreamer bus wait); two archive "crashes" were the harness failing to create a temporary folder when the disk allowance filled up (stale debug builds of two toolchains; removed).
+Now: check.py running with Rust 1.92.0 (the CI version); six fuzzers at nice 19 beside it, keeping their files in a folder outside the checkout (the parity tests copy native/).
+Open: as before (Matroska in the media reader, inside GStreamer).
