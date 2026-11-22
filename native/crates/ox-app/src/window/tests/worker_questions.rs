@@ -541,3 +541,72 @@ fn a_full_drive_asks_in_the_progress_window() {
     }
     test.window.end_operation();
 }
+
+/// A copy onto a drive that may not be written asks as Windows 11 does
+/// (checked on a Windows 11 VM with a write-protected USB stick): "1
+/// Interrupted Action", "The disk is write-protected." and "Remove the
+/// write-protection or use another disk.", with no error code line and no
+/// "Do this for all current items"; the picture's Item type, Dimensions
+/// and Size; Try Again, Skip and Cancel; More details greyed.
+///
+/// parity: OPS-047
+#[gtk::test]
+fn a_write_protected_drive_asks_in_windows_words() {
+    let fixture = Fixture::standard();
+    let picture = gtk::gdk_pixbuf::Pixbuf::new(gtk::gdk_pixbuf::Colorspace::Rgb, false, 8, 640, 480)
+        .expect("a picture");
+    picture.fill(0x3366_99ff);
+    picture
+        .savev(fixture.path("beach.jpg"), "jpeg", &[])
+        .expect("a JPEG");
+    let test = TestWindow::open(&fixture.uri());
+    let cancel = start_operation(&test);
+    let item = FailedItem {
+        mode: TransferMode::Copy,
+        name: "beach.jpg".into(),
+        error: "/media/sample/STICK/beach.jpg: The media is write protected.".into(),
+        more_items: true,
+        cause: FailureCause::Other,
+        uri: fixture.uri_of("beach.jpg"),
+        destination_folder: Some(fixture.uri_of("Documents")),
+        needed: None,
+        administrator: true,
+    };
+
+    let (worker, panel) = ask_in_action(&test, &cancel, &item);
+
+    assert_eq!(panel.caption_shown(), "Interrupted Action");
+    assert_eq!(
+        ProgressWindow::of(&test.context).title().as_deref(),
+        Some("1 Interrupted Action")
+    );
+    let texts = panel.failure_texts();
+    assert_eq!(
+        texts[0], "The disk is write-protected.\n\nRemove the write-protection or use another disk.",
+        "{texts:?}"
+    );
+    for line in ["beach.jpg", "Item type: ", "Dimensions: 640 x 480", "Size: "] {
+        assert!(
+            texts.iter().any(|text| text.starts_with(line)),
+            "{line} in {texts:?}"
+        );
+    }
+    assert!(
+        !texts.iter().any(|text| text.contains("0x")),
+        "no error code: {texts:?}"
+    );
+    assert!(
+        !panel.set_failure_for_all(true),
+        "no Do this for all current items"
+    );
+    assert_eq!(panel.failure_button_labels(), ["Try Again", "Skip", "Cancel"]);
+    wait_until("More details greyed", || {
+        !ProgressWindow::of(&test.context).offers_details()
+    });
+    panel.press_failure("Skip");
+    assert_eq!(answer_of(worker, &panel), FailureAnswer::Skip);
+    wait_until("More details back", || {
+        ProgressWindow::of(&test.context).offers_details()
+    });
+    test.window.end_operation();
+}

@@ -444,7 +444,7 @@ msgstr ""
 msgid "Browse…"
 msgstr ""
 
-#: crates/ox-app/resources/ui/brave-dialog.ui crates/ox-app/resources/ui/network-sign-in.ui crates/ox-app/resources/ui/open-with-dialog.ui crates/ox-app/resources/ui/transfer-panel.ui crates/ox-app/src/archive_view/extract_dialog.rs crates/ox-app/src/dialogs/network_sign_in.rs crates/ox-app/src/properties/restore.rs crates/ox-app/src/properties/window.rs crates/ox-app/src/window/compress_dialog.rs crates/ox-app/src/window/conflict_window.rs crates/ox-app/src/window/file_drop/action.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/gallery_locations.rs crates/ox-app/src/window/picker.rs crates/ox-app/src/window/transfer_panel/failure.rs
+#: crates/ox-app/resources/ui/brave-dialog.ui crates/ox-app/resources/ui/network-sign-in.ui crates/ox-app/resources/ui/open-with-dialog.ui crates/ox-app/resources/ui/transfer-panel.ui crates/ox-app/src/archive_view/extract_dialog.rs crates/ox-app/src/dialogs/network_sign_in.rs crates/ox-app/src/properties/restore.rs crates/ox-app/src/properties/window.rs crates/ox-app/src/window/compress_dialog.rs crates/ox-app/src/window/conflict_window.rs crates/ox-app/src/window/file_drop/action.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/gallery_locations.rs crates/ox-app/src/window/loading/network_error.rs crates/ox-app/src/window/picker.rs crates/ox-app/src/window/transfer_panel/failure.rs
 msgid "Cancel"
 msgstr ""
 
@@ -846,7 +846,7 @@ msgid "Date: {date}"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-app/src/folder_view/gallery_view.rs
+#: crates/ox-app/src/folder_view/gallery_view.rs crates/ox-app/src/window/file_ops/failure_dialog.rs
 msgid "Item type: {type}"
 msgstr ""
 
@@ -5873,7 +5873,7 @@ msgid "Create a folder or paste files here."
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-app/src/window/empty_page.rs
+#: crates/ox-app/src/window/empty_page.rs crates/ox-app/src/window/loading/network_error.rs
 msgid "Error code: {code}\n{message}"
 msgstr ""
 
@@ -6233,6 +6233,11 @@ msgstr ""
 msgid "Destination Folder Access Denied"
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/file_ops/failure_dialog.rs
+msgid "Dimensions: {dimensions}"
+msgstr ""
+
 #: crates/ox-app/src/window/file_ops/failure_dialog.rs
 msgid "File Access Denied"
 msgstr ""
@@ -6251,6 +6256,10 @@ msgstr ""
 
 #: crates/ox-app/src/window/file_ops/failure_dialog.rs
 msgid "Interrupted Action"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/failure_dialog.rs
+msgid "Remove the write-protection or use another disk."
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/file_ops/unstorable_dialog.rs
@@ -6276,6 +6285,10 @@ msgstr ""
 
 #: crates/ox-app/src/window/file_ops/failure_dialog.rs
 msgid "The destination folder is a subfolder of the source folder."
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/failure_dialog.rs
+msgid "The disk is write-protected."
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -7015,6 +7028,35 @@ msgstr ""
 
 #: crates/ox-app/src/window/loading/disconnected.rs
 msgid "The drive or network share that holds this folder was disconnected."
+msgstr ""
+
+#: crates/ox-app/src/window/loading/network_error.rs
+msgid "Check the spelling of the name. Otherwise, there might be a problem with your network."
+msgstr ""
+
+#: crates/ox-app/src/window/loading/network_error.rs
+msgid "Check the spelling of the name. Otherwise, there might be a problem with your network. To try to identify and resolve network problems, click Diagnose."
+msgstr ""
+
+#: crates/ox-app/src/window/loading/network_error.rs
+msgid "Diagnose"
+msgstr ""
+
+#: crates/ox-app/src/window/loading/network_error.rs
+msgid "Hide details"
+msgstr ""
+
+#: crates/ox-app/src/window/loading/network_error.rs
+msgid "Network Error"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/loading/network_error.rs
+msgid "OpenXplorer cannot access {location}"
+msgstr ""
+
+#: crates/ox-app/src/window/loading/network_error.rs
+msgid "See details"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.

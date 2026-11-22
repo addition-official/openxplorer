@@ -147,26 +147,28 @@ mod tests {
     }
 
     /// A share that cannot be reached says so in Windows' words, not in
-    /// GIO's or Samba's: a server that does not answer is "The network path
-    /// was not found." (0x80070035), a share it does not have "The network
-    /// name cannot be found." (0x80070043), as Windows says them.
+    /// GIO's or Samba's: a server that does not answer, or a share it does
+    /// not have, is "The network name cannot be found." (0x80070043), as
+    /// Windows 11 said it for an address with nothing on it (checked on a
+    /// VM); a name that does not resolve is "The network path was not
+    /// found." (0x80070035).
     #[test]
     fn unreachable_servers_read_as_the_windows_error() {
         let cases = [
             (
                 gio::IOErrorEnum::Failed,
                 "Failed to mount Windows share: Connection timed out",
-                "The network path was not found.",
+                "The network name cannot be found.",
             ),
             (
                 gio::IOErrorEnum::Failed,
                 "Failed to mount Windows share: No route to host",
-                "The network path was not found.",
+                "The network name cannot be found.",
             ),
             (
                 gio::IOErrorEnum::Failed,
                 "Failed to mount Windows share: Connection refused",
-                "The network path was not found.",
+                "The network name cannot be found.",
             ),
             (
                 gio::IOErrorEnum::HostNotFound,

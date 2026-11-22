@@ -57,7 +57,7 @@ pub enum VersionsError {
     },
     /// The file system refused an operation on `path` while saving the
     /// snapshot sources.
-    #[error("{}", crate::system_error::describe_io(error))]
+    #[error("{}: {}", path.display(), crate::system_error::describe_io(error))]
     Io {
         /// The file or directory the operation was on.
         path: PathBuf,
