@@ -103,12 +103,20 @@ fn right_clicking_a_file_selects_it_and_opens_the_classic_menu() {
     assert!(menu.is_visible());
     assert_eq!(menu.style(), MenuStyle::Classic);
     assert!(menu.strip_labels().is_empty());
-    // "Open with <app>" rows, and "Edit in <text editor>", name whatever
-    // the machine has installed.
+    // Open with is a submenu of the apps the machine has for text, or
+    // "Open with…" alone without one; "Edit in <text editor>" names
+    // whatever the machine has installed.
     let rows: Vec<String> = menu
         .row_labels()
         .into_iter()
-        .filter(|label| !label.starts_with("Open with ") && !label.starts_with("Edit in "))
+        .filter(|label| !label.starts_with("Edit in "))
+        .map(|label| {
+            if label == "Open with" {
+                "Open with…".to_owned()
+            } else {
+                label
+            }
+        })
         .collect();
     assert_eq!(
         rows,
@@ -138,10 +146,12 @@ fn right_clicking_a_file_selects_it_and_opens_the_classic_menu() {
         ]
     );
     assert!(menu.row("Rename").is_sensitive());
-    assert!(
-        menu.row("Open with…").is_sensitive(),
-        "Open with works for one item"
-    );
+    let open_with = if menu.row_labels().iter().any(|label| label == "Open with") {
+        "Open with"
+    } else {
+        "Open with…"
+    };
+    assert!(menu.row(open_with).is_sensitive(), "Open with works for one item");
 }
 
 /// The classic menu is drawn as Windows 11 draws "Show more options":
@@ -1464,8 +1474,9 @@ fn new_in_a_pinned_folder_ends_a_search_first() {
 }
 
 /// The folder menu grays Open in Terminal where no terminal can open, as
-/// the navigation pane's menus do: on Network's and Gallery's blank space,
-/// which are no folder on a drive or share; a folder keeps it.
+/// the navigation pane's menus do: on Gallery's blank space, which is no
+/// folder on a drive or share; Network's menu leaves it out, as Windows
+/// 11's; a folder keeps it.
 ///
 /// parity: CMD-011, OPEN-017
 #[gtk::test]
@@ -1485,21 +1496,17 @@ fn the_folder_menu_grays_open_in_terminal_where_no_terminal_opens() {
             });
             test.window.right_click(None);
             let menu = test.window.context_menu();
-            if style == ContextMenu::Win11 && place == "Network" {
-                // Windows 11's Network menu: View, Sort by and Group by,
-                // then Show more options; no Terminal row at all.
-                assert_eq!(
-                    menu.row_labels(),
-                    ["View", "Sort by", "Group by", "-", "Show more options"],
-                    "{style:?} {place}"
-                );
-            } else {
+            let rows = menu.row_labels();
+            // Network's menus have no Open in Terminal at all, as
+            // Windows 11's (page_menus.rs).
+            if rows.contains(&"Open in Terminal".to_owned()) {
                 assert_eq!(
                     menu.row("Open in Terminal").is_sensitive(),
                     opens,
-                    "{style:?} {place}: {:?}",
-                    menu.row_labels()
+                    "{style:?} {place}: {rows:?}"
                 );
+            } else {
+                assert_eq!(place, "Network", "{style:?}: {rows:?}");
             }
             menu.popdown();
         }

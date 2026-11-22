@@ -168,6 +168,9 @@ mod tile {
         #[derive(Debug, Default)]
         pub(crate) struct GalleryPicture {
             pub(super) texture: RefCell<Option<gdk::Texture>>,
+            /// Whether the texture drawn was decoded for the tile's own
+            /// device pixels, which no thumbnail replaces.
+            pub(super) sharp: Cell<bool>,
         }
 
         #[glib::object_subclass]
@@ -298,21 +301,35 @@ mod tile {
     impl GalleryPicture {
         /// Draws `texture`, or nothing yet.
         pub(crate) fn show(&self, texture: Option<gdk::Texture>) {
+            self.imp().sharp.set(false);
             self.imp().texture.replace(texture);
             self.queue_draw();
         }
 
-        /// Draws `texture` unless the picture drawn has more pixels: a
-        /// cached thumbnail that comes late never replaces the sharp one.
+        /// Draws `texture`, the photo decoded for the tile's own device
+        /// pixels, which a thumbnail that comes later never replaces.
+        pub(crate) fn show_sharp(&self, texture: gdk::Texture) {
+            self.show(Some(texture));
+            self.imp().sharp.set(true);
+        }
+
+        /// Draws the thumbnail `texture` unless the picture drawn is the
+        /// sharp one ([`Self::show_sharp`]) or a thumbnail with more pixels.
         pub(crate) fn offer(&self, texture: gdk::Texture) {
+            // A sharp picture is cut to the tile's own pixels, so it can
+            // have fewer than a thumbnail of the standard's larger sizes,
+            // which would be drawn scaled and softer.
+            if self.imp().sharp.get() {
+                return;
+            }
             let area = |texture: &gdk::Texture| i64::from(texture.width()) * i64::from(texture.height());
-            let sharper = self
+            let larger_drawn = self
                 .imp()
                 .texture
                 .borrow()
                 .as_ref()
                 .is_some_and(|drawn| area(drawn) > area(&texture));
-            if !sharper {
+            if !larger_drawn {
                 self.show(Some(texture));
             }
         }
@@ -932,7 +949,7 @@ impl GalleryCanvas {
             if let Some(texture) = texture {
                 // The picture for the tile's size now, even when a larger
                 // one, for a larger size before, was drawn.
-                tile.picture().show(Some(texture));
+                tile.picture().show_sharp(texture);
             }
         });
         tile.set_sharp(Some(task));
@@ -1642,6 +1659,40 @@ impl GalleryView {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A picture decoded for the tile's own device pixels is never
+    /// replaced by a thumbnail that comes later, even one with more
+    /// pixels, which would be drawn scaled and softer; a thumbnail still
+    /// replaces a smaller thumbnail.
+    ///
+    /// parity: HOME-033
+    #[gtk::test]
+    fn a_late_thumbnail_never_replaces_the_sharp_picture() {
+        let texture = |width, height| -> gdk::Texture {
+            let pixbuf =
+                gtk::gdk_pixbuf::Pixbuf::new(gtk::gdk_pixbuf::Colorspace::Rgb, false, 8, width, height)
+                    .expect("a picture");
+            gdk::Texture::for_pixbuf(&pixbuf)
+        };
+        let picture: tile::GalleryPicture = glib::Object::new();
+        picture.offer(texture(128, 72));
+        picture.offer(texture(256, 144));
+        assert_eq!(picture.texture_pixels(), Some((256, 144)), "a larger thumbnail");
+        picture.show_sharp(texture(150, 84));
+        picture.offer(texture(256, 144));
+        assert_eq!(
+            picture.texture_pixels(),
+            Some((150, 84)),
+            "the sharp picture stays"
+        );
+        picture.show(None);
+        picture.offer(texture(128, 72));
+        assert_eq!(
+            picture.texture_pixels(),
+            Some((128, 72)),
+            "another photo starts afresh"
+        );
+    }
 
     /// The heading names one month, or the newest and oldest months with
     /// an en dash, as Windows' Gallery does.

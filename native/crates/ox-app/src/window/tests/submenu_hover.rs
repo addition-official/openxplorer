@@ -6,8 +6,7 @@
 //! moving across other rows on the way into the open submenu keeps it
 //! open, a click opens it at once, Right opens it with the keyboard in it
 //! and Left or Escape closes it and gives the keyboard back to its row.
-//! In the compact style, the pointer leaving every menu closes a submenu
-//! it opened after the same delay.
+//! The pointer leaving every menu leaves an open submenu open.
 //!
 //! Every menu of the app with a submenu is a [`MenuPopover`], so these
 //! tests check one menu of each kind: the command bar's, the file list's
@@ -740,82 +739,60 @@ fn open_submenu_by_hover(
     (menu, on_row)
 }
 
-/// In Windows 11's compact menu, a submenu the pointer opened closes once
-/// the pointer has left every menu, after the hover delay, from its row or
-/// from inside the submenu; the menu itself stays open. Coming back within
-/// the delay keeps it. The classic menu keeps its Send to open, as
-/// Windows' classic menus do.
+/// A submenu the pointer opened stays open after the pointer has left
+/// every menu, in both styles, as Windows 11 keeps it (checked on Windows
+/// 11 build 26200: the folder menu's Group by stayed open 1.5 s after the
+/// pointer moved onto the file list): from its row and from inside it.
 ///
 /// parity: CMD-010
 #[gtk::test]
-fn leaving_every_menu_closes_the_compact_menus_submenu() {
+fn leaving_every_menu_keeps_the_open_submenu() {
     let mut session = Session::open_on(Fixture::real_world(), None);
     let outside = session.on_screen(&session.test.window, (8.0, 8.0));
     let file = "Quarterly report.pdf";
-
-    // From its row straight off the menu.
-    let (menu, on_row) = open_submenu_by_hover(&mut session, ContextMenu::Win11, file, "Compress to");
-    session.pointer.glide(on_row, outside, GLIDE_STEPS);
-    wait_for(PAST_THE_DELAY);
-    assert!(
-        menu.open_submenu_menu().is_none(),
-        "the submenu closes once the pointer has left the menus"
-    );
-    assert!(menu.is_mapped(), "the menu stays open");
-    menu.popdown();
-    wait_until("the menu to close", || !menu.is_mapped());
-
-    // Into the submenu, then off it, away from the menu.
-    let (menu, on_row) = open_submenu_by_hover(&mut session, ContextMenu::Win11, file, "Compress to");
-    let submenu = menu.open_submenu_menu().expect("the open submenu");
-    wait_for_frames(&submenu, 3);
-    let first = submenu.rows().into_iter().next().expect("a row");
-    let inside = session.on_screen(&first, (12.0, f64::from(first.height()) / 2.0));
-    session.pointer.glide(on_row, inside, GLIDE_STEPS);
-    wait_for(PAST_THE_DELAY);
-    assert!(
-        shows_submenu_of(&menu, "Compress to"),
-        "the submenu stays while the pointer is on it"
-    );
-    let beyond = session.on_screen(&first, (f64::from(first.width()) + 160.0, 4.0));
-    session.pointer.glide(inside, beyond, GLIDE_STEPS);
-    wait_for(PAST_THE_DELAY);
-    assert!(
-        menu.open_submenu_menu().is_none(),
-        "the submenu closes once the pointer has left it for no menu"
-    );
-    assert!(menu.is_mapped(), "the menu stays open");
-    menu.popdown();
-    wait_until("the menu to close", || !menu.is_mapped());
-
-    // Off and back onto the submenu within the delay keeps it.
-    let (menu, on_row) = open_submenu_by_hover(&mut session, ContextMenu::Win11, file, "Compress to");
-    let submenu = menu.open_submenu_menu().expect("the open submenu");
-    wait_for_frames(&submenu, 3);
-    let first = submenu.rows().into_iter().next().expect("a row");
-    let inside = session.on_screen(&first, (12.0, f64::from(first.height()) / 2.0));
-    session.pointer.glide(on_row, outside, 2);
-    session.pointer.glide(outside, inside, 2);
-    wait_for(PAST_THE_DELAY);
-    assert!(
-        shows_submenu_of(&menu, "Compress to"),
-        "coming back within the delay keeps the submenu"
-    );
-    assert_eq!(
-        menu.open_submenu_menu().as_ref(),
-        Some(&submenu),
-        "the same submenu"
-    );
-    menu.popdown();
-    wait_until("the menu to close", || !menu.is_mapped());
-
-    // The classic menu keeps Send to open.
-    let (menu, on_row) = open_submenu_by_hover(&mut session, ContextMenu::Win10, file, "Send to");
-    session.pointer.glide(on_row, outside, GLIDE_STEPS);
-    wait_for(PAST_THE_DELAY);
-    assert!(
-        shows_submenu_of(&menu, "Send to"),
-        "the classic menu keeps its submenu open"
-    );
+    let a_while = Duration::from_millis(1500);
+    for (style, row) in [
+        (ContextMenu::Win11, "Compress to"),
+        (ContextMenu::Win10, "Send to"),
+    ] {
+        // From its row straight off the menu.
+        let (menu, on_row) = open_submenu_by_hover(&mut session, style, file, row);
+        session.pointer.glide(on_row, outside, GLIDE_STEPS);
+        wait_for(a_while);
+        assert!(shows_submenu_of(&menu, row), "{style:?} {row} stays open");
+        assert!(menu.is_mapped(), "the menu stays open");
+        menu.popdown();
+        wait_until("the menu to close", || !menu.is_mapped());
+        // Into the submenu, then off it, away from the menu.
+        let (menu, on_row) = open_submenu_by_hover(&mut session, style, file, row);
+        let submenu = menu.open_submenu_menu().expect("the open submenu");
+        wait_for_frames(&submenu, 3);
+        let first = submenu.rows().into_iter().next().expect("a row");
+        let inside = session.on_screen(&first, (12.0, f64::from(first.height()) / 2.0));
+        session.pointer.glide(on_row, inside, GLIDE_STEPS);
+        let beyond = session.on_screen(&first, (f64::from(first.width()) + 160.0, 4.0));
+        session.pointer.glide(inside, beyond, GLIDE_STEPS);
+        wait_for(a_while);
+        assert!(
+            shows_submenu_of(&menu, row),
+            "{style:?} {row} stays open after leaving it"
+        );
+        menu.popdown();
+        wait_until("the menu to close", || !menu.is_mapped());
+    }
+    // The folder menu's Group by, as checked on Windows.
+    choose_menu_style(&session.test, ContextMenu::Win11);
+    session.test.window.right_click(None);
+    let menu = open_pane_menu(&session);
+    let start = corner_of(&session, &menu);
+    let on_row = point_on_row(&session, &menu, "Group by", 0.6);
+    session.pointer.glide(start, on_row, GLIDE_STEPS);
+    wait_until("Group by's submenu to open on hover", || {
+        shows_submenu_of(&menu, "Group by")
+    });
+    let blank = session.on_screen(&session.test.window.folder_pane().input_widget(), (600.0, 500.0));
+    session.pointer.glide(on_row, blank, GLIDE_STEPS);
+    wait_for(a_while);
+    assert!(shows_submenu_of(&menu, "Group by"), "Group by stays open");
     menu.popdown();
 }

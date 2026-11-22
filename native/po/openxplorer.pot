@@ -178,6 +178,10 @@ msgid "Current default"
 msgstr ""
 
 #: crates/ox-app/resources/ui/open-with-dialog.ui
+msgid "Find an app in Software"
+msgstr ""
+
+#: crates/ox-app/resources/ui/open-with-dialog.ui
 msgid "Find an application"
 msgstr ""
 
@@ -602,7 +606,7 @@ msgstr ""
 msgid "Add a network folder to your sidebar: a Windows share, or a folder on an SSH, FTP, WebDAV or NFS server."
 msgstr ""
 
-#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/window/command_bar/menus.rs crates/ox-app/src/window/sidebar/menu.rs
+#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/window/command_bar/menus.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/sidebar/menu.rs
 msgid "Add a network location"
 msgstr ""
 
@@ -778,7 +782,7 @@ msgid "Select"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-app/src/folder_view/cells/row_tooltip.rs crates/ox-app/src/window/file_ops/delete.rs crates/ox-app/src/window/file_ops/failure_dialog.rs
+#: crates/ox-app/src/folder_view/cells/row_tooltip.rs crates/ox-app/src/window/file_ops/delete.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/file_ops/rename_conflict.rs
 msgid "Date created: {date}"
 msgstr ""
 
@@ -1068,6 +1072,10 @@ msgid "That installed application is unavailable for this file/location."
 msgstr ""
 
 #: crates/ox-app/src/integration/applications.rs
+msgid "The default app could not be changed."
+msgstr ""
+
+#: crates/ox-app/src/integration/applications.rs
 msgid "The list of installed applications could not be read."
 msgstr ""
 
@@ -1321,6 +1329,10 @@ msgid "Super+E will stop opening OpenXplorer once you log out and back in."
 msgstr ""
 
 #: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "A default app can be set only for files with an extension."
+msgstr ""
+
+#: crates/ox-app/src/integration/open_with_dialog.rs
 msgid "All files"
 msgstr ""
 
@@ -1329,11 +1341,27 @@ msgid "Choose an app on your PC"
 msgstr ""
 
 #: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "Default app"
+msgstr ""
+
+#: crates/ox-app/src/integration/open_with_dialog.rs
 msgid "Finding installed applications…"
 msgstr ""
 
 #: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "More options"
+msgstr ""
+
+#: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "No installed app can open this item."
+msgstr ""
+
+#: crates/ox-app/src/integration/open_with_dialog.rs
 msgid "No matching installed applications."
+msgstr ""
+
+#: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "Only an installed app (.desktop) can be the default."
 msgstr ""
 
 #: crates/ox-app/src/integration/open_with_dialog.rs
@@ -1344,8 +1372,19 @@ msgstr ""
 msgid "Ran the command."
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/integration/open_with_dialog.rs
-msgid "Select an app to open this file"
+msgid "Select a default app for '{name}'"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "Select a default app for {extension} files"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "Select an app to open '{name}'"
 msgstr ""
 
 #: crates/ox-app/src/integration/open_with_dialog.rs
@@ -1355,6 +1394,10 @@ msgstr ""
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/integration/open_with_dialog.rs
 msgid "Select an app to open this {extension} file"
+msgstr ""
+
+#: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "Set default"
 msgstr ""
 
 #: crates/ox-app/src/integration/status.rs
@@ -4892,33 +4935,19 @@ msgid "Address copied."
 msgstr ""
 
 #: crates/ox-app/src/window/address_menu.rs
-msgid "Copy address"
+msgid "Copy Address"
 msgstr ""
 
 #: crates/ox-app/src/window/address_menu.rs
-msgid "Edit address"
+msgid "Copy Address as Text"
 msgstr ""
 
 #: crates/ox-app/src/window/address_menu.rs
-msgid "Keep address editable"
-msgstr ""
-
-#. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-app/src/window/address_menu.rs
-msgid "Open “{label}” in new tab"
-msgstr ""
-
-#. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-app/src/window/address_menu.rs
-msgid "Open “{label}” in new window"
+msgid "Delete History"
 msgstr ""
 
 #: crates/ox-app/src/window/address_menu.rs
-msgid "Paste and go"
-msgstr ""
-
-#: crates/ox-app/src/window/address_menu.rs
-msgid "Show full path"
+msgid "Edit Address"
 msgstr ""
 
 #: crates/ox-app/src/window/address_menu.rs
@@ -5117,7 +5146,7 @@ msgstr ""
 msgid "Cut (Ctrl+X)"
 msgstr ""
 
-#: crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/file_ops/delete_label.rs crates/ox-app/src/window/folder_tree/menu.rs crates/ox-app/src/window/shortcuts_window.rs crates/ox-core/src/ops/undo.rs
+#: crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/file_ops/delete_label.rs crates/ox-app/src/window/folder_tree/menu.rs crates/ox-app/src/window/shortcuts_window.rs crates/ox-core/src/ops/undo.rs
 msgid "Delete"
 msgstr ""
 
@@ -5621,6 +5650,10 @@ msgstr ""
 
 #: crates/ox-app/src/window/context_menu/entries.rs
 msgid "Restore previous versions"
+msgstr ""
+
+#: crates/ox-app/src/window/context_menu/entries.rs
+msgid "Restore the item to compress or share it."
 msgstr ""
 
 #: crates/ox-app/src/window/context_menu/entries.rs
@@ -6423,6 +6456,10 @@ msgstr ""
 msgid "The name was not changed."
 msgstr ""
 
+#: crates/ox-app/src/window/file_ops/rename_conflict.rs
+msgid "Confirm Folder Replace"
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/file_ops/rename_conflict.rs
 msgid "Do you want to rename \"{name}\" to \"{numbered}\"?\nThere is already a file with the same name in this location."
@@ -6430,6 +6467,15 @@ msgstr ""
 
 #: crates/ox-app/src/window/file_ops/rename_conflict.rs
 msgid "Rename File"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/file_ops/rename_conflict.rs
+msgid "This destination already contains a folder named '{name}'.\n\nIf any files have the same names, you will be asked if you want to replace those files.\n\nDo you still want to merge this folder"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/rename_conflict.rs
+msgid "with this one?"
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/transfer.rs
@@ -7639,6 +7685,10 @@ msgid "Map network drive…"
 msgstr ""
 
 #: crates/ox-app/src/window/sidebar/menu.rs
+msgid "Pin current folder to Quick access"
+msgstr ""
+
+#: crates/ox-app/src/window/sidebar/menu.rs
 msgid "Show all entries"
 msgstr ""
 
@@ -7684,10 +7734,6 @@ msgstr ""
 
 #: crates/ox-app/src/window/sidebar_toggle.rs
 msgid "Places (F9 shows the navigation pane)"
-msgstr ""
-
-#: crates/ox-app/src/window/software_search.rs
-msgid "Find an app in Software"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.

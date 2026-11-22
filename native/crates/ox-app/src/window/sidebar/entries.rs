@@ -305,7 +305,14 @@ fn computer_entry(node: &ComputerNode, locations: &LocationContext) -> SidebarEn
         target: RowTarget::Location(node.uri.clone()),
         tooltip: locations.display_location(&node.uri),
         pinned: false,
-        menu: None,
+        // The menu of a server, which every network place shares.
+        menu: Some(PlaceMenu::Network(NetworkLocation {
+            uri: node.uri.clone(),
+            label: node.name.clone(),
+            is_saved: false,
+            is_connected: false,
+            kind: ox_core::places::NetworkKind::Server,
+        })),
         eject: None,
         expander: Some(RowExpander {
             uri: node.uri.clone(),

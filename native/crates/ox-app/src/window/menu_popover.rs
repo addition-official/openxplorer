@@ -143,10 +143,6 @@ mod imp {
         /// The row the pointer rests on, and the timer that opens or closes
         /// a submenu once it has rested there for `SUBMENU_DELAY`.
         pub(super) hover: RefCell<(Option<usize>, Option<SourceId>)>,
-        /// In the compact style, the timer that closes the submenu the
-        /// pointer opened once the pointer has been off every menu for
-        /// `SUBMENU_DELAY`.
-        pub(super) away: RefCell<Option<SourceId>>,
         /// Where the pointer last was over the rows, in the menu's
         /// coordinates, to tell whether it heads for the open submenu.
         pub(super) pointer: Cell<Option<(f64, f64)>>,
@@ -430,18 +426,10 @@ fn follow_hover(popover: &MenuPopover, list: &gtk::ListBox) {
             if let Some(parent) = popover.parent_menu() {
                 parent.keep_submenu_open();
             }
-            popover.pointer_came_back();
             on_enter(x, y);
         }
     ));
-    motion.connect_motion(glib::clone!(
-        #[weak]
-        popover,
-        move |_, x, y| {
-            popover.pointer_came_back();
-            rest_at(x, y);
-        }
-    ));
+    motion.connect_motion(move |_, x, y| rest_at(x, y));
     motion.connect_leave(glib::clone!(
         #[weak]
         popover,
@@ -454,7 +442,6 @@ fn follow_hover(popover: &MenuPopover, list: &gtk::ListBox) {
             // opening on hover (gdk_surface_ensure_motion, GTK 4.14).
             if !popover.pointer_is_over_rows() {
                 popover.pointer_moved(None, None);
-                popover.pointer_left();
             }
         }
     ));
@@ -729,6 +716,11 @@ impl MenuPopover {
                 row.remove_css_class(css_class);
             }
         }
+    }
+
+    /// The entries, dividers included, as the menu shows them now.
+    pub(in crate::window) fn entries(&self) -> Vec<MenuEntry> {
+        self.imp().entries.borrow().clone()
     }
 
     /// The items, one per row, without the dividers.
@@ -1264,8 +1256,7 @@ impl MenuPopover {
     /// The pointer rests on the row at `index`, or on none: after
     /// [`SUBMENU_DELAY`], that row's submenu opens, or the open one closes
     /// when the pointer rests on another row. Leaving the rows keeps an
-    /// open submenu open here; leaving every menu closes it in the compact
-    /// style ([`Self::pointer_left`]).
+    /// open submenu open, as Windows 11 does (checked on build 26200).
     fn rest_on(&self, index: Option<usize>) {
         if self.imp().hover.borrow().0 == index {
             return;
@@ -1356,77 +1347,9 @@ impl MenuPopover {
         }
     }
 
-    /// The pointer left this menu's rows. In the compact style, as Windows
-    /// 11's menus do, a submenu the pointer opened closes once the pointer
-    /// has stayed off every menu for [`SUBMENU_DELAY`]: the one open
-    /// beside this menu's rows, and this menu if it is such a submenu. The
-    /// pointer coming onto a menu again keeps them
-    /// ([`Self::pointer_came_back`]). The classic style keeps them open,
-    /// as Windows' classic menus do, and so does a submenu the keyboard
-    /// opened or is in.
-    fn pointer_left(&self) {
-        self.close_submenu_when_away();
-        if let Some(parent) = self.parent_menu() {
-            parent.close_submenu_when_away();
-        }
-    }
-
-    /// Starts the timer that closes the submenu open beside this menu,
-    /// one the pointer opened in the compact style, unless the pointer
-    /// comes back onto a menu first.
-    fn close_submenu_when_away(&self) {
-        if self.imp().style.get() != MenuStyle::Compact || self.imp().away.borrow().is_some() {
-            return;
-        }
-        let Some(submenu) = self.open_submenu_menu() else {
-            return;
-        };
-        if submenu.imp().by_keyboard.get() {
-            return;
-        }
-        let timer = glib::timeout_add_local_once(
-            SUBMENU_DELAY,
-            glib::clone!(
-                #[weak(rename_to = popover)]
-                self,
-                move || {
-                    popover.imp().away.replace(None);
-                    if popover.open_submenu_menu().as_ref() != Some(&submenu)
-                        || popover.pointer_is_over_rows()
-                        || pointer_is_over_submenus(&submenu)
-                        || keyboard_is_in(&submenu)
-                    {
-                        return;
-                    }
-                    popover.close_submenu();
-                    // Coming back onto the row opens the submenu again
-                    // after the delay.
-                    popover.cancel_hover();
-                    popover.imp().hover.borrow_mut().0 = None;
-                }
-            ),
-        );
-        self.imp().away.replace(Some(timer));
-    }
-
-    /// The pointer is over this menu: neither it nor a menu it is a
-    /// submenu of closes its submenu for the pointer being away.
-    fn pointer_came_back(&self) {
-        let mut menu = Some(self.clone());
-        while let Some(current) = menu {
-            if let Some(timer) = current.imp().away.take() {
-                timer.remove();
-            }
-            menu = current.parent_menu();
-        }
-    }
-
     /// Stops the timer and forgets the row the pointer rests on, as when
     /// the menu closes.
     fn forget_hover(&self) {
-        if let Some(timer) = self.imp().away.take() {
-            timer.remove();
-        }
         self.cancel_hover();
         self.imp().hover.borrow_mut().0 = None;
         self.imp().pointer.set(None);
@@ -1555,29 +1478,6 @@ fn show_submenu(submenu: &MenuPopover, row_area: &gdk::Rectangle, keyboard: bool
     if keyboard {
         submenu.focus_first_item();
     }
-}
-
-/// Whether the pointer is over the rows of `submenu` or of a submenu open
-/// beside it.
-fn pointer_is_over_submenus(submenu: &MenuPopover) -> bool {
-    let mut menu = Some(submenu.clone());
-    while let Some(current) = menu {
-        if current.pointer_is_over_rows() {
-            return true;
-        }
-        menu = current.open_submenu_menu();
-    }
-    false
-}
-
-/// Whether the keyboard is in `submenu`, or a submenu beside it, and shows
-/// there: a key moved it after the pointer opened the submenu.
-fn keyboard_is_in(submenu: &MenuPopover) -> bool {
-    let Some(window) = submenu.root().and_downcast::<gtk::Window>() else {
-        return false;
-    };
-    window.gets_focus_visible()
-        && gtk::prelude::RootExt::focus(&window).is_some_and(|focus| focus.is_ancestor(submenu))
 }
 
 /// Where `row` is in `menu`, once the menu has laid it out.

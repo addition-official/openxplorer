@@ -310,24 +310,22 @@ fn a_computer_lists_its_services_and_is_named_like_windows() {
     let computer = test.window.folder_model().item(0).expect("the computer");
     let uri = computer.entry().navigation_uri().to_owned();
     assert_eq!(uri, "smb://harbornas.local/");
-    let menu = crate::window::context_menu::computer_menu(&uri, true);
-    let labels: Vec<String> = menu
-        .iter()
-        .filter_map(|entry| match entry {
-            crate::window::menu_popover::MenuEntry::Item(item) => Some(item.label.clone()),
-            crate::window::menu_popover::MenuEntry::Divider => None,
-        })
-        .collect();
+    // The menu a right-click on it opens: Windows 11's for a computer.
+    test.window.right_click(Some(0));
+    let menu = test.window.context_menu();
     assert_eq!(
-        labels,
+        menu.row_labels(),
         [
             "Open",
             "Open in new tab",
             "Open in new window",
             "Pin to Quick access",
-            "Create shortcut"
+            "Create shortcut",
+            "-",
+            "Show more options"
         ]
     );
+    menu.popdown();
 
     test.window.navigate(&uri).expect("the computer");
     test.wait_for_listing("the computer");
