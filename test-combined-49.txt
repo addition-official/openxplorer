@@ -67,9 +67,9 @@ TEST RUNS on e0ce5c82 (every test binary isolated with OX_PYTHON_APP set, as che
 - Failures compared with main 3ef87f79 by name (26 names failed in at least one run; each run on main):
   * 23 fail on main too: the same environment-only set as debs 43-48 (root permissions, thumbnailer setup, Python fixtures, display scale). These failed in every run here.
   * 3 failed in some runs only, all intermittent:
-    - window::tests::renaming_by_pointer::a_click_on_another_item_keeps_the_typed_name_and_selects_that_item, from pass-3 (5e654ba1; not on main). Failed in runs 2 and 3 and in 1 of 5 runs alone, each time on "the clicked item stays selected" (renaming_by_pointer.rs:169: the selection is still the renamed item, not the clicked one). Flaky; worth a look on pass-3.
-    - window::tests::empty_folder_look::a_long_note_wraps_inside_the_pane: failed in 1 of 3 runs; passes on main; flaky as in deb 48.
-    - window::tests::home_page::home_has_no_band_under_the_titles_and_its_tiles_do_not_touch: failed in 1 of 3 runs; passes on main; passed 5 of 5 alone; flaky as in debs 46-47.
-- RENAME TESTS: all tests in window::tests::new_text_document, new_folder, renaming and renaming_by_pointer ran; none failed except the flaky renaming_by_pointer test above.
+    - window::tests::renaming_by_pointer::a_click_on_another_item_keeps_the_typed_name_and_selects_that_item, from pass-3 (5e654ba1; not on main). Failed in runs 1 and 3 and in 1 of 5 runs alone, each time on "the clicked item stays selected" (renaming_by_pointer.rs:169: the selection is still the renamed item, not the clicked one). Flaky; worth a look on pass-3.
+    - window::tests::empty_folder_look::a_long_note_wraps_inside_the_pane: failed in runs 2 and 3, passed in run 1; passes on main; flaky as in deb 48 (where it passed 3 of 3 alone on the merged tree).
+    - window::tests::home_page::home_has_no_band_under_the_titles_and_its_tiles_do_not_touch: failed in run 2 only; passes on main; passed 5 of 5 alone; flaky as in debs 46-47.
+- RENAME TESTS: all 69 tests in window::tests::new_text_document, new_folder, renaming and renaming_by_pointer ran in each run. The only failures among them: new_folder::a_folder_that_cannot_take_a_new_folder_says_why (every run; one of the 23 that fail on main too, a permission test that cannot fail as root) and the flaky renaming_by_pointer test above.
 
 LONG TESTS: DONE
