@@ -243,6 +243,8 @@ mod imp {
         /// The item the cell shows, so binding it again keeps a rename in
         /// place going.
         pub(super) bound: glib::WeakRef<crate::folder_view::item::FileItem>,
+        /// The row or tile marked `.renaming` while the name is edited.
+        pub(super) renaming_item: glib::WeakRef<gtk::Widget>,
         /// The item's custom icon (PROP-016) or preview (VIEW-057), shown
         /// in place of the art.
         pub(super) custom_icon: gtk::Picture,
@@ -886,6 +888,7 @@ impl FileCell {
     /// the name's own line in Tiles and Content.
     pub(crate) fn show_name_editor(&self, editor: &gtk::Entry) {
         self.hide_name_editor();
+        self.mark_item_being_renamed(true);
         let imp = self.imp();
         self.name_box().insert_child_after(editor, Some(&imp.label));
         imp.label.set_visible(false);
@@ -939,6 +942,28 @@ impl FileCell {
         };
         self.name_box().remove(&editor);
         imp.label.set_visible(true);
+        self.mark_item_being_renamed(false);
+    }
+
+    /// Marks the row or tile that holds the cell while its name is edited
+    /// in place (`.renaming`), which then draws no focus outline, as
+    /// Windows 11 draws none around an item being renamed (OPS-010).
+    fn mark_item_being_renamed(&self, renaming: bool) {
+        let marked = &self.imp().renaming_item;
+        // The one marked, even when the cell has left it since.
+        if let Some(item) = marked.upgrade() {
+            item.remove_css_class(RENAMING_CLASS);
+        }
+        marked.set(None);
+        if !renaming {
+            return;
+        }
+        let item = std::iter::successors(self.parent(), WidgetExt::parent)
+            .find(|widget| matches!(widget.css_name().as_str(), "row" | "child"));
+        if let Some(item) = item {
+            item.add_css_class(RENAMING_CLASS);
+            marked.set(Some(&item));
+        }
     }
 
     /// Whether the name is cut short with an ellipsis where it is shown.
@@ -1040,6 +1065,9 @@ pub(crate) fn connect_mapped_file_cells(
         }
     });
 }
+
+/// The CSS class of the row or tile whose name is edited in place.
+const RENAMING_CLASS: &str = "renaming";
 
 /// Whether `widget` is part of a grid slot that shows no item and is no
 /// heading's row (a blank), or the grid's child holding one: blank space

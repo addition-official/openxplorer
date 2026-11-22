@@ -292,3 +292,113 @@ fn f2_on_an_item_scrolled_out_of_sight_scrolls_it_back_to_rename() {
     pointer.tap_key(gdk::Key::Escape);
     wait_until("the rename to end", || !is_renaming_in_place(&test));
 }
+
+/// Down and Up while a name is edited move the text cursor to the very
+/// end and the very start of the name, as End and Home do, and leave the
+/// rename going, as Windows 11's one-line name box does (checked in
+/// Windows 11 26200): the stem's selection is cleared, the caret passes
+/// the extension, the name is not committed and the next item is not
+/// renamed. The keys are real ones.
+///
+/// parity: OPS-012
+#[gtk::test]
+fn down_and_up_while_renaming_move_the_cursor_to_the_ends() {
+    let mut pointer = Pointer::connect();
+    for view in ["details", "large"] {
+        let fixture = Fixture::standard();
+        let test = TestWindow::open(&fixture.uri());
+        super::support::show_file_name_extensions(&test);
+        test.activate("view", Some(view));
+        select_names(&test, &["Notes 2.txt"]);
+        test.window.folder_pane().focus_view();
+        wait_for_frames(&test.window, 3);
+        let inside = point_in(&mut pointer, &test.window, 40.0, 40.0);
+        pointer.move_to(inside.0, inside.1);
+        pointer.tap_key(gdk::Key::F2);
+        let field = name_editor(&test);
+        wait_until(&format!("{view}: the stem selected"), || {
+            has_keyboard(&test, &field) && field.selection_bounds() == Some((0, 7))
+        });
+
+        pointer.tap_key(gdk::Key::Down);
+        wait_for(Duration::from_millis(400));
+        let after_down = (
+            field.selection_bounds(),
+            field.position(),
+            has_keyboard(&test, &field),
+        );
+        pointer.tap_key(gdk::Key::Up);
+        wait_for(Duration::from_millis(400));
+        let after_up = (
+            field.selection_bounds(),
+            field.position(),
+            has_keyboard(&test, &field),
+        );
+
+        pointer.tap_key(gdk::Key::End);
+        wait_for(Duration::from_millis(200));
+        let after_end = field.position();
+        pointer.tap_key(gdk::Key::Home);
+        wait_for(Duration::from_millis(200));
+        let after_home = field.position();
+
+        assert_eq!(
+            after_down,
+            (None, 11, true),
+            "{view}: Down goes past the extension"
+        );
+        assert_eq!(after_up, (None, 0, true), "{view}: Up goes to the start");
+        assert_eq!((after_end, after_home), (11, 0), "{view}: End and Home the same");
+        assert!(is_renaming_in_place(&test), "{view}: still renaming");
+        assert_eq!(name_editor(&test), field, "{view}: the same item");
+        assert_eq!(test.selected_names(), ["Notes 2.txt"], "{view}");
+        pointer.tap_key(gdk::Key::Escape);
+        wait_until(&format!("{view}: Escape ends it"), || {
+            !is_renaming_in_place(&test)
+        });
+        assert!(fixture.path("Notes 2.txt").is_file(), "{view}: nothing renamed");
+    }
+}
+
+/// The row whose name is being edited keeps its look while the name box
+/// is open, as in Windows 11, which draws no focus rectangle around it:
+/// its edge shows the selected item's colour, not the focus outline the
+/// list draws around its focused row (white in dark, near black in
+/// light). Checked in the light and the dark theme, as painted.
+///
+/// parity: OPS-010
+#[gtk::test]
+fn the_row_being_renamed_draws_no_focus_outline() {
+    let _theme = crate::test_support::harness::ThemeGuard::keep();
+    let mut pointer = Pointer::connect();
+    for (theme, selected) in [
+        (ox_core::settings::Theme::Light, "#cce8ff"),
+        (ox_core::settings::Theme::Dark, "#3d3d3d"),
+    ] {
+        crate::test_support::harness::skin().set_theme(theme);
+        let fixture = Fixture::standard();
+        let test = TestWindow::open(&fixture.uri());
+        test.activate("view", Some("details"));
+        select_names(&test, &["Notes 2.txt"]);
+        test.window.folder_pane().focus_view();
+        wait_for_frames(&test.window, 3);
+        let inside = point_in(&mut pointer, &test.window, 40.0, 40.0);
+        pointer.move_to(inside.0, inside.1);
+        pointer.tap_key(gdk::Key::F2);
+        let field = name_editor(&test);
+        wait_until("the field takes the keyboard", || has_keyboard(&test, &field));
+        wait_for_frames(&test.window, 5);
+        let row = std::iter::successors(field.parent(), WidgetExt::parent)
+            .find(|widget| widget.css_name() == "row")
+            .expect("the field is in a row");
+
+        let edge = super::icons::painted_colour(&row, 1, row.height() / 2);
+
+        assert!(
+            super::icons::is_same_colour(edge, super::icons::css_colour(selected)),
+            "{theme:?}: the row's edge is {edge}, not the selected colour {selected}"
+        );
+        pointer.tap_key(gdk::Key::Escape);
+        wait_until("the rename to end", || !is_renaming_in_place(&test));
+    }
+}
