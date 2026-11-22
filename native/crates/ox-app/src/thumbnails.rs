@@ -60,6 +60,10 @@ const MAKING_AT_ONCE: usize = 2;
 const NETWORK_MAKING_AT_ONCE: usize = 2;
 /// How many decoded previews are kept.
 const MAX_KEPT: usize = 512;
+/// How many bytes of decoded previews are kept: 512 previews of Large
+/// icons on a 100 % screen take about 12 MB, but of Extra large icons on a
+/// 200 % screen up to 512 MB.
+const MAX_KEPT_BYTES: usize = 64 * 1024 * 1024;
 
 /// Which items of the folder shown get previews.
 #[expect(
@@ -222,6 +226,8 @@ thread_local! {
     static NETWORK_MAKING: Rc<Slots> = Rc::new(Slots::new(NETWORK_MAKING_AT_ONCE));
     /// Decoded previews by item, version and size.
     static KEPT: RefCell<HashMap<PreviewKey, gdk::Texture>> = RefCell::new(HashMap::new());
+    /// The bytes of the pixels [`KEPT`] holds.
+    static KEPT_BYTES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     /// Sharp pictures decoded at a tile's size (Gallery), by item, version
     /// and edge; only the last few, as they are large.
     static SHARP_KEPT: RefCell<Vec<(PreviewKey, gdk::Texture)>> = const { RefCell::new(Vec::new()) };
@@ -290,14 +296,33 @@ pub(crate) async fn preview(request: PreviewRequest) -> Option<gdk::Texture> {
         .await
         .flatten();
     let texture = texture?;
-    KEPT.with_borrow_mut(|kept| {
-        if kept.len() >= MAX_KEPT {
-            kept.clear();
-        }
-        kept.insert(key, texture.clone());
-    });
+    keep_preview(key, &texture);
     note_kept_previews_used();
     Some(texture)
+}
+
+/// The bytes `texture`'s pixels take, four to a pixel.
+fn texture_bytes(texture: &gdk::Texture) -> usize {
+    let pixels = i64::from(texture.width()) * i64::from(texture.height());
+    usize::try_from(pixels.saturating_mul(4)).unwrap_or(usize::MAX)
+}
+
+/// Keeps `texture` as the preview of `key`, for a row scrolled back into
+/// view; when [`MAX_KEPT`] previews or [`MAX_KEPT_BYTES`] are kept
+/// already, the others are let go first.
+fn keep_preview(key: PreviewKey, texture: &gdk::Texture) {
+    let bytes = texture_bytes(texture);
+    KEPT.with_borrow_mut(|kept| {
+        let kept_bytes = KEPT_BYTES.get();
+        if kept.len() >= MAX_KEPT || kept_bytes.saturating_add(bytes) > MAX_KEPT_BYTES {
+            kept.clear();
+            KEPT_BYTES.set(0);
+        }
+        if let Some(replaced) = kept.insert(key, texture.clone()) {
+            KEPT_BYTES.set(KEPT_BYTES.get().saturating_sub(texture_bytes(&replaced)));
+        }
+        KEPT_BYTES.set(KEPT_BYTES.get().saturating_add(bytes));
+    });
 }
 
 thread_local! {
@@ -330,9 +355,22 @@ fn forget_kept_previews_after(delay: std::time::Duration) {
             return;
         }
         FORGETTING_PREVIEWS.set(false);
-        KEPT.with_borrow_mut(HashMap::clear);
-        SHARP_KEPT.with_borrow_mut(Vec::clear);
+        forget_kept_previews();
     });
+}
+
+/// Lets the next preview start a check for unused previews with the
+/// limit as it is now, for tests that shorten it.
+#[cfg(test)]
+pub(crate) fn restart_unused_check() {
+    FORGETTING_PREVIEWS.set(false);
+}
+
+/// Lets go of every kept preview and sharp picture.
+fn forget_kept_previews() {
+    KEPT.with_borrow_mut(HashMap::clear);
+    KEPT_BYTES.set(0);
+    SHARP_KEPT.with_borrow_mut(Vec::clear);
 }
 
 /// How many previews and sharp pictures are kept now, for tests.
@@ -666,6 +704,41 @@ mod tests {
     use ox_core::entry::thumbnail_file;
 
     use super::*;
+
+    /// Scrolling through thousands of photos at Extra large icons on a
+    /// 200 % screen kept up to 512 previews of up to 512 × 512 pixels,
+    /// a megabyte each; the kept previews now stay within a budget in
+    /// bytes as well as in number.
+    ///
+    /// parity: VIEW-057
+    #[gtk::test]
+    fn the_kept_previews_stay_within_their_budget() {
+        let picture = |edge: i32| {
+            let stride = usize::try_from(edge * 4).expect("an edge");
+            let bytes =
+                glib::Bytes::from_owned(vec![0x80_u8; stride * usize::try_from(edge).expect("an edge")]);
+            gdk::MemoryTexture::new(edge, edge, gdk::MemoryFormat::R8g8b8a8, &bytes, stride)
+                .upcast::<gdk::Texture>()
+        };
+        forget_kept_previews();
+        for number in 0..120 {
+            keep_preview(
+                (format!("file:///Photos/Harbor%20{number}.jpg"), Some(1), 512),
+                &picture(512),
+            );
+            let bytes: usize = KEPT.with_borrow(|kept| kept.values().map(texture_bytes).sum());
+            assert!(
+                bytes <= MAX_KEPT_BYTES,
+                "{bytes} bytes kept after {number} previews"
+            );
+        }
+        assert!(KEPT.with_borrow(HashMap::len) > 0, "previews are still kept");
+        assert_eq!(
+            KEPT_BYTES.get(),
+            KEPT.with_borrow(|kept| kept.values().map(texture_bytes).sum::<usize>())
+        );
+        forget_kept_previews();
+    }
 
     /// A picture whose type no loader declares is still decoded, and a
     /// file that is no picture never reaches gdk-pixbuf.

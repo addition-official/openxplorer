@@ -267,6 +267,12 @@ impl UnusedForTests {
     pub(crate) fn shorten_to(limit: Duration) -> Self {
         let milliseconds = u64::try_from(limit.as_millis()).unwrap_or(u64::MAX).max(1);
         UNUSED_LIMIT_IN_TESTS.store(milliseconds, Ordering::Relaxed);
+        // A check an earlier test left waiting for the whole limit would
+        // come too late; the next picture starts one with the new limit.
+        if let Some(Runner::Pool(pool)) = RUNNER.get() {
+            pool.stopping_unused.store(false, Ordering::Release);
+        }
+        crate::thumbnails::restart_unused_check();
         Self
     }
 }
@@ -297,38 +303,44 @@ impl Pool {
     }
 
     /// Stops the idle decoders that waited at least `limit` for a picture;
-    /// returns whether any decoder still waits.
-    fn stop_unused(&self, limit: Duration) -> bool {
-        let unused: Vec<Decoder> = {
+    /// returns how long the next of the others has until it has waited
+    /// that long, or `None` when no decoder waits.
+    fn stop_unused(&self, limit: Duration) -> Option<Duration> {
+        let (unused, due) = {
             let mut idle = self.idle.lock().unwrap_or_else(PoisonError::into_inner);
-            let (unused, waiting) = idle
+            let (unused, waiting): (Vec<Decoder>, Vec<Decoder>) = idle
                 .drain(..)
-                .partition(|decoder: &Decoder| decoder.idle_since.elapsed() >= limit);
+                .partition(|decoder| decoder.idle_since.elapsed() >= limit);
             *idle = waiting;
-            unused
+            let due = idle
+                .iter()
+                .map(|decoder| limit.saturating_sub(decoder.idle_since.elapsed()))
+                .min();
+            (unused, due)
         };
         // Dropping a decoder stops its process and waits for it, which is
         // done after the pool is unlocked.
         drop(unused);
-        !self
-            .idle
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .is_empty()
+        due
     }
 
-    /// Checks on the main loop, once [`unused_limit`] has passed, for
-    /// decoders that waited that long, and stops them; again while any
-    /// decoder waits.
+    /// Stops the decoders that waited [`unused_limit`] for a picture, on
+    /// the main loop once the first of them is due; again for the others
+    /// while any decoder waits.
     fn stop_unused_later(&'static self) {
         if self.stopping_unused.swap(true, Ordering::AcqRel) {
             return;
         }
-        glib::timeout_add_once(unused_limit(), move || {
-            self.stopping_unused.store(false, Ordering::Release);
-            if self.stop_unused(unused_limit()) {
-                self.stop_unused_later();
-            }
+        self.stop_unused_after(unused_limit());
+    }
+
+    /// Checks for unused decoders after `delay`, then when the next one is
+    /// due.
+    fn stop_unused_after(&'static self, delay: Duration) {
+        glib::timeout_add_once(delay, move || match self.stop_unused(unused_limit()) {
+            // A decoder that served meanwhile waits from then on.
+            Some(due) => self.stop_unused_after(due.max(Duration::from_millis(10))),
+            None => self.stopping_unused.store(false, Ordering::Release),
         });
     }
 
