@@ -14,7 +14,7 @@ use std::sync::{Arc, OnceLock};
 use gio::prelude::FileExt;
 
 use crate::archive::{
-    remove_preview_copy, ArchiveBrowser, ArchiveEntryKind, ArchiveError, ArchiveOpener, ArchivePassword,
+    lift_single_folder, remove_preview_copy, ArchiveBrowser, ArchiveEntryKind, ArchiveError, ArchiveOpener, ArchivePassword,
     ArchiveStream, ExtractionLimits, ExtractionRequest, GioExtractionOutput, ZipExtractor,
 };
 use crate::gio_node::GioNode;
@@ -46,6 +46,8 @@ struct Input<'a> {
     selection: bool,
     /// Extract as the private step of an extraction into an existing folder.
     into_existing: bool,
+    /// Lift a lone folder out of the new one, as Extract here does.
+    lift: bool,
 }
 
 fn input(data: &[u8]) -> Option<Input<'_>> {
@@ -62,6 +64,7 @@ fn input(data: &[u8]) -> Option<Input<'_>> {
         password: options & 0x08 != 0,
         selection: options & 0x10 != 0,
         into_existing: options & 0x20 != 0,
+        lift: options & 0x40 != 0,
     })
 }
 
@@ -234,9 +237,18 @@ pub fn extract(data: &[u8]) {
     let new_folder = destination.join("Extracted");
     check_only_child(root.path(), "Destination");
     match result {
-        Ok(_) => {
+        Ok(extracted) => {
             check_only_child(&destination, "Extracted");
             check_contained(&new_folder, &new_folder);
+            // Extract here then lifts a lone folder out of the new one.
+            if input.lift {
+                let lifted = lift_single_folder(extracted);
+                let output = gio::File::for_uri(&lifted.uri).path().expect("a local output");
+                assert_eq!(output.parent(), Some(destination.as_path()), "lifted to {}", output.display());
+                let left = names(&destination);
+                assert_eq!(left.len(), 1, "lifting left {left:?}");
+                check_contained(&output, &output);
+            }
         }
         Err(ArchiveError::StagingLeftBehind { .. }) => {}
         Err(_) => {
