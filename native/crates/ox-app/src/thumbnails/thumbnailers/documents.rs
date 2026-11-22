@@ -599,19 +599,31 @@ fn copy_document(path: &Path, copy: &Path) -> Option<()> {
 /// also saves as `.doc`.
 const DOCUMENT_SIGNATURES: [&[u8]; 3] = [b"PK\x03\x04", b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1", b"{\\rtf"];
 
+/// How many of a file's first bytes [`has_document_signature`] reads.
+const SIGNATURE_LENGTH: u64 = 64;
+
 /// Whether the plain file at `path` starts as a document does
-/// ([`DOCUMENT_SIGNATURES`]).
+/// ([`DOCUMENT_SIGNATURES`]), or as markup: the `.xls` and `.doc` files
+/// many sites export are HTML, or Office 2003's XML, which `LibreOffice`
+/// reads too.
 fn has_document_signature(path: &Path) -> bool {
     let Some(file) = open_plain(path) else {
         return false;
     };
-    let mut start = Vec::with_capacity(8);
-    if file.take(8).read_to_end(&mut start).is_err() {
+    let mut start = Vec::new();
+    if file.take(SIGNATURE_LENGTH).read_to_end(&mut start).is_err() {
         return false;
     }
-    DOCUMENT_SIGNATURES
+    let markup = start
+        .strip_prefix(b"\xef\xbb\xbf")
+        .unwrap_or(&start)
         .iter()
-        .any(|signature| start.starts_with(signature))
+        .find(|byte| !byte.is_ascii_whitespace())
+        == Some(&b'<');
+    markup
+        || DOCUMENT_SIGNATURES
+            .iter()
+            .any(|signature| start.starts_with(signature))
 }
 
 /// The plain file at `path`, opened for reading without waiting on a
@@ -807,8 +819,8 @@ pub(crate) struct Lane {
 
 #[derive(Debug, Default)]
 struct LaneState {
-    /// A conversion runs.
-    busy: bool,
+    /// The conversion that runs, if one does: whom for, and what stops it.
+    running: Option<(Priority, gio::Cancellable)>,
     /// The next request's number.
     next: u64,
     /// The requests waiting, by priority and number.
@@ -821,7 +833,7 @@ pub(crate) struct Turn<'lane>(&'lane Lane);
 
 impl Drop for Turn<'_> {
     fn drop(&mut self) {
-        self.0.lock().busy = false;
+        self.0.lock().running = None;
         self.0.changed.notify_all();
     }
 }
@@ -833,7 +845,10 @@ impl Lane {
 
     /// Waits for the turn of a request of `priority`, or
     /// [`Failure::Cancelled`] when it is cancelled first or too many
-    /// thumbnails wait already. Blocks.
+    /// thumbnails wait already. The Preview pane's request stops a
+    /// thumbnail's conversion that runs, through its `cancellation`, so a
+    /// slow document scrolled past never keeps the selection waiting; that
+    /// thumbnail is asked again the next time it is shown. Blocks.
     pub(crate) fn wait(
         &self,
         priority: Priority,
@@ -858,10 +873,15 @@ impl Lane {
                 self.changed.notify_all();
                 return Err(Failure::Cancelled);
             }
+            if priority == Priority::Preview {
+                if let Some((Priority::Thumbnail, running)) = &state.running {
+                    running.cancel();
+                }
+            }
             let first = state.waiting.iter().min().copied();
-            if !state.busy && first == Some(ticket) {
+            if state.running.is_none() && first == Some(ticket) {
                 state.waiting.retain(|waiting| *waiting != ticket);
-                state.busy = true;
+                state.running = Some((priority, cancellation.clone()));
                 return Ok(Turn(self));
             }
             state = self
@@ -1326,6 +1346,62 @@ mod tests {
         drop(busy);
     }
 
+    /// A conversion the Preview pane needs stops a thumbnail's conversion
+    /// that runs, and starts as soon as it has stopped; a thumbnail never
+    /// stops another, nor the Preview pane's.
+    ///
+    /// parity: VIEW-070
+    #[test]
+    fn the_preview_stops_a_thumbnails_conversion() {
+        let lane = Arc::new(Lane::default());
+        let thumbnail = gio::Cancellable::new();
+        let running = lane.wait(Priority::Thumbnail, &thumbnail).expect("a turn");
+        let other = gio::Cancellable::new();
+        let waiting = {
+            let (lane, other) = (Arc::clone(&lane), other.clone());
+            thread::spawn(move || lane.wait(Priority::Thumbnail, &other).map(drop))
+        };
+        thread::sleep(Duration::from_millis(150));
+        assert!(!thumbnail.is_cancelled(), "a thumbnail stops no other");
+        let preview = {
+            let lane = Arc::clone(&lane);
+            thread::spawn(move || {
+                let turn = lane.wait(Priority::Preview, &gio::Cancellable::new());
+                let started = Instant::now();
+                drop(turn);
+                started
+            })
+        };
+        let start = Instant::now();
+        while !thumbnail.is_cancelled() {
+            assert!(
+                start.elapsed() < Duration::from_secs(2),
+                "the thumbnail was stopped"
+            );
+            thread::sleep(Duration::from_millis(10));
+        }
+        let stopped = Instant::now();
+        drop(running);
+        let started = preview.join().expect("joined");
+        assert!(started >= stopped, "the preview went once the thumbnail stopped");
+        assert!(waiting.join().expect("joined").is_ok());
+        assert!(!other.is_cancelled());
+
+        let preview = gio::Cancellable::new();
+        let turn = lane.wait(Priority::Preview, &preview).expect("a turn");
+        let another = {
+            let lane = Arc::clone(&lane);
+            thread::spawn(move || lane.wait(Priority::Preview, &gio::Cancellable::new()).map(drop))
+        };
+        thread::sleep(Duration::from_millis(150));
+        assert!(
+            !preview.is_cancelled(),
+            "the Preview pane's own conversion is not stopped"
+        );
+        drop(turn);
+        assert!(another.join().expect("joined").is_ok());
+    }
+
     /// A document's PDF is named after its path, size and modification
     /// time: a changed document gets a new name.
     ///
@@ -1614,6 +1690,30 @@ mod tests {
         );
         assert!(took < TIMEOUT + Duration::from_secs(3), "{took:?}");
         assert_eq!(fs::read_dir(folder.path()).expect("listing").count(), 1);
+    }
+
+    /// Only a file that starts as a document is converted: a ZIP, a
+    /// Compound File, Rich Text or markup (an `.xls` that is an HTML
+    /// table); noise and plain text under a document's name are not.
+    ///
+    /// parity: VIEW-070
+    #[test]
+    fn only_a_documents_container_is_converted() {
+        let folder = tempfile::tempdir().expect("a temporary folder");
+        for (bytes, wanted) in [
+            (&b"PK\x03\x04rest"[..], true),
+            (b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1rest", true),
+            (b"{\\rtf1\\ansi", true),
+            (b"\xef\xbb\xbf\r\n  <html><table>", true),
+            (b"<?xml version=\"1.0\"?><Workbook>", true),
+            (b"Name,Amount\nRent,700\n", false),
+            (b"\x00\x01\x02\x03", false),
+            (b"", false),
+        ] {
+            let item = folder.path().join("Export.xls");
+            fs::write(&item, bytes).expect("the file");
+            assert_eq!(has_document_signature(&item), wanted, "{bytes:?}");
+        }
     }
 
     /// A document larger than the size limit, a folder and a pipe are
