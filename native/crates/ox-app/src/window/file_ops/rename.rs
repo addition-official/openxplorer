@@ -17,6 +17,7 @@
 //! it was renamed.
 
 use gtk::gio::prelude::*;
+use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
 use ox_core::entry::{entry_from_info, Entry, ATTRIBUTES};
@@ -25,6 +26,7 @@ use ox_core::ops::{rename_item, OperationContext, RenamedItem};
 
 use super::name_dialog::{ask_for_name, stem_length, NameRequest, NameSelection};
 use super::FileCommand;
+use crate::folder_view::cells::FileCell;
 use crate::folder_view::shown_name::shows_whole;
 use crate::window::BrowserWindow;
 
@@ -63,6 +65,23 @@ pub(super) fn selected_name_length(entry: &Entry) -> usize {
     }
 }
 
+/// Whether `cell` shows at least in part in `view`'s visible area, or
+/// has not been laid out yet, as a row just added is not.
+fn is_in_sight(cell: &FileCell, view: &gtk::Widget) -> bool {
+    if !cell.is_mapped() || cell.width() == 0 {
+        return true;
+    }
+    let Some(bounds) = cell.compute_bounds(view) else {
+        return true;
+    };
+    #[expect(clippy::cast_precision_loss, reason = "view sizes are small")]
+    let (width, height) = (view.width() as f32, view.height() as f32);
+    bounds.y() + bounds.height() > 0.0
+        && bounds.y() < height
+        && bounds.x() + bounds.width() > 0.0
+        && bounds.x() < width
+}
+
 /// Where `shown` is after the folder `old` was renamed to `new`: `None`
 /// unless `shown` is `old` or inside it.
 fn moved_location(shown: &str, old: &str, new: &str) -> Option<String> {
@@ -88,6 +107,11 @@ impl BrowserWindow {
         if !self.allows(FileCommand::Rename) || self.refuses_writes() {
             return;
         }
+        // A row selected on Home stands for its file (HOME-036).
+        if let Some(uri) = self.selected_home_file() {
+            self.rename_folder_at(&uri).await;
+            return;
+        }
         let model = self.folder_pane().model();
         let selected = model.selected_positions();
         if selected.len() > 1 {
@@ -100,11 +124,33 @@ impl BrowserWindow {
         let Some(item) = model.item(position) else {
             return;
         };
-        let view = self.folder_pane().view_widget();
-        match self.folder_pane().owners().file_cell_at(position, &view) {
+        match self.shown_cell(position).await {
             Some(cell) => self.rename_in_place(&cell, item.entry(), None),
             None => self.rename_with_dialog(item.entry()).await,
         }
+    }
+
+    /// The cell of the item at `position`, scrolled wholly into view;
+    /// `None` when the item has no row, for the Rename dialog. GTK keeps a
+    /// few rows alive just outside the visible area: a name field opened
+    /// in one would take what the user types unseen, so such a row is
+    /// scrolled into sight first and the field opens once the view has
+    /// laid it out there.
+    async fn shown_cell(&self, position: u32) -> Option<FileCell> {
+        let pane = self.folder_pane();
+        let view = pane.view_widget();
+        let cell = pane.owners().file_cell_at(position, &view)?;
+        if is_in_sight(&cell, &view) {
+            pane.scroll_into_view(position);
+            return Some(cell);
+        }
+        pane.scroll_into_view(position);
+        // After GTK's layout, which runs before idle callbacks.
+        glib::timeout_future_with_priority(glib::Priority::DEFAULT_IDLE, std::time::Duration::ZERO).await;
+        let view = pane.view_widget();
+        pane.owners()
+            .file_cell_at(position, &view)
+            .filter(|cell| is_in_sight(cell, &view))
     }
 
     /// Rename items…: renames the several selected items with the "Rename
@@ -140,8 +186,7 @@ impl BrowserWindow {
         else {
             return;
         };
-        let view = pane.view_widget();
-        match pane.owners().file_cell_at(position, &view) {
+        match self.shown_cell(position).await {
             Some(cell) => self.rename_in_place(&cell, item.entry(), Some(entries)),
             None => self.rename_numbered_with_dialog(&entries, item.entry()).await,
         }
@@ -275,6 +320,30 @@ impl BrowserWindow {
         self.reload_selecting(vec![renamed.uri]);
     }
 
+    /// Like [`Self::finish_rename`], for a rename in place: the selection
+    /// stays as the user left it, with the renamed item under its new name.
+    /// Enter leaves the renamed item selected; a click away from the field
+    /// commits the name but selects what the click selected, as in Windows
+    /// 11: nothing after a click on blank space, the clicked item after a
+    /// click on another one, so the next command acts on it.
+    pub(super) fn finish_rename_in_place(&self, renamed: &RenamedItem) {
+        self.remember_rename(renamed);
+        let selected = self
+            .folder_pane()
+            .model()
+            .selected_uris()
+            .into_iter()
+            .map(|uri| {
+                if uri == renamed.original_uri {
+                    renamed.uri.clone()
+                } else {
+                    uri
+                }
+            })
+            .collect();
+        self.reload_selecting(selected);
+    }
+
     /// Like [`Self::finish_rename`], but selects `next` and starts
     /// renaming it once the folder is listed again: Tab moved on (OPS-012).
     pub(super) fn finish_rename_and_continue(&self, renamed: &RenamedItem, next: String) {
@@ -285,11 +354,13 @@ impl BrowserWindow {
         self.reload_selecting(vec![next]);
     }
 
-    /// Records the rename for Undo.
+    /// Records the rename for Undo, and has the recently used list and
+    /// Favorites follow it (HOME-036).
     fn remember_rename(&self, renamed: &RenamedItem) {
         if let Some(record) = renamed.undo_record() {
             self.context().record_operation(record);
         }
+        self.follow_renamed_item(&renamed.original_uri, &renamed.uri);
     }
 }
 

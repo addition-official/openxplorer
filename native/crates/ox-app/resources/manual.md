@@ -20,7 +20,7 @@ The full list of keys is in Settings > About > Keyboard shortcuts (Ctrl+?).
 
 ## Files and folders
 
-- New in the command bar lists what Windows 11 lists: Folder, Shortcut, Bitmap image, Rich Text Document, Text Document and Compressed (zipped) Folder, then the files in your Templates folder. A new item is made at once as, for example, "New Text Document.txt" (or "New Text Document (2).txt" when that name is taken), then renamed in place: type its name and press Enter.
+- New in the command bar lists what Windows 11 lists: Folder, Shortcut, Bitmap image, Rich Text Document, Text Document and Compressed (zipped) Folder, with OpenDocument Presentation, Spreadsheet and Text while an office suite such as LibreOffice is installed, then the files in your Templates folder. A new item is made at once as, for example, "New Text Document.txt" (or "New Text Document (2).txt" when that name is taken), then renamed in place: type its name and press Enter.
 - Cut, Copy and Paste work with other file managers. Paste on one selected folder pastes into that folder.
 - Rename with F2. Select several items to rename them together. As in Windows, \ / : * ? " < > | can’t be typed in a name, and a file given a name that is taken is offered the next free number, such as Report (2).txt.
 - Delete or Ctrl+D moves items to the Recycle Bin; Shift+Delete deletes them permanently after asking. Locations without a Recycle Bin offer a confirmed permanent delete.
@@ -55,11 +55,22 @@ The full list of keys is in Settings > About > Keyboard shortcuts (Ctrl+?).
 
 ## Network locations
 
-- Open Network in the navigation pane to see the computers and servers on your network, as in Windows; open one to see its shared folders. Refresh (F5) looks again. Or type an address such as \\server\share or smb://server/share in the address bar.
-- Network finds only devices that advertise themselves, through the desktop's GVfs network services (DNS-SD through Avahi, Windows computers through WS-Discovery); firewalls and separate networks can hide them. If Network says that network discovery is turned off, those services are missing: install your distribution's GVfs backends (gvfs-backends on Ubuntu and Debian) and Avahi, or type the server's address instead.
-- Map network drive, on the right-click menu of This PC and Network in the navigation pane or in their "…" menu, connects a share such as \\server\share under a drive letter, as in Windows, offering only the letters still free; Save in the sidebar · reconnect when opened (Windows has Reconnect at sign-in) saves it in the navigation pane. The letter is only part of its name. Its link Connect to a Web site, and Add a network location in that menu, connect SFTP, FTP, WebDAV and NFS folders too. Disconnect network drive there disconnects a connected share.
+- Open Network in the navigation pane to see the computers and devices on your network, one row per device, as in Windows; open one to see its shared folders, and its other services (SFTP, FTP, WebDAV) as rows of their own. Shares whose names end in $ are hidden until Show hidden files is on. Refresh (F5) looks again. In the navigation pane, Network expands to the same computers, and each computer to its shares. Or type an address such as \\server\share or smb://server/share in the address bar.
+- Network finds only devices that advertise themselves, through the desktop's GVfs network services (DNS-SD through Avahi, Windows computers through WS-Discovery); firewalls and separate networks can hide them. If Network says that network discovery is turned off, those services are missing or stopped: click the bar and choose How to turn on network discovery, or type the server's address instead.
+- Map network drive, on the right-click menu of This PC and Network in the navigation pane or in their "…" menu, connects a share such as \\server\share under a drive letter, as in Windows, offering only the letters still free; it is listed under This PC. Type the letter in the address bar, such as Z: or Z:\Plans, to open the share or a folder in it. Save in the sidebar · reconnect when opened (Windows has Reconnect at sign-in) keeps it after OpenXplorer quits. Its link Connect to a Web site, and Add a network location in that menu, connect SFTP, FTP, WebDAV and NFS folders too. Disconnect network drive there disconnects a connected share and ends its mapping.
 - OpenXplorer asks for your user name and password in Enter network credentials when a server needs them, and can keep the password in your desktop's keyring. Connect using different credentials in Map network drive asks even when it knows an account.
 - Right-click a share or server and choose Sign out of server to disconnect and forget a session.
+
+## Turning on network discovery
+
+OpenXplorer finds computers through your desktop's own network discovery services, and never turns them on or changes them by itself. When Network says that network discovery is turned off, one of them is missing or stopped:
+
+- GVfs's network backends, which list the network: install gvfs-backends on Ubuntu, Debian and Zorin OS, gvfs-smb on Fedora and Arch Linux, or gvfs-backends and gvfs-backend-samba on openSUSE.
+- Avahi, which finds Linux computers, NAS devices and Macs (DNS-SD): install avahi-daemon and start it with sudo systemctl enable --now avahi-daemon.
+- wsdd, which finds Windows PCs (WS-Discovery): install the wsdd package.
+- Your firewall must let discovery through: mDNS on UDP port 5353 and WS-Discovery on UDP port 3702.
+
+Then open Network again or press F5. You can always open a computer by typing its address, such as \\server or \\server\share, in the address bar.
 
 ## Drives and phones
 
