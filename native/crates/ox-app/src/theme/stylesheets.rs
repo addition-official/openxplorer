@@ -233,8 +233,7 @@ mod tests {
         let code = without_comments(RULES);
         let item_ring = "{\n  outline: 2px solid @ox_item_focus_outer;\n  outline-offset: -2px;\n  \
                          box-shadow: inset 0 0 0 3px @ox_item_focus_inner;\n}";
-        // A row or tile being renamed draws no ring or outline round its
-        // name field (OPS-012), so the file list's rules leave it out.
+        // A row being renamed draws no ring (pass-3-rename, OPS-010).
         let item_rings = [
             "columnview.files > listview > row:focus-visible:not(.renaming)",
             "gridview.files > child:focus-visible:not(.renaming)",
@@ -243,11 +242,11 @@ mod tests {
         ]
         .map(|item| format!("{item} {item_ring}"));
         let item_outlines = [
-            "columnview.files.keyboard-in > listview > row:focus:not(:focus-visible):not(.file-drop-active):not(.renaming)",
-            "gridview.files.keyboard-in > child:focus:not(:focus-visible):not(.file-drop-active):not(.renaming)",
+            "columnview.files.keyboard-in > listview > row",
+            "gridview.files.keyboard-in > child",
         ]
         .map(|item| {
-            format!("{item} {{ outline: 1px solid @ox_item_focus_outer; outline-offset: -1px; }}")
+            format!("{item}:focus:not(:focus-visible):not(.file-drop-active):not(.renaming) {{ outline: 1px solid @ox_item_focus_outer; outline-offset: -1px; }}")
         });
         let control_rings = [
             "window.ox button:focus-visible { outline: 2px solid @ox_focus_outer; outline-offset: -2px; }",
