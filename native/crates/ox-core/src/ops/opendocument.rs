@@ -4,7 +4,7 @@
 //!
 //! An OpenDocument file is a ZIP package (ODF 1.2, part 3): a `mimetype`
 //! entry first, stored uncompressed without an extra field, so programs
-//! recognise the type from the file's first bytes; then the manifest
+//! recognize the type from the file's first bytes; then the manifest
 //! (`META-INF/manifest.xml`), which lists the other entries, and the
 //! document's `content.xml` and `styles.xml`. Every entry is stored, with
 //! its sizes and CRC-32 in its local header, and dated 1 January 1980, so
