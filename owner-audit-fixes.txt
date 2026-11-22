@@ -1,18 +1,139 @@
 STATUS: RUNNING
-HEAD: claude/owner-audit-fixes 6d6f46c8
+HEAD: claude/owner-audit-fixes 34560d50
 QUESTION: none
 NOTE:
-- All fixes in the task list are committed (13 commits on upstream 5d21fd3e).
-  Skipped as the task says: rows marked None, #133, #231, #232, #387, #374.
-- PASS (targeted runs, as tester, Rust 1.92.0, private Xvfb and bus):
-  announcement (incl. the GTK_A11Y=none child test, which fails without the
-  fix), read_only, crumb/menu batching, drag label facts, resize_edges,
-  default_apps, restore/versions, settings rows, tooltip/folder summary,
-  network_map, dialog, drive tab, ox-core drive_format, search, settings.
-- RUNNING: full native/tools/check.py (second run after the message
-  template was regenerated; the first run stopped at "openxplorer.pot is
-  out of date").
-- NOT TESTED yet: xdotool real-input checks.
+- 13 commits on upstream 5d21fd3e cover every item in the task list. Skipped
+  as asked: rows marked None, #133, #231, #232, #387, #374.
+- PASS: xdotool real input, release build of the branch HEAD, private Xvfb,
+  throwaway HOME, generated files, GTK_A11Y=none and unset (2 runs each):
+  file drag, ":" while renaming, type-to-select, MP3 playing in the Preview
+  pane then renamed and deleted, MP4 selected in the pane then renamed and
+  deleted. The app stayed up after every step; both files went to Trash.
+- NOTE: the MP4 showed only its type icon in the Preview pane in this
+  container, so no video actually played.
+- PASS: targeted test runs as tester (Rust 1.92.0) for every fix; workspace
+  clippy -D warnings clean; i18n template check clean; parity check exit 0.
+- RUNNING: full native/tools/check.py (run 4; run 3 ran out of disk, run 2
+  stopped at clippy, both fixed).
 
 VM CHECK
-(being written)
+Windows 11 23H2 or 24H2, a test account, sample files only. Steps for the
+behaviors this branch changed come first, then every other row the audit
+marks "needs VM", unchanged here.
+
+1. #229 Confirm Attribute Changes (folder). Make a folder holding a file and
+   a subfolder with a file. Folder > Properties > General, tick Read-only,
+   click Apply. Then do it again clearing Read-only.
+   Look for: the dialog title, the exact line under "You have chosen to make
+   the following attribute change(s):" when setting and when clearing
+   (this branch says "make read-only" / "clear read-only"), the two radio
+   labels, which one starts selected, which button has focus, and whether
+   "this folder only" changes any file inside.
+2. #229 Confirm Attribute Changes (several items). Select that folder and one
+   loose file, Properties, tick Read-only, Apply.
+   Look for: the radio labels for a selection (this branch says "Apply
+   changes to the selected items only" / "... selected items, subfolders and
+   files") and the question line. Also note whether Hidden asks the same.
+3. #183 folder infotip. Hover a folder holding 3 subfolders and 8 files, an
+   empty folder, and a folder of several GB.
+   Look for: the lines and their order (Date created, Size, Folders, Files),
+   how many names each line lists and how it ends ("..."), the empty-folder
+   text (this branch says "Empty folder"), and what Size shows for a folder
+   too big to count quickly.
+4. #164 search words. In a folder holding "WO - M5753.pdf" and "report.docx",
+   type pd, doc, .doc, docx, mp in the search box, in an indexed and a
+   non-indexed folder.
+   Look for: which of these find report.docx and the PDF. This branch makes
+   ".doc" behave like "doc" (neither finds report.docx); if Windows finds it
+   for both, the rule should go the other way.
+5. #225 crumb menu. Open a folder with 2,000 subfolders, click the chevron
+   after its crumb.
+   Look for: whether all 2,000 are listed or the list stops (this branch
+   stops at 1,000 and adds "Show all <n> folders"), and on 24H2 the exact
+   list of the leading chevron's top-level items.
+6. #322 resize band. On a window with a vertical scroll bar at its right
+   edge, click the trough 1-2 px inside the edge, and click a button that
+   touches an edge (e.g. in a dialog).
+   Look for: whether the press scrolls/presses or starts a resize.
+7. #373 Previous Versions. On a share with snapshots, Properties > Previous
+   Versions > Restore on a file that still exists.
+   Look for: the replace dialog's title and buttons, and whether Restore
+   asks a separate "Are you sure" first.
+8. #230 Map network drive > Browse....
+   Look for: the dialog title ("Browse For Folder"?), where it starts and
+   how the chosen folder is written in the Folder box.
+9. #216 drive label. This PC > a USB drive > Properties > General.
+   Look for: whether the label box is editable for a fixed disk too, whether
+   it asks for elevation, and what it says when the file system refuses.
+10. #226 drag labels and marquee. Drag a file over a folder in Details, then
+    press-drag from the Date modified cell of an unselected row.
+    Look for: the label text ("Move to Documents") and whether a marquee
+    starts from the Date modified cell.
+11. #223 holding a drag. Drag a file from Desktop, hold it 3 s over a folder
+    in the file list (Details and Large icons), over a collapsed folder in
+    the navigation pane, and over an address-bar crumb.
+    Look for: which of them opens or expands.
+12. #21 pixel parity. At 100% scaling compare command bar, navigation pane
+    row and Details row heights.
+    Look for: the heights in pixels.
+13. #27 tab drag. Drag a File Explorer tab out of the strip, then onto
+    another window.
+    Look for: whether it detaches and merges.
+14. #37 session restore. Folder Options > View.
+    Look for: the default of "Restore previous folder windows at logon" and
+    whether tabs come back after sign-in.
+15. #112 decoder memory. Make test.tar.zst with zstd --long=31 and
+    test.tar.xz with xz --lzma2=dict=256MiB; open each and Extract all.
+    Look for: whether each opens, extracts or errors.
+16. #126 undo of a big copy. Copy a folder of several thousand files, edit
+    one copy, press Ctrl+Z.
+    Look for: whether Explorer asks before removing the copies, and its text.
+17. #162 item check boxes. On a new account open View > Show.
+    Look for: whether "Item check boxes" is ticked by default.
+18. #183 navigation pane selection.
+    Look for: whether the selected row has an accent bar.
+19. #198 "..." menu. Open "..." (See more) in the command bar.
+    Look for: its entries in order.
+20. #213 Restore all items. Delete 3 files, Recycle Bin > Restore all items.
+    Look for: whether a confirmation appears.
+21. #215 New menu. Desktop right-click > New, and New in the command bar;
+    create Bitmap image.
+    Look for: the entries in order (23H2 and 24H2), and the new file's size.
+22. #219 density. 100% scaling, Compact view off then on, a folder of 30+
+    files in Details.
+    Look for: row pitch, header, command bar and address row heights.
+23. #220 Network page.
+    Look for: its default view and Category grouping.
+24. #222 contents search. Search a local folder for a word inside a .txt
+    (File contents on), then edit and save the file with and without it.
+    Look for: whether the result stays, disappears or needs F5.
+25. #224 access prompts. As a standard user open C:\Users\<other user>, and
+    copy into C:\Windows.
+    Look for: "You don't currently have permission" with Continue, and
+    Continue (shield)/Skip/Cancel.
+26. #227 dark colors.
+    Look for: hover/selection colors in dark mode and the focus rectangle.
+27. #228 Ctrl+wheel. In Details hold Ctrl and scroll one notch at a time.
+    Look for: whether the cycle passes Tiles and Content.
+28. #233 Details pane. Select 0, 1 and 3 items with the Details pane open.
+    Look for: its layout in each case.
+29. #234 tab close buttons. Open 3 tabs, then narrow the window.
+    Look for: whether X shows on inactive, unhovered tabs.
+30. #257 keyboard to «. Open a deep folder, narrow until crumbs collapse,
+    Shift+Tab to the crumbs, press Left repeatedly.
+    Look for: whether focus reaches « and the first chevron, and which keys
+    open their menus.
+31. #258 drive letters. Map \\server\share to Z:, reopen Map network drive.
+    Look for: whether Z: is left out or listed with its path, and which
+    letter is preselected.
+32. #260 search tabs. (1) From results open a subfolder, middle-click Back;
+    (2) select two results, switch tabs and back; (3) edit a .txt to contain
+    the search word.
+    Look for: a new tab on the results; kept selection and scroll; whether
+    the file appears without searching again.
+33. #299 dialog size. Notepad Save as, resize larger, cancel, reopen; then
+    Paint's Save as.
+    Look for: whether the size is kept and whether it is per application.
+34. #355 mixed undo. Copy two files to a local folder and one to a share in
+    one paste, edit the local copy, Ctrl+Z.
+    Look for: which questions Explorer asks and their wording.
