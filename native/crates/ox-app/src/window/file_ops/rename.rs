@@ -285,11 +285,13 @@ impl BrowserWindow {
         self.reload_selecting(vec![next]);
     }
 
-    /// Records the rename for Undo.
+    /// Records the rename for Undo, and has the recently used list and
+    /// Favorites follow it (HOME-036).
     fn remember_rename(&self, renamed: &RenamedItem) {
         if let Some(record) = renamed.undo_record() {
             self.context().record_operation(record);
         }
+        self.follow_renamed_item(&renamed.original_uri, &renamed.uri);
     }
 }
 

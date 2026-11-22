@@ -81,6 +81,18 @@ pub(super) enum PlaceMenu {
         /// Whether Edit… can change it.
         editable: bool,
     },
+    /// A row of Home's Recent or Favorites list: the file at `uri`
+    /// (HOME-036).
+    HomeFile {
+        /// The file it stands for.
+        uri: String,
+        /// Whether it is among the Favorites.
+        favorite: bool,
+        /// Whether it is a row of Recent, which offers Remove from Recent.
+        recent: bool,
+    },
+    /// Home's blank space (HOME-037).
+    HomeBackground,
 }
 
 /// An item that runs `action` with the place `target`.
@@ -546,6 +558,9 @@ impl PlaceMenu {
             PlaceMenu::QuickAccessPin { uri, editable } => {
                 quick_access_pin_menu(uri, *editable, facts, style)
             }
+            PlaceMenu::HomeFile { uri, favorite, recent } => {
+                super::home_page::file_menu(uri, *favorite, *recent, style)
+            }
             _ => (self.entries(facts.caching), Vec::new()),
         }
     }
@@ -560,7 +575,9 @@ impl PlaceMenu {
             PlaceMenu::Volume { .. }
             | PlaceMenu::RecycleBin { .. }
             | PlaceMenu::RecentFiles
-            | PlaceMenu::RecentLocations => None,
+            | PlaceMenu::RecentLocations
+            | PlaceMenu::HomeFile { .. }
+            | PlaceMenu::HomeBackground => None,
         }
     }
 
@@ -586,6 +603,11 @@ impl PlaceMenu {
             PlaceMenu::RecentFiles => recent_files_entries(),
             PlaceMenu::RecentLocations => recent_locations_entries(),
             PlaceMenu::QuickAccessPin { uri, editable } => pin_menu(uri, caching, *editable),
+            PlaceMenu::HomeFile { uri, favorite, recent } => {
+                super::home_page::file_menu(uri, *favorite, *recent, MenuStyle::Classic).0
+            }
+            // Drawn from the window's state, in `popup_place_menu_in`.
+            PlaceMenu::HomeBackground => Vec::new(),
             PlaceMenu::SavedShare { uri } => {
                 let mut entries = vec![
                     item(
@@ -676,7 +698,15 @@ pub(super) fn popup_place_menu_in(
     style: MenuStyle,
     opener: Option<&gtk::Widget>,
 ) -> Option<MenuPopover> {
-    let (entries, strip) = menu.styled(facts_in(menu, owner), style);
+    let (entries, strip) = match menu {
+        // Home's blank space: View and Undo read the window's state.
+        PlaceMenu::HomeBackground => owner
+            .root()
+            .and_downcast::<BrowserWindow>()
+            .map(|window| (window.home_background_menu(style), Vec::new()))
+            .unwrap_or_default(),
+        _ => menu.styled(facts_in(menu, owner), style),
+    };
     if entries.is_empty() {
         return None;
     }
