@@ -1174,7 +1174,7 @@ impl TransferEngine {
                     &TransferError::RecoveryRequired(message.clone()),
                 )
             };
-            if self.failures.tell(&item) {
+            if self.failures.tell_leftover(&item) {
                 result.presented.push(message.clone());
             }
             result.recovery.push(message.clone());

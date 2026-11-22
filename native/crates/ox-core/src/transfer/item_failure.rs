@@ -393,6 +393,19 @@ impl ItemFailures {
         question(item);
         true
     }
+
+    /// Tells `item`, staging the run could not remove from the drive it
+    /// writes to, as [`Self::tell`] does; unless that drive went away.
+    /// Windows 11 asks nothing between Skip on such an item and "Location
+    /// is not available", and the drive is not there to look at; the
+    /// question about the item said the drive is gone, so `item` counts
+    /// as told (true). It stays among the run's errors and recovery notes.
+    pub(crate) fn tell_leftover(&mut self, item: &FailedItem) -> bool {
+        if self.destination.is_gone() {
+            return true;
+        }
+        self.tell(item)
+    }
 }
 
 /// Whether an item that failed with `error` may be asked about: not a name
@@ -542,8 +555,52 @@ mod tests {
         assert!(!other.stops_for_gone_drive(TransferMode::Copy, Some(stick), true));
     }
 
-    /// Failures answered with Skip, and each question's cause and URI.
-    fn skipping_with_causes() -> (ItemFailures, Arc<Mutex<Vec<(FailureCause, String)>>>) {
+    /// Staging left on a stick that was pulled out is not told on its own
+    /// after Skip: Windows 11 (VM check of 2026-11-22) asks nothing
+    /// between Skip and "Location is not available", and the stick is not
+    /// there to look at. It counts as told, so the end of the run does
+    /// not tell it either. On a drive still there, it is told as before.
+    ///
+    /// parity: OPS-047
+    #[test]
+    fn staging_left_on_a_drive_that_went_away_is_not_told_on_its_own() {
+        let stick = "file:///media/demo/STICK/Many";
+        let staging = "file:///media/demo/STICK/Many/.winspace-transfer-0123.part";
+        let leftover = FailedItem {
+            more_items: false,
+            cause: FailureCause::NeedsAttention,
+            ..FailedItem::new(
+                TransferMode::Copy,
+                ".winspace-transfer-0123.part".into(),
+                staging,
+                None,
+                &TransferError::RecoveryRequired(format!(
+                    "Incomplete staging folder left at {staging}. Inspect it before removing it."
+                )),
+            )
+        };
+
+        let (mut gone, asked) = skipping_with_causes();
+        gone.watch_destination(
+            DestinationDrive::fixed(stick, WITH_STICK, None).now(WITHOUT_STICK, Some(ENOENT)),
+        );
+        assert!(gone.tell_leftover(&leftover), "accounted for");
+        assert!(asked.lock().expect("the questions").is_empty());
+
+        let (mut there, asked) = skipping_with_causes();
+        there.watch_destination(DestinationDrive::fixed(stick, WITH_STICK, None));
+        assert!(there.tell_leftover(&leftover));
+        assert_eq!(
+            *asked.lock().expect("the questions"),
+            [(FailureCause::NeedsAttention, staging.to_owned())]
+        );
+    }
+
+    /// Each question's cause and URI, as a test heard them.
+    type Questions = Arc<Mutex<Vec<(FailureCause, String)>>>;
+
+    /// Failures answered with Skip, and the questions asked.
+    fn skipping_with_causes() -> (ItemFailures, Questions) {
         let asked = Arc::new(Mutex::new(Vec::new()));
         let heard = Arc::clone(&asked);
         let failures = ItemFailures::with_question(Box::new(move |item: &FailedItem| {
