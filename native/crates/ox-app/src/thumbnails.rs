@@ -207,6 +207,37 @@ pub(crate) struct PreviewRequest {
     /// on a network file system. Its thumbnail is made on the network's
     /// own slots ([`making`]).
     pub on_network: bool,
+    /// Whether the item's tile is on the screen now: one that is has its
+    /// thumbnail made before those GTK binds around it
+    /// ([`Slots::take_in_turn`]).
+    pub on_screen: OnScreen,
+}
+
+/// Whether a preview's tile is on the screen, asked when its thumbnail
+/// waits to be made; without a tile, as for a dialog's picture, always.
+#[derive(Clone, Default)]
+pub(crate) struct OnScreen(Option<Rc<dyn Fn() -> bool>>);
+
+impl OnScreen {
+    /// Asks `on_screen` whether the tile is on the screen.
+    pub(crate) fn new(on_screen: impl Fn() -> bool + 'static) -> Self {
+        Self(Some(Rc::new(on_screen)))
+    }
+
+    /// Whether the tile is on the screen now.
+    pub(crate) fn get(&self) -> bool {
+        self.0.as_ref().is_none_or(|on_screen| on_screen())
+    }
+}
+
+impl std::fmt::Debug for OnScreen {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(if self.0.is_some() {
+            "OnScreen(asked)"
+        } else {
+            "OnScreen(always)"
+        })
+    }
 }
 
 impl PreviewRequest {
@@ -222,6 +253,7 @@ impl PreviewRequest {
             local_only: false,
             target_uri: stands_for(entry).map(str::to_owned),
             on_network: false,
+            on_screen: OnScreen::default(),
         })
     }
 
@@ -818,7 +850,7 @@ async fn make_thumbnail(
 ) -> Result<Option<Made>, Missing> {
     if let Some(service) = service::service().await {
         if service.supports(&request.uri, &request.content_type) && service.has_flavor(flavor) {
-            let _slot = making(request).take().await;
+            let _slot = making(request).take_in_turn(&|| request.on_screen.get()).await;
             let made = service.make(&request.uri, &request.content_type, flavor).await;
             return if made { Ok(None) } else { Err(Missing::Failed) };
         }
@@ -887,7 +919,9 @@ async fn by_decoding(
     };
     let cache_dir = cache_dir.to_path_buf();
     let decoded = making(request)
-        .blocking(move |cancel| writer::write_thumbnail(&cache_dir, &source, flavor, cancel))
+        .blocking_in_turn(&|| request.on_screen.get(), move |cancel| {
+            writer::write_thumbnail(&cache_dir, &source, flavor, cancel)
+        })
         .await;
     // A worker that never ran belongs to a request already dropped.
     decoded.unwrap_or(Err(writer::Failure::Cancelled))
@@ -915,7 +949,7 @@ async fn by_thumbnailer(
         size: request.size,
     };
     making(request)
-        .blocking(move |cancel| {
+        .blocking_in_turn(&|| request.on_screen.get(), move |cancel| {
             // The desktop's entries are files, read in the worker rather
             // than on the thread that asked, and once per run; what the
             // user turned off is read for each request, so a change takes
@@ -1129,6 +1163,7 @@ mod tests {
             local_only: false,
             target_uri: None,
             on_network: false,
+            on_screen: OnScreen::default(),
         }
     }
 

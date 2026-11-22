@@ -242,6 +242,7 @@ def summarize(name: str, events: list[tuple[int, str, str]], since: int, on_scre
         'with_picture': len(with_picture),
         'all_visible_ms': round((last_shown - since) / 1000, 1),
         'all_visible_after_bind_ms': round((last_shown - first_bind) / 1000, 1),
+        'first_bind_ms': round((first_bind - since) / 1000, 1),
         'median_bind_to_picture_ms': round(latencies[len(latencies) // 2] / 1000, 1) if latencies else None,
         'on_first_frame': first_frame,
         'no_icon_flash': sum(1 for uri in visible if uri in no_flash),
@@ -326,7 +327,8 @@ def run_folder(label: str, folder: Path, root: Path, binary: Path, environment: 
 
 def print_table(results: list[dict[str, object]]) -> None:
     """The results as a Markdown table."""
-    columns = [('folder', 'Folder'), ('phase', 'Visit'), ('all_visible_ms', 'All visible (ms)'),
+    columns = [('folder', 'Folder'), ('phase', 'Visit'), ('first_bind_ms', 'First tile (ms)'),
+               ('all_visible_ms', 'All visible (ms)'), ('all_visible_after_bind_ms', 'After first tile (ms)'),
                ('median_bind_to_picture_ms', 'Bind to picture, median (ms)'),
                ('on_first_frame', 'On first frame'), ('no_icon_flash', 'No icon flash'),
                ('with_picture', 'Shown / visible'),

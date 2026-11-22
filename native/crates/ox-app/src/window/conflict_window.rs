@@ -680,6 +680,7 @@ fn load_pictures(conflict: &NameConflict, pictures: &[gtk::Image; 2], size: i32)
                 // A file of a mounted share is found by the file system
                 // check, and made on the network's slots.
                 on_network: false,
+                on_screen: crate::thumbnails::OnScreen::default(),
             };
             if let Some(texture) = preview(request).await {
                 picture.set_paintable(Some(&texture));

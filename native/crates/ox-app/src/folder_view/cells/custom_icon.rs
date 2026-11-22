@@ -23,7 +23,7 @@ use super::folder_picture::{FOLDER_PICTURE, SMALLEST_PICTURE_ICON};
 use super::FileCell;
 use crate::folder_view::item::FileItem;
 use crate::picture_guard::{self, Limits};
-use crate::thumbnails::{self, PreviewPolicy};
+use crate::thumbnails::{self, OnScreen, PreviewPolicy, PreviewRequest};
 
 /// The metadata key Files stores a custom icon under.
 pub(crate) const CUSTOM_ICON: &str = "metadata::custom-icon";
@@ -84,51 +84,20 @@ impl FileCell {
         imp.image.set_opacity(1.0);
         let entry = item.entry();
         let uri = entry.uri.clone();
-        let pixels = imp.icon_size.get() * self.scale_factor().max(1);
-        let preview = previews.request(entry, pixels);
-        if preview.is_some() {
-            thumbnails::trace::event("bind", &uri);
-        }
-        // A preview shown lately is drawn on this very frame, as Windows
-        // draws a thumbnail it has cached; the lookup below still runs, as
-        // the item may have a custom icon since.
-        let shown_at_once = preview
-            .as_ref()
-            .and_then(thumbnails::kept_preview)
-            .filter(is_big_enough_to_see);
-        if let Some(texture) = &shown_at_once {
-            thumbnails::trace::event("shown-at-bind", &uri);
-            self.show_picture(texture);
-        } else if preview.as_ref().is_some_and(thumbnails::probably_cached) {
-            // The cache holds its thumbnail, which takes a moment to read:
-            // the tile waits for it without its type icon, rather than
-            // showing an icon replaced a moment later, for a moment at
-            // most.
-            self.hide_type_icon_for_a_moment(&uri);
-        }
+        let started = self.start_preview(entry, previews);
         let kind_picture = crate::icons::file_icons::picture_for(entry);
-        if !uri.starts_with("file:") && preview.is_none() && kind_picture.is_none() {
+        if !uri.starts_with("file:") && !started.wanted && kind_picture.is_none() {
             return;
         }
         let is_folder = entry.is_dir;
         let on_the_folder = imp.is_tile.get() && imp.icon_size.get() >= SMALLEST_PICTURE_ICON;
         let cell = self.downgrade();
-        // The preview is read while the item's own pictures are looked up,
-        // which takes a while for the many tiles of one layout: a tile
-        // shows its thumbnail as soon as it is read, and a custom icon
-        // found after it takes its place.
-        let own_found = Rc::new(Cell::new(false));
-        let reading = preview.filter(|_| shown_at_once.is_none()).map(|request| {
-            let (cell, own_found, uri) = (self.downgrade(), Rc::clone(&own_found), uri.clone());
-            Reading(Some(glib::spawn_future_local(async move {
-                let texture = thumbnails::preview(request).await.filter(is_big_enough_to_see)?;
-                if let Some(cell) = cell.upgrade().filter(|_| !own_found.get()) {
-                    thumbnails::trace::event("shown", &uri);
-                    cell.show_picture(&texture);
-                }
-                Some(texture)
-            })))
-        });
+        let PreviewStart {
+            shown_at_once,
+            reading,
+            own_found,
+            ..
+        } = started;
         let lookup = glib::spawn_future_local(async move {
             let own = own_pictures(&uri).await;
             thumbnails::trace::event("own-pictures", &uri);
@@ -193,6 +162,79 @@ impl FileCell {
         imp.picture_lookup.replace(Some(lookup));
     }
 
+    /// Starts showing `entry`'s preview, where `previews` allow one: from
+    /// memory on this very frame, as Windows draws a thumbnail it has
+    /// cached, or else read (or made) while the item's own pictures are
+    /// looked up, which takes a while for the many tiles of one layout, and
+    /// shown as soon as it is read unless a custom icon was found first.
+    fn start_preview(&self, entry: &ox_core::entry::Entry, previews: PreviewPolicy) -> PreviewStart {
+        let uri = entry.uri.clone();
+        let pixels = self.imp().icon_size.get() * self.scale_factor().max(1);
+        let preview = previews.request(entry, pixels).map(|request| {
+            let cell = self.downgrade();
+            PreviewRequest {
+                on_screen: OnScreen::new(move || cell.upgrade().is_some_and(|cell| cell.is_on_screen())),
+                ..request
+            }
+        });
+        if preview.is_some() {
+            thumbnails::trace::event("bind", &uri);
+        }
+        let shown_at_once = preview
+            .as_ref()
+            .and_then(thumbnails::kept_preview)
+            .filter(is_big_enough_to_see);
+        if let Some(texture) = &shown_at_once {
+            thumbnails::trace::event("shown-at-bind", &uri);
+            self.show_picture(texture);
+        } else if preview.as_ref().is_some_and(thumbnails::probably_cached) {
+            // The cache holds its thumbnail, which takes a moment to read:
+            // the tile waits for it without its type icon, rather than
+            // showing an icon replaced a moment later, for a moment at
+            // most.
+            self.hide_type_icon_for_a_moment(&uri);
+        }
+        let wanted = preview.is_some();
+        let own_found = Rc::new(Cell::new(false));
+        let reading = preview.filter(|_| shown_at_once.is_none()).map(|request| {
+            let (cell, own_found) = (self.downgrade(), Rc::clone(&own_found));
+            Reading(Some(glib::spawn_future_local(async move {
+                let texture = thumbnails::preview(request).await.filter(is_big_enough_to_see)?;
+                if let Some(cell) = cell.upgrade().filter(|_| !own_found.get()) {
+                    thumbnails::trace::event("shown", &uri);
+                    cell.show_picture(&texture);
+                }
+                Some(texture)
+            })))
+        });
+        PreviewStart {
+            wanted,
+            shown_at_once,
+            reading,
+            own_found,
+        }
+    }
+
+    /// Whether any of the cell is inside the scrolled view that shows it:
+    /// GTK binds many cells beyond the view's edges.
+    fn is_on_screen(&self) -> bool {
+        if !self.is_mapped() {
+            return false;
+        }
+        let Some(view) = self.ancestor(gtk::ScrolledWindow::static_type()) else {
+            return true;
+        };
+        let Some(bounds) = self.compute_bounds(&view) else {
+            return false;
+        };
+        #[expect(clippy::cast_precision_loss, reason = "widget sizes are small")]
+        let (width, height) = (view.width() as f32, view.height() as f32);
+        bounds.x() < width
+            && bounds.y() < height
+            && bounds.x() + bounds.width() > 0.0
+            && bounds.y() + bounds.height() > 0.0
+    }
+
     /// Shows `texture` in place of the type icon.
     fn show_picture(&self, texture: &gdk::Texture) {
         let imp = self.imp();
@@ -244,6 +286,19 @@ impl FileCell {
     pub(crate) fn shows_custom_icon(&self) -> bool {
         self.imp().custom_icon.is_visible()
     }
+}
+
+/// How a cell's preview started ([`FileCell::start_preview`]).
+struct PreviewStart {
+    /// The item gets a preview at all.
+    wanted: bool,
+    /// The preview kept in memory, shown on the frame the cell was bound.
+    shown_at_once: Option<gdk::Texture>,
+    /// The preview being read or made.
+    reading: Option<Reading>,
+    /// Set once the item's own picture (a custom icon) is found, which
+    /// then takes the preview's place.
+    own_found: Rc<Cell<bool>>,
 }
 
 /// A preview being read for a cell; stopped when the cell no longer
