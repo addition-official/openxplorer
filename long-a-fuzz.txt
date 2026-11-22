@@ -7,3 +7,20 @@ NOTE: Long job A, fuzzing until 06:30 America/Chicago. cargo-fuzz 0.13.2 with li
 Set up native/fuzz (cargo-fuzz), seeds.py (32 generated archive seeds: ZIP stored/deflate/bzip2/LZMA/ZIP64/encrypted, TAR ustar/gnu/pax plain/gz/bz2/xz/zst, 7z LZMA2 solid/plain, LZMA, BZip2, copy).
 Running: archive_list (list, inspect, preview), archive_extract (Extract All with an outside-write and link oracle). Limits: 2 s timeout, 1 GiB RSS/malloc.
 Crashes so far: 0.
+
+== 2026-11-21 23:36 CST ==
+Targets running or run (executions so far):
+archive_extract         1,984,660
+archive_list            4,978,715
+core_text               4,631,578
+media_details           6,556,875
+picture_decode              4,475
+picture_headers           350,294
+text_preview            3,799,560
+New targets: core_text (locations, clipboard lists, file dialog D-Bus options, mount tables, user-dirs, .mo catalogs, SMB snapshot lists, bookmarks, KDE service menus, names); picture_headers (PNG/JPEG/GIF/BMP/WebP header readers fed in pieces, decoder and drawer answers, requests); picture_decode (the decoder child's serve loop with gdk-pixbuf in-process); media_details (picture headers/EXIF/XMP as the media reader takes them, its JSON as the app reads it, gallery EXIF dates, Rotate left/right, thumbnailer entries and output PNG); text_preview (text encoding detection, RTF, desktop links).
+Found and fixed (tests first): 3
+- Don't crash on malformed .mo catalogs (message count sized a map: OOM abort) - fixed 286d56c1
+- Don't crash on malformed BMP headers (BMP info-header length of GBs passed the header check, loader reserved it: >1 GiB) - fixed 5e16cc5e
+- Read only PNG from the vector drawing process (same OOM reached through the drawer's answer) - fixed 43be97f5
+Not bugs (harness only): turn_jpeg on input shorter than 2 bytes (the app checks the JPEG signature first); 7z decoder thread reported as a leak at exit (detached thread still running); vector drawing limits applied to the fuzz process.
+Open: none.
