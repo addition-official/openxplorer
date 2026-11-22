@@ -216,7 +216,9 @@ impl FileCell {
     }
 
     /// Whether any of the cell is inside the scrolled view that shows it:
-    /// GTK binds many cells beyond the view's edges.
+    /// GTK binds many cells beyond the view's edges. A cell bound but not
+    /// laid out yet, which has no size, is not on the screen yet: the cells
+    /// of a layout are all bound before any is given its place.
     fn is_on_screen(&self) -> bool {
         if !self.is_mapped() {
             return false;
@@ -227,6 +229,9 @@ impl FileCell {
         let Some(bounds) = self.compute_bounds(&view) else {
             return false;
         };
+        if bounds.width() <= 0.0 || bounds.height() <= 0.0 {
+            return false;
+        }
         #[expect(clippy::cast_precision_loss, reason = "widget sizes are small")]
         let (width, height) = (view.width() as f32, view.height() as f32);
         bounds.x() < width

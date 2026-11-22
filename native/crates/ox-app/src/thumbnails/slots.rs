@@ -12,7 +12,7 @@ use gtk::{gio, glib};
 
 /// How often a request for an item off the screen looks again whether
 /// its turn has come.
-const TURN_POLL: Duration = Duration::from_millis(30);
+const TURN_POLL: Duration = Duration::from_millis(20);
 
 /// A pool of slots. Taking one waits until one is free.
 #[derive(Debug)]
@@ -22,8 +22,8 @@ pub(crate) struct Slots {
     /// How many requests for items on the screen wait for a slot, which
     /// requests for items off it let go first ([`Self::take_in_turn`]).
     on_screen_waiting: Cell<usize>,
-    /// How many requests for items off the screen wait in the queue: as
-    /// many as there are slots, so a slot freed is taken at once.
+    /// How many requests for items off the screen wait in the queue: twice
+    /// as many as there are slots, so a slot freed is taken at once.
     off_screen_queued: Cell<usize>,
     /// How many slots there are.
     count: usize,
@@ -84,7 +84,7 @@ impl Slots {
     /// Waits for a free slot, the items on the screen first: a request
     /// whose item `on_screen` says is off it joins the queue only while no
     /// request for an item on it waits, and while fewer requests off it
-    /// than there are slots wait there, so the tiles in view get their
+    /// than twice the slots wait there, so the tiles in view get their
     /// thumbnails made before the many GTK binds around them, and a slot
     /// freed is still taken at once. It looks again every [`TURN_POLL`],
     /// as the view may scroll meanwhile.
@@ -94,7 +94,7 @@ impl Slots {
                 let _waiting = Waiting::new(&self.on_screen_waiting);
                 return self.take().await;
             }
-            if self.on_screen_waiting.get() == 0 && self.off_screen_queued.get() < self.count {
+            if self.on_screen_waiting.get() == 0 && self.off_screen_queued.get() < 2 * self.count {
                 let _waiting = Waiting::new(&self.off_screen_queued);
                 return self.take().await;
             }
@@ -182,8 +182,8 @@ mod tests {
 
     /// A request for a tile on the screen takes a slot before the
     /// requests for tiles off it that wait outside the queue, however
-    /// early they asked; as many of those as there are slots wait in the
-    /// queue, so a slot freed is never left idle.
+    /// early they asked; twice as many of those as there are slots wait in
+    /// the queue, so a slot freed is never left idle.
     ///
     /// parity: VIEW-057
     #[gtk::test]
@@ -207,17 +207,19 @@ mod tests {
             }
             asked
         };
-        let queued = ask("off the screen, queued", false);
+        let first = ask("off the screen, queued first", false);
+        let second = ask("off the screen, queued second", false);
         let outside = ask("off the screen, outside", false);
         let on = ask("on the screen", true);
         assert_eq!(
             pool.off_screen_queued.get(),
-            1,
-            "one waits in the queue, for the one slot"
+            2,
+            "two wait in the queue for the one slot"
         );
         drop(held);
         context.block_on(async {
-            let _ = queued.await;
+            let _ = first.await;
+            let _ = second.await;
             let _ = on.await;
             let _ = outside.await;
         });
@@ -225,7 +227,8 @@ mod tests {
         assert_eq!(
             *order.borrow(),
             [
-                "off the screen, queued",
+                "off the screen, queued first",
+                "off the screen, queued second",
                 "on the screen",
                 "off the screen, outside"
             ]
