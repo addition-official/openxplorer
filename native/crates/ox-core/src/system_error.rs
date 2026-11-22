@@ -258,11 +258,12 @@ impl SystemError {
     }
 
     /// The error Windows reports for `error` from mounting or reaching a
-    /// share: a share the server does not have is "The network name
-    /// cannot be found.", not a missing file, a server that refuses,
-    /// cannot be reached or does not answer is "The network path was not
-    /// found.", and one that went away "The specified network name is no
-    /// longer available.", as Windows says them.
+    /// share: a share the server does not have, and a server that
+    /// refuses, cannot be reached or does not answer, is "The network name
+    /// cannot be found." (as Windows 11 said it for an address with nothing
+    /// on it), a name that does not resolve "The network path was not
+    /// found.", and a server that went away "The specified network name is
+    /// no longer available.", as Windows says them.
     pub fn from_network(error: &glib::Error) -> Self {
         Self::from_glib(error).on_network()
     }
@@ -273,8 +274,10 @@ impl SystemError {
     pub fn on_network(self) -> Self {
         match self {
             FILE_NOT_FOUND | PATH_NOT_FOUND => BAD_NET_NAME,
+            // Windows 11 said 0x80070043 for an address with nothing on
+            // it (checked on a VM).
             CONNECTION_REFUSED | HOST_UNREACHABLE | NETWORK_UNREACHABLE | SEM_TIMEOUT | TIMEOUT => {
-                BAD_NETPATH
+                BAD_NET_NAME
             }
             // Samba's word for a server that went away.
             CONNECTION_ABORTED => NETNAME_DELETED,
@@ -507,7 +510,7 @@ pub fn describe_io(error: &std::io::Error) -> String {
 /// The file GIO's message names, as a path when it is a local one: GIO
 /// quotes the path or URI it failed on (“/home/…”), or, in some of the
 /// local backend's messages, writes the path and then its URI in brackets
-/// ("Error opening file /home/… (file:///home/…): Permission denied").
+/// (`Error opening file /home/… (file:///home/…): Permission denied`).
 fn quoted_location(message: &str) -> Option<String> {
     if !message.contains('“') {
         let (named, _) = message.rsplit_once(": ")?;
