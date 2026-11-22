@@ -518,10 +518,14 @@ impl BrowserWindow {
         }
         self.apply_measured_folder_sizes(id);
         if self.imp().session.borrow().is_active(id) {
+            crate::startup_trace::window_listed(self);
             self.restore_selection(id);
             self.update_content();
             self.update_details_pane();
             self.focus_new_file_list();
+            if run.mode == LoadMode::Navigate {
+                self.focus_first_item_if_asked(id);
+            }
             self.restore_scroll_after_listing(id);
             self.restore_expanded_after_listing(id);
             self.reveal_located_item(id);
@@ -646,34 +650,85 @@ impl BrowserWindow {
             }
             return;
         }
+        let Some(clock) = self.frame_clock() else {
+            if renames {
+                self.continue_renaming();
+            }
+            return;
+        };
         let generation = self.imp().input_generation.get();
-        let frames = std::cell::Cell::new(0);
-        // The window's frames, which go on while it shows, whichever view
-        // the pane switches to meanwhile.
-        self.add_tick_callback(glib::clone!(
+        let frames = Rc::new(std::cell::Cell::new(0));
+        let handler: Rc<std::cell::Cell<Option<glib::SignalHandlerId>>> = Rc::default();
+        // After each frame is painted, so the rows are laid out: no motion,
+        // only a look at where the row ended up, as `keep_top` does.
+        let watch = Rc::clone(&handler);
+        let painted = clock.connect_after_paint(glib::clone!(
             #[weak(rename_to = window)]
             self,
-            #[upgrade_or]
-            glib::ControlFlow::Break,
-            move |_, _| {
+            move |clock| {
+                let stop = || {
+                    if let Some(id) = watch.take() {
+                        clock.disconnect(id);
+                    }
+                };
                 frames.set(frames.get() + 1);
                 let pane = window.folder_pane();
-                if window.imp().input_generation.get() != generation {
-                    return glib::ControlFlow::Break;
-                }
-                let Some(selected) = pane.model().first_selected() else {
-                    return glib::ControlFlow::Break;
+                let selected = pane.model().first_selected();
+                let Some(selected) = selected.filter(|_| window.imp().input_generation.get() == generation)
+                else {
+                    stop();
+                    return;
                 };
                 if !pane.shows_whole_item(selected) && frames.get() < MOST_FRAMES {
                     pane.scroll_into_view(selected);
-                    return glib::ControlFlow::Continue;
+                    clock.request_phase(gtk::gdk::FrameClockPhase::PAINT);
+                    return;
                 }
+                stop();
                 if renames {
                     window.continue_renaming();
                 }
-                glib::ControlFlow::Break
             }
         ));
+        handler.set(Some(painted));
+        clock.request_phase(gtk::gdk::FrameClockPhase::PAINT);
+    }
+
+    /// Asks the next listing of the active tab's location to put the
+    /// keyboard on its first item, unselected: another application opened
+    /// the folder, or it was typed into the address bar and opened with
+    /// Enter. Windows 11 File Explorer then rings the first item, so the
+    /// first Down selects the second (SEL-020).
+    pub(super) fn focus_first_item_when_listed(&self) {
+        if let Some(tab) = self.imp().session.borrow_mut().active_mut() {
+            tab.focuses_first_item = true;
+        }
+    }
+
+    /// Gives the first item of tab `id`, just listed, the keyboard without
+    /// selecting it, with the focus ring shown, when its location was
+    /// opened as [`Self::focus_first_item_when_listed`] asks and nothing
+    /// is selected there; the next Up or Down moves on from it
+    /// ([`Self::step_from_ringed_item`]). A text field that has the
+    /// keyboard keeps it.
+    fn focus_first_item_if_asked(&self, id: TabId) {
+        let asked = self
+            .imp()
+            .session
+            .borrow_mut()
+            .tab_mut(id)
+            .is_some_and(|tab| std::mem::take(&mut tab.focuses_first_item));
+        let pane = self.folder_pane();
+        if !asked || self.focus_is_in_text_field() || !pane.lists_items() || pane.model().n_items() == 0 {
+            return;
+        }
+        if !pane.model().selected_positions().is_empty() {
+            return;
+        }
+        pane.focus_view();
+        pane.focus_item(0);
+        self.set_focus_visible(true);
+        self.imp().ringed_item.set(Some(0));
     }
 
     /// Puts the view back where a moved tab (TAB-039) or Back and Forward

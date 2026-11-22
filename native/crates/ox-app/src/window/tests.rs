@@ -71,6 +71,7 @@ mod landing_pages;
 mod late_replies;
 mod listing;
 mod look;
+mod memory;
 mod menu_sweep;
 mod middle_click;
 mod more_explorer_keys;

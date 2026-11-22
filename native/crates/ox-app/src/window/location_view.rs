@@ -185,7 +185,7 @@ fn listed_place_glyph(uri: &str) -> Option<Icon> {
 /// What a tab's icon depends on besides its location: the network
 /// locations of the navigation pane, the standard folders of Quick access
 /// and the roots of the mounted drives.
-type TabPlaces<'a> = (&'a [NetworkLocation], &'a [Place], &'a [String]);
+pub(in crate::window) type TabPlaces<'a> = (&'a [NetworkLocation], &'a [Place], &'a [String]);
 
 /// Whether `uri` is the root of the file system, which the navigation pane
 /// and This PC show as the Local Disk.
