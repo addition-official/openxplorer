@@ -3,14 +3,18 @@ STATUS: RUNNING
 Long job B: overnight real-use soak of upstream main 5d21fd3e (release build),
 23:00 CST to 06:30 CST, crossing midnight in America/Chicago.
 
-So far (00:45 CST):
+So far (02:15 CST):
 - Midnight: date group headings moved Today -> Yesterday by themselves at
   00:00:01 (Downloads and Recent files). With relative dates on, the rows
   under them (and every row of an ungrouped folder) kept "Today at ..."
-  even after input and F5. Fixed on long-b-soak (4d9379d5), guard tests added.
+  even after input and F5. Fixed on long-b-soak (4d9379d5); confirmed on the
+  fixed release build across midnight under libfaketime.
 - Child processes: idle picture decoders (bwrap --die-with-parent) died with
   the GIO worker thread that started them and sat in the pool as zombies.
-  Fixed on long-b-soak (aaefe16d), guard tests added.
-- Idle CPU settles at ~0.1%. fds, threads, inotify watches flat so far.
-- Heap grows with use (457 -> 612 MiB RSS by 00:45, partly 4 windows);
-  watching it on the fixed build, restarted at 00:44.
+  Fixed on long-b-soak (aaefe16d). Soak restarted on the fixed build 00:44.
+- Samba outage 01:36-01:46: unavailable page with Try again; typed
+  navigation gives a "Connection refused" toast. The scripted restart of
+  smbd failed (harness permissions), recovery verified by hand at 01:59.
+  Second outage scheduled 04:15.
+- Idle CPU ~0.1%. Watches flat. Idle RSS on the fixed build 227 -> 421 ->
+  421 -> 430 MiB: leveling off; still watching.
