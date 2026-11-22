@@ -49,6 +49,17 @@
             <property name="ellipsize">end</property>
           </object>
         </child>
+        <child>
+          <!-- Explorer's thin line after the selection, shown with it. -->
+          <object class="GtkSeparator" id="trailing_divider">
+            <property name="orientation">vertical</property>
+            <property name="visible">false</property>
+            <property name="valign">center</property>
+            <style>
+              <class name="selection-divider"/>
+            </style>
+          </object>
+        </child>
       </object>
     </child>
     <child>
