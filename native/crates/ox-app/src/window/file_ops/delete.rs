@@ -255,12 +255,15 @@ impl BrowserWindow {
         self.trash_items(&named_items(uris), None).await;
     }
 
-    /// Yes in "Problem with Shortcut": the broken shortcut at `uri` goes
-    /// to the Recycle Bin as Delete sends it, with Delete's confirmation
-    /// where the settings ask for one (OPEN-028). The operation checks the
-    /// folder's write protection, as any deletion does.
-    pub(crate) async fn trash_shortcut(&self, uri: String) {
-        self.trash_items(&named_items(vec![uri]), None).await;
+    /// Yes in "Problem with Shortcut": the broken shortcut at `uri`, a link
+    /// to nothing or a `.desktop` link, is deleted permanently, as Windows
+    /// 11 deletes it, without asking again: the question was the
+    /// confirmation (OPEN-028). Only the shortcut itself goes; the
+    /// operation never follows a link, and checks the folder's write
+    /// protection, as any deletion does.
+    pub(crate) async fn delete_shortcut(&self, uri: String) {
+        self.run_deletion(&removal(TransferMode::Delete, vec![uri]), None)
+            .await;
     }
 
     /// Deletes the folder tree's folder at `uri` permanently, after

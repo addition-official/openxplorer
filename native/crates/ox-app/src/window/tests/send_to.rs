@@ -153,7 +153,8 @@ fn send_to_opens_from_the_keyboard_and_copies_to_documents_with_undo() {
 }
 
 /// Desktop (create shortcut) puts a link named as Windows names it on the
-/// Desktop, numbers the next one, and never touches the file itself.
+/// Desktop ("report - Shortcut" while extensions are hidden, as by
+/// default), numbers the next one, and never touches the file itself.
 ///
 /// parity: CMD-038
 #[gtk::test]
@@ -164,13 +165,13 @@ fn desktop_create_shortcut_makes_windows_named_links() {
 
     let before = test.window.journal_label(JournalDirection::Undo);
     test.activate("send-to-desktop", None);
-    let first = folders.path("Desktop/report.txt - Shortcut");
+    let first = folders.path("Desktop/report - Shortcut");
     wait_until("the shortcut", || first.symlink_metadata().is_ok());
     // One operation runs at a time: the next starts once this one ends.
     wait_for_operation_after(&test, &before);
     test.window.context_menu().popdown();
     test.activate("send-to-desktop", None);
-    let second = folders.path("Desktop/report.txt - Shortcut (2)");
+    let second = folders.path("Desktop/report - Shortcut (2)");
     wait_until("the second shortcut", || second.symlink_metadata().is_ok());
 
     assert_eq!(fs::read_link(&first).expect("a link"), original);
@@ -182,8 +183,9 @@ fn desktop_create_shortcut_makes_windows_named_links() {
 }
 
 /// The classic menu's Create shortcut makes a shortcut beside the item,
-/// named as Windows names it, and selects it, as Windows Explorer does;
-/// the next one is numbered.
+/// named as Windows names it ("report - Shortcut" while extensions are
+/// hidden, "report.txt - Shortcut" while they are shown), and leaves the
+/// item selected, as Windows 11 does; the next one is numbered.
 ///
 /// parity: CMD-040
 #[gtk::test]
@@ -194,19 +196,23 @@ fn create_shortcut_makes_one_beside_the_item_and_selects_it() {
 
     let before = test.window.journal_label(JournalDirection::Undo);
     test.activate("create-shortcut", None);
-    let first = folders.path("Work/report.txt - Shortcut");
+    let first = folders.path("Work/report - Shortcut");
     wait_until("the shortcut", || first.symlink_metadata().is_ok());
     wait_for_operation_after(&test, &before);
-    wait_until("the shortcut to be selected", || {
-        test.selected_names() == ["report.txt - Shortcut"]
+    wait_until("the shortcut to be listed", || {
+        test.names().contains(&"report - Shortcut".to_owned())
     });
+    assert_eq!(test.selected_names(), ["report.txt"], "the item stays selected");
     assert_eq!(fs::read_link(&first).expect("a link"), original);
 
     test.window.context_menu().popdown();
+    super::support::show_file_name_extensions(&test);
     select_names(&test, &["report.txt"]);
     test.activate("create-shortcut", None);
-    let second = folders.path("Work/report.txt - Shortcut (2)");
-    wait_until("the second shortcut", || second.symlink_metadata().is_ok());
+    let whole = folders.path("Work/report.txt - Shortcut");
+    wait_until("the shortcut named with its extension", || {
+        whole.symlink_metadata().is_ok()
+    });
     assert_eq!(
         fs::read(&original).expect("the file"),
         b"Synthetic quarterly figures"
@@ -239,13 +245,13 @@ fn create_shortcut_in_a_read_only_folder_offers_the_desktop() {
     question.press("No");
     super::file_ops_support::wait_for_no_dialog(&test);
     assert!(folders
-        .path("Desktop/report.txt - Shortcut")
+        .path("Desktop/report - Shortcut")
         .symlink_metadata()
         .is_err());
 
     test.activate("create-shortcut", None);
     super::file_ops_support::open_dialog(&test).press("Yes");
-    let made = folders.path("Desktop/report.txt - Shortcut");
+    let made = folders.path("Desktop/report - Shortcut");
     wait_until("the shortcut on the Desktop", || made.symlink_metadata().is_ok());
     assert_eq!(
         fs::read_link(&made).expect("a link"),

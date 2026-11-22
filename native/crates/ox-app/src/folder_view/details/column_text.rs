@@ -45,6 +45,9 @@ pub(crate) fn cell_text(column: SortColumn, item: &FileItem, dates: DateStyle) -
         SortColumn::OriginalLocation => item.original_location().text.clone(),
         SortColumn::Deleted => format::column_date_text(entry.trash_deletion_date, dates),
         SortColumn::Type => entry.type_label.clone(),
+        // A shortcut's own size, a folder's shortcut too, as Windows shows
+        // a `.lnk`'s (VIEW-074).
+        SortColumn::Size if entry.is_shortcut() => format::column_size_text(item.file_size()),
         SortColumn::Size => match (item.folder_size(), item.item_count()) {
             (Some(measured), _) => measured.size_text(),
             (None, Some(count)) => item_count_text(count),
@@ -170,6 +173,7 @@ pub(super) fn request_item_count(label: &gtk::Label, item: &FileItem, owners: &R
     let entry = item.entry();
     let wanted = owners.counts_items()
         && entry.is_dir
+        && !entry.is_shortcut()
         && entry.uri.starts_with("file:")
         && item.folder_size().is_none()
         && item.item_count().is_none();
@@ -228,6 +232,22 @@ pub(crate) fn count_items(uri: &str) -> Option<u32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A shortcut to a folder shows its own size, in whole kilobytes, as
+    /// Windows shows a `.lnk`'s; it is never counted as a folder.
+    ///
+    /// parity: VIEW-074
+    #[gtk::test]
+    fn a_folder_shortcut_shows_its_own_size() {
+        let mut entry = crate::test_support::folder_entry("Projects - Shortcut");
+        entry.is_symlink = true;
+        entry.size = Some(24);
+        let item = FileItem::new(entry);
+
+        assert_eq!(item.file_size(), Some(24));
+        let shown = cell_text(SortColumn::Size, &item, DateStyle::Absolute);
+        assert_eq!(shown, format::column_size_text(Some(1024)), "1 KB");
+    }
 
     /// A folder's Size says how many items it holds.
     ///
