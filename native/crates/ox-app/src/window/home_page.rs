@@ -2177,17 +2177,15 @@ pub(crate) fn item_menu(page: &gtk::Box, name: &str, accelerator: &str) -> MenuP
     let pane = child
         .ancestor(super::folder_pane::FolderPane::static_type())
         .expect("the folder pane");
-    let menus = |pane: &gtk::Widget| -> Vec<MenuPopover> {
+    // The pane keeps its menus and shows them again: the one shown now.
+    let shown = |pane: &gtk::Widget| -> Option<MenuPopover> {
         children(pane)
             .filter_map(|widget| widget.downcast::<MenuPopover>().ok())
-            .collect()
+            .find(WidgetExt::is_visible)
     };
-    let before = menus(&pane).len();
     let ran = press_on_item(page, name, accelerator);
     assert!(ran, "{accelerator} opens the item's menu");
-    let opened = menus(&pane);
-    assert!(opened.len() > before, "a menu opened");
-    opened.last().expect("the menu").clone()
+    shown(&pane).expect("a menu opened")
 }
 
 /// Selects the item named `name` and runs the shortcut of its box that
