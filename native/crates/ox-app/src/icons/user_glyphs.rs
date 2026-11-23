@@ -228,30 +228,39 @@ pub(crate) const fn windows_em(size: i32) -> i32 {
 /// the search box's magnifier and the new-tab button's plus at 12;
 /// others as [`windows_em`] has it. Never larger than the square.
 pub(crate) const fn em_of(icon: Icon, size: i32) -> i32 {
+    // Each em gives the ink Windows 11 draws there, from the real Segoe
+    // Fluent Icons' ink at every em (measured on the user's PC), whose
+    // glyphs ink less than their em, or all of it.
     let em = match icon {
-        // The command bar's drop-down caret, whatever its square.
+        // The command bar's drop-down caret, 6 by 4, whatever its square.
         Icon::ChevronDown => CHEVRON_EM,
-        // A drop-down list's and the address bar's history chevron, as
-        // WinUI's ComboBox draws its 12-pixel chevron.
-        Icon::ChevronDown16 if size == 12 => 12,
+        // A drop-down list's, the address bar's history and a sort
+        // indicator's chevron, as WinUI's ComboBox draws its 12-pixel one.
+        Icon::ChevronDown16 | Icon::ChevronUp16 if size == 12 => 12,
         Icon::ChevronDown16
         | Icon::ChevronLeft16
         | Icon::ChevronRight16
         | Icon::ChevronUp16
         | Icon::ChevronDoubleLeft16
         | Icon::ChevronDoubleRight16 => match size {
-            16 => 12,
-            12 => 10,
+            // A submenu's arrow, 5 by 10.
+            16 => 13,
+            // A breadcrumb separator, 5 by 8, and Windows' column sort
+            // chevron, 8 by 5 (7 by 5 in Windows).
+            12 | 13 => 11,
             _ => CHEVRON_EM,
         },
+        // Caption buttons: the Chrome glyphs ink their em, 10.
         Icon::Subtract | Icon::Maximize | Icon::SquareMultiple | Icon::Dismiss if size <= 15 => CAPTION_EM,
-        // A Quick access row's pin, in the square that fits the app's own.
-        Icon::Pin if size == 14 => 11,
-        Icon::Search if size == 15 => 12,
-        Icon::Add if size == 14 => 12,
-        // Back, Forward, Up and Refresh beside the address bar: the real
-        // font's arrows ink their whole em, and Windows' ink 12 by 12.
+        // A Quick access row's pin inks its em, Windows' 10 by 10.
+        Icon::Pin if size == 14 => 10,
+        // The search box's magnifier, 11 by 11.
+        Icon::Search if size == 15 => 13,
+        // Back, Forward, Up and Refresh beside the address bar: the
+        // arrows ink their whole em, Windows' 12 by 12.
         Icon::ArrowLeft | Icon::ArrowRight | Icon::ArrowUp | Icon::ArrowClockwise if size == 16 => 12,
+        // The new-tab plus (11 by 11 at 14, its square) and the tab's
+        // close X (9 by 9 at 13, its square) fill their squares.
         _ => windows_em(size),
     };
     if em < size {
