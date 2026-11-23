@@ -258,21 +258,6 @@ fn menu_labels(entries: &[crate::window::menu_popover::MenuEntry]) -> Vec<(Strin
         .collect()
 }
 
-/// The item of `entries` labelled `label`.
-fn menu_item(
-    entries: &[crate::window::menu_popover::MenuEntry],
-    label: &str,
-) -> crate::window::menu_popover::MenuItem {
-    use crate::window::menu_popover::MenuEntry;
-    entries
-        .iter()
-        .find_map(|entry| match entry {
-            MenuEntry::Item(item) if item.label == label => Some(item.clone()),
-            _ => None,
-        })
-        .unwrap_or_else(|| panic!("the menu has {label}"))
-}
-
 /// As in Windows 11, where "Expand to current folder" is off at first,
 /// the folder tree does not open its folders down to the folder shown;
 /// once the option is on, it does.
