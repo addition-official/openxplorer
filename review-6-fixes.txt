@@ -1,6 +1,6 @@
 STATUS: DONE
-HEAD: claude/review-6-fixes 1bef0b79 (on origin/test-combined-51 ca458a05)
-QUESTION: U2 (dates on or before 1970-01-01 show the unknown dash) needs Entry::modified to become signed, and that needs a one-line change in native/crates/ox-app/src/folder_view/details/column_text.rs (its date closure takes Option<u64>), a Details-column file I was told not to edit. May I change that line, or should the Details-columns branch take it?
+HEAD: claude/review-6-fixes ec04d87f (on origin/test-combined-51 ca458a05)
+QUESTION: none (U2's one-line change in folder_view/details/column_text.rs was approved and made; only the closure's type changed)
 NOTE: Every report item is fixed, waiting on a VM check, or skipped with the reason below. U1 now matches Windows (Hidden writes the folder's .hidden list; no rename); I found no recorded owner decision for the old dot-rename, so no setting was added (a possible "like Windows" switch is listed under SETTINGS). Testing followed the updated rule from the coordinating session: build, run the tests of the touched modules, check each fix in the real app with real input, one regression test for D1. No claude/windows-mode-switch branch exists.
 
 ITEMS
@@ -12,7 +12,7 @@ ITEMS
 | B3 indexing on but nothing indexed | fixed | 44b7630b, fb0d350b | Fresh HOME, real app: Settings > Search reads "Instant search is on for 6 folders, 16 names indexed" on first run |
 | B (Counts) "Could not update the search cache" for trash: | fixed | 3b4a2d42 | Built and search tests pass; emptying the Recycle Bin in the app to watch for the warning was NOT done |
 | U1 Hidden renames the file | fixed (matches Windows) | 87f0f7cf, 1bef0b79 | Real app: Properties > Hidden > Apply keeps "Meeting notes.txt", writes it to .hidden, the list hides it; clearing Hidden removes the line (the app removes the list file it emptied). GLib keeps a folder's .hidden for about 7 to 8 s (measured with a small C program), so the folder is listed again at 6 s and 11 s |
-| U2 dates at or before 1970 show a dash | skipped, blocked | none | See QUESTION. A working partial patch exists for ox-core; it cannot compile without the column_text.rs line |
+| U2 dates at or before 1970 show a dash | fixed | ec04d87f | Item times are signed (modified, created, accessed, deleted). Real app: Epoch.txt (1970-01-01 00:00 UTC) shows 01/01/1970 00:00 and "Thursday, January 1, 1970, 00:00:00" in Properties; a 1960 file shows 03/01/1960 12:00; sorting by Date modified puts 1960, 1970, today in order. Search cache, settings and thumbnail cache keep unsigned times (0 = unknown, shared with the Python app). In column_text.rs only the date closure's type changed (1 line) |
 | U3 copying a file link copies the link | VM | none | VM CHECK 5 |
 | U4 tab of a deleted folder stays on an error page | VM (wording improved by L1) | none | VM CHECK 6 |
 | U5 time-zone change not followed | VM | none | VM CHECK 7 |
@@ -49,8 +49,9 @@ LONG NAMES (1920x1080, 1x, dark, same RefTest items; 108-character .jpg name; me
 
 TESTS RUN (Rust 1.92.0; app tests as user tester, throwaway HOME, private Xvfb and D-Bus)
 - PASS archive_compress_links (D1 regression; FAILED on the old code first), archive_compress_sources (4), archive_progress (7), archive_tar_links (11), archive::create unit tests
-- PASS ox-core entry, email_portal, search::pins, places unit tests; whole ox-core unit binary: 1,385 passed, 28 failed, all in admin_copy, admin_delete (trusted-path checks reject the /tmp run folder) and one clipboard test that needs the Python app; none in changed modules
+- PASS ox-core entry (incl. times_at_and_before_1970_are_dates, which replaces modification_time_of_zero_is_shown_as_unknown), format, grouping, search, versions, email_portal, places unit tests; whole ox-core unit binary: 1,385 passed, 28 failed, all in admin_copy, admin_delete (trusted-path checks reject the /tmp run folder) and one clipboard test that needs the Python app; none in changed modules
 - PASS ox-app filtered runs: properties + item_dialogs 153/153; search + indexing 71/71 (after updating 2 tests); share, item_dialogs, disconnected, empty_page, empty_folder, address, input, search_box 340/340; gallery + scrubber 32/32; empty_page + unavailable + denied 49/49
+- U2 run: groups, sort, model, gallery, details_pane, recycle_bin, thumbnails, details, column, date: 428 passed, 2 failed (thumbnails::thumbnailers a_sandboxed_thumbnailer_runs_within_its_limits and _sees_only_its_item; bubblewrap sandbox tests whose code and job time are unchanged; not re-run on the base, so the cause is not proven)
 - ENVIRONMENT failures, not from these changes: 3 archive tests need an installed archive manager (no app for application/zip here); 4 settings tests need OX_PYTHON_APP; 1 picker capture test starts the real portal installed here for B2, which cannot mount its FUSE store
 - PASS check.py steps: parity inventories and driver tests (124), drawn-icon guard, rustfmt; i18n check; parity/check.py; tools/sync-docs.py --check; tools/audit-public-data.py (no issues)
 - FAIL clippy -D warnings: 3 warnings that exist on the untouched base too (entry/enumerate.rs:386, properties/general_tab.rs main function length, properties/item_window.rs function length); none from these changes
