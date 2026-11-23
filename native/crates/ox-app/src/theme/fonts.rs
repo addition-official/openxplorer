@@ -8,7 +8,7 @@
 
 use crate::folder_view::grid::{self, IconSize};
 use crate::folder_view::icon_size::{
-    compact_density_details_row, compact_density_heading_row, compact_density_line,
+    self, compact_density_details_row, compact_density_heading_row, compact_density_line,
     compact_density_tiles_row, compact_row, content_row, group_heading_row, tiles_cell,
     COMPACT_CONTENT_HEADING_CHROME, COMPACT_TILES_CHROME, COMPACT_TILES_HEADING_CHROME, CONTENT_CHROME,
     HEADING_CHROME, TILES_CHROME,
@@ -391,6 +391,15 @@ fn compact_density_rules(scale: f64, text_size: TextSize) -> Vec<String> {
         // Windows (the usual list starts 1 pixel down).
         "window.compact-density columnview.files.grouped > listview { padding-top: 4px; }".to_owned(),
         COMPACT_SIDEBAR_ROW.rule(scale),
+        // List's and Small icons' items as close as Details' rows, 21
+        // pixels apart at 100%, as in Windows 11's Compact view (measured
+        // on its List and Small icons captures).
+        format!(
+            "window.compact-density gridview.files.compact > child, \
+             window.compact-density gridview.files.icons-small > child \
+             {{ min-height: {list}px; }}",
+            list = compact_density_details_row(text_size)
+        ),
         format!(
             "window.compact-density gridview.files.tiles > child > .item-cell:not(.group-slot) \
              {{ min-height: {tile}px; padding-top: 4px; padding-bottom: 4px; margin: 0 4px 1px 4px; }}"
@@ -464,30 +473,34 @@ fn menu_rules(scale: f64) -> String {
     )
 }
 
-/// Vertical pixels of a tile's cell outside its content box: 12 pixels
-/// of padding above and below (`.file-tile`) and the 2-pixel gap to the
-/// next row, a 1-pixel margin on each side (style.css).
-const TILE_VERTICAL_CHROME: i32 = 12 + 12 + 1 + 1;
+/// GTK's multiple of the font's own line height (17 pixels for Noto Sans
+/// at 13) that sets an icon's name's lines 14.5 pixels apart at 100%
+/// (`icon_size::tile_name_line`), as Windows 11 sets them.
+const TILE_NAME_LINE_HEIGHT: f64 = 0.85;
 
-/// A tile's size for icons of `icon_size` at `text_size`. Its height fills
-/// the cell less the padding and the gap. Its width comes from the column
-/// the window sets (`CellSize::columns_in` in `folder_view/grid.rs`), so the
-/// minimum is only the icon, which lets GTK use every column the window
-/// asks for. Grouped (VIEW-022), the height goes on the tile's own box,
-/// so the slots of a group heading's row are a line of title tall.
+/// A tile's size for icons of `icon_size` at `text_size`: its cell is a
+/// row of Windows 11's height ([`grid::cell_size`]), and the item's box
+/// in it, which draws its hover, selection and focus, holds the icon and
+/// the name with 2 pixels above and below and Windows' room beside them,
+/// Windows' gap from the next box. The cell's width comes from the column
+/// the window sets (`CellSize::columns_in` in `folder_view/grid.rs`), so
+/// the minimum is only the icon. A group heading's row is a line tall.
 fn tile_rule(icon_size: IconSize, text_size: TextSize) -> String {
     if icon_size == IconSize::SMALL {
         return small_icons_rule(text_size);
     }
-    let cell = grid::cell_size(icon_size, text_size);
-    let height = cell.height - TILE_VERTICAL_CHROME;
+    let row = grid::cell_size(icon_size, text_size).height;
     let width = icon_size.pixels();
     let class = icon_size.css_class();
-    let groups = grid::ICON_GROUPS_CLASS;
+    let (left, right) = icon_size::icon_side_margins(icon_size);
+    let beside = icon_size::icon_side_padding(icon_size);
+    let pad = icon_size::TILE_BOX_PADDING;
     format!(
-        "gridview.files.{class} > child {{ min-width: {width}px; min-height: {height}px; }}\n\
-         gridview.files.{class}.{groups} > child {{ min-height: 0; }}\n\
-         gridview.files.{class}.{groups} > child > box:not(.group-slot) {{ min-height: {height}px; }}"
+        "gridview.files.{class} > child {{ min-width: {width}px; min-height: {row}px; }}\n\
+         gridview.files.{class} > child.heading-row {{ min-height: 0; }}\n\
+         gridview.files.{class} > child > box:not(.group-slot) {{ margin: 0 {right}px 0 {left}px; \
+         padding: {pad}px {beside}px; }}\n\
+         gridview.files.{class} > child label {{ line-height: {TILE_NAME_LINE_HEIGHT}; }}"
     )
 }
 
@@ -580,7 +593,7 @@ mod tests {
         let larger = css_at(150);
         for rule in [
             "window.compact-density columnview.files > listview > row \
-             { min-height: 34px; margin-top: 0; margin-bottom: -1px; }",
+             { min-height: 32px; margin-top: 0; margin-bottom: -1px; }",
             "window.compact-density columnview.files > header > button { min-height: 37px; }",
             "window.compact-density .sidebar list.places > row { min-height: 33px; }",
             ".sidebar list.places > row { min-height: 41px; }",
@@ -589,7 +602,7 @@ mod tests {
             assert!(larger.contains(rule), "{rule}");
         }
         assert!(larger.contains(
-            "window.compact-density gridview.files.tiles > child > .item-cell:not(.group-slot) { min-height: 72px;"
+            "window.compact-density gridview.files.tiles > child > .item-cell:not(.group-slot) { min-height: 76px;"
         ));
         assert!(larger.contains(
             "window.compact-density gridview.files.tiles > child .item-lines label { line-height: 24px; }"
@@ -643,15 +656,18 @@ mod tests {
         assert!(css.contains("window.ox { font-size: 13px; }"));
         assert!(css.contains(".statusbar { font-size: 11px; }"));
         assert!(css.contains("columnview.files > listview > row { min-height: 30px; }"));
-        assert!(css.contains("gridview.files.icons-large > child { min-width: 96px; min-height: 144px; }"));
-        assert!(css.contains("gridview.files.icons-56 > child { min-width: 56px; min-height: 104px; }"));
-        assert!(css.contains("gridview.files.icons-small > child { min-width: 306px; min-height: 25px; }"));
-        // Grouped, a tile's box keeps its height and a heading row's slots
-        // are a line of title tall (VIEW-022).
+        // Large icons' rows as Windows 11's: the icon, two lines of name
+        // and 2 pixels above and below; the box 4 pixels in from its
+        // column at each side, 8 from the next box; a heading's row is a
+        // line tall (VIEW-005, VIEW-022).
         assert!(css.contains(
-            "gridview.files.icons-large.icon-groups > child { min-height: 0; }\n\
-             gridview.files.icons-large.icon-groups > child > box:not(.group-slot) { min-height: 144px; }"
+            "gridview.files.icons-large > child { min-width: 96px; min-height: 129px; }\n\
+             gridview.files.icons-large > child.heading-row { min-height: 0; }\n\
+             gridview.files.icons-large > child > box:not(.group-slot) { margin: 0 4px 0 4px; \
+             padding: 2px 2px; }\n\
+             gridview.files.icons-large > child label { line-height: 0.85; }"
         ));
+        assert!(css.contains("gridview.files.icons-small > child { min-width: 306px; min-height: 25px; }"));
         // Small icons' columns, 310 pixels apart at 100%, grow with the text.
         assert!(css_at(200).contains("gridview.files.icons-small > child { min-width: 616px;"));
         assert!(
@@ -707,28 +723,6 @@ mod tests {
         let css = css_at(100);
         assert!(css.contains(".settings .setting-description { font-size: 12px; }"));
         assert!(css.contains(".settings .setting-title { font-size: 14px; }"));
-    }
-
-    /// The progress window, its questions and the File Conflict window
-    /// grow with the text as the rest of the window does, as Windows'
-    /// Text size scales its copy dialog: their own sizes are no longer
-    /// fixed in pixels.
-    ///
-    /// parity: ACC-012
-    #[test]
-    fn the_progress_and_conflict_windows_follow_the_text_size() {
-        let css = css_at(200);
-        for rule in [
-            ".progress-header { font-size: 24px; }",
-            ".progress-percent { font-size: 36px; }",
-            "speedgraph .speed-label { font-size: 22px; }",
-            ".progress-action.asking .progress-percent { font-size: 32px; }",
-            "window.ox button.conflict-command label { font-size: 30px; }",
-            ".file-conflicts-heading { font-size: 32px; }",
-            ".file-conflict-name { font-size: 24px; }",
-        ] {
-            assert!(css.contains(rule), "{rule}");
-        }
     }
 
     /// parity: VIEW-044

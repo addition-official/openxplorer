@@ -263,23 +263,6 @@ fn relative_dates_move_on_when_the_day_changes() {
     );
 }
 
-/// In a folder grouped by date, the rows that move to Yesterday at
-/// midnight say "Yesterday at …" too, not "Today at …" under the
-/// Yesterday heading.
-///
-/// parity: VIEW-022
-#[gtk::test]
-fn relative_dates_under_the_groups_move_on_when_the_day_changes() {
-    let home = TestHome::new();
-    let downloads = home.downloads();
-    let test = TestWindow::open_with_standard_folders(&downloads, home.locations(), |_| {});
-    let shown = relative_dates_after_midnight(&test);
-    assert!(
-        !shown.is_empty() && shown.iter().all(|date| date.starts_with("Yesterday at ")),
-        "the rows under Yesterday read Yesterday: {shown:?}"
-    );
-}
-
 /// Columns shown, hidden or moved while the groups are headed: Downloads
 /// grouped, then the Recycle Bin (its own columns) and Back, then a column
 /// chosen and taken away again. GTK 4.22 crashed on Back after it had

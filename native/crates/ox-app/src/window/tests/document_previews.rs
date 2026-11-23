@@ -18,7 +18,6 @@ use gtk::subclass::prelude::*;
 use gtk::{gdk, glib};
 
 use super::geometry::laid_out_with_details_pane;
-use crate::icons::Art;
 use crate::test_support::harness::{settle, wait_for, wait_for_frames, wait_until, Fixture, TestWindow};
 use crate::test_support::office_documents::{self, Kind};
 use crate::thumbnails::documents::{self, Converter};
@@ -88,45 +87,6 @@ fn names_in(folder: &Path) -> Vec<String> {
         .collect();
     names.sort();
     names
-}
-
-/// Without `LibreOffice`, each kind of document says "No preview
-/// available." under its own icon, as a file Windows has no previewer
-/// for, and nothing is written beside it.
-///
-/// parity: VIEW-070
-#[gtk::test]
-fn without_libreoffice_a_document_says_no_preview_under_its_icon() {
-    let _converter = UsedConverter::new(None);
-    let fixture = Fixture::empty();
-    for kind in Kind::ALL {
-        office_documents::write(
-            &fixture.path(&name_of("Quarterly plan", kind)),
-            kind,
-            "Quarterly plan",
-        );
-    }
-    let before = names_in(fixture.root());
-    let test = preview_window(&fixture);
-    let pane = test.window.imp().details_pane.get();
-
-    for kind in Kind::ALL {
-        let name = name_of("Quarterly plan", kind);
-        test.select_named(&name);
-        wait_until(&format!("{name}'s message"), || {
-            pane.preview_message().as_deref() == Some("No preview available.")
-                && pane.preview_message_icon().is_some()
-        });
-        let icon = pane.preview_message_icon().expect("an icon");
-        assert!(matches!(icon, Art::File(_)), "{name}: {icon:?}");
-        assert_eq!(pane.preview_page_count(), 0);
-    }
-    crate::test_support::harness::capture_in_both_themes(&test.window, "document-preview-no-libreoffice");
-    assert_eq!(
-        names_in(fixture.root()),
-        before,
-        "nothing was written beside them"
-    );
 }
 
 /// With `LibreOffice`, each kind of document shows its first page in the

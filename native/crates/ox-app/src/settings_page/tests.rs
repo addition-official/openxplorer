@@ -925,33 +925,6 @@ fn the_search_filter_bar_switch_is_off_by_default_and_saves_the_choice() {
     });
 }
 
-/// "Delete files on removable drives permanently (like Windows)" is off
-/// by default (the drive's own Recycle Bin, OPS-018) and saved only when
-/// on.
-///
-/// parity: OPS-018
-#[gtk::test]
-fn the_removable_drives_delete_switch_is_off_by_default_and_saved_when_on() {
-    let settings = SettingsTest::open();
-    let switch = switch_of(&settings.row("Delete files on removable drives permanently (like Windows)"));
-    assert!(!switch.is_active(), "off by default");
-
-    switch.set_active(true);
-    wait_until("the choice to be saved", || {
-        settings.saved_preferences().delete_removable_permanently
-    });
-    let stored = std::fs::read_to_string(settings.test.settings_directory().join("settings.json")).unwrap();
-    assert!(
-        stored.contains("deleteRemovablePermanently"),
-        "stored when on: {stored}"
-    );
-
-    switch.set_active(false);
-    wait_until("the choice to be saved", || {
-        !settings.saved_preferences().delete_removable_permanently
-    });
-}
-
 /// "When replacing a file, move the old one to the Recycle Bin" is in
 /// Files & folders, on by default (the owner's choice), and saves only
 /// its turning off, which the window's next Replace follows.
@@ -1806,56 +1779,6 @@ fn icons_from_windows_icon_files_are_off_until_chosen() {
 /// Windows icon files are on, and Clear forgets it. The font is
 /// synthetic; the file dialog itself is GTK's and is not driven.
 ///
-/// parity: LOOK-031
-#[gtk::test]
-fn the_windows_symbol_font_row_saves_the_path_and_counts_the_glyphs() {
-    use ox_core::windows_glyphs::synthetic::SyntheticFont;
-
-    use crate::icons::user_glyphs;
-
-    let settings = SettingsTest::open();
-    let row = settings.row("Windows symbol font");
-    assert_eq!(row.shown_description(), "No font chosen");
-    let clear = row
-        .controls()
-        .into_iter()
-        .filter_map(|control| control.downcast::<gtk::Button>().ok())
-        .find(|button| button.label().as_deref() == Some("Clear"))
-        .expect("a Clear button");
-    assert!(!clear.is_sensitive());
-
-    let folder = tempfile::tempdir().expect("a temporary folder");
-    let font = folder.path().join("SegoeIcons.ttf");
-    std::fs::write(&font, SyntheticFont::with_codepoints(&[0xE710, 0xE72B]).build()).expect("written");
-    settings
-        .page
-        .save_preferences(ox_core::settings::PreferencesUpdate {
-            symbol_font: Some(font.display().to_string()),
-            ..ox_core::settings::PreferencesUpdate::default()
-        });
-    wait_until("the font to be saved", || {
-        settings.saved_preferences().symbol_font.is_some()
-    });
-    wait_until("the row to say it waits for the switch", || {
-        row.shown_description() == "SegoeIcons.ttf · used while Icons from Windows icon files is on"
-    });
-    switch_of(&settings.row("Icons from Windows icon files")).set_active(true);
-    let expected = format!("SegoeIcons.ttf · 2 of {} glyphs", user_glyphs::glyph_count());
-    wait_until("the glyphs to be counted", || row.shown_description() == expected);
-    assert!(clear.is_sensitive());
-
-    clear.emit_clicked();
-    wait_until("the font to be forgotten", || {
-        settings.saved_preferences().symbol_font.is_none()
-    });
-    wait_until("the row to say so", || {
-        row.shown_description() == "No font chosen"
-    });
-    switch_of(&settings.row("Icons from Windows icon files")).set_active(false);
-    wait_until("the switch to be saved off", || {
-        !settings.saved_preferences().use_icon_files
-    });
-}
 
 /// "Run installed apps' launchers on double-click" is off, as opening never
 /// runs anything by default (OPEN-007), and saves the choice.

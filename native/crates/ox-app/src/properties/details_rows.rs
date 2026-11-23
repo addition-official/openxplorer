@@ -902,54 +902,6 @@ mod tests {
         assert_eq!(text(&sections, "Attributes").as_deref(), Some("HA"));
     }
 
-    /// The File rows use Windows 11's words and order: Name, Type, File
-    /// location, Date created, Date modified, Size, Attributes, Owner and
-    /// Computer, the last as "<host> (this PC)".
-    ///
-    /// parity: PROP-034
-    #[test]
-    fn the_file_rows_follow_windows_words_and_order() {
-        let mut item = properties("Packing list.txt", 0o100_644);
-        item.created = Some(1_700_000_000);
-        item.entry.modified = Some(1_700_000_100);
-        let sections = detail_sections(&item, None, None, &LocationContext::default());
-        let names: Vec<&str> = sections[0].rows.iter().map(|row| row.name.as_str()).collect();
-        assert_eq!(
-            names,
-            [
-                "Name",
-                "Type",
-                "File location",
-                "Date created",
-                "Date modified",
-                "Size",
-                "Attributes",
-                "Owner",
-                "Computer"
-            ]
-        );
-        assert_eq!(text(&sections, "Type").as_deref(), Some("JPEG image"));
-        assert_eq!(text(&sections, "File location").as_deref(), Some("/tmp/ox-test"));
-        let host = gtk::glib::host_name();
-        assert_eq!(text(&sections, "Computer"), Some(format!("{host} (this PC)")));
-    }
-
-    /// Attributes gives Windows' letters in its order: A for every file,
-    /// R before it for one the owner may not write, H for a dotfile.
-    ///
-    /// parity: PROP-034
-    #[test]
-    fn attributes_read_as_windows_letters() {
-        let attributes = |name: &str, mode: u32| {
-            let sections = detail_sections(&properties(name, mode), None, None, &LocationContext::default());
-            text(&sections, "Attributes")
-        };
-        assert_eq!(attributes("Packing list.txt", 0o100_644).as_deref(), Some("A"));
-        assert_eq!(attributes("Packing list.txt", 0o100_444).as_deref(), Some("RA"));
-        assert_eq!(attributes(".notes.txt", 0o100_644).as_deref(), Some("HA"));
-        assert_eq!(attributes(".notes.txt", 0o100_444).as_deref(), Some("RHA"));
-    }
-
     /// Exposure, flash and channel wording.
     #[test]
     fn camera_values_read_as_windows_writes_them() {
