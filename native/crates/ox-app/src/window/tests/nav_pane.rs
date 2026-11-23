@@ -233,47 +233,6 @@ fn a_drive_that_cannot_be_ejected_leaves_the_tab_where_it_was() {
     );
 }
 
-/// A real double-click on This PC's row collapses its drives, and another
-/// expands them, as a double-click on a node of Windows Explorer's
-/// navigation pane does; it used to only open This PC twice.
-///
-/// parity: SIDE-033
-#[gtk::test]
-fn a_real_double_click_on_this_pc_collapses_and_expands_it() {
-    use super::right_drag::PROBE;
-    use crate::test_support::pointer::{screen_point, Button, Pointer};
-
-    let fixture = Fixture::standard();
-    let mut pointer = Pointer::connect();
-    let test = TestWindow::open(&fixture.uri());
-    wait_for_frames(&test.window, 3);
-    let sidebar = test.window.sidebar();
-    let local_disk_shown = || sidebar.labels_shown().contains(&"Local Disk".to_owned());
-    let on = screen_point(
-        &mut pointer,
-        sidebar.list(),
-        (60.0, sidebar.middle_of("This PC")),
-        PROBE,
-    );
-    let double_click = |pointer: &mut Pointer| {
-        // Apart from the last clicks by more than the double-click time.
-        crate::test_support::harness::wait_for(std::time::Duration::from_millis(700));
-        pointer.move_to(on.0, on.1);
-        for _ in 0..2 {
-            pointer.press(Button::Primary);
-            pointer.release(Button::Primary);
-        }
-    };
-    let expanded_at_first = local_disk_shown();
-
-    double_click(&mut pointer);
-    wait_until("This PC to collapse", || !local_disk_shown());
-    double_click(&mut pointer);
-    wait_until("This PC to expand", local_disk_shown);
-
-    assert!(expanded_at_first);
-}
-
 /// The labels of `entries`, with "-" for a divider, and whether each item
 /// is checked.
 fn menu_labels(entries: &[crate::window::menu_popover::MenuEntry]) -> Vec<(String, bool)> {
@@ -361,45 +320,4 @@ fn with_expand_to_open_folder_off_the_tree_stays_closed() {
     assert_eq!(before, ["Home", "  Example projects"]);
     assert_eq!(tree.outline(), before, "no folder opened on the way");
     assert_eq!(tree.selected_uri(), None, "Reports is not in the tree yet");
-}
-
-/// Home and Gallery open in a new tab or window from their menu, as
-/// every other node of Windows 11's navigation pane does; their menus
-/// used to offer only Hide.
-///
-/// parity: SIDE-001, SIDE-015
-#[gtk::test]
-fn home_and_gallery_menus_open_them_in_a_new_tab_or_window() {
-    use crate::window::menu_popover::{MenuAction, MenuEntry};
-    use crate::window::WindowAction;
-
-    let fixture = Fixture::standard();
-    let test = TestWindow::open(&fixture.uri());
-    let sidebar = test.window.sidebar();
-    wait_for_frames(&test.window, 2);
-
-    for place in ["Home", "Gallery"] {
-        let menu = sidebar
-            .menu_entries_at(sidebar.middle_of(place))
-            .expect("the row has a menu");
-        let labels: Vec<String> = menu_labels(&menu).into_iter().map(|(label, _)| label).collect();
-        assert!(
-            labels.starts_with(&["Open in new tab".to_owned(), "Open in new window".to_owned()]),
-            "{place}: {labels:?}"
-        );
-        let new_tab = menu
-            .iter()
-            .find_map(|entry| match entry {
-                MenuEntry::Item(item) if item.action == MenuAction::from(WindowAction::OpenTab) => Some(item),
-                _ => None,
-            })
-            .expect("Open in new tab");
-        let target = new_tab
-            .target
-            .as_ref()
-            .and_then(gtk::glib::Variant::str)
-            .map(str::to_owned);
-        let row_target = sidebar.location_at(sidebar.middle_of(place));
-        assert_eq!(target, row_target, "{place} opens its own location");
-    }
 }

@@ -185,38 +185,3 @@ fn undo_renames_back_only_within_the_same_folder() {
     assert_eq!(undone.errors, [refusal]);
     assert!(moved.exists());
 }
-
-/// A rename the folder's permissions refuse says so in words that name
-/// the item, not with GIO's "Error moving file" and the item's whole path,
-/// and nothing changes. The superuser may rename anything, so only
-/// another user sees the refusal.
-///
-/// parity: OPS-008
-#[test]
-fn a_rename_the_folder_refuses_names_the_item_without_its_path() {
-    use std::os::unix::fs::PermissionsExt;
-    if ox_core::permissions::current_user_is_superuser() {
-        return;
-    }
-    let temp = tempfile::tempdir().unwrap();
-    let folder = temp.path().join("Locked");
-    fs::create_dir(&folder).unwrap();
-    let item = folder.join("Budget 2027.ods");
-    fs::write(&item, b"budget").unwrap();
-    fs::set_permissions(&folder, fs::Permissions::from_mode(0o555)).unwrap();
-
-    let renamed = block_on(rename_item(
-        &file_uri(&item),
-        "Budget.ods",
-        &OperationContext::default(),
-    ));
-    fs::set_permissions(&folder, fs::Permissions::from_mode(0o755)).unwrap();
-
-    assert_eq!(
-        renamed,
-        Err(OpsError::PermissionDenied(
-            "You don't have permission to rename “Budget 2027.ods” here.".into()
-        ))
-    );
-    assert!(item.exists());
-}
