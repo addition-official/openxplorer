@@ -28,6 +28,7 @@ mod command_bar_switch;
 mod compact_density;
 mod compact_spacing;
 mod context_menus;
+mod cut_look;
 mod details_pane;
 mod details_preview;
 mod details_tab;
