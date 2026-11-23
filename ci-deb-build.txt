@@ -1,0 +1,50 @@
+STATUS: DONE (workflow written, linted and run locally; waiting for Actions to be enabled on the fork)
+HEAD: test-combined-ci-check 692b684b05abcb947d49404f0317763012bd7ab3 (origin/test-combined-50 f16d903f plus the workflow commit)
+HEAD: main 8803be653259aaa1a63bd449c8af17819907e494 (the fork's default branch: a7b49215 plus the same workflow file, because workflow_dispatch needs it there)
+QUESTION: none. Once Actions is on, push test-combined-ci-check again (or "Run workflow" with ref test-combined-ci-check) to see the first real run.
+NOTE: the workflow is .github/workflows/fork-test-deb.yml ("Fork test deb"). It runs only when github.repository_owner is addition-official.
+
+WHAT IT DOES
+- Trigger: a push to test-combined-* (not *-deb) builds the pushed commit. "Run workflow" (workflow_dispatch, input "ref") builds that branch's tip.
+- build job (ubuntu:24.04 container, contents: read), the release's Debian leg reused step by step:
+  1. Name the package: test-combined-NN gives openxplorer_<version>+testNN_all.deb (a hyphen in NN becomes a dot, so test-combined-ci-check gives 2.0.23+testci.check).
+  2. Author check: every commit on top of AKolenda/openxplorer main must be authored by addition-official (with its noreply address) or AKolenda. Offending commits are listed by hash only.
+  3. sh native/packaging/ci/prepare-container.sh debian (the same apt packages; zstd added only for the cache action).
+  4. Restore the cache: builder's ~/.cargo/registry index and cache, ~/.cargo/git/db, native/target.
+  5. Rust 1.92.0 with rustup as builder (install-rust.sh's toolchain; the extra stable toolchain the Arch package needs is left out).
+  6. runuser -u builder -- sh native/packaging/ci/build-package.sh deb io.winspace.Development (build_deb.py and verify_deb.py, cargo build --release --locked, no cargo clean).
+  7. Save the cache, minus the ox-core and ox-app artifacts, which a fresh checkout makes Cargo rebuild anyway.
+  8. Set Version to <version>+testNN with dpkg-deb -R and rebuild with build_deb.py's flags; the step fails if the file list, modes, times or any other control field differ from the verified package.
+  9. Checks: dpkg-deb -c lists no .ttf/.otf/.ttc/.fon/.woff/.woff2/.ico/.cur/.exe/.dll/.mun/.res; no file starts with a PE, TrueType, OpenType, collection or WOFF header; every postinst line that writes the polkit rule sits inside the test that /var/lib/openxplorer/install-updates-without-password is not "off".
+  10. Upload the deb as the artifact "test-deb".
+- publish job (contents: write): force-pushes claude/test-combined-NN-deb as one orphan commit holding only the deb, author and committer addition-official, message like today's plus the run URL.
+- status job (contents: write): updates test-combined-NN.txt on this branch through the contents API, as addition-official. On success the leading block becomes STATUS: DONE (deb ready; built by GitHub Actions), HEAD, DEB, SHA256 and RUN; on failure STATUS: FAILED with the step, RUN and the last 30 lines of that step's log. Everything a session wrote below that block is kept.
+- The status files live at the root of this branch, like every other one, so "status/test-combined-NN.txt" is written as test-combined-NN.txt here.
+
+TO ADD IT TO A NEW TEST BRANCH (one command, run in the new test-combined-NN checkout before pushing it)
+  git fetch origin main && git checkout origin/main -- .github/workflows/fork-test-deb.yml && git -c user.name=addition-official -c user.email=239187859+addition-official@users.noreply.github.com commit -m "ci: Build this branch's test deb in GitHub Actions" -- .github/workflows/fork-test-deb.yml
+  Then push the branch; the push starts the build. The PC fetches claude/test-combined-NN-deb as before.
+
+CACHE
+- GitHub only lets a branch restore its own caches and the default branch's. A new test-combined-NN branch therefore starts from the main cache, which only a "Run workflow" run (it runs on main) saves. After enabling Actions, do one "Run workflow" with any test branch to seed it, and again whenever Cargo.lock changes a lot. A second push to the same branch uses that branch's own cache too.
+
+TESTED HERE (Actions is off, so no run on GitHub yet)
+- actionlint 1.7.8 with shellcheck 0.9.0: no findings.
+- Each step's own script, taken from the YAML, run in order in an ubuntu:24.04 container on a fresh shallow clone of test-combined-ci-check, as builder where the workflow uses builder (4 cores, like a hosted runner). The cache action was stood in for by copies; the push, artifact and status steps need GitHub and were not run, but the status writer was run against a stand-in for gh api on a copy of test-combined-50.txt.
+  First run:  setup 14s, names 2s, authors 0s, prepare 108s, rust 16s, build-deb 283s, repack 16s, checks 1s; total 441s (7m21s).
+  Second run: setup 12s, names 2s, authors 0s, prepare 82s, restore 1s, rust 13s, build-deb 186s, repack 16s, checks 1s; total 316s (5m16s). Only ox-core and ox-app compiled.
+  A hosted run adds checkout, cache transfer (about 1.1 GB target and 70 MB registry before compression) and the publish and status jobs.
+- Results: author check 371 commits, all addition-official or AKolenda; verify_deb.py passed; 1065 entries, 678 files, no font or Windows file by name or header; 4 rule-writing lines, all guarded. Negative tests failed as they should: a .TTF name, an OTTO header and an unguarded cp of the rule.
+- Compared with claude/test-combined-50-deb 41fba8b0: every file but the four executables is identical. Those differ because deb 50's were built by rustc 1.97.0 (readelf .comment), this one by 1.92.0.
+
+UPSTREAM'S WORKFLOWS ON TEST-COMBINED PUSHES
+None of them runs. In test-combined-50: checks.yml, native-checks.yml, native-distros.yml, repository-checks.yml and capture-checks.yml run only on pushes to main (and dispatch; repository-checks also on a Monday schedule, which runs on the default branch only); flatpak-repo.yml and retry-release.yml only after "Build, release and deploy" on main; pr-title.yml only on pull requests. No upstream file was changed.
+The risk is pushes to the fork's main (a sync with upstream, for example): "Build, release and deploy" (checks.yml) has no path filter, builds four packages and a Flatpak, and its release job waits for a self-hosted runner the fork does not have. To keep that from happening, disable those workflows in the fork (below). That changes only the fork's settings.
+
+HOW TO ENABLE (on github.com, signed in as addition-official)
+1. Open https://github.com/addition-official/openxplorer and click the "Actions" tab.
+2. Click the green button "I understand my workflows, go ahead and enable them".
+3. Settings tab > left sidebar "Actions" > "General". Under "Actions permissions" choose "Allow all actions and reusable workflows" (it needs actions/checkout, actions/cache and the artifact actions). Click Save. "Workflow permissions" can stay at "Read repository contents and packages permissions": the workflow asks for contents: write itself.
+4. Optional but recommended: back on the Actions tab, in the left list click "Build, release and deploy", then the "..." button at the top right, then "Disable workflow". Do the same for "Native Rust checks" and "Native distribution packages" (and, if a sync brings them to main, "Repository checks", "Capture sandbox checks", "Flatpak repository", "Retry release and deploy" and "Pull request title"). Leave "Fork test deb" enabled.
+5. To seed the cache and see a first run: Actions > "Fork test deb" > "Run workflow", keep "Use workflow from: main", type test-combined-ci-check in "ref", click "Run workflow". It should write claude/test-combined-ci-check-deb and test-combined-ci-check.txt here.
+NOTE: main now has one commit more than upstream (8803be65, the workflow file only). A fast-forward-only sync of main would refuse it; GitHub's "Sync fork" merges around it, because no upstream file is touched.
