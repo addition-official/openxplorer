@@ -86,6 +86,15 @@ const SHIFT_F10_CLASSIC: RowText = RowText {
                show more options",
 };
 
+const F6_LIKE_WINDOWS: RowText = RowText {
+    title: "F6 moves like Windows",
+    description: "When on, F6 moves only between the tabs, the navigation pane, the file list, the \
+                  Details pane and the status bar, as in Windows 11, and Tab reaches the address bar, \
+                  search box and command bar. When off, F6 visits those three too.",
+    keywords: "f6 shift+f6 keyboard focus panes regions cycle windows 11 address bar search box \
+               command bar tab",
+};
+
 const HIDE_EXPAND_ARROWS: RowText = RowText {
     title: "Hide expand arrows in the sidebar",
     description: "As in Windows, the navigation pane's arrows (This PC, Network and the folder tree) \
@@ -714,6 +723,21 @@ fn shift_f10_row(page: &SettingsPage) -> SettingRow {
     row
 }
 
+/// "F6 moves like Windows": the switch saves the choice, which F6 reads
+/// each time it moves the keyboard (`src/window/focus_regions.rs`).
+fn f6_like_windows_row(page: &SettingsPage) -> SettingRow {
+    let row = SettingRow::new(F6_LIKE_WINDOWS);
+    let switch = page.preference_switch(PreferenceBinding {
+        read: |preferences| preferences.f6_like_windows,
+        write: |on| PreferencesUpdate {
+            f6_like_windows: Some(on),
+            ..PreferencesUpdate::default()
+        },
+    });
+    row.add_control(&switch, ControlName::RowTitle);
+    row
+}
+
 /// "Use the desktop font": the switch saves the choice and the skin draws
 /// it in every window at once.
 fn desktop_font_row(page: &SettingsPage) -> SettingRow {
@@ -829,6 +853,7 @@ fn layout_group(page: &SettingsPage) -> SettingsGroup {
     group.add_row(&right_click_menu_row(page));
     group.add_row(&menu_buttons_row(page));
     group.add_row(&shift_f10_row(page));
+    group.add_row(&f6_like_windows_row(page));
     let row = SettingRow::new(PANE_WIDTHS);
     let reset = parts::button_with_glyph(&ox_core::i18n::gettext("Reset"), Icon::ArrowClockwise);
     WindowAction::ResetLayout.assign_to(&reset);
