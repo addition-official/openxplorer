@@ -553,9 +553,7 @@ fn right_clicking_blank_space_opens_the_folder_menu_and_new_opens_beside_it() {
         [
             "Folder",
             "Shortcut",
-            "-",
             "Bitmap image",
-            "Rich Text Document",
             "Text Document",
             "Compressed (zipped) Folder",
         ]
@@ -733,7 +731,7 @@ fn the_compact_folder_menu_opens_its_submenus_beside_it() {
     test.window.right_click(None);
     let menu = test.window.context_menu();
     assert_eq!(menu.style(), MenuStyle::Compact);
-    assert_eq!(menu.row_labels()[..4], ["View", "Sort by", "Group by", "Refresh"]);
+    assert_eq!(menu.row_labels()[..3], ["View", "Sort by", "Group by"]);
     assert_eq!(
         menu.row_labels().last().map(String::as_str),
         Some("Show more options")
@@ -1513,4 +1511,71 @@ fn the_folder_menu_grays_open_in_terminal_where_no_terminal_opens() {
             menu.popdown();
         }
     }
+}
+
+/// Windows 11's menu on a folder's blank space (VM check 2026-11-22):
+/// View, Sort by and Group by; Undo of the last step, New and Properties;
+/// Open in Terminal; Show more options; with Paste alone in the icon row.
+/// There is no Refresh, and Undo shows only while there is a step to
+/// undo. The app's own Open as administrator… may follow Open in
+/// Terminal.
+///
+/// parity: CMD-011, CMD-010
+#[gtk::test]
+fn the_compact_folder_menu_has_windows_11s_rows_and_paste_in_its_icon_row() {
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    // Without the app's own extra, which depends on the folder's owner.
+    let windows_rows = |menu: &crate::window::menu_popover::MenuPopover| -> Vec<String> {
+        let mut rows = menu.row_labels();
+        if let Some(at) = rows.iter().position(|row| row == "Open as administrator…") {
+            rows.remove(at);
+            rows.remove(at - 1);
+        }
+        rows
+    };
+
+    test.window.right_click(None);
+    let menu = test.window.context_menu();
+    assert_eq!(
+        windows_rows(&menu),
+        [
+            "View",
+            "Sort by",
+            "Group by",
+            "-",
+            "New",
+            "Properties",
+            "-",
+            "Open in Terminal",
+            "-",
+            "Show more options"
+        ],
+        "nothing to undo yet"
+    );
+    assert_eq!(menu.strip_labels(), ["Paste"]);
+    menu.popdown();
+    settle();
+
+    test.activate("new-folder", None);
+    let field = super::file_ops_support::name_editor(&test);
+    super::new_folder::press_in(&field, gtk::gdk::Key::Escape);
+    wait_until("the rename to end", || {
+        !super::file_ops_support::is_renaming_in_place(&test)
+    });
+    test.window.right_click(None);
+    let menu = test.window.context_menu();
+    assert_eq!(
+        windows_rows(&menu)[..7],
+        [
+            "View",
+            "Sort by",
+            "Group by",
+            "-",
+            "Undo New",
+            "New",
+            "Properties"
+        ]
+    );
+    assert_eq!(menu.strip_labels(), ["Paste"]);
 }
