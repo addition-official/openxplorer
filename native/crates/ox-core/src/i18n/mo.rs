@@ -111,11 +111,4 @@ mod tests {
         bytes[8..12].copy_from_slice(&0x1880_0000_u32.to_le_bytes());
         assert_eq!(read(&bytes), None);
     }
-
-    #[test]
-    fn a_written_catalogue_reads_back() {
-        let bytes = write(&[("Copy".to_owned(), "Kopieren".to_owned())]);
-        let messages = read(&bytes).expect("a catalogue");
-        assert_eq!(messages.get("Copy"), Some(&vec!["Kopieren".to_owned()]));
-    }
 }

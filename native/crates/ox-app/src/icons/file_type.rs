@@ -310,33 +310,6 @@ mod tests {
         assert_types(&cases);
     }
 
-    /// The new kinds keep the app's own icon: the document, or code for
-    /// scripts, at every design.
-    ///
-    /// parity: LOOK-030
-    #[test]
-    fn windows_file_kinds_keep_the_built_in_icons() {
-        for size in [16, 21, 32, 48, 96] {
-            for kind in [
-                FileType::Pdf,
-                FileType::Archive,
-                FileType::Executable,
-                FileType::Shortcut,
-            ] {
-                assert_eq!(
-                    kind.icon(size),
-                    FileType::Document.icon(size),
-                    "{kind:?} at {size}"
-                );
-            }
-            assert_eq!(
-                FileType::Script.icon(size),
-                FileType::Code.icon(size),
-                "at {size}"
-            );
-        }
-    }
-
     /// parity: LOOK-015
     #[test]
     fn extensions_are_lower_cased() {

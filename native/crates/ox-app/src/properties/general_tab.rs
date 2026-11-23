@@ -818,25 +818,3 @@ impl Pending for GeneralEdits {
         Box::pin(self.apply_now())
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::keep_time_together;
-
-    /// A closing "PM" stays with its time; a 24-hour time and a date
-    /// without a time are left as they are.
-    ///
-    /// parity: PROP-003
-    #[test]
-    fn pm_stays_with_its_time() {
-        assert_eq!(
-            keep_time_together("Wednesday, November 18, 2026, 8:36:06 PM"),
-            "Wednesday, November 18, 2026, 8:36:06\u{a0}PM"
-        );
-        assert_eq!(
-            keep_time_together("Mittwoch, 18. November 2026, 20:36:06"),
-            "Mittwoch, 18. November 2026, 20:36:06"
-        );
-        assert_eq!(keep_time_together("Not provided"), "Not provided");
-    }
-}

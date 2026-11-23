@@ -991,14 +991,6 @@ impl FileCell {
         self.imp().label.text().to_string()
     }
 
-    /// The icon's frame and the name label, for tests of where a view
-    /// draws them.
-    #[cfg(test)]
-    pub(crate) fn icon_and_name(&self) -> (gtk::Widget, gtk::Widget) {
-        let imp = self.imp();
-        (imp.icon_frame.clone().upcast(), imp.label.clone().upcast())
-    }
-
     /// The art the icon shows, for tests.
     #[cfg(test)]
     pub(crate) fn art(&self) -> Option<Art> {
