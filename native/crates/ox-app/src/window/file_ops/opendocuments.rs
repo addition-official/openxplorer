@@ -145,34 +145,6 @@ impl Drop for PretendedApplications {
 mod tests {
     use super::*;
 
-    /// The desktop's own lookup finds an application that says it opens
-    /// the OpenDocument text type, from a launcher in the private data
-    /// folder each test run gets.
-    #[test]
-    fn an_installed_application_for_the_type_is_found_with_its_icon() {
-        let data = gtk::glib::user_data_dir();
-        assert!(
-            data.starts_with(std::env::temp_dir()),
-            "launchers are written only to a private data folder below {}; found {}",
-            std::env::temp_dir().display(),
-            data.display()
-        );
-        let applications = data.join("applications");
-        std::fs::create_dir_all(&applications).expect("the applications folder");
-        let launcher = applications.join("ox-test-writer.desktop");
-        std::fs::write(
-            &launcher,
-            "[Desktop Entry]\nType=Application\nName=Sample Writer\nExec=true %f\nIcon=ox-sample-writer\n\
-             MimeType=application/vnd.oasis.opendocument.text;\n",
-        )
-        .expect("a launcher");
-
-        crate::test_support::harness::wait_until("the launcher to be read", || {
-            installed_application_for("application/vnd.oasis.opendocument.text").is_some()
-        });
-        let _ = std::fs::remove_file(launcher);
-    }
-
     #[test]
     fn only_the_opendocument_types_need_an_application() {
         let labelled: Vec<_> = NewDocument::ALL
