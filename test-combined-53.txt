@@ -1,0 +1,19 @@
+STATUS: RUNNING (merged and pushed; GitHub Actions builds the deb)
+HEAD: test-combined-53 8ea787defc7b5b56858badc8d531d3cfeec6a5d2
+
+BRANCH: test-combined-53, started from deb 52's test-combined-52 119b7347 (its workflow file included), with only the new tips merged; each tip was still current after merging. claude/windows-mode-switch not merged, as asked.
+
+MERGES (in the order given):
+- pass-7-views 7a246d8f -> 113491f9. pass-7's "Drop redundant tests" commits delete tests the tree had changed since. Resolved by keeping pass-7's deletions of tests that were in the merge base, and keeping the tests the tree added since:
+  - settings_page/tests.rs: the_windows_symbol_font_row_saves_the_path_and_counts_the_glyphs dropped, as pass-7 drops it; the_run_installed_launchers_switch_is_off_and_saves_the_choice (pass-17) kept.
+  - thumbnails.rs: a_document_keeps_its_type_icon_in_small_rows and a_documents_thumbnail_is_its_first_page dropped, as pass-7 drops them.
+  - window/tests/shortcuts.rs: new_shortcut_to_an_internet_address_is_a_desktop_link dropped, as pass-7 drops it; installed_launchers_run_on_open_only_when_chosen (pass-17) kept.
+  - icons/user_glyphs/tests.rs and window/tests/column_header_style.rs, which pass-7 deletes whole: kept whole, with their mod lines and user_glyphs.rs's test-only wait_until_read, because the tree added a test to each since (chevrons_are_drawn_at_windows_ems; windows_style_keeps_the_chevron_clear_of_the_text_in_any_column_width) that needs the files' helpers. Deleting them as pass-7 intends is a one-line change per file if wanted.
+  - features.toml: pass-7's note without its deb 52 padding sentences (it restores deb 51's paddings), plus owner-audit-fixes' folder infotip sentences.
+- claude/review-6-fixes ec04d87f -> 8ea787de. thumbnails.rs: review-6's unsigned conversion of the now signed modified time, plus long-c's size field. window/empty_page.rs: the tree's (pass-7 dropped a_drive_that_stopped_answering_is_not_ready and an_unreachable_share_shows_the_windows_error_code_under_details, which review-6 edits). features.toml: review-6's Hidden sentence (.hidden list instead of renaming) plus the tree's Read-only confirmation sentences. .pot regenerated.
+- Generated files (.pot, markdown.json, docs Markdown) regenerated as before.
+
+SKIPPED:
+- user-icon-files 31929ba8 ("icons grow with text size"): it and pass-7's 3b6ef52d ("space icon views, Tiles and Content as Windows 11 measures") rewrite the same layout math, in folder_view/icon_size.rs (5 blocks: cell_size, the Tiles and Content cells, compact Tiles, and their tests) and theme/fonts.rs (the icon rule), plus icons/user_icons/tests.rs. pass-7 spaces cells by Windows 11's measurements (tests expect 291/109/75 px wide and 289 px tall at 100%, Tiles 254 px apart); user-icon-files grows cells and icons with the text size from the older grid (tests expect 135x130 and 175x170). Combining them means choosing the formulas, so it is left out; merging pass-7-views into user-icon-files on the branch would settle it. user-icon-files' earlier tip is in the tree from deb 52.
+
+CHECKS HERE: cargo check of the workspace (and of all targets): no errors or warnings. Commits: 539 on top of main, 537 by addition-official <239187859+addition-official@users.noreply.github.com> (author and committer) and the owner's 2 #366 commits by AKolenda, as before; no trailers. No release build, tests or long checks here, as asked.
