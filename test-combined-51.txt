@@ -1,0 +1,31 @@
+STATUS: DONE (deb ready; long tests running)
+
+BRANCH: test-combined-51 ca458a05 (started from deb 50's test-combined-50 f16d903f, as asked; only what changed since deb 50 merged in)
+DEB: claude/test-combined-51-deb aa1cb7af openxplorer_2.0.23+test51_all.deb (io.winspace.Development)
+SHA256: 6d507255d389983bd1620a5347c42be298adf29bd87535461a581a87e6d538b1  openxplorer_2.0.23+test51_all.deb
+
+SKIPPED:
+- long-c-thumb-cache a365af0f: its conflict with the passes is gone, but it now conflicts with long-d-doc-previews, which deb 50 merged and long-c is not merged with. ox-app thumbnails.rs, 5 blocks: long-c rewrites the thumbnail path around the shared cache (Memory with one 64 MB budget, failures recorded in the cache, Missing::Broken, make_thumbnail returning Result<Option<Made>, Missing>), while long-d adds office documents to the old path (SMALLEST_DOCUMENT_THUMBNAIL, DOCUMENT_MAKING, keeps_type_icon, by_document returning a PathBuf, and "a document GNOME's thumbnailer marked failed may still be drawn by LibreOffice"). Combining them needs choices long-c's design does not make: whether a document the shared cache marks failed still goes to LibreOffice, and whether a LibreOffice failure is written to the shared cache other desktop programs read. Not a conflict deb 50 resolved (deb 50 skipped long-c), so left out. Merging long-d-doc-previews into long-c on the branch would settle it. (Also auto-merged without conflict: docs.json, where the two branches' sentences were combined, and decoder.rs's trace line; the merge was aborted, so neither is in this deb.)
+- claude/owner-audit-fixes de695b5d: based on main, so it meets the passes in 8 files. 7 are unions or equivalent (settings rows in files_folders.rs and redesign.rs, file_drag.rs's set_dragged plus pass-17's DRAGGED_FILES, menu_popover.rs's row_filler beside pass-19's after_close, features.toml, the .pot, and announcement.rs, where it and pass-19 fix the same GTK_A11Y=none crash with different helpers). The one that needs a decision is 427f8d60 "Let a drive's label be changed on its General tab": it adds ox-core set_drive_label(connection, name, device, label) -> Result<(), LabelError> ("without unmounting or formatting it") beside pass-18-drives' set_drive_label(connection, name, &DriveFacts, label) -> Result<Relabelled, FormatError> (label fitted to the file system, exFAT and NTFS unmounted, renamed and mounted again). Same name in the same module, contradicting behaviour, and drive_tab.rs's General tab would have to move to one of them. Truly new, so left out whole; merging pass-18-drives into owner-audit-fixes on the branch, with the General tab using pass-18's rename, would let the rest come in.
+
+MERGES (on top of test-combined-50 f16d903f, in the order given):
+- pass-10-home-recent 6b955294 -> 324adadc. details_pane/content.rs folder_art: kept deb 50's version (tab_icon, which already draws This PC's and now Home's tinted icon, and Network's), over pass-10's older if-chain, which only adds Home's tint that deb 50's code already gives.
+- pass-11-new-menu 79b5d324 -> 96532c83. docs.json word-merged.
+- pass-12-details-status 4003f521 -> 822e7717, pass-14-tabs-windows 668aae98 -> a0d584f9: no conflicts.
+- pass-15-errors 057d9388 -> 57a7a70f. worker_questions.rs: both sides' new tests kept (pass-17's an_answered_question_does_not_keep_the_keyboard and run_for, pass-15's a_write_protected_drive_asks_in_windows_words).
+- pass-16-clipboard 4b53d3a0 -> 6db21bb5. docs.json word-merged.
+- pass-18-drives 00759d7b -> e293654a. worker_questions.rs: pass-18's file, which holds every test of the tree's, unchanged, plus a_destination_that_went_away_is_said_to_be_unavailable. redesign.rs: both new rows. docs.json: one paragraph word-merged (the shortcut sentence).
+- pass-19-a11y e25d3a79 -> 2747d636: generated files only.
+- long-b-soak 6e067eb0 -> 2978b61a: long-b's side in decoder.rs (take_idle, idle_alive removed), decoder/tests.rs and features.toml, as the branch's own long-d merge has them.
+- ca458a05 fix(merge): removable_delete.rs's MountControls gets is_optical: false (pass-18's test meeting pass-9's field; same fix deb 50 made in place_menus/tests.rs).
+- Not needed again (already in deb 50 at the same tips): pass-1 to pass-9, network-like-windows, pass-13, pass-17, sort-header-windows, long-d, long-a, user-icon-files.
+- Generated files (.pot, markdown.json, docs Markdown) regenerated as in deb 50.
+- docs.json formatting: deb 50's word merge dropped the file's line breaks (apps/web/lib/docs.json on test-combined-50 is valid JSON with the same content, but on one line). Fixed in this deb: the line breaks were put back by a script that round-trips main's and four branches' docs.json byte for byte, and later merges keep them; test-combined-51's docs.json differs from main's by 14 lines added and 12 removed.
+
+QUICK CHECKS (before pushing):
+- Build: cargo check of the workspace (all targets) and of ox-app with the fuzzing feature show no errors or warnings; rustfmt, parity/check.py, i18n check and sync-docs --check pass; build_deb.py release build exit 0. The debug target was deleted for disk space; there was no release target to reuse, so the release build was a full one.
+- IDENTITY: 455 commits on top of main: 453 by addition-official <239187859+addition-official@users.noreply.github.com> (author and committer), and the owner's 2 #366 commits (5cfe748c, b80e9b0a) by AKolenda, carried by user-icon-files, as in deb 50. No trailers. The only address in the added lines is the fictional team@example.org in an ox-core unit test. In the deb, the addresses are those of deb 50 (one binary byte string differs, not an address) and AKolenda appears only in the repository, bug tracker and update URLs, as in main.
+- POLKIT: record /var/lib/openxplorer/install-updates-without-password = "off" before install -> /etc/polkit-1/rules.d empty after install, record still "off". Purged afterwards.
+- NO WINDOWS ICON OR FONT DATA: 678 files; none named .ttf/.otf/.ttc/.fon/.woff/.woff2/.ico/.cur/.exe/.dll/.mun/.res; none starting with a TrueType/OpenType/collection/WOFF, PE (MZ) or ICO/CUR header; file(1) reports no font and no Windows type.
+
+AFTER THE PUSH (running): unique string per merged branch, 3 full ox_app runs in one process each (pass-19 SIGTRAP check), failures by name against main, smoke run, input sweep.
