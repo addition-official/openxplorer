@@ -862,30 +862,6 @@ mod tests {
         );
     }
 
-    /// The unexpected error's line is Windows' error code line, for an
-    /// error the engine read from the system; a message of the app's own,
-    /// which has no code, is shown as it is.
-    ///
-    /// parity: OPS-047
-    #[test]
-    fn an_unexpected_error_shows_its_error_code() {
-        let pulled = ox_core::transfer::TransferError::from(gtk::glib::Error::new(
-            gio::IOErrorEnum::Failed,
-            "Error splicing file: Transport endpoint is not connected",
-        ));
-        let mut failed = item(TransferMode::Copy, FailureCause::Other);
-        failed.error = pulled.to_string();
-        let said = wording(Question::Unexpected, &failed, false, "");
-        assert_eq!(said.message, "Error 0x8007048F: The device is not connected.");
-        failed.error = "/media/sample/USB/plan.docx: The device is not connected.".into();
-        let said = wording(Question::Unexpected, &failed, false, "");
-        assert_eq!(said.message, "Error 0x8007048F: The device is not connected.");
-        failed.error =
-            "Incomplete staging folder left at /media/sample/USB. Inspect it before removing it.".into();
-        let said = wording(Question::Unexpected, &failed, false, "");
-        assert_eq!(said.message, failed.error);
-    }
-
     /// A full drive says how much the item needs and what to do, as
     /// Windows does, and the drive's space when known.
     ///

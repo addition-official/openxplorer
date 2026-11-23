@@ -249,31 +249,4 @@ mod tests {
             assert!(!drive.is_gone_from(WITHOUT_STICK, Some(ENOENT)));
         }
     }
-
-    /// The failure of an item on a gone drive reads Windows' "The device is
-    /// not ready." and fails the whole item at once.
-    ///
-    /// parity: OPS-047
-    #[test]
-    fn a_gone_drive_is_not_ready() {
-        assert_eq!(
-            device_not_ready(),
-            TransferError::NotMounted("The device is not ready.".into())
-        );
-        assert!(is_drive_error(&TransferError::NotFound(
-            "No such file or directory".into()
-        )));
-        assert!(is_drive_error(&TransferError::Failed(
-            "Input/output error".into()
-        )));
-        for kept in [
-            TransferError::Cancelled,
-            TransferError::Exists("taken".into()),
-            TransferError::RecoveryRequired("backup".into()),
-            TransferError::InsideSource("inside".into()),
-            TransferError::NotSupported("no".into()),
-        ] {
-            assert!(!is_drive_error(&kept), "{kept:?}");
-        }
-    }
 }

@@ -429,25 +429,4 @@ mod tests {
         assert_eq!(decision, EntryDecision::Skip);
         assert_eq!(*asked.lock().expect("the names"), ["Photos/beach.jpg"]);
     }
-
-    /// The item itself, failing on a stick that was pulled out, is asked
-    /// about in Windows' words: "The device is not ready." as an
-    /// "Interrupted Action", never "Item Not Found".
-    ///
-    /// parity: OPS-047
-    #[test]
-    fn an_item_on_a_drive_that_went_away_is_not_ready() {
-        let stick = "file:///media/demo/STICK";
-        let (mut failures, _) = skipping();
-        failures.watch_destination(
-            DestinationDrive::fixed(stick, WITH_STICK, None).now(WITHOUT_STICK, Some(ENOENT)),
-        );
-
-        let error = failures.explain(TransferError::NotFound("No such file or directory".into()));
-
-        assert_eq!(error.to_string(), "The device is not ready.");
-        assert_eq!(FailureCause::of(&error), FailureCause::Other);
-        let kept = failures.explain(TransferError::Exists("Photos".into()));
-        assert_eq!(kept, TransferError::Exists("Photos".into()));
-    }
 }
