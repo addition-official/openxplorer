@@ -402,7 +402,7 @@ fn a_larger_square_draws_the_glyph_at_a_16_pixel_em() {
     assert_eq!(ink, (2, 2, 17, 17), "16 pixels of em in the middle of 20");
 }
 
-/// Chevrons are drawn at WinUI's 8-pixel font size in their square: a
+/// Chevrons are drawn at `WinUI`'s 8-pixel font size in their square: a
 /// drop-down button's caret in the command bar's 17-pixel square inks
 /// 8 pixels, not the 16 of the glyphs beside it.
 ///

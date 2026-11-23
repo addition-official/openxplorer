@@ -81,11 +81,10 @@ pub(crate) const fn windows_source(icon: Icon) -> WindowsSource {
         Icon::Bluetooth => glyph(0xE702, "Bluetooth"),
         Icon::CheckboxChecked => glyph(0xE73A, "CheckboxComposite"),
         Icon::Checkmark => glyph(0xE73E, "CheckMark"),
-        Icon::ChevronDown => glyph(0xE70D, "ChevronDown"),
-        // The chevrons are WinUI's, drawn at its 8-pixel font size
+        // The chevrons are `WinUI`'s, drawn at its 8-pixel font size
         // ([`em_of`]), as a drop-down button, a breadcrumb or a submenu
         // draws them.
-        Icon::ChevronDown16 => glyph(0xE70D, "ChevronDown"),
+        Icon::ChevronDown | Icon::ChevronDown16 => glyph(0xE70D, "ChevronDown"),
         Icon::ChevronLeft16 => glyph(0xE76B, "ChevronLeft"),
         Icon::ChevronRight16 => glyph(0xE76C, "ChevronRight"),
         Icon::ChevronUp16 => glyph(0xE70E, "ChevronUp"),
@@ -99,8 +98,7 @@ pub(crate) const fn windows_source(icon: Icon) -> WindowsSource {
         Icon::Desktop => glyph(0xE7F4, "TVMonitor"),
         // Menus' and dialogs' thin X, as Windows draws "Remove from list"
         // and a tab's Close.
-        Icon::Dismiss => glyph(0xE711, "Cancel"),
-        Icon::Dismiss16 => glyph(0xE711, "Cancel"),
+        Icon::Dismiss | Icon::Dismiss16 => glyph(0xE711, "Cancel"),
         Icon::Document => glyph(0xE8A5, "Document"),
         Icon::Eye => glyph(0xE890, "View"),
         Icon::Folder => glyph(0xE8B7, "Folder"),
@@ -224,7 +222,7 @@ pub(crate) const fn windows_em(size: i32) -> i32 {
 }
 
 /// The em Windows 11 draws `icon`'s glyph at in a square of `size`
-/// pixels: chevrons at WinUI's 8-pixel font size (a drop-down button's
+/// pixels: chevrons at `WinUI`'s 8-pixel font size (a drop-down button's
 /// caret, a breadcrumb separator, a submenu arrow, an expander), others
 /// as [`windows_em`] has it; never larger than the square.
 pub(crate) const fn em_of(icon: Icon, size: i32) -> i32 {
@@ -247,7 +245,7 @@ pub(crate) const fn em_of(icon: Icon, size: i32) -> i32 {
     }
 }
 
-/// WinUI's font size for the chevrons of its controls.
+/// `WinUI`'s font size for the chevrons of its controls.
 const CHEVRON_EM: i32 = 8;
 
 /// The largest square a glyph is drawn into at a smaller em.
