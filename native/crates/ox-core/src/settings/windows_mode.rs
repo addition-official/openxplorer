@@ -87,6 +87,8 @@ pub const WINDOWS_SETTINGS: &[WindowsSetting] = &[
     like_windows!("moreNavigationPaneItems", more_navigation_pane_items, false, "Show more items in the navigation pane"),
     like_windows!("moreTabMenuItems", more_tab_menu_items, false, "Show more items in the tab menu"),
     like_windows!("columnHeaderStyle", column_header_style, ColumnHeaderStyle::Windows, "Column header style"),
+    like_windows!("columnTitleLine", column_title_line, false, "Show a line under column titles"),
+    like_windows!("nameColumnWindowsWidth", name_column_windows_width, true, "Name column starts at Windows' width (256 px)"),
     like_windows!("recycleReplacedFiles", recycle_replaced_files, false, "When replacing a file, move the old one to the Recycle Bin"),
     like_windows!("deleteRemovablePermanently", delete_removable_permanently, true, "Delete files on removable drives permanently (like Windows)"),
     like_windows!("pastePicturesAsFiles", paste_pictures_as_files, false, "Paste pictures as new files"),
