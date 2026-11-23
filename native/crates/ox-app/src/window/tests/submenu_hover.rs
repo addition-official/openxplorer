@@ -716,4 +716,3 @@ fn the_pointer_leaving_scrolled_rows_for_the_strip_opens_no_submenu() {
         "{label}'s submenu stays shut once the pointer is on the strip"
     );
 }
-
