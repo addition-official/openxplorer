@@ -1,5 +1,9 @@
-STATUS: RUNNING (merged and pushed; GitHub Actions builds the deb)
+STATUS: DONE (deb ready; built by GitHub Actions)
 HEAD: test-combined-55 26de5e7b2055eb9e10b81c133524153cca7c864d
+DEB: claude/test-combined-55-deb 069b7ce058dd25d64deba34252fb707ebf71dc4f
+  openxplorer_2.0.23+test55_all.deb (io.winspace.Development)
+SHA256: 08c1483170e72c995cb316e985d945977ae7f89b68609c7268715b6f7c38e7c1
+RUN: https://github.com/addition-official/openxplorer/actions/runs/45254223978
 
 BRANCH: test-combined-55, started from deb 54's test-combined-54 c063d9b7, with only the new tips merged; each tip was current when pushed.
 
