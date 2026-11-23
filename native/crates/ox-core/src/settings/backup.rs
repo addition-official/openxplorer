@@ -451,7 +451,7 @@ mod tests {
             "hideInfotips": true, "hideStatusBar": true, "hidePreviewHandlers": true,
             "typeIntoSearchBox": true, "searchContents": true, "showSearchFilterBar": true,
             "pastePicturesAsFiles": false, "copyPathsAsText": false,
-            "nameColumnWindowsWidth": true, "ctrlPlusMinusTextSize": false,
+            "nameColumnWindowsWidth": true, "ctrlPlusMinusTextSize": false, "askForStar": false,
             "behaveLikeWindows": {"pastePicturesAsFiles": true},
             "viewDefaults": {"mode": "icons", "iconSize": 96, "sort": "modified",
                              "descending": true, "groups": false, "foldersFirst": false},

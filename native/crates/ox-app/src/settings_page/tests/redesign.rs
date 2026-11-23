@@ -277,6 +277,8 @@ fn every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages() {
         // Whether the main keyboard's Ctrl+plus and Ctrl+minus change the
         // text size, a line of the switch above (SET-020).
         "Ctrl+plus and Ctrl+minus change text size",
+        // Whether the GitHub star prompt may pop up (UPD-023, SET-020).
+        "Ask for a GitHub star",
         // The letters of mapped network folders, which can be turned off.
         "Show letters on mapped network folders",
         // Carrying the settings to another computer.
