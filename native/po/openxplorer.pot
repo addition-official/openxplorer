@@ -4579,7 +4579,15 @@ msgid "Every OpenXplorer window by title; choose one to bring it to the front."
 msgstr ""
 
 #: crates/ox-app/src/settings_page/general.rs
+msgid "Every Properties window, for a file, a folder, a drive, a shortcut or several items, opens at the same size and cannot be resized, as in Windows. Off: it opens at that size and can be made larger."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/general.rs
 msgid "Folders from other apps open in a new window"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/general.rs
+msgid "Keep Properties windows a fixed size (like Windows)"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/general.rs
@@ -4680,6 +4688,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/general.rs
 msgid "open new tabs new tab position after current end tab bar order middle click"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/general.rs
+msgid "properties window size fixed resize resizable larger same size dialog windows 380 520"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/general.rs

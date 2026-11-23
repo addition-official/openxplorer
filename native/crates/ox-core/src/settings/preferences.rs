@@ -638,6 +638,12 @@ pub struct Preferences {
     /// Copy as path.
     #[serde(skip_serializing_if = "is_true")]
     pub copy_paths_as_text: bool,
+    /// Every item's Properties window keeps Windows' one size (380 x 520)
+    /// and cannot be resized, as in Windows 11 File Explorer. Off by
+    /// default, the owner's choice: the window opens at that size and can
+    /// be made larger. Stored as `fixedPropertiesSize`, only when on.
+    #[serde(rename = "fixedPropertiesSize", skip_serializing_if = "std::ops::Not::not")]
+    pub fixed_properties_size: bool,
     /// The GitHub star prompt may pop up (UPD-023), as the owner chose.
     /// Off, it never does, as Windows 11 File Explorer asks for nothing
     /// of the kind; Dismiss still keeps it away for good either way. A
@@ -813,6 +819,7 @@ impl Default for Preferences {
             search_contents: false,
             paste_pictures_as_files: true,
             copy_paths_as_text: true,
+            fixed_properties_size: false,
             ask_for_star: true,
             ctrl_plus_minus_text_size: true,
             windows_mode_before: None,
@@ -986,9 +993,11 @@ impl Preferences {
     }
 
     /// The GitHub star prompt: whether it may pop up, its launch count,
-    /// and its dismissal, which nothing takes back.
+    /// and its dismissal, which nothing takes back. Also whether the
+    /// Properties windows keep one size, to keep [`Self::apply`] short.
     fn apply_star_prompt(&mut self, update: &PreferencesUpdate) {
         replace_if_some(&mut self.ask_for_star, update.ask_for_star);
+        replace_if_some(&mut self.fixed_properties_size, update.fixed_properties_size);
         replace_if_some(&mut self.star_prompt_launches, update.star_prompt_launches);
         if update.star_prompt_dismissed == Some(true) {
             self.star_prompt_dismissed = true;
@@ -1382,6 +1391,8 @@ pub struct PreferencesUpdate {
     pub paste_pictures_as_files: Option<bool>,
     /// See [`Preferences::copy_paths_as_text`].
     pub copy_paths_as_text: Option<bool>,
+    /// See [`Preferences::fixed_properties_size`].
+    pub fixed_properties_size: Option<bool>,
     /// See [`Preferences::ask_for_star`].
     pub ask_for_star: Option<bool>,
     /// See [`Preferences::ctrl_plus_minus_text_size`].
@@ -1517,6 +1528,7 @@ impl PreferencesUpdate {
             search_contents: flag("searchContents"),
             paste_pictures_as_files: flag("pastePicturesAsFiles"),
             copy_paths_as_text: flag("copyPathsAsText"),
+            fixed_properties_size: flag("fixedPropertiesSize"),
             ask_for_star: flag("askForStar"),
             ctrl_plus_minus_text_size: flag("ctrlPlusMinusTextSize"),
             windows_mode: values.get(WINDOWS_MODE_KEY).and_then(read_windows_mode),

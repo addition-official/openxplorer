@@ -279,6 +279,8 @@ fn every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages() {
         "Ctrl+plus and Ctrl+minus change text size",
         // Whether the GitHub star prompt may pop up (UPD-023, SET-020).
         "Ask for a GitHub star",
+        // Properties windows at one size, as Windows' (PROP-001, SET-020).
+        "Keep Properties windows a fixed size (like Windows)",
         // The letters of mapped network folders, which can be turned off.
         "Show letters on mapped network folders",
         // Carrying the settings to another computer.

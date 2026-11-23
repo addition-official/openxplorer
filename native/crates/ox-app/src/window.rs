@@ -282,6 +282,12 @@ impl BrowserWindow {
         window
     }
 
+    /// Whether Settings keeps every Properties window at Windows' one
+    /// size, not resizable ("Keep Properties windows a fixed size").
+    pub(crate) fn keeps_properties_fixed(&self) -> bool {
+        self.context().settings_data().preferences.fixed_properties_size
+    }
+
     /// The state shared by every window of the application.
     fn context(&self) -> &AppContext {
         self.imp()
