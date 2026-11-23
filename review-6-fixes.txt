@@ -1,0 +1,72 @@
+STATUS: DONE
+HEAD: claude/review-6-fixes 1bef0b79 (on origin/test-combined-51 ca458a05)
+QUESTION: U2 (dates on or before 1970-01-01 show the unknown dash) needs Entry::modified to become signed, and that needs a one-line change in native/crates/ox-app/src/folder_view/details/column_text.rs (its date closure takes Option<u64>), a Details-column file I was told not to edit. May I change that line, or should the Details-columns branch take it?
+NOTE: Every report item is fixed, waiting on a VM check, or skipped with the reason below. U1 now matches Windows (Hidden writes the folder's .hidden list; no rename); I found no recorded owner decision for the old dot-rename, so no setting was added (a possible "like Windows" switch is listed under SETTINGS). Testing followed the updated rule from the coordinating session: build, run the tests of the touched modules, check each fix in the real app with real input, one regression test for D1. No claude/windows-mode-switch branch exists.
+
+ITEMS
+| Item | Result | Commit(s) | How it was checked |
+|---|---|---|---|
+| D1 compress drops links, FIFOs, sockets silently | fixed | b85d44d8 | Regression test archive_compress_links fails on the old code (archive lacked "link to notes.txt", "link to Projects/" and its file) and passes now. Real app: Special > Compress to > ZIP File; unzip -l shows the link targets; message "Some items were not compressed" names dangling.txt, pipe.txt, self, socket with reasons |
+| B1 empty .txt cannot be opened | fixed | f42e4f4f | Real app: double-click "Empty file.txt" (0 bytes); the registered text editor received the path |
+| B2 Share silent when no email app | fixed | d5c83e64, 28baea11 | Real app with xdg-desktop-portal + GTK backend, no email app: Share shows "Opening your email app…", then a "Share" message "No email app is set up…" within about 3 s (before: nothing) |
+| B3 indexing on but nothing indexed | fixed | 44b7630b, fb0d350b | Fresh HOME, real app: Settings > Search reads "Instant search is on for 6 folders, 16 names indexed" on first run |
+| B (Counts) "Could not update the search cache" for trash: | fixed | 3b4a2d42 | Built and search tests pass; emptying the Recycle Bin in the app to watch for the warning was NOT done |
+| U1 Hidden renames the file | fixed (matches Windows) | 87f0f7cf, 1bef0b79 | Real app: Properties > Hidden > Apply keeps "Meeting notes.txt", writes it to .hidden, the list hides it; clearing Hidden removes the line (the app removes the list file it emptied). GLib keeps a folder's .hidden for about 7 to 8 s (measured with a small C program), so the folder is listed again at 6 s and 11 s |
+| U2 dates at or before 1970 show a dash | skipped, blocked | none | See QUESTION. A working partial patch exists for ox-core; it cannot compile without the column_text.rs line |
+| U3 copying a file link copies the link | VM | none | VM CHECK 5 |
+| U4 tab of a deleted folder stays on an error page | VM (wording improved by L1) | none | VM CHECK 6 |
+| U5 time-zone change not followed | VM | none | VM CHECK 7 |
+| U6 no Print | VM | none | VM CHECK 8 |
+| U7 File contents option not shared or kept | VM | none | VM CHECK 9 |
+| U8 Japanese dates | VM | none | VM CHECK 10 |
+| U9 folder link typed "Shortcut" | VM | none | VM CHECK 11 |
+| U10 GitHub star popup | VM (listed in the report's needs-a-VM-check group) | none | Windows never asks; no exact VM step was given; see VM CHECK 13 |
+| L1 local error page: network icon, raw text, selected | fixed | 3cfbce98, b2ee9eed | Real app: a 4,198-byte path shows a folder icon, "The file name or path is too long.", the raw text under Details, nothing selected; a missing folder shows "This folder can't be found. It may have been moved or deleted."; a share mounted at a local path still says it was disconnected |
+| L2 Interrupted Action window all path | skipped | none | The report assigns this window to copy/move (failure_dialog.rs); not changed here |
+| L3 Hebrew/Arabic names right-aligned | skipped | none | Needs the name labels in folder_view/cells.rs to keep a left-to-right base direction (prefix the shown text with U+200E or turn off auto-direction). That file is being edited by the Details-columns work, so it was left alone; VM CHECK 12 still applies |
+| L4 "Incomplete / offline" for a local folder | fixed | 693f4377 | Settings row chip reads "Indexed, some folders could not be read"; tooltip keeps the folder's error. Stored status word unchanged (shared with the Python app). Settings and search tests |
+| L5 Previous Versions mentions "your server" | fixed | add83fcb, cf524f91 | A local file shows only "There are no previous versions available."; shares keep the note. Item-dialog tests |
+| L6 tar + None level slider; no Zstandard | level: already fixed on this base; Zstandard: skipped | none | additional_options_lay_out_the_create_archive_dialog asserts the slider is grayed for a plain TAR (passes). Zstandard is not offered because the linked library has no streaming encoder (ARC-023 note); VM CHECK 4 |
+| L7 Alt+D reaches the address bar behind a dialog | fixed | 8e717234 | Real app: Create archive dialog open, Alt+D leaves the address bar as breadcrumbs (before: selected edit field) |
+| L8 Gallery year scale skips years | fixed | 452274c9 | Real app: photos 2019 to 2025 plus 40 from today; scale shows 2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019 (before the fix: 2026, 2025, 2023, 2020) |
+
+SETTINGS for the "Behave like Windows Explorer" switch
+- None added. If the old Hidden behavior (rename to a dot-name) was wanted on purpose, a setting "Hide items by renaming them with a leading dot" (off = like Windows) would bring it back.
+
+LONG NAMES (1920x1080, 1x, dark, same RefTest items; 108-character .jpg name; measured with measure_label.py on the reference and on ours)
+| Place | Windows 11 | Ours | Overlap |
+|---|---|---|---|
+| Tiles | 2 name lines, 184 px and 183 px (x 1502-1685), then "…" | 1 line, 189 px (x 1694-1882), "…" | none |
+| Large icons | 4 lines, 88 px each, cell about 106 px | 2 lines, 117 px and 153 px, "…" | none |
+| Content | name cut at a fixed column, 218 px (x 401-619), "…" | whole name on one line, 619 px wide | none |
+| Details pane name | 5 lines: 160, 187, 176, 169, 164 px | 5 lines: 150, 176, 164, 158, 137 px | none |
+| Details pane File location | 1 line, 163 px, "…" | 2 lines, 94 px and 105 px, wrapped | none |
+| Tab title | cut without "…" | cut without "…" | none |
+| Address bar | breadcrumbs with overflow | breadcrumbs with « overflow | none |
+| Properties | reference is for a short name; no comparison | name field scrolls; title cut by the window manager | none |
+| D1 message | n/a | names wrap inside the dialog | none |
+- Nothing overlapped its neighbor anywhere. Differences left for others: Tiles 1 line vs 2 and Large icons 2 lines vs 4 (folder_view/cells.rs), the Details column name (Details-column files), the Details pane's File location wrapping (Details pane).
+
+TESTS RUN (Rust 1.92.0; app tests as user tester, throwaway HOME, private Xvfb and D-Bus)
+- PASS archive_compress_links (D1 regression; FAILED on the old code first), archive_compress_sources (4), archive_progress (7), archive_tar_links (11), archive::create unit tests
+- PASS ox-core entry, email_portal, search::pins, places unit tests; whole ox-core unit binary: 1,385 passed, 28 failed, all in admin_copy, admin_delete (trusted-path checks reject the /tmp run folder) and one clipboard test that needs the Python app; none in changed modules
+- PASS ox-app filtered runs: properties + item_dialogs 153/153; search + indexing 71/71 (after updating 2 tests); share, item_dialogs, disconnected, empty_page, empty_folder, address, input, search_box 340/340; gallery + scrubber 32/32; empty_page + unavailable + denied 49/49
+- ENVIRONMENT failures, not from these changes: 3 archive tests need an installed archive manager (no app for application/zip here); 4 settings tests need OX_PYTHON_APP; 1 picker capture test starts the real portal installed here for B2, which cannot mount its FUSE store
+- PASS check.py steps: parity inventories and driver tests (124), drawn-icon guard, rustfmt; i18n check; parity/check.py; tools/sync-docs.py --check; tools/audit-public-data.py (no issues)
+- FAIL clippy -D warnings: 3 warnings that exist on the untouched base too (entry/enumerate.rs:386, properties/general_tab.rs main function length, properties/item_window.rs function length); none from these changes
+- NOT RUN: the full ox_app binary in one process and check.py's test-executable step (dropped by the updated rule); Wayland; HiDPI
+
+VM CHECK (copied from the report; on Windows 11 24H2 with File Explorer, in a test user's Documents)
+1. Empty text file (B1): right-click > New > Text document, Enter, Enter. Expected: Notepad opens.
+2. Share with no mail app (B2): select a .txt, Share. Note what the share window offers and what happens with Outlook/Mail not set up.
+3. Indexing (B3): a fresh user: Settings > Privacy & security > Searching Windows > note the default indexed locations; search Documents for a word inside a .txt.
+4. Create archive (D1, L6): make C:\T\Links with a file, mklink link.txt file.txt and mklink /D linkdir C:\T\Other (admin or Developer Mode). Right-click Links > Compress to > Additional options. Note the Method list for tar, whether Level is active for None, and, with "Retain symbolic links" unticked, whether the archive holds the targets' contents, links, or nothing; and whether Explorer says anything.
+5. Copy a file symlink (U3): with mklink notes-link.txt ..\notes.txt in a subfolder, copy notes-link.txt to the Desktop. Is the Desktop item a file with the text, or a link? Same for a directory link (mklink /D).
+6. Folder deleted while open (U4): open Documents\Temp in a tab, delete it from cmd (rmdir Temp), switch to the tab. Where does it go?
+7. Time-zone change (U5): Explorer open in Details view, change the time zone in Settings, look at Date modified without refreshing, then after F5.
+8. Print (U6): right-click a .txt, a .pdf and a .jpg > Show more options: is Print there, and in the modern menu?
+9. File contents (U7): Search options > Advanced options > File contents; then Folder Options > Search: is "Always search file names and contents" ticked? Close and reopen Explorer: is File contents still on?
+10. Japanese dates (U8): Region format Japanese; Date modified in Details view.
+11. Symlink types (U9): the Type column of a mklink /D folder link, a file link and a .lnk.
+12. RTL names (L3): files named עברית.txt and مستند عربي.txt in Details view: left next to the icon, or right?
+13. Star prompt (U10, no step in the report): after several launches, confirm Explorer never shows a request to rate or star it.
