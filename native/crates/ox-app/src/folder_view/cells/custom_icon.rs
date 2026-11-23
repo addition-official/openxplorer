@@ -78,7 +78,7 @@ impl FileCell {
         imp.image.set_opacity(1.0);
         let entry = item.entry();
         let uri = entry.uri.clone();
-        let pixels = crate::icons::scaled(imp.icon_size.get()) * self.scale_factor().max(1);
+        let pixels = imp.icon_size.get() * self.scale_factor().max(1);
         let preview = previews.request(entry, pixels);
         let kind_picture = crate::icons::file_icons::picture_for(entry);
         if !uri.starts_with("file:") && preview.is_none() && kind_picture.is_none() {

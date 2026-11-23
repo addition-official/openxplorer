@@ -186,14 +186,20 @@ impl CellSize {
 /// the other sizes, which the Python app does not have.
 pub(crate) fn cell_size(size: IconSize, text_size: TextSize) -> CellSize {
     let metrics = text_size::metrics(text_size);
-    // The icon grows with the text, as at a desktop scale.
-    let icon = crate::icons::scaled_by(size.pixels(), metrics.scale);
-    let icon_growth = icon - WEB_TILE_ICON;
-    let width_for_icon = icon + TILE_WIDTH_BEYOND_ICON;
+    let icon_growth = size.pixels() - WEB_TILE_ICON;
+    let width_for_icon = size.pixels() + TILE_WIDTH_BEYOND_ICON;
     CellSize {
-        width: metrics.grid_width.max(width_for_icon),
-        height: metrics.grid_row + icon_growth,
+        width: metrics
+            .grid_width
+            .max(width_for_icon + growth_with_text(size, metrics.scale)),
+        height: metrics.grid_row + icon_growth + growth_with_text(size, metrics.scale),
     }
+}
+
+/// How many pixels an icon of `size` grows with the text at `scale`, as
+/// at a desktop scale ([`crate::icons::scaled_by`]).
+fn growth_with_text(size: IconSize, scale: f64) -> i32 {
+    crate::icons::scaled_by(size.pixels(), scale) - size.pixels()
 }
 
 /// The icon edge of Tiles: Windows 11's tiles show 48-pixel icons and
