@@ -1,0 +1,15 @@
+STATUS: RUNNING (merged and pushed; GitHub Actions builds the deb)
+HEAD: test-combined-54 c063d9b779daeb4ab3f06a1b653999663bc14ca2
+
+BRANCH: test-combined-54, started from deb 53's test-combined-53 8ea787de, with only the new tips merged; each tip was still current after merging.
+
+MERGES (in the order given):
+- pass-7-views a527fe9a -> 9f051919 (Content's columns placed as Windows does, saved widths scaled, the new "Show a line under column titles" setting, the title dividers always shown, and more "Drop redundant tests" commits, which merged without conflict). ox-core settings/preferences.rs: only the wording of an #[expect] reason differed; the tree's kept. native/docs/ui-spec.md: the tree's "Sort indicator, Windows style" row (sort-header-windows' newer measurements) and pass-7's new "Line under the column titles" row.
+- user-icon-files ebe2dbd9 -> d989a27b: no conflicts (the branch has merged test-combined-53, so deb 53's icon_size.rs conflict is resolved there).
+- claude/review-6-fixes 86a562eb -> c063d9b7: no conflicts.
+- Generated files (.pot, markdown.json, docs Markdown) regenerated where needed, as before.
+- Still kept from deb 53: icons/user_glyphs/tests.rs and window/tests/column_header_style.rs, which pass-7 deletes, with the tests the tree added to them since.
+
+SKIPPED: none.
+
+CHECKS HERE: cargo check of the workspace (and of all targets): no errors or warnings. Commits: 563 on top of main, 561 by addition-official <239187859+addition-official@users.noreply.github.com> (author and committer) and the owner's 2 #366 commits by AKolenda, as before; no trailers. No release build, tests or long checks here, as asked.
