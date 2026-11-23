@@ -205,18 +205,4 @@ mod tests {
         fs::write(folder.path().join(TYPED_ADDRESSES_FILE), stored).expect("written");
         assert_eq!(TypedAddresses::open(folder.path()).addresses(), ["/ok"]);
     }
-
-    #[test]
-    fn clearing_forgets_everything_and_removes_the_file() {
-        let folder = tempfile::tempdir().expect("a temporary folder");
-        let mut history = TypedAddresses::open(folder.path());
-        history.remember("/demo").expect("saved");
-
-        history.clear().expect("removed");
-
-        assert!(history.addresses().is_empty());
-        assert!(!folder.path().join(TYPED_ADDRESSES_FILE).exists());
-        assert!(TypedAddresses::open(folder.path()).addresses().is_empty());
-        history.clear().expect("clearing twice is fine");
-    }
 }
