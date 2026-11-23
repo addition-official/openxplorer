@@ -762,6 +762,32 @@ impl GeneralEdits {
         (Some(wanted) != self.read_only_now.get()).then_some(wanted)
     }
 
+    /// After the item at `uri` was renamed to `wanted`: the tab follows
+    /// its new location and name, Hidden shows whether it is hidden
+    /// (`listing` when it is about to be listed), and the title its name.
+    fn show_renamed(&self, window: Option<&PropertiesWindow>, uri: &str, wanted: &str, listing: bool) {
+        let renamed = gtk::gio::File::for_uri(uri)
+            .parent()
+            .map(|parent| parent.child(wanted).uri().to_string());
+        if let Some(renamed) = renamed {
+            self.uri.replace(renamed);
+        }
+        self.original_name.replace(wanted.to_owned());
+        self.hidden_extension
+            .replace(hidden_extension(wanted, self.always_whole(), self.extensions).map(str::to_owned));
+        self.is_updating.set(true);
+        self.name.set_text(self.shown(wanted));
+        self.hidden
+            .set_active(wanted.starts_with('.') || self.listed.get() || listing);
+        self.is_updating.set(false);
+        if let Some(window) = window {
+            window.set_title_text(&ox_core::i18n::format_message(
+                "{title} Properties",
+                &[("title", self.shown(wanted))],
+            ));
+        }
+    }
+
     async fn apply_now(self: Rc<Self>) -> Result<(), String> {
         let window = self.window.upgrade();
         let opener = window.as_ref().and_then(PropertiesWindow::opener);
@@ -855,26 +881,7 @@ impl GeneralEdits {
                 self.is_updating.set(false);
                 return Ok(());
             }
-            let renamed = gtk::gio::File::for_uri(&uri)
-                .parent()
-                .map(|parent| parent.child(&wanted).uri().to_string());
-            if let Some(renamed) = renamed {
-                self.uri.replace(renamed);
-            }
-            self.original_name.replace(wanted.clone());
-            self.hidden_extension
-                .replace(hidden_extension(&wanted, self.always_whole(), self.extensions).map(str::to_owned));
-            self.is_updating.set(true);
-            self.name.set_text(self.shown(&wanted));
-            self.hidden
-                .set_active(wanted.starts_with('.') || self.listed.get() || listing == Some(true));
-            self.is_updating.set(false);
-            if let Some(window) = &window {
-                window.set_title_text(&ox_core::i18n::format_message(
-                    "{title} Properties",
-                    &[("title", self.shown(&wanted))],
-                ));
-            }
+            self.show_renamed(window.as_ref(), &uri, &wanted, listing == Some(true));
         }
         if let Some(hide) = listing {
             self.list_as_hidden(window.as_ref(), (&wanted, &original), hide)?;

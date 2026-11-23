@@ -75,12 +75,12 @@ pub(crate) const fn windows_source(icon: Icon) -> WindowsSource {
         Icon::ArrowRedo => glyph(0xE7A6, "Redo"),
         Icon::ArrowRight => glyph(0xE72A, "Forward"),
         Icon::ArrowSort => glyph(0xE8CB, "Sort"),
-        // The command bar's picture commands. Windows 11 draws them as
-        // two-tone pictures, not font glyphs; these are the nearest glyphs
-        // of Microsoft's table, drawn in the bar's colour as Cut's is.
+        // The command bar's rotate commands (Set as background is with
+        // Image). Windows 11 draws them as two-tone pictures, not font
+        // glyphs; these are the nearest glyphs of Microsoft's table, drawn
+        // in the bar's colour as Cut's is.
         Icon::RotateLeft => glyph(0xE80D, "RotateMapLeft"),
         Icon::RotateRight => glyph(0xE80C, "RotateMapRight"),
-        Icon::SetAsBackground => glyph(0xE8B9, "Picture"),
         Icon::ArrowUndo => glyph(0xE7A7, "Undo"),
         Icon::ArrowUp => glyph(0xE74A, "Up"),
         Icon::Bluetooth => glyph(0xE702, "Bluetooth"),
@@ -112,7 +112,8 @@ pub(crate) const fn windows_source(icon: Icon) -> WindowsSource {
         Icon::HardDrive => glyph(0xEDA2, "HardDrive"),
         Icon::History => glyph(0xE81C, "History"),
         Icon::Home => glyph(0xE80F, "Home"),
-        Icon::Image => glyph(0xE8B9, "Picture"),
+        // Set as background takes the same Picture glyph.
+        Icon::Image | Icon::SetAsBackground => glyph(0xE8B9, "Picture"),
         Icon::Info => glyph(0xE946, "Info"),
         Icon::Laptop => glyph(0xE7F8, "DeviceLaptopNoPic"),
         Icon::Link => glyph(0xE71B, "Link"),
