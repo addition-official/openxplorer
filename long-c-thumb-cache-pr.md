@@ -8,6 +8,17 @@ Model: claude-opus-5-5
 
 CLA: I agree
 
+## Folder content previews (78583801)
+
+At Medium icons and larger and in Tiles, a folder shows its contents in its icon, as Windows 11 does:
+
+- **Pictures:** the thumbnails of its first two pictures or videos by name peek out between the folder's back and a lower front, the second slanted behind the first.
+- **Files:** with no picture, the icon of its first file peeks out as a page.
+- **Plain:** an empty folder stays plain, and so does every folder in Details, List, Small icons and Content, or with "Always show icons, never thumbnails" on.
+- **Speed:** the folder is read off the main thread after its own icon, and its contents are kept by its modification time. The thumbnails come through the shared cache, so a folder seen again draws its contents on the frame it is bound.
+- **Placement:** fractions measured on the Windows reference screenshots by `native/tools/measure-folder-previews.py`, within a pixel of Windows at Large icons.
+- **No new art:** the app's own folder icon is drawn whole behind the contents and again, cut along the front's edge, in front of them. With Windows icon files on, imageres groups 5 and 6 are used as the back and front when the files hold them.
+
 ## Merge with test-combined-51 (486bb16c, c7bf3def)
 
 test-combined-51 is merged, so the branch contains long-d-doc-previews and every branch of deb 51. long-d's office documents take the cache's path:
