@@ -1,7 +1,7 @@
 STATUS: DONE
-HEAD: claude/review-6-fixes 86a562eb (round 2 on origin/test-combined-53 8ea787de, which already held round 1)
+HEAD: claude/review-6-fixes b35a23c7 (round 3 on origin/test-combined-54 c063d9b7)
 QUESTION: none (U2's one-line change in folder_view/details/column_text.rs was approved and made; only the closure's type changed)
-NOTE: Round 2 (five comparisons with reference/) is done: see ROUND 2. Round 1: every report item is fixed, waiting on a VM check, or skipped with the reason below. U1 now matches Windows (Hidden writes the folder's .hidden list; no rename); I found no recorded owner decision for the old dot-rename, so no setting was added (a possible "like Windows" switch is listed under SETTINGS). Testing followed the updated rule from the coordinating session: build, run the tests of the touched modules, check each fix in the real app with real input, one regression test for D1. No claude/windows-mode-switch branch exists.
+NOTE: Round 3 (picture command glyphs from the symbol font) is done: see ROUND 3. Round 2 (five comparisons with reference/) is done: see ROUND 2. Round 1: every report item is fixed, waiting on a VM check, or skipped with the reason below. U1 now matches Windows (Hidden writes the folder's .hidden list; no rename); I found no recorded owner decision for the old dot-rename, so no setting was added (a possible "like Windows" switch is listed under SETTINGS). Testing followed the updated rule from the coordinating session: build, run the tests of the touched modules, check each fix in the real app with real input, one regression test for D1. No claude/windows-mode-switch branch exists.
 
 ITEMS
 | Item | Result | Commit(s) | How it was checked |
@@ -29,6 +29,15 @@ ITEMS
 | L6 tar + None level slider; no Zstandard | level: already fixed on this base; Zstandard: skipped | none | additional_options_lay_out_the_create_archive_dialog asserts the slider is grayed for a plain TAR (passes). Zstandard is not offered because the linked library has no streaming encoder (ARC-023 note); VM CHECK 4 |
 | L7 Alt+D reaches the address bar behind a dialog | fixed | 8e717234 | Real app: Create archive dialog open, Alt+D leaves the address bar as breadcrumbs (before: selected edit field) |
 | L8 Gallery year scale skips years | fixed | 452274c9 | Real app: photos 2019 to 2025 plus 40 from today; scale shows 2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019 (before the fix: 2026, 2025, 2023, 2020) |
+
+ROUND 3 (picture commands' glyphs with Windows icon files and a symbol font on)
+| Item | Result | Commit | Notes |
+|---|---|---|---|
+| Set as background / Rotate left / Rotate right glyphs | fixed | 4e7f1e65, a22e8d48 | New roles Icon::SetAsBackground, RotateLeft, RotateRight draw the same bundled files as before when no font is used, and take their own glyphs from the font through the same mechanism as Cut and Copy (user_glyphs.rs), at the command bar's em: Picture E8B9 (shared with Image), RotateMapLeft E80D, RotateMapRight E80C. Before, the rotate buttons borrowed Refresh's (E72C) and Restore's (E777) glyphs. The roles are kept out of ALL_ICONS so the one-file-per-icon contract holds, and their glyphs are cached under their own names (ox-win-rotate-left/right, ox-win-set-as-background) |
+| Codepoints | NOT CONFIRMED | none | Windows 11 draws these three as two-tone pictures (blue and white in ref-18), not single font glyphs, and Microsoft's Segoe Fluent table has no glyph named for these commands. E80D/E80C/E8B9 are the nearest named glyphs from the verified part of that table (E7AD "Rotate" is the other candidate). See VM CHECK 14 |
+| Clippy in my code | fixed | a22e8d48, b35a23c7 | the duplicate Picture arm; Properties' apply_now (my U1 code) grew to 103 lines when pass-7 was merged into test-combined-53, so the after-rename bookkeeping moved into show_renamed; the Hidden test now waits for the view instead of checking once (it failed once in a loaded batch, then passed 160/160) |
+- Checked in the real app with a synthetic symbol font built by the repo's own generator: with a font holding only E80D and E80C, exactly ox-win-rotate-left and ox-win-rotate-right were made and drawn in the command bar, while Refresh and Restore kept their bundled icons, and Set as background kept its bundled icon (the font lacked E8B9, so it falls back as designed). No real Segoe font is available in this container, so the real glyph shapes were not seen.
+- Tests: icons, user_glyphs, windows_icon_files, command_bar, gallery_commands 122/122; icons, glyphs, properties and the Hidden/Alt tests 160/160. parity/check.py, i18n check, rustfmt pass. Clippy -D warnings on ox-app: one finding left, window/tests/shortcuts.rs:300 (empty line after an attribute), from test-combined-54, not touched here.
 
 ROUND 2 (measured by script at 1920x1080, 1x, dark, the RefTest items; Windows = reference/, ours = my captures after the change)
 | Item | Result | Commit | Windows | Ours before | Ours after |
@@ -88,4 +97,5 @@ VM CHECK (copied from the report; on Windows 11 24H2 with File Explorer, in a te
 10. Japanese dates (U8): Region format Japanese; Date modified in Details view.
 11. Symlink types (U9): the Type column of a mklink /D folder link, a file link and a .lnk.
 12. RTL names (L3): files named עברית.txt and مستند عربي.txt in Details view: left next to the icon, or right?
+14. Picture command glyphs (round 3): with Explorer's command bar showing Set as background, Rotate left and Rotate right for a selected .jpg, note whether these icons come from Segoe Fluent Icons and, if so, which codepoints (e.g. compare with the glyphs at E7AD, E80C, E80D, E8B9 in Character Map); if they are pictures rather than glyphs, say so.
 13. Star prompt (U10, no step in the report): after several launches, confirm Explorer never shows a request to rate or star it.
