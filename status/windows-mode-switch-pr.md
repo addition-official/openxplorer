@@ -25,6 +25,7 @@ like_windows!("pastePicturesAsFiles", paste_pictures_as_files, false, "Paste pic
 
 | Setting | Windows value |
 |---|---|
+| Ctrl+plus and Ctrl+minus change text size | off |
 | Open Quick access on Home | on |
 | Hide expand arrows in the sidebar | on |
 | Show more items in the navigation pane | off |
@@ -54,6 +55,10 @@ These settings are not on this branch yet. Each needs one line in `WINDOWS_SETTI
 
 A setting stored inside `viewOptions` would need a small extension of the macro; none of the current entries does.
 
+## New setting: "Ctrl+plus and Ctrl+minus change text size"
+
+In Windows 11 File Explorer, Ctrl+plus and Ctrl+minus on the main keyboard do nothing, and Ctrl+plus on the number pad sizes all columns to fit (per a check on a Windows 11 VM). This app uses the main keys for its text size. The new row under Settings > Appearance > Text size is on by default, as before. Off, the main keyboard's Ctrl+plus and Ctrl+minus do nothing, in the browser windows and in dialogs; Ctrl+number pad plus still sizes the Details columns to fit (it already did, VIEW-072), and Ctrl+number pad minus, Ctrl+0 and the Text size control keep working. It is stored as `ctrlPlusMinusTextSize`, only when off, and is in the registry with off as its Windows value.
+
 ## Other changes
 
 - Settings row in `native/crates/ox-app/src/settings_page/windows_mode.rs`, first group of the General page; the `mixed` switch style in `resources/skin/settings.css`.
@@ -65,6 +70,7 @@ A setting stored inside `viewOptions` would need a small extension of the macro;
 ## Tests run
 
 - `cargo fmt --all --check` and `cargo clippy --workspace --all-targets --locked` with Rust 1.92.0 as a separate tester user: no findings in the changed files. Clippy with `-D warnings` still stops on three findings in files this change does not touch (`ox-core/src/entry/enumerate.rs:386`, `ox-app/src/properties/general_tab.rs:87`, `ox-app/src/properties/item_window.rs:113`), which come from the merged branches.
+- ox-app `text_size` tests (28), including the new check that the main keyboard's plus and minus are left out when the setting is off, and the existing test that the text-size keys work inside dialogs.
 - ox-core `settings::` unit tests, including the registry check, on → off restore, Custom → off restore and the untrusted-value check.
 - ox-app `settings_page` tests under a private Xvfb display, D-Bus session and throwaway HOME (check.py's isolation), including the guard test and the GTK test that turns the switch on, checks each registry row shows its Windows value, changes one row (Custom), turns it off and checks each row shows its earlier value and the settings file has no `behaveLikeWindows`.
 - `python3 native/parity/check.py`, `python3 native/tools/i18n.py check` and `python3 tools/sync-docs.py --check`.
