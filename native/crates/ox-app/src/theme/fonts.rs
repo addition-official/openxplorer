@@ -32,7 +32,28 @@ pub(crate) fn css_for_text_size(text_size: TextSize) -> String {
     rules.extend(tiles_and_content_rules(text_size));
     rules.extend(compact_density_rules(scale, text_size));
     rules.extend(selection_bar_rules(scale));
+    rules.push(chevron_rules(scale));
     rules.join("\n") + "\n"
+}
+
+/// The chevrons the skin draws as backgrounds and icon sources, grown with
+/// the text as the icons are ([`crate::icons::scaled_by`]): a sorted
+/// column's 10-pixel arrow, the address bar's 12-pixel dividers and its
+/// root and overflow buttons, and the folder tree's 16-pixel expanders.
+fn chevron_rules(scale: f64) -> String {
+    let px = |size| crate::icons::scaled_by(size, scale);
+    let (sort, crumb, crumb_box, expander) = (px(10), px(12), px(20), px(16));
+    format!(
+        "columnview.files > header > button.sort-ascending, \
+         columnview.files > header > button.sort-descending {{ background-size: {sort}px {sort}px; }}\n\
+         columnview.files > header:hover > button:last-child.sort-ascending, \
+         columnview.files > header:hover > button:last-child.sort-descending \
+         {{ background-size: {sort}px {sort}px, auto; }}\n\
+         .address .crumb-divider, .address button.crumb-root, .address button.crumb-overflow \
+         {{ min-width: {crumb_box}px; background-size: {crumb}px {crumb}px; }}\n\
+         .folder-tree treeexpander expander {{ min-width: {expander}px; min-height: {expander}px; \
+         -gtk-icon-size: {expander}px; }}"
+    )
 }
 
 /// A selector's font size, in pixels at 100%.
@@ -458,7 +479,7 @@ const TILE_VERTICAL_CHROME: i32 = 12 + 12 + 1 + 1;
 fn tile_rule(icon_size: IconSize, text_size: TextSize) -> String {
     let cell = grid::cell_size(icon_size, text_size);
     let height = cell.height - TILE_VERTICAL_CHROME;
-    let width = icon_size.pixels();
+    let width = crate::icons::scaled_by(icon_size.pixels(), text_size.scale());
     let class = icon_size.css_class();
     format!("gridview.files.{class} > child {{ min-width: {width}px; min-height: {height}px; }}")
 }

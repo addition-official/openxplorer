@@ -253,6 +253,9 @@ impl Skin {
             return false;
         }
         self.providers().draw_text_size(text.size, text.family.as_deref());
+        // Icons grow and shrink with the text, so they keep their
+        // proportion to it, as at a desktop scale.
+        crate::icons::set_icon_scale(text.size.scale());
         imp.drawn_text.replace(Some(text));
         self.emit_by_name::<()>(TEXT_SIZE_CHANGED, &[]);
         true

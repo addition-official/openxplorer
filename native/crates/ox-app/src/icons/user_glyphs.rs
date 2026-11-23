@@ -20,7 +20,6 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use gtk::prelude::*;
 use gtk::{gdk, glib};
 use ox_core::settings::Preferences;
 use ox_core::windows_glyphs::{GlyphRequest, LoadedGlyphs};
@@ -296,27 +295,6 @@ fn glyph_icon_name(icon: Icon, size: i32) -> String {
     }
     let stem = stem.strip_suffix("-symbolic").unwrap_or(stem);
     format!("ox-win-{stem}-box{size}-symbolic")
-}
-
-/// The bundled icon a drawn icon name stands for: itself, or the icon a
-/// glyph's name was made from, in any square.
-fn icon_named(name: &str) -> Option<Icon> {
-    let bundled = name.strip_prefix("ox-win-").map(|rest| {
-        let rest = match rest.rsplit_once("-box") {
-            Some((stem, square))
-                if square
-                    .trim_end_matches("-symbolic")
-                    .bytes()
-                    .all(|byte| byte.is_ascii_digit()) =>
-            {
-                format!("{stem}-symbolic")
-            }
-            _ => rest.to_owned(),
-        };
-        format!("ox-{rest}")
-    });
-    let name = bundled.as_deref().unwrap_or(name);
-    ALL_ICONS.into_iter().find(|icon| icon.name() == name)
 }
 
 /// What the font is asked for: each glyph at an em filling its square,
@@ -647,28 +625,10 @@ fn css_pixels(body: &str, property: &str) -> Option<i32> {
 }
 
 /// Shows every bundled glyph on screen again as [`drawn_name`] draws it
-/// now: each image of every window whose icon is a bundled icon or a
-/// glyph's.
+/// now: each image [`super::set_icon`] showed, and every art image.
 fn redraw_images() {
-    for window in gtk::Window::list_toplevels() {
-        let mut pending = vec![window];
-        while let Some(widget) = pending.pop() {
-            let mut child = widget.first_child();
-            while let Some(current) = child {
-                child = current.next_sibling();
-                pending.push(current);
-            }
-            let Some(image) = widget.downcast_ref::<gtk::Image>() else {
-                continue;
-            };
-            let Some(icon) = image.icon_name().as_deref().and_then(icon_named) else {
-                continue;
-            };
-            if glyph_of(icon).is_some() {
-                super::set_icon(image, icon, image.pixel_size());
-            }
-        }
-    }
+    super::redraw_scaled_images();
+    super::user_icons::redraw_art_images();
 }
 
 /// Waits until the chosen font was read, for tests.

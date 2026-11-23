@@ -186,8 +186,10 @@ impl CellSize {
 /// the other sizes, which the Python app does not have.
 pub(crate) fn cell_size(size: IconSize, text_size: TextSize) -> CellSize {
     let metrics = text_size::metrics(text_size);
-    let icon_growth = size.pixels() - WEB_TILE_ICON;
-    let width_for_icon = size.pixels() + TILE_WIDTH_BEYOND_ICON;
+    // The icon grows with the text, as at a desktop scale.
+    let icon = crate::icons::scaled_by(size.pixels(), metrics.scale);
+    let icon_growth = icon - WEB_TILE_ICON;
+    let width_for_icon = icon + TILE_WIDTH_BEYOND_ICON;
     CellSize {
         width: metrics.grid_width.max(width_for_icon),
         height: metrics.grid_row + icon_growth,
@@ -238,7 +240,9 @@ pub(crate) fn tiles_cell(text_size: TextSize) -> CellSize {
     let scale = text_size::metrics(text_size).scale;
     CellSize {
         width: text_size::ceil_pixels(200.0 * scale + 56.0).max(256),
-        height: text_size::ceil_pixels(3.0 * text_line(scale) + 2.0).max(TILES_ICON) + TILES_CHROME,
+        height: text_size::ceil_pixels(3.0 * text_line(scale) + 2.0)
+            .max(crate::icons::scaled_by(TILES_ICON, scale))
+            + TILES_CHROME,
     }
 }
 
@@ -247,7 +251,8 @@ pub(crate) fn tiles_cell(text_size: TextSize) -> CellSize {
 /// Windows 11's rows are, with room for the 32-pixel icon.
 pub(crate) fn content_row(text_size: TextSize) -> i32 {
     let scale = text_size::metrics(text_size).scale;
-    text_size::ceil_pixels(2.0 * text_line(scale) + 1.0).max(CONTENT_ICON) + CONTENT_CHROME
+    text_size::ceil_pixels(2.0 * text_line(scale) + 1.0).max(crate::icons::scaled_by(CONTENT_ICON, scale))
+        + CONTENT_CHROME
 }
 
 /// The distance from one Details row to the next in Compact view
@@ -277,7 +282,8 @@ pub(crate) fn compact_density_line(text_size: TextSize) -> i32 {
 /// A row of Tiles in Compact view at `text_size`: three lines on a
 /// 16-pixel pitch beside the 48-pixel icon, with [`COMPACT_TILES_CHROME`].
 pub(crate) fn compact_density_tiles_row(text_size: TextSize) -> i32 {
-    (3 * compact_density_line(text_size)).max(TILES_ICON) + COMPACT_TILES_CHROME
+    (3 * compact_density_line(text_size)).max(crate::icons::scaled_by(TILES_ICON, text_size.scale()))
+        + COMPACT_TILES_CHROME
 }
 
 /// Pixels of a group heading's row in Tiles beside its title in Compact
@@ -362,12 +368,13 @@ mod tests {
                 height: 130
             }
         );
+        // At 150% the text's growth, and the icon's: 56 pixels are 84.
         let larger_text = cell_size(web_icons, TextSize::from_percent(150));
         assert_eq!(
             larger_text,
             CellSize {
                 width: 180,
-                height: 153
+                height: 153 + 28
             }
         );
         assert_eq!(

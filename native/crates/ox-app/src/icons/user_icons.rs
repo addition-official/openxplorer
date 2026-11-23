@@ -369,10 +369,11 @@ fn redraw_role_image(image: &gtk::Image) {
 
 /// Shows `role` in `image`, or `fallback` when there is no texture for it.
 fn show_role(image: &gtk::Image, role: Option<IconRole>, fallback: Icon, size: i32) {
-    match role.and_then(|role| texture_of(role, size, image.scale_factor())) {
+    let pixels = super::scaled(size);
+    match role.and_then(|role| texture_of(role, pixels, image.scale_factor())) {
         Some(texture) => {
             image.set_paintable(Some(&texture));
-            image.set_pixel_size(size);
+            image.set_pixel_size(pixels);
         }
         None => super::set_icon(image, fallback, size),
     }
@@ -404,7 +405,23 @@ fn redraw_all() {
     // The same icons' other source, File icons (LOOK-029), counts the
     // change too, so folder views that follow its generation draw again.
     super::file_icons::count_new_generation();
-    let (art_images, role_images, status) = STATE.with_borrow(|state| {
+    redraw_art_images();
+    let status = STATE.with_borrow(|state| state.status);
+    let followers = STATE.with_borrow_mut(|state| std::mem::take(&mut state.status_followers));
+    let kept: Vec<StatusFollower> = followers
+        .into_iter()
+        .filter(|follower| follower(status))
+        .collect();
+    STATE.with_borrow_mut(|state| {
+        let added = std::mem::replace(&mut state.status_followers, kept);
+        state.status_followers.extend(added);
+    });
+}
+
+/// Draws every art image and role image again, for a change of the
+/// Windows icon files, the symbol font or the text size.
+pub(crate) fn redraw_art_images() {
+    let (art_images, role_images) = STATE.with_borrow(|state| {
         let art_images: Vec<ArtImage> = state
             .art_images
             .iter()
@@ -415,7 +432,7 @@ fn redraw_all() {
             .iter()
             .filter_map(|kept| Some((kept.image.upgrade()?, kept.role, kept.fallback, kept.size)))
             .collect();
-        (art_images, role_images, state.status)
+        (art_images, role_images)
     });
     for image in art_images {
         image.redraw();
@@ -423,15 +440,6 @@ fn redraw_all() {
     for (image, role, fallback, size) in role_images {
         show_role(&image, role, fallback, size);
     }
-    let followers = STATE.with_borrow_mut(|state| std::mem::take(&mut state.status_followers));
-    let kept: Vec<StatusFollower> = followers
-        .into_iter()
-        .filter(|follower| follower(status))
-        .collect();
-    STATE.with_borrow_mut(|state| {
-        let added = std::mem::replace(&mut state.status_followers, kept);
-        state.status_followers.extend(added);
-    });
 }
 
 /// Waits until the chosen files were read, for tests.

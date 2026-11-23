@@ -356,17 +356,6 @@ fn each_square_draws_the_glyph_at_windows_em() {
     }
     assert_eq!(glyph_icon_name(Icon::Add, 16), "ox-win-add-20-symbolic");
     assert_eq!(glyph_icon_name(Icon::Add, 17), "ox-win-add-20-box17-symbolic");
-    for name in [
-        "ox-win-add-20-symbolic",
-        "ox-win-add-20-box17-symbolic",
-        "ox-add-20-symbolic",
-    ] {
-        assert_eq!(icon_named(name), Some(Icon::Add), "{name}");
-    }
-    assert_eq!(
-        icon_named("ox-win-chevron-down-16-box20-symbolic"),
-        Some(Icon::ChevronDown16)
-    );
 }
 
 /// A glyph in the command bar's 17-pixel square is drawn at Windows'
