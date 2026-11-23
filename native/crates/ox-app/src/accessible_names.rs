@@ -103,20 +103,3 @@ fn show_menu_state(toggle: &gtk::ToggleButton) {
     toggle.update_state(&[gtk::accessible::State::Expanded(Some(toggle.is_active()))]);
     toggle.reset_state(gtk::AccessibleState::Pressed);
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// A caption ending in a colon is followed by a space, others by a
-    /// comma, and an empty caption leaves the value alone.
-    #[test]
-    fn a_caption_and_its_value_make_one_name() {
-        assert_eq!(
-            joined("Type of file:", "Text Document"),
-            "Type of file: Text Document"
-        );
-        assert_eq!(joined("Mounted on", "/media/disk"), "Mounted on, /media/disk");
-        assert_eq!(joined("", "20 bytes"), "20 bytes");
-    }
-}

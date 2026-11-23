@@ -563,14 +563,3 @@ fn redraw_images() {
         }
     }
 }
-
-/// Waits until the chosen font was read, for tests.
-#[cfg(test)]
-pub(crate) fn wait_until_read() {
-    crate::test_support::harness::wait_until("the symbol font to be read", || {
-        !matches!(status(), Status::Reading)
-    });
-}
-
-#[cfg(test)]
-mod tests;

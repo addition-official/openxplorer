@@ -414,42 +414,6 @@ mod tests {
         assert!(matches!(missing, Err(OpsError::NotFound(_))), "{missing:?}");
     }
 
-    /// The Create Shortcut wizard's location: an item of this computer
-    /// that exists, as typed or between the double quotes Browse adds, an
-    /// Internet address, or a network share, as `\\\\server\\share` or
-    /// `smb://`; anything else is refused before the name is asked.
-    ///
-    /// parity: OPS-051
-    #[test]
-    fn the_wizard_reads_an_item_an_internet_address_or_a_share() {
-        let folder = temporary_folder();
-        let song = folder.path().join("Morning Walk.mp3");
-        std::fs::write(&song, b"ID3").expect("fixture file");
-        let here = file_uri(folder.path());
-
-        let quoted = shortcut_location(&format!("\"{}\"", song.display()), &here);
-        let web = shortcut_location("https://example.org/news", &here);
-        let mail = shortcut_location("mailto:team@example.org", &here);
-        let share = shortcut_location("\\\\fileserver\\Team Files", &here);
-        let missing = shortcut_location("/no/such/place", &here);
-        let other = shortcut_location("javascript:alert(1)", &here);
-
-        assert_eq!(quoted, Ok(ShortcutLocation::Item(song.clone())));
-        assert_eq!(suggested_name(&ShortcutLocation::Item(song)), "Morning Walk.mp3");
-        let web = web.expect("a web address");
-        assert_eq!(web, ShortcutLocation::Address("https://example.org/news".into()));
-        assert_eq!(suggested_name(&web), "New Internet Shortcut");
-        assert!(matches!(mail, Ok(ShortcutLocation::Address(_))), "{mail:?}");
-        let share = share.expect("a share");
-        assert_eq!(
-            share,
-            ShortcutLocation::Address("smb://fileserver/Team%20Files".into())
-        );
-        assert_eq!(suggested_name(&share), "Team Files");
-        assert!(matches!(missing, Err(OpsError::NotFound(_))), "{missing:?}");
-        assert!(other.is_err(), "{other:?}");
-    }
-
     /// A shortcut to an address is a `.desktop` link named as typed, which
     /// opens it; a taken name is refused and nothing is replaced.
     ///

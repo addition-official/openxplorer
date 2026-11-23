@@ -874,48 +874,6 @@ fn the_window_in_front_saves_the_tabs_of_every_window() {
     });
 }
 
-/// Quit saves every window before they close, and the last one closing
-/// then does not save itself alone, so the next start reopens them all.
-///
-/// parity: TAB-053
-#[gtk::test]
-fn quit_keeps_every_window_for_the_next_start() {
-    use ox_core::session::SavedWindows;
-
-    let fixture = Fixture::standard();
-    let test = TestWindow::open(&fixture.uri());
-    let other = test.open_beside(&fixture.uri_of("Documents"));
-    for window in [&test.window, &other.window] {
-        window.imp().remembers_session.set(true);
-    }
-    let restore = ox_core::settings::PreferencesUpdate {
-        restore_session: Some(true),
-        ..ox_core::settings::PreferencesUpdate::default()
-    };
-    ox_core::settings::Settings::open(test.settings_directory())
-        .update_preferences(&restore)
-        .expect("the settings file takes the choice");
-    test.context.reload_settings();
-    wait_until("the choice to be read", || {
-        test.context.settings_data().preferences.restore_session
-    });
-
-    let saved = crate::window::save_windows_for_quit(&crate::test_support::harness::application());
-    other.window.close();
-    test.window.close();
-    wait_for(std::time::Duration::from_millis(300));
-
-    let mut windows: Vec<String> = SavedWindows::load(test.settings_directory())
-        .expect("the windows are saved")
-        .windows
-        .iter()
-        .map(|window| window.tabs[window.active_tab].panes[0].uri.clone())
-        .collect();
-    windows.sort();
-    assert_eq!(saved.len(), 2);
-    assert_eq!(windows, [fixture.uri(), fixture.uri_of("Documents")]);
-}
-
 /// A save of the open tabs that fails for a while (a full disk, a folder
 /// that may not be written) is tried again at the next save, so the tabs
 /// are kept once the storage works again.

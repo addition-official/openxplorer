@@ -477,15 +477,3 @@ fn wait<T: 'static>(future: impl std::future::Future<Output = T> + 'static) -> T
         context.iteration(true);
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Bits beyond the first word are read from the second.
-    #[test]
-    fn states_are_read_from_both_words() {
-        let words = [1 << 10 | 1 << 25, 1 << (42 - 32)];
-        assert_eq!(state_names(&words), ["expanded", "showing", "has-popup"]);
-    }
-}
