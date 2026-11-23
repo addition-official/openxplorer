@@ -58,6 +58,7 @@ use super::menu_popover::MenuPopover;
 use super::menu_popover::{MenuEntry, MenuItem, MenuStyle};
 use super::place_menus::{popup_item_place_menu, PlaceMenu};
 use super::result_location::LocationTarget;
+use super::sidebar::menu::compress_to_item;
 use super::widget_tree::{children, remove_children, toggle_class};
 use super::window_action::WindowAction;
 use super::BrowserWindow;
@@ -228,17 +229,22 @@ impl Item {
     fn is_file_row(&self) -> bool {
         matches!(self.menu, PlaceMenu::HomeFile { .. })
     }
+
+    /// Whether it is a row of Recent, which Windows 11 neither cuts,
+    /// renames nor deletes from Home.
+    fn is_recent_row(&self) -> bool {
+        matches!(self.menu, PlaceMenu::HomeFile { recent: true, .. })
+    }
 }
 
-/// The menu of a Recent or Favorites row for the file at `uri`, in
-/// `style`, and its icon strip (HOME-036), as Windows 11's Home has it
-/// for a file: Cut, Copy, Rename and Delete in the strip, which act on
-/// the file itself as in its folder; then Open, Open file location, Add
-/// to or Remove from Favorites, Remove from Recent on a row of Recent
-/// (which takes the file off the desktop's recently used list and leaves
-/// it), Copy as path and Properties. The classic menu behind "Show more
-/// options" lists the same commands, Cut, Copy, Delete and Rename as
-/// rows.
+/// The menu of a Favorites row for the file at `uri`, in `style`, and its
+/// icon strip (HOME-036): Cut, Copy, Rename and Delete in the strip, which
+/// act on the file itself as in its folder; then Open, Open file location,
+/// Add to or Remove from Favorites, Copy as path and Properties. The
+/// classic menu behind "Show more options" lists the same commands, Cut,
+/// Copy, Delete and Rename as rows. A Recent row's, when `is_recent`
+/// says so, is [`recent_file_menu`]'s, here without what only the window
+/// knows ([`BrowserWindow::home_recent_menu`] adds it).
 pub(super) fn file_menu(
     uri: &str,
     is_favorite: bool,
@@ -262,13 +268,9 @@ pub(super) fn file_menu(
             WindowAction::AddToFavorites,
         )
     };
-    let remove_from_recent = is_recent.then(|| {
-        target(
-            message_id("Remove from Recent"),
-            Icon::Dismiss,
-            WindowAction::RemoveFromRecent,
-        )
-    });
+    if is_recent {
+        return recent_file_menu(uri, is_favorite, RecentRowExtras::default(), style);
+    }
     let open = target(message_id("Open"), Icon::Open, WindowAction::OpenItemAt).with_shortcut("Enter");
     let location = target(
         message_id("Open file location"),
@@ -286,16 +288,21 @@ pub(super) fn file_menu(
         target(message_id("Delete"), Icon::Delete, WindowAction::TrashFolder).with_shortcut("Delete");
     match style {
         MenuStyle::Compact => {
-            let mut entries: Vec<MenuEntry> = vec![open.into(), location.into(), favorite.into()];
-            entries.extend(remove_from_recent.map(MenuEntry::from));
-            entries.extend([copy_path.into(), properties.into()]);
+            let entries: Vec<MenuEntry> = vec![
+                open.into(),
+                location.into(),
+                favorite.into(),
+                copy_path.into(),
+                properties.into(),
+            ];
             (entries, vec![cut, copy, rename, delete])
         }
         MenuStyle::Classic => {
-            let mut entries: Vec<MenuEntry> =
-                vec![open.into(), location.into(), MenuEntry::Divider, favorite.into()];
-            entries.extend(remove_from_recent.map(MenuEntry::from));
-            entries.extend([
+            let entries: Vec<MenuEntry> = vec![
+                open.into(),
+                location.into(),
+                MenuEntry::Divider,
+                favorite.into(),
                 MenuEntry::Divider,
                 cut.into(),
                 copy.into(),
@@ -305,7 +312,97 @@ pub(super) fn file_menu(
                 MenuEntry::Divider,
                 copy_path.into(),
                 properties.into(),
-            ]);
+            ];
+            (entries, Vec::new())
+        }
+    }
+}
+
+/// What a Recent row's menu offers where the computer has it: Share in
+/// the strip and Share with where the desktop can share, and the text
+/// editor's "Edit in" for its type, as the file list's menu offers them
+/// ([`super::context_menu::recent_row_extras`]).
+#[derive(Default)]
+pub(super) struct RecentRowExtras {
+    pub(super) share: Option<MenuItem>,
+    pub(super) share_with: Option<MenuEntry>,
+    pub(super) editors: Vec<MenuEntry>,
+}
+
+/// The menu of a Recent row for the file at `uri`, in `style`, and its
+/// icon strip (HOME-036), as Windows 11's Home has it (checked on Windows
+/// 11, Home > Recent, 2026-11-22): Copy and Share alone in the strip, then
+/// "Open with" (Enter, which opens the file as a double-click does), Share
+/// with, Open file location, Remove from list (which takes the file off
+/// the desktop's recently used list and leaves it), Add to or Remove from
+/// Favorites, Compress to, Copy as path, Properties and the text editor's
+/// "Edit in". No Cut, Rename or Delete: Windows offers none on a Recent
+/// file. The classic menu behind "Show more options" lists the same, Copy
+/// and Share as rows.
+pub(super) fn recent_file_menu(
+    uri: &str,
+    is_favorite: bool,
+    extras: RecentRowExtras,
+    style: MenuStyle,
+) -> (Vec<MenuEntry>, Vec<MenuItem>) {
+    // `label` is a message id ([`message_id`]), translated here.
+    let target = |label: &str, glyph: Icon, action: WindowAction| -> MenuItem {
+        MenuItem::with_text_target(&ox_core::i18n::gettext(label), glyph, action, uri)
+    };
+    let favorite = if is_favorite {
+        target(
+            message_id("Remove from Favorites"),
+            Icon::StarFilled,
+            WindowAction::RemoveFromFavorites,
+        )
+    } else {
+        target(
+            message_id("Add to Favorites"),
+            Icon::Star,
+            WindowAction::AddToFavorites,
+        )
+    };
+    let copy = target(message_id("Copy"), Icon::Copy, WindowAction::CopyFolder).with_shortcut("Ctrl+C");
+    let mut strip = vec![copy];
+    strip.extend(extras.share);
+    let mut entries: Vec<MenuEntry> =
+        vec![
+            target(message_id("Open with"), Icon::Open, WindowAction::OpenItemAt)
+                .with_shortcut("Enter")
+                .into(),
+        ];
+    entries.extend(extras.share_with);
+    entries.extend([
+        target(
+            message_id("Open file location"),
+            Icon::Folder,
+            WindowAction::OpenFileLocationOf,
+        )
+        .into(),
+        target(
+            message_id("Remove from list"),
+            Icon::Dismiss,
+            WindowAction::RemoveFromRecent,
+        )
+        .into(),
+        favorite.into(),
+        compress_to_item(uri).into(),
+        target(message_id("Copy as path"), Icon::Copy, WindowAction::CopyPathOf)
+            .with_shortcut("Ctrl+Shift+C")
+            .into(),
+        target(message_id("Properties"), Icon::Info, WindowAction::PropertiesOf)
+            .with_shortcut("Alt+Enter")
+            .into(),
+    ]);
+    if !extras.editors.is_empty() {
+        entries.push(MenuEntry::Divider);
+        entries.extend(extras.editors);
+    }
+    match style {
+        MenuStyle::Compact => (entries, strip),
+        MenuStyle::Classic => {
+            entries.push(MenuEntry::Divider);
+            entries.extend(strip.into_iter().map(MenuEntry::from));
             (entries, Vec::new())
         }
     }
@@ -1056,10 +1153,12 @@ fn connect_item_keys(flow: &gtk::FlowBox, items: &Rc<Vec<Item>>) {
         WindowAction::CopyFolder.activate_from(&item.child, Some(&item.properties.to_variant()));
         true
     });
-    // A row stands for its file, which Ctrl+X cuts, F2 renames and Delete
-    // moves to the Recycle Bin (Shift+Delete deletes for good, after its
-    // question), as in the file's folder and in Windows 11's Home
-    // (HOME-036). A tile's folder is left alone.
+    // A Favorites row stands for its file, which Ctrl+X cuts, F2 renames
+    // and Delete moves to the Recycle Bin (Shift+Delete deletes for good,
+    // after its question), as in the file's folder (HOME-036). On a Recent
+    // row the keys do nothing, as in Windows 11's Home (checked on Windows
+    // 11, 2026-11-22), and go no further, where the window's own Cut,
+    // Rename and Delete would act. A tile's folder is left alone.
     let file_keys: [(&[&str], WindowAction); 4] = [
         (&["<Control>x"], WindowAction::CutFolder),
         (&["F2"], WindowAction::RenameFolder),
@@ -1071,7 +1170,9 @@ fn connect_item_keys(flow: &gtk::FlowBox, items: &Rc<Vec<Item>>) {
             if !item.is_file_row() {
                 return false;
             }
-            action.activate_from(&item.child, Some(&item.properties.to_variant()));
+            if !item.is_recent_row() {
+                action.activate_from(&item.child, Some(&item.properties.to_variant()));
+            }
             true
         });
     }
@@ -1307,6 +1408,7 @@ fn item_box(page: &gtk::Box, items: Vec<Item>, section: Section, rows: bool) -> 
             }
             if let Some(window) = page.root().and_downcast::<BrowserWindow>() {
                 window.update_file_commands();
+                window.update_share_command();
             }
         }
     ));
@@ -1597,6 +1699,8 @@ pub(super) fn item_count(page: &gtk::Box) -> Option<u32> {
 fn recount(page: &gtk::Box) {
     if let Some(window) = page.root().and_downcast::<BrowserWindow>() {
         window.update_status();
+        // The Details pane counts Home's items too.
+        window.update_details_pane();
     }
 }
 
@@ -1883,7 +1987,7 @@ impl BrowserWindow {
         );
     }
 
-    /// "Remove from Recent": takes the file at `uri` off the desktop's
+    /// "Remove from list": takes the file at `uri` off the desktop's
     /// recently used list, which every application shares, and its row
     /// off Home's Recent at once; the file stays (HOME-036). Tests change
     /// only a private data folder's list (native/tools/check.py).
@@ -1975,6 +2079,28 @@ impl BrowserWindow {
         self.context().remember_change(change);
     }
 
+    /// The menu of the Recent row for the file at `uri`, in `style`, with
+    /// what this computer offers for it: Share, Share with and the text
+    /// editor of its type, read from its name alone, so the menu reads no
+    /// drive or share (HOME-036).
+    pub(super) fn home_recent_menu(
+        &self,
+        uri: &str,
+        is_favorite: bool,
+        style: MenuStyle,
+    ) -> (Vec<MenuEntry>, Vec<MenuItem>) {
+        let name = favorite_name(uri);
+        let info = gio::FileInfo::new();
+        info.set_name(&name);
+        info.set_display_name(&name);
+        info.set_file_type(gio::FileType::Regular);
+        let (content_type, _) = gio::content_type_guess(Some(name.as_str()), None::<&[u8]>);
+        info.set_content_type(&content_type);
+        let entry = entry::entry_from_info(&gio::File::for_uri(uri), &info);
+        let extras = self.recent_row_extras(&entry);
+        recent_file_menu(uri, is_favorite, extras, style)
+    }
+
     /// The file of the Recent or Favorites row selected on the Home page
     /// the tab shows, which the command bar's Cut, Copy, Rename and Delete
     /// act on (HOME-036); `None` elsewhere, during a search from Home and
@@ -1990,6 +2116,12 @@ impl BrowserWindow {
         let flow = shown_items(page, Section::Files)?;
         let child = flow.selected_children().into_iter().next()?;
         Some(child.widget_name().to_string())
+    }
+
+    /// Whether the row selected on Home is a row of Recent, which Windows
+    /// 11 copies and shares but neither cuts, renames nor deletes.
+    pub(crate) fn selected_home_file_is_recent(&self) -> bool {
+        self.selected_home_file().is_some() && shown_tab(self.folder_pane().landing()) == Tab::Recent
     }
 
     /// Whether the file at `uri` is among the Favorites.
