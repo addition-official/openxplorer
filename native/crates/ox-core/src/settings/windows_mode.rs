@@ -82,6 +82,7 @@ macro_rules! like_windows {
 #[rustfmt::skip]
 pub const WINDOWS_SETTINGS: &[WindowsSetting] = &[
     like_windows!("homeQuickAccess", home_quick_access, true, "Open Quick access on Home"),
+    like_windows!("ctrlPlusMinusTextSize", ctrl_plus_minus_text_size, false, "Ctrl+plus and Ctrl+minus change text size"),
     like_windows!("hideExpandArrows", hide_expand_arrows, true, "Hide expand arrows in the sidebar"),
     like_windows!("moreNavigationPaneItems", more_navigation_pane_items, false, "Show more items in the navigation pane"),
     like_windows!("moreTabMenuItems", more_tab_menu_items, false, "Show more items in the tab menu"),

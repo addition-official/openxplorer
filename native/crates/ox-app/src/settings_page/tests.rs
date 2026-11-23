@@ -544,6 +544,7 @@ fn escape_leaves_the_search_and_shows_every_row_again() {
         [
             "Theme",
             "Text size",
+            "Ctrl+plus and Ctrl+minus change text size",
             "Use the desktop font",
             "Language",
             "Folder icon",

@@ -3117,6 +3117,14 @@ msgstr ""
 msgid "Ctrl + and Ctrl − change it anywhere; Ctrl 0 resets. Desktop scaling is unchanged."
 msgstr ""
 
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "Ctrl+plus and Ctrl+minus change text size"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "Ctrl+plus and Ctrl+minus on the main keyboard make text larger and smaller. Off: they do nothing, as in Windows; Ctrl+plus on the number pad still sizes the Details columns to fit, and Text size still changes it."
+msgstr ""
+
 #: crates/ox-app/src/settings_page/appearance.rs crates/ox-app/src/theme/appearance_button.rs
 msgid "Dark"
 msgstr ""
@@ -3257,6 +3265,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
 msgid "context menu style windows 10 11 classic compact"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "ctrl plus minus equal keyboard shortcut keys text size larger smaller number pad numpad keypad columns fit windows"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs

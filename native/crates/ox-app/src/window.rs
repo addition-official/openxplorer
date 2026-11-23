@@ -220,6 +220,7 @@ use tab_strip::TabStrip;
 pub(crate) use crate::dialog::Dialog;
 pub(crate) use actions::follow_text_size_keys;
 pub(crate) use actions::install_accelerators;
+pub(crate) use actions::set_text_size_keys;
 pub(crate) use button_style::ButtonStyle;
 pub(crate) use closing::{QUIT_WHILE_WRITING, WAIT_FOR_FORMAT};
 pub(crate) use compact_density::DENSITY_CLASS as COMPACT_DENSITY_CLASS;
