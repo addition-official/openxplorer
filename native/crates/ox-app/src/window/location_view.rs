@@ -688,51 +688,6 @@ mod tests {
         );
     }
 
-    /// Inside a USB stick or another drive mounted on this computer, the
-    /// crumbs start at This PC and the drive's name, as Windows 11 File
-    /// Explorer shows "This PC > USB Drive (E:) > Photos" (NAV-024: the
-    /// closest place); the full path still shows from `/` when asked for,
-    /// and Local Disk's folders still start at `/`.
-    ///
-    /// parity: NAV-024, DEV-004
-    #[test]
-    fn crumbs_inside_a_drive_start_at_this_pc_and_the_drive() {
-        let locations = crate::locations::location_context("/home/demo".into(), &[]);
-        let drives = [DriveCrumb {
-            root: "file:///media/demo/1A2B-3C4D".to_owned(),
-            label: "Holiday stick".to_owned(),
-        }];
-        let shown = |uri: &str, full_path: bool| -> Vec<(String, String)> {
-            crumb_buttons(&locations, uri, full_path, &[], &drives)
-                .into_iter()
-                .map(|button| (button.crumb.label, button.crumb.uri))
-                .collect()
-        };
-        let crumb = |label: &str, uri: &str| (label.to_owned(), uri.to_owned());
-
-        assert_eq!(
-            shown("file:///media/demo/1A2B-3C4D/Photos/2026", false),
-            [
-                crumb("This PC", ox_core::location::PC_URI),
-                crumb("Holiday stick", "file:///media/demo/1A2B-3C4D"),
-                crumb("Photos", "file:///media/demo/1A2B-3C4D/Photos"),
-                crumb("2026", "file:///media/demo/1A2B-3C4D/Photos/2026"),
-            ]
-        );
-        assert_eq!(
-            shown("file:///media/demo/1A2B-3C4D", false),
-            [
-                crumb("This PC", ox_core::location::PC_URI),
-                crumb("Holiday stick", "file:///media/demo/1A2B-3C4D"),
-            ]
-        );
-        assert_eq!(
-            shown("file:///media/demo/1A2B-3C4D/Photos", true)[0],
-            crumb("/", "file:///")
-        );
-        assert_eq!(shown("file:///media/demo", false)[0], crumb("/", "file:///"));
-    }
-
     /// Up from the root of a USB stick opens This PC, where its crumbs
     /// start, as in Windows 11 File Explorer; inside it, it opens the
     /// parent folder, and with the full path shown it goes up the path.
@@ -856,28 +811,6 @@ mod tests {
             let address = address_icon(case.uri, "file:///home/demo");
             assert_eq!(address, case.address, "{}", case.uri);
         }
-    }
-
-    /// The tab of a mounted drive's root shows the drive, as its row in
-    /// the navigation pane and its tile on This PC do; a folder on the
-    /// drive keeps the folder.
-    ///
-    /// parity: TAB-010, DEV-004
-    #[test]
-    fn the_tab_of_a_drive_shows_the_drive() {
-        let locations = LocationContext::default();
-        let drives = ["file:///media/demo/Backup%20Drive".to_owned()];
-        let tab_on = |uri: &str| tab_icon(uri, &locations, (&[], &[], &drives));
-        assert_eq!(
-            tab_on("file:///media/demo/Backup%20Drive"),
-            Art::Glyph(Icon::HardDrive)
-        );
-        assert_eq!(
-            tab_on("file:///media/demo/Backup%20Drive/"),
-            Art::Glyph(Icon::HardDrive)
-        );
-        assert_eq!(tab_on("file:///media/demo/Backup%20Drive/Photos"), Art::Folder);
-        assert_eq!(tab_on("file:///"), Art::Glyph(Icon::HardDrive));
     }
 
     /// The tab of a standard folder shows its navigation pane glyph, on

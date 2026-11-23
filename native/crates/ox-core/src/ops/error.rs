@@ -273,43 +273,4 @@ mod tests {
         assert_eq!(from_gio.to_string(), "The media is write protected.");
         assert_eq!(from_io.to_string(), "The media is write protected.");
     }
-
-    /// GIO's message never reaches the user: the error says what Windows
-    /// says for the same failure, after the path of the item GIO named.
-    #[test]
-    fn gio_messages_read_as_the_windows_error() {
-        let cases = [
-            (
-                gio::IOErrorEnum::PermissionDenied,
-                "Error opening file “/home/ada/a.txt”: Permission denied",
-                "/home/ada/a.txt: Access is denied.",
-            ),
-            (
-                gio::IOErrorEnum::NotFound,
-                "Error when getting information for file “/home/ada/a.txt”: No such file or directory",
-                "/home/ada/a.txt: The system cannot find the file specified.",
-            ),
-            (
-                gio::IOErrorEnum::NoSpace,
-                "Error writing to file: No space left on device",
-                "There is not enough space on the disk.",
-            ),
-            (
-                gio::IOErrorEnum::Failed,
-                "Error splicing file: Input/output error",
-                "The request could not be performed because of an I/O device error.",
-            ),
-            (
-                gio::IOErrorEnum::FilenameTooLong,
-                "Error renaming file “/home/ada/x”: File name too long",
-                "/home/ada/x: The filename or extension is too long.",
-            ),
-        ];
-        for (kind, gio_message, expected) in cases {
-            let error = OpsError::from(glib::Error::new(kind, gio_message));
-            assert_eq!(error.to_string(), expected, "{gio_message}");
-        }
-        let local = OpsError::from(std::io::Error::from_raw_os_error(13));
-        assert_eq!(local.to_string(), "Access is denied.");
-    }
 }

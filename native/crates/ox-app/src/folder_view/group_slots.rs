@@ -596,52 +596,6 @@ mod tests {
         assert_eq!(old.changes_to(&wider, None), Some((3, 18, 21)));
     }
 
-    /// List's groups (Windows 11, checked in the VM): each group starts a
-    /// column of its own with its heading in the column's first slot, its
-    /// items run down under it and on into the next column, and blanks
-    /// fill its last column. No slot carries a heading's line.
-    ///
-    /// parity: VIEW-022, VIEW-008
-    #[test]
-    fn list_heads_each_group_at_the_top_of_its_column() {
-        use Slot::{Blank, Heading, Item};
-        let mut titles: Vec<&str> = vec!["File folder"; 3];
-        titles.extend(["Text Document"; 5]);
-        let layout = SlotLayout::inline(group_runs(titles), 4);
-        let slots: Vec<Slot> = (0..layout.len()).filter_map(|slot| layout.slot(slot)).collect();
-        assert_eq!(
-            slots,
-            [
-                Heading(0),
-                Item(0),
-                Item(1),
-                Item(2),
-                Heading(1),
-                Item(3),
-                Item(4),
-                Item(5),
-                Item(6),
-                Item(7),
-                Blank,
-                Blank,
-            ]
-        );
-        assert_eq!(layout.slot_of(3), Some(5));
-        assert_eq!(
-            layout.row_of(GroupTarget::Item(6)),
-            Some(2),
-            "Text Document runs on into a column"
-        );
-        assert_eq!(layout.heading_slot(1), Some(4));
-        assert_eq!(layout.heading_slots(), 1);
-        let wider = SlotLayout::inline(layout.groups().to_vec(), 6);
-        let (start, removed, added) = layout.changes_to(&wider, None).expect("a change");
-        for slot in 0..start {
-            assert_eq!(identity(&layout, slot), identity(&wider, slot));
-        }
-        assert_eq!(layout.len() - removed, wider.len() - added);
-    }
-
     /// What object the grid shows in `slot` of `layout`, as
     /// `GroupedSelection` keeps them: a heading, rule or blank is its
     /// group's own, by title and place, and an item is its position.

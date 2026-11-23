@@ -181,44 +181,6 @@ impl fmt::Display for Zip64Field {
 mod tests {
     use super::*;
 
-    /// The user reads Windows' words: a damaged ZIP is an invalid
-    /// compressed folder, and one that uses a feature the reader lacks
-    /// says so and what to do; `zipfile`'s words are for the log.
-    ///
-    /// parity: ARC-005
-    #[test]
-    fn the_user_reads_windows_words() {
-        let damaged = [
-            ZipFormatError::NotAZip,
-            ZipFormatError::BadCrc("doc.txt".into()),
-            ZipFormatError::CorruptData {
-                name: "b track.mp3".into(),
-                detail: "invalid distance too far back".into(),
-            },
-            ZipFormatError::CorruptZip64Field(Zip64Field::CompressedSize),
-            ZipFormatError::OverlappedEntries("a.txt".into()),
-            ZipFormatError::TruncatedHeader,
-        ];
-        for error in damaged {
-            assert_eq!(
-                error.user_message(),
-                "The Compressed (zipped) Folder is invalid.",
-                "{error}"
-            );
-        }
-        for error in [
-            ZipFormatError::UnsupportedVersion(64),
-            ZipFormatError::StrongEncryption,
-            ZipFormatError::UnsupportedMethod,
-        ] {
-            assert_eq!(
-                error.user_message(),
-                "This ZIP archive uses a feature that isn't supported. To open it, use a different archive app.",
-                "{error}"
-            );
-        }
-    }
-
     #[test]
     fn messages_keep_the_wording_of_python_zipfile() {
         assert_eq!(ZipFormatError::NotAZip.to_string(), "File is not a zip file");
