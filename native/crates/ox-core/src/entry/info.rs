@@ -44,6 +44,7 @@ pub(super) fn build_entry(
     let kind = file_kind(info);
     let name = display_name(uri, info, fallback_name);
     let content_type = string_attribute(info, "standard::content-type")
+        .map(|sniffed| typed_by_name_when_empty(sniffed, &name))
         .or_else(|| network_file_type(uri, info, kind, &name));
     let classification = classify_info(uri, info, kind, content_type.as_deref());
     let is_symlink = info.boolean("standard::is-symlink");
@@ -161,6 +162,23 @@ fn trash_file(uri: &str, info: &gio::FileInfo) -> Option<String> {
 fn is_local_file_uri(target: &str) -> bool {
     let after_scheme = &target["file:".len()..];
     after_scheme.starts_with("///") && gio::File::for_uri(target).path().is_some()
+}
+
+/// GIO sniffs every empty file as `application/x-zerosize`, for which no
+/// application is registered, so a new, empty "New Text Document.txt"
+/// could not be opened. Windows types an empty file by its extension, as
+/// Nautilus does, so opening, Open with and Properties' "Opens with" use
+/// the type its name gives (the Type column already did).
+fn typed_by_name_when_empty(sniffed: String, name: &str) -> String {
+    if sniffed != super::type_label::EMPTY_FILE_TYPE {
+        return sniffed;
+    }
+    let (guessed, uncertain) = gio::content_type_guess(Some(name), None::<&[u8]>);
+    if uncertain {
+        sniffed
+    } else {
+        guessed.to_string()
+    }
 }
 
 /// Classifies the item at `uri` from its kind, content type and the
