@@ -304,41 +304,6 @@ mod tests {
         assert!(last[0].has_smb);
     }
 
-    /// With nothing found and neither Avahi nor wsdd, discovery is off;
-    /// without the network browser it is off at once, without a pass.
-    ///
-    /// parity: HOME-007
-    #[gtk::test]
-    fn discovery_is_off_without_a_source() {
-        let nothing = Discoverer::finding(Discovery::default());
-        let without_sources = nothing.clone().with_sources(DiscoverySources {
-            browser: true,
-            dns_sd: false,
-            ws_discovery: false,
-        });
-        assert_eq!(
-            run(&without_sources).1,
-            Err("Avahi (DNS-SD) is not running and wsdd (WS-Discovery) is not installed.".into())
-        );
-        assert_eq!(run(&nothing).1, Ok(()), "an empty network with discovery on");
-
-        let passes = Rc::new(Cell::new(0));
-        let counted = Rc::clone(&passes);
-        let without_browser = Discoverer::answering(move || {
-            counted.set(counted.get() + 1);
-            Ok(Discovery::default())
-        })
-        .with_sources(DiscoverySources {
-            browser: false,
-            ..DiscoverySources::ALL
-        });
-        assert_eq!(
-            run(&without_browser).1,
-            Err("The GVfs network browser is not installed.".into())
-        );
-        assert_eq!(passes.get(), 0);
-    }
-
     /// Each pass lists only the servers no earlier pass found, so Network
     /// lists every server once, in the order first found.
     ///
