@@ -2214,6 +2214,11 @@ msgstr ""
 msgid "Target"
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/properties/general_tab.rs crates/ox-app/src/properties/selection_attributes.rs
+msgid "The item could not be hidden or shown. {error}"
+msgstr ""
+
 #: crates/ox-app/src/properties/general_tab.rs crates/ox-app/src/properties/selection_attributes.rs
 msgid "The window that opened these properties is closed."
 msgstr ""
