@@ -360,21 +360,31 @@ fn details_row_rule(detail_row: i32) -> String {
 /// over the usual ones. The folder tree's rows are in `skin/sidebar.css`,
 /// as their usual height is.
 fn compact_density_rules(scale: f64, text_size: TextSize) -> Vec<String> {
-    let row = compact_density_details_row(text_size) - 2;
+    // A row's box is one pixel taller than its pitch and overlaps the
+    // next row by that pixel, as Windows 11's Compact view draws its
+    // hover and selection boxes (22 tall, 21 apart at 100%, measured on
+    // its Details capture).
+    let row = compact_density_details_row(text_size) + 1;
     // A heading's box: 8 pixels taller than a row, taken from the room
     // above and below it, so its title has room inside its hover box and
     // stands where it would in a row's box.
-    let box_height = row + 8;
+    // The row it sits in is 3 pixels taller with 3 fewer of margin, and
+    // the heading's own margins make up for that, so it keeps Windows'
+    // distances to the rows around it (27 above, 26 below at 100%).
+    let box_height = row - 3 + 8;
     let tile = compact_density_tiles_row(text_size) - COMPACT_TILES_CHROME;
     let tiles_heading = compact_density_heading_row(text_size, false) - COMPACT_TILES_HEADING_CHROME;
     let content_heading = compact_density_heading_row(text_size, true) - COMPACT_CONTENT_HEADING_CHROME;
     let line = compact_density_line(text_size);
     vec![
-        format!("window.compact-density columnview.files > listview > row {{ min-height: {row}px; }}"),
+        format!(
+            "window.compact-density columnview.files > listview > row \
+             {{ min-height: {row}px; margin-top: 0; margin-bottom: -1px; }}"
+        ),
         format!(
             "window.compact-density columnview.files > listview > row > cell > .group-slot, \
              window.compact-density columnview.files > listview > row > cell > .group-rule \
-             {{ min-height: {box_height}px; margin-top: 2px; padding-bottom: 1px; }}"
+             {{ min-height: {box_height}px; margin-top: 3px; margin-bottom: 1px; padding-bottom: 1px; }}"
         ),
         COMPACT_COLUMN_TITLES.rule(scale),
         // The first heading's title 14 pixels under the header, as in
@@ -548,10 +558,11 @@ mod tests {
     fn compact_view_spaces_rows_as_windows_and_grows_with_the_text() {
         let css = css_at(100);
         for rule in [
-            "window.compact-density columnview.files > listview > row { min-height: 19px; }",
+            "window.compact-density columnview.files > listview > row \
+             { min-height: 22px; margin-top: 0; margin-bottom: -1px; }",
             "window.compact-density columnview.files > listview > row > cell > .group-slot, \
              window.compact-density columnview.files > listview > row > cell > .group-rule \
-             { min-height: 27px; margin-top: 2px; padding-bottom: 1px; }",
+             { min-height: 27px; margin-top: 3px; margin-bottom: 1px; padding-bottom: 1px; }",
             "window.compact-density columnview.files > header > button { min-height: 25px; }",
             "window.compact-density columnview.files.grouped > listview { padding-top: 4px; }",
             "window.compact-density .sidebar list.places > row { min-height: 23px; }",
@@ -568,7 +579,8 @@ mod tests {
         }
         let larger = css_at(150);
         for rule in [
-            "window.compact-density columnview.files > listview > row { min-height: 31px; }",
+            "window.compact-density columnview.files > listview > row \
+             { min-height: 34px; margin-top: 0; margin-bottom: -1px; }",
             "window.compact-density columnview.files > header > button { min-height: 37px; }",
             "window.compact-density .sidebar list.places > row { min-height: 33px; }",
             ".sidebar list.places > row { min-height: 41px; }",
