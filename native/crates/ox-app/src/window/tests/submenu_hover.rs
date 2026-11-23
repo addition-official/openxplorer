@@ -716,25 +716,3 @@ fn the_pointer_leaving_scrolled_rows_for_the_strip_opens_no_submenu() {
         "{label}'s submenu stays shut once the pointer is on the strip"
     );
 }
-
-/// Opens the menu of `name` in the real-world folder in `style` and rests
-/// the real pointer on `row` until its submenu opens; the menu and where
-/// the pointer is.
-fn open_submenu_by_hover(
-    session: &mut Session,
-    style: ContextMenu,
-    name: &str,
-    row: &str,
-) -> (MenuPopover, (i32, i32)) {
-    choose_menu_style(&session.test, style);
-    let position = position_of(&session.test, name);
-    session.test.window.right_click(Some(position));
-    let menu = open_pane_menu(session);
-    let start = corner_of(session, &menu);
-    let on_row = point_on_row(session, &menu, row, 0.6);
-    session.pointer.glide(start, on_row, GLIDE_STEPS);
-    wait_until(&format!("{row}'s submenu to open on hover"), || {
-        shows_submenu_of(&menu, row)
-    });
-    (menu, on_row)
-}

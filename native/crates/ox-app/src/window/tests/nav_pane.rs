@@ -233,34 +233,6 @@ fn a_drive_that_cannot_be_ejected_leaves_the_tab_where_it_was() {
     );
 }
 
-/// The labels of `entries`, with "-" for a divider, and whether each item
-/// is checked.
-fn menu_labels(entries: &[crate::window::menu_popover::MenuEntry]) -> Vec<(String, bool)> {
-    use crate::window::menu_popover::{ItemCheck, MenuEntry};
-    entries
-        .iter()
-        .map(|entry| match entry {
-            MenuEntry::Item(item) => (item.label.clone(), item.check == ItemCheck::Fixed(true)),
-            MenuEntry::Divider => ("-".to_owned(), false),
-        })
-        .collect()
-}
-
-/// The item of `entries` labelled `label`.
-fn menu_item(
-    entries: &[crate::window::menu_popover::MenuEntry],
-    label: &str,
-) -> crate::window::menu_popover::MenuItem {
-    use crate::window::menu_popover::MenuEntry;
-    entries
-        .iter()
-        .find_map(|entry| match entry {
-            MenuEntry::Item(item) if item.label == label => Some(item.clone()),
-            _ => None,
-        })
-        .unwrap_or_else(|| panic!("the menu has {label}"))
-}
-
 /// As in Windows 11, where "Expand to current folder" is off at first,
 /// the folder tree does not open its folders down to the folder shown;
 /// once the option is on, it does.

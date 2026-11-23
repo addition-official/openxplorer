@@ -369,19 +369,3 @@ fn drag_tile(pointer: &mut Pointer, test: &TestWindow, from: &str, onto: &str, a
     pointer.release(Button::Primary);
     wait_for_frames(&test.window, 3);
 }
-
-/// The command bar button that runs `action`.
-fn command_button(test: &TestWindow, action: &str) -> gtk::Button {
-    descendants::<gtk::Button>(test.window.command_bar())
-        .into_iter()
-        .find(|button| button.action_name().as_deref() == Some(action))
-        .unwrap_or_else(|| panic!("a button runs {action}"))
-}
-
-/// Whether the command bar's New menu button can be used.
-fn new_is_enabled(test: &TestWindow) -> bool {
-    descendants::<gtk::MenuButton>(test.window.command_bar())
-        .into_iter()
-        .find(|button| button.has_css_class("new-command"))
-        .is_some_and(|button| button.is_sensitive())
-}

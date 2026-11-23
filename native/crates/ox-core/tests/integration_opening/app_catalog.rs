@@ -2,7 +2,7 @@
 //! One entry per visible application for Open with, and the code-editor
 //! shortcuts. Ports `CatalogTests` of `v2.0.0:desktop/tests/test_v06.py`.
 
-use ox_core::integration::{default_text_editor, editor_shortcuts, unique_applications, ApplicationInfo};
+use ox_core::integration::{editor_shortcuts, unique_applications};
 
 use super::{app, TestApplication, OWN_ID};
 
@@ -142,33 +142,4 @@ fn applications_are_listed_by_name() {
     );
 
     assert_eq!(ids(&offered), ["m.desktop", "z.desktop", "a.desktop"]);
-}
-
-/// An application with the desktop file's `Categories`.
-struct Categorized(TestApplication, &'static str);
-
-impl ApplicationInfo for Categorized {
-    fn id(&self) -> Option<String> {
-        self.0.id()
-    }
-
-    fn display_name(&self) -> String {
-        self.0.display_name()
-    }
-
-    fn should_show(&self) -> bool {
-        self.0.should_show()
-    }
-
-    fn supports_files(&self) -> bool {
-        self.0.supports_files()
-    }
-
-    fn supports_uris(&self) -> bool {
-        self.0.supports_uris()
-    }
-
-    fn categories(&self) -> Option<String> {
-        Some(self.1.to_owned())
-    }
 }

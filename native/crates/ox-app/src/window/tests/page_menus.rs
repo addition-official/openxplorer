@@ -5,16 +5,14 @@
 //! File Explorer lists them (checked on Windows 11 build 26200,
 //! 2026-11-21). The app's own Refresh stays where it was.
 
-use gtk::prelude::*;
-use ox_core::location::{HOME_URI, NETWORK_URI, PC_URI, TRASH_URI};
 use ox_core::settings::ContextMenu;
 
 use super::command_bar_switch::Session;
-use super::context_menus::{choose_menu_style, position_of};
-use super::menu_sweep::{close, on_blank, on_item, open_menu, summary};
+use super::context_menus::choose_menu_style;
+use super::menu_sweep::{close, open_menu, summary};
 use crate::test_support::harness::{wait_for_frames, wait_until, Fixture};
 use crate::test_support::pointer::Button;
-use crate::window::menu_popover::{MenuPopover, MenuStyle};
+use crate::window::menu_popover::MenuPopover;
 
 /// Right-clicks the screen point `at` with the real pointer and returns
 /// the menu that opens, in `style`.
@@ -32,16 +30,6 @@ fn right_click_at(session: &mut Session, at: (i32, i32), what: &str) -> MenuPopo
     panic!("a right-click on {what} opens a menu");
 }
 
-/// The screen point on blank space at the bottom right of the page shown
-/// in the folder pane: the landing page's, or the file list's.
-fn on_page_blank(session: &Session) -> (i32, i32) {
-    let pane = session.test.window.folder_pane().clone();
-    session.on_screen(
-        &pane,
-        (f64::from(pane.width()) - 16.0, f64::from(pane.height()) - 16.0),
-    )
-}
-
 /// Shows `uri` and waits until it is drawn.
 fn show(session: &Session, uri: &str) {
     session.test.activate("go-to", Some(uri));
@@ -49,22 +37,6 @@ fn show(session: &Session, uri: &str) {
         session.test.window.current_uri().as_deref() == Some(uri)
     });
     wait_for_frames(&session.test.window, 6);
-}
-
-/// Whether the row `label` of `menu` can be chosen.
-fn enabled(menu: &MenuPopover, label: &str) -> bool {
-    menu.row(label).is_sensitive()
-}
-
-/// Deletes `name` from the folder shown, so the Recycle Bin holds it and
-/// Undo can take the deletion back.
-fn delete(session: &Session, name: &str) {
-    let position = position_of(&session.test, name);
-    session.test.window.folder_model().select_only(position);
-    session.test.activate("trash", None);
-    wait_until("the file to go", || {
-        !session.test.names().contains(&name.to_owned())
-    });
 }
 
 /// The navigation pane's Home row offers Windows 11's "Pin current folder

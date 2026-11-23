@@ -1091,20 +1091,3 @@ fn every_kind_of_properties_is_captured() {
         wrapped.close();
     }
 }
-
-/// Restores the locale's clock when a test that chose one ends.
-struct ClockGuard;
-
-impl Drop for ClockGuard {
-    fn drop(&mut self) {
-        ox_core::format::set_clock_format(ox_core::format::ClockFormat::Locale);
-    }
-}
-
-/// Wednesday, November 18, 2026, 8:36:06 PM in local time, as Unix
-/// seconds: one of the longest dates General writes.
-fn long_date() -> std::time::SystemTime {
-    let local = glib::DateTime::from_local(2026, 11, 18, 20, 36, 6.0).expect("a date");
-    let seconds = u64::try_from(local.to_unix()).expect("after 1970");
-    std::time::UNIX_EPOCH + std::time::Duration::from_secs(seconds)
-}

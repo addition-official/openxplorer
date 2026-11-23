@@ -12,11 +12,9 @@ use gtk::prelude::*;
 use gtk::{gdk, glib};
 use ox_core::typed_addresses::{TypedAddresses, TYPED_ADDRESSES_FILE};
 
-use crate::locations::Page;
 use crate::test_support::harness::{wait_for, wait_until, Fixture, TestWindow};
 use crate::test_support::pointer::{screen_point, Button, Pointer};
 use crate::window::address_bar::AddressMode;
-use crate::window::file_drag::DraggedItems;
 
 /// A fixture with a folder whose name has a space, as Copy as path quotes
 /// it.

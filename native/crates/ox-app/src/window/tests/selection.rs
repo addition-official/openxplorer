@@ -14,7 +14,7 @@ use gtk::prelude::*;
 use gtk::{gdk, glib};
 
 use super::file_ops_support::{is_triggered_by, press_shortcut_where_focused, shortcuts_of};
-use crate::test_support::harness::{capture, descendants, wait_for_frames, wait_until, Fixture, TestWindow};
+use crate::test_support::harness::{capture, descendants, wait_until, Fixture, TestWindow};
 use crate::window::rubber_band::{BandMode, RELEASE_WATCH};
 
 /// A folder long enough to scroll.
