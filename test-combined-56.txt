@@ -1,0 +1,28 @@
+STATUS: RUNNING (merged and pushed; GitHub Actions builds the deb)
+HEAD: test-combined-56 a1082704c84ccdcb0c1172857a0a27095acdad52
+
+BRANCH: test-combined-56, started from deb 55's test-combined-55 26de5e7b, with only the new tips merged; each tip was current when pushed.
+
+MERGES (in the order given):
+- user-icon-files fb1ba943 -> 232a1f23: no conflicts.
+- pass-12-details-status bc0f1d26 -> 46256899: no conflicts.
+- claude/review-6-fixes f78ed96c -> e7092385: no conflicts.
+- claude/windows-mode-switch 6be4c524 -> 87a1ccc6: no conflicts. Its wider guard (every setting title that names Windows, with listed exceptions) accepts the tree: WINDOWS_SETTINGS has 16 lines, none twice, including deb 55's columnTitleLine and nameColumnWindowsWidth.
+- long-c-thumb-cache 062a5cad -> a229304e: generated files only (markdown.json regenerated).
+- a1082704 style: rustfmt on long-c's folder-contents preview code (cells/custom_icon.rs, cells/folder_contents.rs, thumbnails/folder_preview.rs), which long-c's tip carries unformatted; formatting only.
+
+SKIPPED: none.
+
+TESTS RUN HERE (the switch's guard, isolated under Xvfb): ox-core settings::windows_mode 4 of 4 passed; ox-app settings_page::windows_mode, settings_page::tests::windows_mode and settings_page::tests::redesign 13 of 13 passed.
+
+CHECKS HERE: cargo check of the workspace (and of all targets): no errors or warnings; rustfmt clean after a1082704. Commits: 608 on top of main, 606 by addition-official <239187859+addition-official@users.noreply.github.com> (author and committer) and the owner's 2 #366 commits by AKolenda, as before; no trailers. No status/*.txt or status/*.md in the tree. No release build or long checks here.
+
+CHANGES (non-merge, non-test commits from test-combined-55 26de5e7b to test-combined-56, oldest first; 6 test commits left out):
+- 78583801 Show a folder's contents in its icon, as Windows 11 does
+- f6d62884 fix(details-pane): Drop the cloud wording from the Details pane's hint
+- fb1ba943 fix(icons): Draw Local Disk as the plain drive, never with Windows' logo
+- f78ed96c fix(file-dialogs): Never title an Open or Save dialog with a filter's name
+- a1082704 style: Format long-c's folder-contents preview code with rustfmt
+
+NEW TEXT (msgids added or changed in native/po/openxplorer.pot from test-combined-55 to test-combined-56):
+- "Select a single file to get more information." (was "Select a single file to get more information and share your cloud content.")
