@@ -1,0 +1,19 @@
+STATUS: RUNNING (merged and pushed; GitHub Actions builds the deb)
+HEAD: test-combined-52 119b7347931f007605c964c124615ddb0efd84a5
+
+BRANCH: test-combined-52, started from deb 51's test-combined-51 ca458a05, with only the new tips merged; every tip was still current when merged.
+
+MERGES (in the order given):
+- pass-7-views 8e4dd9f1 -> 94ba0e30: no conflicts.
+- pass-16-clipboard 0876dd18 -> 3e54c940: generated files only.
+- pass-17-shortcuts 93fdb81d -> 2d8e0f4c. settings_page/tests.rs: both sides' new tests kept (the tree's tab/theme-card/icon-file/symbol-font tests, pass-17's the_run_installed_launchers_switch_is_off_and_saves_the_choice). redesign.rs: both new rows. docs.json: pass-17's shortcut paragraph, which is the tree's plus its launcher sentence.
+- pass-19-a11y 344d2b5d -> 83134f57. redesign.rs: both new rows ("Run installed apps' launchers on double-click", "F6 moves like Windows"). docs.json: line by line, the tree's shortcut paragraph (with pass-17's launcher sentence) and pass-19's keyboard-shortcut paragraph (with its F6 sentences). .pot regenerated.
+- sort-header-windows 20fb05be -> 893eae9a, user-icon-files 97a1e3cd -> 44a3088c: no conflicts.
+- long-c-thumb-cache c7bf3def -> 15d157d0: generated files only (the branch is merged with test-combined-51).
+- claude/owner-audit-fixes aa0c80ed -> 23b3c948 (the branch is merged with test-combined-51). properties/general_tab.rs and item_window.rs: only the wording of an #[expect] reason differed; the tree's kept. features.toml: the tree's Details padding note and owner-audit-fixes' folder infotip sentences, both kept.
+- 119b7347 ci: Build this branch's test deb in GitHub Actions (.github/workflows/fork-test-deb.yml from origin/main).
+- Generated files (.pot, markdown.json, docs Markdown) regenerated as before.
+
+SKIPPED: none.
+
+CHECKS HERE: cargo check of the workspace: no errors or warnings. Commits: 509 on top of main, 507 by addition-official <239187859+addition-official@users.noreply.github.com> (author and committer) and the owner's 2 #366 commits by AKolenda, as in debs 50-51; no trailers. No release build, tests or long checks here, as asked.
