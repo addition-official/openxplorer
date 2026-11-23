@@ -1,6 +1,37 @@
 STATUS: DONE
-HEAD: user-icon-files 873181e6 (draws the font's glyphs on whole pixels at the ems measured on Windows 11; 8f070e7e and 3ee41e44 were round 5)
-QUESTION: (1) The measured built-in icons are 1 to 4 px smaller than Windows' in many places (table below). They are the app's default look for every user and the owner's bundled set, and this feature is opt-in, so I have not resized them on this branch. Should they change, here or in a separate job? (2) The PR text still has no "CLA: I agree" line; please add it or confirm it to me directly, since it is a legal statement in your name.
+HEAD: user-icon-files 97a1e3cd (sizes the built-in icons to Windows 11's measured sizes; 873181e6 fixed the font's ems and half-pixel blur)
+QUESTION: none.
+NOTE: Round 7, from the answers relayed by the PC manager workflow session. (1) The built-in icons are resized on this branch to the sizes measured on Windows 11. Each gets a square that gives Windows' ink; the artwork is unchanged and the font keeps its measured ems in each place. (2) The CLA line stays out of the PR text; that session adds it when it opens the PR.
+NOTE: Merge check: `git merge-tree --write-tree origin/test-combined-51 97a1e3cd` exits 0 (tree ec8cc281).
+
+BUILT-IN ICONS, BEFORE (873181e6) -> AFTER (97a1e3cd), ink w x h at 1x, dark, same script and RefTest captures
+place                          | Windows | built-in before | built-in after | square before -> after
+caption minimize               | 10x1    | 8x2             | 11x1           | 12 -> 15
+caption maximize               | 10x10   | 8x8             | 11x11          | 12 -> 15
+caption close                  | 10x10   | 8x8             | 9x9            | 12 -> 15
+command bar New / Sort / View  | 15x15, 16x12, 16x10 | 13x13, 15x13, 15x15 | 14x14, 16x12, 14x14 | 17 -> 18
+command bar Cut..Delete (disabled in ref-01; ref-04) | 14-16 | 13-15 | 14-16 | 16 -> 18
+command bar drop-down carets   | 6x4     | 9x5             | 6x3            | 17 -> 12
+command bar See more           | 16x3    | 10x2            | 12x2           | 16 -> 18 (shape: the app's dots are narrower; not fixable by size)
+Details button                 | 16x12   | 15x12           | 14x13          | 17 -> 18
+status bar view buttons        | 16x16   | 14x11, 14x14    | 16x11, 14x14   | 16 -> 18
+Quick access pins              | 10x10   | 8x8             | 10x10          | 11 -> 14
+compact menu icons (ref-04)    | 12-16   | 13-14           | 14              | 16 -> 18
+compact menu strip (ref-04)    | 14-16   | 12-14           | 14-15           | 16 -> 18
+blank-space menu (ref-06)      | 14-16   | 12-14           | 14-16           | 16 -> 18
+New menu (ref-07)              | 12-16   | 10-14           | 12-15           | 16 -> 18
+View menu (ref-09)             | 10-16   | 12-14           | 12-14           | 16 -> 18
+See more menu (ref-10)         | 14-16   | 12-14           | 12-14           | 16 -> 18
+tab menu (ref-30)              | 11-14   | 10-14           | 10-15           | 16 -> 18
+menu text start (compact)      | 42      | 40              | 42              | follows the 18 square
+unchanged, already within 1 px: tab close 8 vs 9, new tab 10 vs 11, Back/Forward/Up/Refresh 12 vs 12, breadcrumbs 4x8 vs 5x8, search 11 vs 11, submenu chevrons 5x10 vs 5x10, menu marks 6x6 vs 6x6.
+not resized: navigation pane icons (Windows shows color pictures there, 16 px, which Windows icon files give ours; the same code draws those pictures, so a larger square would make them 20); column sort arrow 6x3 vs 7x5 and See more 12x2 vs 16x3 (the artwork's shape differs, not its size).
+FONT (synthetic, ink = em) after: unchanged from round 6: menus 16, submenu chevrons 12, caption 10, carets 8, command bar 16, pins 11, search 12, new tab 12, breadcrumbs 10.
+
+PASS round 7 on 97a1e3cd: cargo fmt; cargo clippy -p ox-app --all-targets -D warnings; python3 native/parity/check.py; ox-app icons:: 67/67 (chevron test's em table follows the caret rule), windows_icon_files 3/3, menu_popover 20/20, caption_buttons 3/3, command_bar 57/57, status_bar 16/16, sidebar 71/71. No new tests.
+NOT RUN round 7: the full suite, 3x runs (by the user's rule).
+
+ROUND 6
 NOTE: Round 6, measured with a script against the Windows 11 references on this branch (reference/, 1920x1080, 1x, dark). Ours were captured the same way: 1920x1032 window (the reference's screen minus its taskbar), 1x, dark, a RefTest folder with the reference's file names (Music, Photos, Projects, Archive.zip, Budget 2026.xlsx, a 108-character .jpg, Invoice 1042.pdf, Meeting notes.txt, Report final.docx), once with built-in icons and once with a synthetic symbol font. The test font's glyph for every codepoint is a solid square filling the em, so its ink is exactly the em the app drew; nothing from a Microsoft font. Captures are chat only.
 NOTE: Method: ink = pixels differing from the region's most common color by more than 48 on any channel, grouped by gaps (3 px across, 4 px in menus), bounding boxes in px (w x h). Windows draws Segoe Fluent glyphs, whose ink is smaller than their em, so for each Windows glyph the table gives the em its ink implies, worked out from the same glyph or the same glyph family elsewhere on the same screen (for example the 5x10 submenu chevron and the 6x4 New caret are one chevron at 12 and 8). A font row matches when our em equals that em.
 NOTE: Scope: icon and glyph sizes are fixed here. Row heights, text positions and menu widths are measured and listed but belong to the other UI jobs, so they are not changed on this branch.
