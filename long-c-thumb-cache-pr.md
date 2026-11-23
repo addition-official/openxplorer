@@ -90,9 +90,9 @@ The two builds were run by turns, 3 times each, in the same hour. Earlier sets t
 
 With a cache of 200,000 other entries, the thumbnails still arrive 46 to 69 ms after the first tile after a restart, against 261 to 306 ms on upstream with the same cache. But in 7 of 10 restarts the first folder showed its type icons for that moment: none of its 30 tiles avoided the flash. The other 3 restarts, and every run with a small cache, had no flash. The background listing of the cache's names, which tells a tile to wait without its icon, races the first layout. Starting that listing at application start-up did not help (measured and reverted). A temporary trace point, not committed, shows why: the 200,193 names are listed 264 ms after the warm-up starts, and the first tiles are bound at 218 ms. A follow-up could hold the type icons for at most 250 ms while that listing is still running.
 
-## Question
+## Decision on deleted files
 
-Thumbnails of files that were deleted or sent to the Recycle Bin stay in the cache. The standard says to remove them, GNOME and KDE mostly don't, and Windows keeps them in `thumbcache_*.db` (a known privacy complaint). This change removes only the entries of files the app moves. Should it also remove the entries of files it deletes or moves to the Recycle Bin?
+Thumbnails of files that were deleted or sent to the Recycle Bin stay in the cache, as Windows keeps them in `thumbcache_*.db`. Only moves and renames update entries. This was decided over the standard's advice to remove them.
 
 ## How it was tested
 

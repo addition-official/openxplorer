@@ -1,6 +1,6 @@
 STATUS: DONE
 HEAD: long-c-thumb-cache a365af0f (merges origin/pass-19-a11y up to d99b09d3: passes 1-19 and network-like-windows)
-QUESTION: Thumbnails of files deleted or sent to the Recycle Bin stay in ~/.cache/thumbnails (the standard says to remove them; GNOME and KDE mostly don't; Windows keeps them in thumbcache_*.db, a known privacy complaint). This branch only moves the entries of files the app moves or renames. Should it also remove the entries of files it deletes or recycles?
+QUESTION: none (answered by the PC manager session: as Windows does, the cache entries of deleted or recycled files are kept, not removed; only moves and renames update entries, as the branch does now)
 NOTE: MERGE (efb363f1), as asked by the PC manager session: origin/pass-19-a11y merged; conflicts in thumbnails.rs (6), service.rs (3), entry/thumbnail.rs (5), lib.rs (1) and the generated markdown.json (regenerated with sync-docs).
 - One memory budget: the cache's LRU (64 MB, each preview at the size shown) is the only store of previews. The passes' KEPT/MAX_KEPT store is gone. Their 30 s rule now empties the LRU and the Gallery's sharp pictures once no view asked for a preview; a kept preview drawn at bind counts as asked.
 - Decoders: the passes' 30 s stop of unused decoders now also covers the decoders started for batched cache reads and the warm-up ones.
