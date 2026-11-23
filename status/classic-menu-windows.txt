@@ -1,0 +1,71 @@
+STATUS: DONE
+HEAD: claude/classic-menu-windows 8f596d15b4e7c64f9914a5267eecd1f3156792a6 (from origin/test-combined-55 26de5e7b)
+QUESTION: The light classic menu colors are Windows 10's immersive light menu (background #eeeeee, border #a0a0a0, separator #bdbdbd, hover #dadada). There is no light Windows 11 reference. Could a light ref-05 be captured so they can be measured?
+QUESTION: The reference shows no hover highlight (the pointer is on Copy but the row is not filled). Ours uses #414141 (dark) and #dadada (light) from Windows 10's immersive menu. Could a capture with a hovered row be added?
+NOTE: Measured by script (menu_metrics.py/table.py, kept out of the repo) on reference/ref-05-menu-file-classic.png and on our 1x captures of the same state (RefTest-like fictional folder under /home/demo, 1920x1032 window). Every geometry value below is within 1 px of Windows.
+NOTE: Captures are under ours-classic-menu/ (1x, dark and light): before (test-combined-55) and now for a file, a folder and empty space; now only for a drive (Local Disk in the navigation pane, no scene step to open it before this branch), the Recycle Bin's empty space, the file menu opened from the keyboard (underlined access keys) and the file menu with Send to hovered. tools/audit-public-data.py reported no issues; every picture was also reviewed by eye.
+NOTE: Submenus (Send to) do not appear in the snapshot hook's pictures in either build, so the submenu's look is not captured; the submenu uses the same legacy class and the hover/keyboard submenu tests pass.
+NOTE: The captures ran as user 1000 inside bwrap's user namespace (--unshare-user), because this container runs as root and the app refuses root.
+
+MEASURED: before / now / Windows (file menu "Meeting notes.txt", dark, 1x; relative to the menu's outer top-left)
+| What | Before | Now | Windows |
+|---|---|---|---|
+| Menu size | 264x583 | 297x443 | 278x477 (different rows; see width rule) |
+| Room after the longest label | n/a (min width 264) | 75 | 76 |
+| Row pitch | 32 | 24 | 24 |
+| Separator | 1px (55,55,55), 9..254, block 9 | 1px (62,62,62), inset 5, cap->line 20, line->cap 11 | 1px (62,62,62), inset 5, cap->line 20, line->cap 11 |
+| First text cap y | 15 | 12 | 12 |
+| Icon x (ink) | 17 | 11 | 11 to 13 |
+| Text x (ink) | 43 | 36 to 37 | 37 |
+| Submenu arrow ink from right edge | 21 | 14 | 14 |
+| Border | 1px (26,26,26) | 1px (160,160,160) | 1px (160,160,160) |
+| Corners | rounded 8 | square | square |
+| Shadow | yes | none | none |
+| Background | (44,44,44) | (44,44,44) | (44,44,44) |
+| Hover | (52,52,52) (@ox_hover, not captured) | (65,65,65), 24 high, inset 5 both sides | not shown in the reference |
+| Font | 12 px, Open bold | 12 px, Open bold, capitals 10 px tall | Segoe UI 12 px, Open bold, capitals 9 px tall |
+NOTE: Font: the face is the app's own, not Segoe UI, so glyph shapes and the 1 px taller capitals cannot match. The text is shifted 1 px down in the row so the capitals sit 8 px below the row top as in Windows.
+
+OTHER MENUS (now, dark; Windows has no reference for these, the same geometry rules apply)
+| Menu | Size | Pitch | Separator | Text x | Arrow from right |
+|---|---|---|---|---|---|
+| Folder (Projects) | 260x587 (before 264x775) | 24 (32) | (62,62,62) inset 5 | 36 | 14 |
+| Empty space | 260x460 (before 264x597) | 24 (32) | (62,62,62) inset 5 | 37 | 14 |
+| Drive (Local Disk) | 259x302 | 24 | (62,62,62) inset 5 | 36 | - |
+| Recycle Bin empty space | 212x168 | 24 | (62,62,62) inset 5 | 36 | 14 |
+| Light (all) | same sizes | 24 | (189,189,189) | same | same |
+
+ITEMS AND ORDER
+PASS file: Open (bold), Add to Favorites, Edit in <editor> where installed, Open with… | Copy as path, Share, Restore previous versions | Send to > | Cut, Copy | Create shortcut, Delete, Rename (Rename items… for several) | Duplicate, Open containing folder in Terminal, Compress to…, other app tools | service actions | Properties
+PASS folder: Open, Open in new tab, Open in new window, Pin to Quick access, Open in Terminal, applications, Open folder with… | Copy as path, Restore previous versions | Send to > | Cut, Copy, Paste | Create shortcut, Delete, Rename | Duplicate, Compress to…, Calculate folder size, Cache this folder for search | service actions | Properties
+PASS empty space: View >, Sort by >, Group by >, Refresh | Paste, Undo, Redo | Open in Terminal, applications, Open folder with… | New > | Pin this folder, Cache this folder for search, Calculate folder sizes, Previous versions | Properties
+PASS drive: Open (bold, text only now), Open in new tab, Open in new window, Pin to Quick access, Open in Terminal, Cache this folder for search | Format…/Eject where they apply | Copy, Rename | Properties | the navigation pane's Hide rows (unchanged)
+PASS Recycle Bin item: Restore | Cut | Delete | Properties; empty space: View >, Sort by >, Group by >, Refresh | Empty Recycle Bin, Undo/Redo while they can run | Properties
+PASS Windows-only entries: none of Scan with Microsoft Defender, Add to Windows Media Player list, Cast to Device, Pin to Start, OneDrive or Microsoft Store are listed (none existed; none added). Give access to and Print are left out: the app has no Linux equivalent.
+
+VISIBLE STRINGS
+Changed: Recycle Bin item classic menu "Delete permanently" -> "Delete" (an existing string).
+Added in menus: none new. Rows moved: "Open containing folder in Terminal", "Duplicate". "Open with…" replaces the "Open with" submenu for a file with fewer than two applications.
+Access keys underlined (English, Windows' own): "&Open", "&Edit", "&Print", "Open wit&h…", "Open wit&h", "Open folder wit&h…", "&Give access to", "Copy &as path", "S&hare", "Restore previous &versions", "Se&nd to", "Cu&t", "&Copy", "&Paste", "Create &shortcut", "&Delete", "Rena&me", "P&roperties", "Open in new &window", "Open in new &tab", "Pin to &Quick access", "Unpin from &Quick access", "Open in &Terminal", "&View", "S&ort by", "Grou&p by", "Ne&w", "R&efresh", "Extr&act all…", "R&estore", "Empty Recycle &Bin", "Delete &permanently", "E&ject", "F&ormat…", "Dis&connect", "Open file &location", "Open as &administrator…", "&Mount disk image", "Add a &network location", "Previous &versions"; "Undo …"/"Redo …" take their first letter; any other label (and other languages) takes the first free letter of its words. No .po file was changed.
+
+KEYBOARD AND HOVER
+PASS underlined access keys when opened from the keyboard (Shift+F10, the Menu key, or Show more options chosen with the keyboard): capture classic-menu-1x-now-*-file-keyboard.png
+PASS no underlines when opened with the mouse: capture classic-menu-1x-now-*-file.png
+PASS an access key chooses its row or opens its submenu; a shared key moves between its rows (implemented in menu_popover.rs; not covered by a new test, as asked)
+PASS Up/Down wrap, Right opens a submenu, Left/Esc close one level, hover opens after 400 ms (Windows' MenuShowDelay) and the pointer heading for the submenu keeps it open: existing behavior, covered by the menu tests below
+PASS no slide-in motion on the classic menu
+
+CHECKS
+PASS cargo build (debug and release)
+PASS rustfmt; clippy -D warnings with the workspace lints on ox-app: no finding in changed code (pre-existing findings from this toolchain in untouched files: group_day.rs, shortcuts.rs test, picture_guard.rs test, and ox-core Duration units)
+PASS native/parity/check.py; tools/sync-docs.py --check
+PASS menu tests (filters context_menu, menu_popover, place_menus, theme::fonts::tests, submenu_hover, shift_f10, recycle_bin, sidebar) under xvfb-run + dbus-run-session with check.py's isolated environment: 222 passed, 2 failed
+FAIL window::tests::context_menus::a_folder_without_write_permission_keeps_new_and_paste_and_shows_the_error: this container runs tests as root, which writes into a 0555 folder (checked), so the expected error never comes. Not caused by this branch.
+FAIL window::tests::settings::reset_returns_every_windows_sidebar_to_its_default_width (matched by the sidebar filter): needs the Python app sources (test_support/python.rs). Not a menu test.
+NOT RUN full native/tools/check.py and the other test binaries (asked to run the menu modules' tests only)
+NOT RUN the Rust tests for scene.rs steps (no new test added, as asked)
+
+NOT DONE / NOTES
+NOTE: Peer note "the menu runs past the window's bottom edge": our classic menu is now 443 px instead of 583 px for this file, so it fits in the 1032 px window here. GTK already keeps menus on the monitor (height.rs); it does not shift a menu to stay inside the app window, and Windows limits to the screen too. Not changed further.
+NOTE: Place and This PC heading menus decide the underlines from the window's focus-visible state (no direct keyboard/mouse signal there); the file list and navigation pane rows use the exact opener.
+NOTE: Updated existing tests for the new order: entries.rs (file, folder, background, Recycle Bin, zip on a share, Open with), tests/context_menus.rs, tests/recycle_bin.rs. No test added.
