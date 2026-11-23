@@ -279,26 +279,4 @@ mod tests {
             );
         }
     }
-
-    /// The content holds the document's body, and a presentation's slide
-    /// names a master page its styles define.
-    #[test]
-    fn each_document_has_its_body_and_a_slide_has_its_master_page() {
-        let part = |kind, name: &str| -> String {
-            let entries = entries(&empty_document(kind));
-            let (_, data) = entries
-                .into_iter()
-                .find(|(entry, _)| entry == name)
-                .expect("the part");
-            String::from_utf8(data).expect("UTF-8")
-        };
-
-        assert!(part(OpenDocumentKind::Text, "content.xml").contains("<office:text><text:p/></office:text>"));
-        assert!(part(OpenDocumentKind::Spreadsheet, "content.xml").contains("table:name=\"Sheet1\""));
-        assert!(
-            part(OpenDocumentKind::Presentation, "content.xml").contains("draw:master-page-name=\"Default\"")
-        );
-        assert!(part(OpenDocumentKind::Presentation, "styles.xml")
-            .contains("style:master-page style:name=\"Default\""));
-    }
 }

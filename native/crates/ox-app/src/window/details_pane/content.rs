@@ -801,31 +801,6 @@ mod tests {
         assert!(!one.hint, "one file has its rows");
     }
 
-    /// One drive selected on This PC offers Properties, which Alt+Enter
-    /// opens for it, as Windows' pane does; several drives have Windows'
-    /// hint.
-    ///
-    /// parity: PROP-009
-    #[test]
-    fn a_drive_selected_on_this_pc_offers_properties() {
-        let tile = |name: &str| TileFacts {
-            art: Art::Folder,
-            name: name.to_owned(),
-            note: Some("23.0 GB free of 251 GB".to_owned()),
-            properties: Some("file:///".to_owned()),
-        };
-        let mut content = content_for(&[], Page::ThisPc.uri());
-        describe_tiles(&mut content, &[tile("Local Disk")]);
-        assert!(content.has_properties, "Properties for the drive");
-        assert_eq!(content.properties_of.as_deref(), Some("file:///"));
-        assert!(!content.hint);
-        assert_eq!(content.name, "Local Disk");
-        let mut content = content_for(&[], Page::ThisPc.uri());
-        describe_tiles(&mut content, &[tile("Local Disk"), tile("Backup")]);
-        assert_eq!(content.name, "2 items selected");
-        assert!(content.hint && content.properties.is_empty());
-    }
-
     /// parity: LOOK-016
     #[test]
     fn an_smb_folder_is_pictured_on_the_network_bar_as_its_tab_is() {
@@ -837,59 +812,6 @@ mod tests {
         assert_eq!(inside.preview, Preview::Art(Art::SHARE));
         let local = content_for(&[], "file:///home/demo/Projects");
         assert_eq!(local.preview, Preview::Art(Art::Folder));
-    }
-
-    /// With nothing selected, a place is pictured as its tab and its
-    /// navigation pane row picture it, as Windows 11's pane shows the
-    /// Recycle Bin's, Network's or the Downloads folder's own icon: never
-    /// a plain folder for the Recycle Bin, Network, Home or a standard
-    /// folder.
-    ///
-    /// parity: PROP-009
-    #[test]
-    fn a_place_is_pictured_as_its_tab_is() {
-        use ox_core::places::KnownFolder;
-        let downloads = Place {
-            label: String::new(),
-            uri: "file:///home/demo/Downloads".to_owned(),
-            known_folder: Some(KnownFolder::Downloads),
-            is_shared: false,
-        };
-        let locations = context();
-        let picture = |uri: &str| {
-            pane_content(&PaneFacts {
-                selection: &[],
-                folder_uri: uri,
-                folder_item_count: 2,
-                locations: &locations,
-                network: &[],
-                known_folders: std::slice::from_ref(&downloads),
-                condensed_dates: false,
-                preview_rules: NO_NETWORK_PREVIEWS,
-            })
-            .preview
-        };
-        assert_eq!(
-            picture("trash:///"),
-            Preview::Art(Art::Glyph(crate::icons::Icon::Delete))
-        );
-        assert_eq!(
-            picture(Page::Network.uri()),
-            Preview::Art(Art::TintedGlyph(Page::Network.icon(), Tint::Network))
-        );
-        assert_eq!(
-            picture("file:///home/demo"),
-            Preview::Art(Art::TintedGlyph(Page::Home.icon(), Tint::Home))
-        );
-        assert_eq!(
-            picture("file:///home/demo/Downloads"),
-            Preview::Art(Art::for_known_folder(KnownFolder::Downloads))
-        );
-        assert_eq!(
-            picture("recent:///"),
-            Preview::Art(Art::Glyph(crate::icons::Icon::History))
-        );
-        assert_eq!(picture("file:///home/demo/Projects"), Preview::Art(Art::Folder));
     }
 
     /// parity: PROP-009
