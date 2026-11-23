@@ -31,8 +31,9 @@ const EXPANDER_SIZE: i32 = 9;
 /// The class of the chevron of This PC and Network.
 const CHEVRON_CLASS: &str = "side-expander";
 
-/// The pin of a Quick access row.
-const PIN_SIZE: i32 = 11;
+/// The square of a Quick access row's pin: 14 pixels, so the app's own
+/// pin inks 10 pixels, as Windows 11's does (measured at 1x).
+const PIN_SIZE: i32 = 14;
 
 /// The eject glyph of a removable drive's row.
 const EJECT_SIZE: i32 = 14;

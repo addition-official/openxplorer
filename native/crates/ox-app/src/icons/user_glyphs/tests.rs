@@ -414,7 +414,10 @@ fn chevrons_are_drawn_at_windows_ems() {
     use ox_core::windows_glyphs::synthetic::SyntheticGlyph;
 
     for (size, em) in [(12, 10), (16, 12), (17, 8), (20, 8), (10, 8), (8, 8)] {
-        assert_eq!(em_of(Icon::ChevronDown, size), em, "{size}");
+        assert_eq!(em_of(Icon::ChevronRight16, size), em, "{size}");
+    }
+    for size in [12, 17] {
+        assert_eq!(em_of(Icon::ChevronDown, size), 8, "the caret in {size}");
     }
     assert_eq!(em_of(Icon::Cut, 17), 16);
     let _reset = Reset;

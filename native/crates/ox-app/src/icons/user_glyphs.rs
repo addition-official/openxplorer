@@ -226,13 +226,14 @@ pub(crate) const fn windows_em(size: i32) -> i32 {
 /// 12 pixels in a 16-pixel square (a submenu's arrow, a heading's or a
 /// tree's expander), 10 in a 12-pixel square (a breadcrumb separator)
 /// and `WinUI`'s 8 elsewhere (a drop-down button's caret, a column's sort
-/// arrow); the caption buttons' glyphs at 10 in their 12-pixel squares;
+/// arrow); the caption buttons' glyphs at 10 in their 15-pixel squares;
 /// the search box's magnifier and the new-tab button's plus at 12;
 /// others as [`windows_em`] has it. Never larger than the square.
 pub(crate) const fn em_of(icon: Icon, size: i32) -> i32 {
     let em = match icon {
-        Icon::ChevronDown
-        | Icon::ChevronDown16
+        // The command bar's drop-down caret, whatever its square.
+        Icon::ChevronDown => CHEVRON_EM,
+        Icon::ChevronDown16
         | Icon::ChevronLeft16
         | Icon::ChevronRight16
         | Icon::ChevronUp16
@@ -242,7 +243,9 @@ pub(crate) const fn em_of(icon: Icon, size: i32) -> i32 {
             12 => 10,
             _ => CHEVRON_EM,
         },
-        Icon::Subtract | Icon::Maximize | Icon::SquareMultiple | Icon::Dismiss if size <= 12 => CAPTION_EM,
+        Icon::Subtract | Icon::Maximize | Icon::SquareMultiple | Icon::Dismiss if size <= 15 => CAPTION_EM,
+        // A Quick access row's pin, in the square that fits the app's own.
+        Icon::Pin if size == 14 => 11,
         Icon::Search if size == 15 => 12,
         Icon::Add if size == 14 => 12,
         _ => windows_em(size),
@@ -261,12 +264,12 @@ const CHEVRON_EM: i32 = 8;
 const CAPTION_EM: i32 = 10;
 
 /// The glyph of `icon` in a square of `size` pixels: a dismiss X in a
-/// square of 12 pixels or less is a caption or dialog button, which
+/// square of 15 pixels or less is a caption or dialog button, which
 /// Windows draws as `ChromeClose`; elsewhere it is the thin Cancel, as a
 /// menu's "Close tab" is.
 const fn glyph_at(icon: Icon, size: i32) -> Option<WindowsGlyph> {
     match icon {
-        Icon::Dismiss if size <= 12 => Some(WindowsGlyph {
+        Icon::Dismiss if size <= 15 => Some(WindowsGlyph {
             codepoint: 0xE8BB,
             name: "ChromeClose",
         }),
