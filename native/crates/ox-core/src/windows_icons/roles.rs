@@ -99,6 +99,12 @@ pub enum IconRole {
     GenericFile,
     /// The Settings page.
     Settings,
+    /// The back of a folder whose contents peek out of it, drawn behind
+    /// the previews of its pictures in the larger icon views.
+    FolderBack,
+    /// The front of a folder whose contents peek out of it, drawn over
+    /// the previews of its pictures.
+    FolderFront,
 }
 
 /// Where a role's group number comes from.
@@ -113,7 +119,7 @@ pub enum Provenance {
 
 impl IconRole {
     /// Every role, in the order of [`IconRole`].
-    pub const ALL: [IconRole; 30] = [
+    pub const ALL: [IconRole; 32] = [
         IconRole::Folder,
         IconRole::Desktop,
         IconRole::Downloads,
@@ -144,6 +150,8 @@ impl IconRole {
         IconRole::Shortcut,
         IconRole::GenericFile,
         IconRole::Settings,
+        IconRole::FolderBack,
+        IconRole::FolderFront,
     ];
 
     /// The file and icon group that draw this role, and where the number
@@ -184,6 +192,10 @@ impl IconRole {
             IconRole::Script => (Imageres, 68, BestMatch),
             IconRole::GenericFile => (Imageres, 2, Verified),
             IconRole::Settings => (Shell32, 16826, BestMatch),
+            // The back and front Windows 7 composes a folder with
+            // contents from; not confirmed in Windows 11.
+            IconRole::FolderBack => (Imageres, 5, BestMatch),
+            IconRole::FolderFront => (Imageres, 6, BestMatch),
         }
     }
 
@@ -220,6 +232,8 @@ impl IconRole {
             IconRole::Shortcut => "shortcut",
             IconRole::GenericFile => "generic-file",
             IconRole::Settings => "settings",
+            IconRole::FolderBack => "folder-back",
+            IconRole::FolderFront => "folder-front",
         }
     }
 
