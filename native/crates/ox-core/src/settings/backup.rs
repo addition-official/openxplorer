@@ -451,6 +451,8 @@ mod tests {
             "hideInfotips": true, "hideStatusBar": true, "hidePreviewHandlers": true,
             "typeIntoSearchBox": true, "searchContents": true, "showSearchFilterBar": true,
             "pastePicturesAsFiles": false, "copyPathsAsText": false,
+            "nameColumnWindowsWidth": true, "ctrlPlusMinusTextSize": false,
+            "behaveLikeWindows": {"pastePicturesAsFiles": true},
             "viewDefaults": {"mode": "icons", "iconSize": 96, "sort": "modified",
                              "descending": true, "groups": false, "foldersFirst": false},
             "folderViews": [{"uri": "file:///home/demo/Plans", "mode": "details", "iconSize": 48,
