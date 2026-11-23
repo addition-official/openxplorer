@@ -1,6 +1,40 @@
 STATUS: DONE
-HEAD: user-icon-files ef14eee7 (bae98714 nav arrows at a 12-pixel em, New as AddTo; ef14eee7 ZIP folder group 174)
-QUESTION: (1) Please measure with the real SegoeIcons.ttf the ink of each codepoint marked "need ink" in the GLYPH table, at the em given, so I can set each em to give Windows' measured ink. (2) Please check the GROUP table against the user's extracted imageres/shell32 sheet: for each role, is the group the picture Windows 11 shows there? Especially the ones marked BestMatch. (3) The ours-54 captures are made (32 screens from c063d9b7, audit clean) but pushing them to the status branch was refused by this session's permission check, as your earlier instruction said no PNGs on this branch; the user needs to allow it, or I send them in the chat.
+HEAD: user-icon-files da81802a (f550ffa8 ems from the real font's ink; da81802a drive and network groups)
+QUESTION: The ours-54 captures (32 screens from test-combined-54 c063d9b7, audit clean) are made but not pushed: this session's permission check refused pushing PNGs to the status branch, and a peer session cannot lift that; the user has to allow it here, or I send them in the chat. Still unchecked on the sheet: Home 51380, Gallery 51586 and the Settings tab 16826 (shell32), Script 68, Shortcut 15.
+NOTE: Round 12, from the PC manager workflow's real-font ink table (SegoeIcons.ttf, every em 6 to 20) and its check of the groups against the user's extracted imageres.
+NOTE: Merge check: `git merge-tree --write-tree origin/test-combined-54 da81802a` exits 0.
+
+GLYPH ems from the real font's ink: place | codepoint | square | em before -> now | real ink at the new em | Windows ink
+command bar carets          | E70D | 12 | 8 -> 8    | 6x4   | 6x4
+caption min / max / close   | E921 / E922 / E8BB | 15 | 10 -> 10 | 10x1 / 10x10 / 10x10 | 10x1 / 10x10 / 10x10
+tab close X                 | E711 | 12 -> 13 | 12 -> 13 | 9x9 | 9x9 (the square grows to 13; the app's own X inks about 9 there too)
+new tab +                   | E710 | 14 | 12 -> 14  | 11x11 | 11x11
+search magnifier            | E721 | 15 | 12 -> 13  | 11x11 | 11x11
+breadcrumb separators       | E76C / E76B | 12 | 10 -> 11 | 5x8 | 5x8
+submenu chevrons            | E76C | 16 | 12 -> 13  | 5x10  | 5x10 (heading and tree expanders in 16-pixel squares follow)
+Windows-style sort chevron  | E70E / E70D | 13 | 8 -> 11 | 8x5 | 7x5
+app-style sort indicator, drop-down lists, address history chevron | E70E / E70D | 12 | 12 | 9x5 | (not in the references; WinUI's ComboBox 12)
+Quick access pins           | E718 | 14 | 11 -> 10 | 10x10 | 10x10
+Back / Forward / Up / Refresh | E72B / E72A / E74A / E72C | 16 | 12 | 12x11 / 12x11 / 11x12 / 12x12 | 12x12
+command bar New             | ECC8 AddTo | 18 | 16 | 15x15 circled plus | 15x15
+menu "Close tab"            | E711 | 18 | 16 | 11x11 | 11x11
+Details button              | E90C | 18 | 16 | 16x12 | 16x12
+status bar list / tiles     | E8FD / E80A | 18 | 16 | 16x11 / 14x14 | 16x16 incl. the selected button's frame (not changed)
+
+GROUPS (Windows icon files on): role | group before -> now | as checked on the user's sheet
+Network computer            | 104 -> 109 | the plain monitor, as Network shows computers (104 is a shield with ?)
+Network share               | 28 -> 143  | the yellow network folder with a green bar (28 is a drive with a floppy)
+Removable drive             | 30 -> 35   | the plain dark drive, as the VM's USB stick (30 is the optical drive)
+Local Disk (system drive)   | 32 -> 36   | the drive with the Windows logo; new role SystemDrive and art for the root drive
+Other fixed drives          | 32         | unchanged
+Optical drive               | 56         | kept: the app lists an optical drive only while its disc is mounted, so it always has a disc (an empty drive would be 30)
+Confirmed and now marked Verified: mapped drive 33 and disconnected 31, pictures 132, audio 131, video 133, programs 15 (also: folder 3, This PC 109, Network 25, Recycle Bin 55/54, ZIP 174, text 102, generic 2)
+Still BestMatch: Shortcut 15, Script 68, Settings tab shell32 16826.
+
+PASS round 12 on da81802a: cargo fmt; cargo clippy -p ox-app --all-targets --no-deps -D warnings (only test-combined-53's two leftovers); python3 native/parity/check.py (LOOK-030's note lists the new groups); ox-app icons:: 52/52, windows_icon_files 3/3, tab_strip 4/4, window::tests::tabs 21/21, volumes 10/10, location_view 8/8 (the root's tab art is now SystemDrive), address_bar 36/36, landing 31/31, sidebar 72/72, file_drag 13/13; ox-core windows_ 38/38.
+NOT RUN round 12: the full suite, 3x runs; the real font and icon files (not here by design).
+
+ROUND 11
 NOTE: Round 11, deb 54 reports via the PC manager workflow: (a) with the user's real SegoeIcons.ttf, Back, Forward, Up and Refresh were too big: the real arrows ink their whole em (E72B/E72A 12x11 at 12, E74A 11x12, E72C 12x12), so they now draw at a 12-pixel em in their 16-pixel squares, matching Windows' 12x12. (b) New is Windows' circled plus: AddTo U+ECC8 in the command bar's 18-pixel square (and in menu rows' 18-pixel squares, where Add shows); the new-tab button keeps the plain plus E710. (c) .zip files showed imageres 175 (folder with arrows); now 174 (folder with a zipper), as checked on the user's file.
 NOTE: Also fixed: a square whose em fills it (the address bar's 12-pixel history chevron, now at WinUI's 12-pixel ComboBox em) showed the 16-pixel square's padded glyph shrunk; the glyph drawn filling its em is now always requested and used there.
 NOTE: Side effect to check: Refresh (ArrowClockwise) also draws at a 12-pixel em wherever it sits in a 16-pixel square: Settings' Reset and Refresh buttons and the stop-listing bar's Refresh. If those should stay at 16, say so.
