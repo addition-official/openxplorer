@@ -174,7 +174,7 @@ fn windows_style_draws_no_accent_or_line_on_the_sorted_title() {
 
 /// With Windows' style, only the sorted title draws a chevron: a small
 /// gray one centered over its column, at the top of the title, up while
-/// ascending and down while descending, as Windows 11's 7 by 4 pixels at
+/// ascending and down while descending, as Windows 11's 8 by 5 pixels at
 /// 100% scale.
 ///
 /// parity: VIEW-014
@@ -202,8 +202,8 @@ fn windows_style_shows_one_small_chevron_over_the_sorted_column() {
             let top = inked.iter().map(|ink| ink.1).min().expect("a chevron");
             let bottom = inked.iter().map(|ink| ink.1).max().expect("a chevron");
             let (width, height) = (right - left + 1, bottom - top + 1);
-            assert!((6..=8).contains(&width), "{direction}: {width} wide");
-            assert!((3..=5).contains(&height), "{direction}: {height} high");
+            assert!((8..=10).contains(&width), "{direction}: {width} wide");
+            assert!((4..=6).contains(&height), "{direction}: {height} high");
             assert!(top <= 2, "{direction}: at the title's top edge, from row {top}");
             let middle = f64::from(u32::try_from(left + right).expect("a narrow title")) / 2.0;
             // The title's whole width, its padding too; the divider's 1px
@@ -253,4 +253,48 @@ fn the_apps_own_style_comes_back_with_its_accent() {
         .skip(chevron_rows)
         .any(|(row, before)| row.iter().zip(before).any(|(pixel, was)| differ(*pixel, *was)));
     assert!(changed, "the app's own style marks a sort other than the default");
+}
+
+/// With Windows' style the chevron stands at the title's top edge, well
+/// clear of the text under it, in a column as wide as a new window's and
+/// in one narrower than its title, where the text runs under the middle.
+///
+/// parity: VIEW-014
+#[gtk::test]
+fn windows_style_keeps_the_chevron_clear_of_the_text_in_any_column_width() {
+    let fixture = Fixture::standard();
+    let test = laid_out(&fixture.uri());
+    save_style(&test, ColumnHeaderStyle::Windows);
+    let view = test.window.folder_pane().details();
+    let modified = view.column(SortColumn::Modified).expect("a Date modified column");
+    for width in [None, Some(70)] {
+        if let Some(width) = width {
+            modified.set_fixed_width(width);
+        }
+        for direction in ["ascending", "descending"] {
+            sort_by(&test, "modified", direction);
+            let title = title_of(&test, SortColumn::Modified);
+            let rows = drawn(&title);
+            // Every inked row, the line under the header left out.
+            let inked_rows: Vec<usize> = (0..rows.len() - 1)
+                .filter(|row| !ink(&rows[*row..=*row], 1).is_empty())
+                .collect();
+            let top = *inked_rows.first().expect("a chevron");
+            assert!(top <= 2, "{width:?} {direction}: from row {top}");
+            let chevron_end = inked_rows
+                .iter()
+                .zip(inked_rows.iter().skip(1))
+                .find(|(row, next)| **next > **row + 1)
+                .map(|(row, _)| *row)
+                .expect("text under the chevron");
+            let text_top = inked_rows
+                .iter()
+                .find(|row| **row > chevron_end)
+                .expect("text under the chevron");
+            assert!(
+                text_top - chevron_end > 3,
+                "{width:?} {direction}: the chevron ends at row {chevron_end}, the text starts at {text_top}"
+            );
+        }
+    }
 }
