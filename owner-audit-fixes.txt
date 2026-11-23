@@ -1,7 +1,102 @@
 STATUS: DONE
-HEAD: claude/owner-audit-fixes aa0c80ed
-QUESTION: none
+HEAD: claude/owner-audit-fixes c1cb3111 (on origin/test-combined-56 a1082704)
+QUESTION: 1) #212: "Allow Linux file name characters when renaming" is off by default, which is already Windows' value, so it is NOT in WINDOWS_SETTINGS (the registry's own test refuses a line whose default is already Windows'). Register it anyway with an inverted meaning? 2) #126: Sign out cannot forget one share alone: OpenXplorer keys saved credentials per server (host and port; the keyring schema is a compatibility contract) and GVfs keeps no share either. Done per server and port; OK? 3) #126: GVfs may save SMB's usual port as 0 or with no port, so for port 445 its saved passwords are still matched by host (all ports); a custom port matches that port only. OK, or narrow further at the risk of leaving a password behind? 4) #116: the switch lifts the 500 limit of a walked (non-indexed) search only; the search cache keeps its limit (ox-core MAX_RESULT_LIMIT 2000). Lift that too? 5) #298 password-free updates: left alone (never enabled here); policy is the owner's. 6) #132/#143: should "Also handle Open and Save dialogs" start off (this fork's opt-in rule), and should uninstall remove the GTK_USE_PORTAL file? 7) #198: register "check for updates" with the master switch (Windows value off)?
 NOTE:
+- ROUND 2 on top of origin/test-combined-56 (a1082704, which already holds
+  round 1). Commits: 7f6b4213 style (3 Clippy findings already on the
+  combined branch: roles.rs identical arms, shortcuts.rs dangling doc
+  comment, folder_contents.rs semicolons); 8edb99f5 #223 clipboard;
+  03d9c794 #29 .desktop link; 6aee06cd #126 Sign out; 54da2814 #133 Format;
+  8c8257da settings (#106 #116 #191 #212 #227 #273 #382) and #231 Search
+  tab, in one commit because they share the preference plumbing, the
+  registry and the message template; c1cb3111 test fix.
+- The fork's branch had one commit not in this tree (ebdeac88 "test: Drop
+  redundant tests"); merged as 160606a5 keeping this side, since the
+  combined branch already merged that pruning and added tests after it.
+  The merge changes no file.
+- A1 #223: a pasted file list (up to 32 MiB) is decoded on a worker thread.
+- A2 #29: a .desktop link is read on a worker thread while the main loop
+  runs (bounded_io::look_for); still gives up after 400 ms.
+- A3 #126: Sign out deletes OpenXplorer's saved entries for that host and
+  port only, and GVfs's for a custom port only; memory is still cleared
+  for the whole host, as mounts are disconnected host-wide.
+- B, each with the owner's default kept and a line in WINDOWS_SETTINGS
+  (except #212, see QUESTION 1). Rows and visible strings, quoted:
+  * #116 Settings > Search > "Show all search matches (like Windows)";
+    description "A search of a folder that is not in the search cache shows
+    every match, as in Windows. Off, it shows the first 500 and asks you to
+    narrow your search." Batches are added one main-loop turn apart.
+  * #227 Settings > Appearance > "Neutral selection colors (like
+    Windows)"; "Hover and selection in the file list and the navigation
+    pane keep Windows' colors whatever your accent color, as in Windows 11.
+    Off, your accent color tints them."
+  * #273 Settings > Appearance > Layout > "Show Recent files in the
+    navigation pane" (on); "Lists Recent files in the navigation pane while
+    it shows more items. Off, recent files are on Home only, as in Windows
+    11."
+  * #191 Settings > Default apps > new group "Requests from other apps" >
+    "Connect to shares opened by other apps right away (like Windows)";
+    "When another app opens a folder or item on a network share that is not
+    connected, OpenXplorer connects to it at once, as Windows does. Off, the
+    tab waits until you click Try again."
+  * #382 same group > "Keep Open/Save dialogs modal on GNOME (like
+    Windows)"; "On GNOME, another app's Open or Save dialog stays modal, so
+    that app waits until the dialog closes, as in Windows. GNOME then moves
+    the dialog with that app's window. Off, the dialog moves on its own and
+    the app stays usable."
+  * #106 "Show check boxes only while Ctrl is held" registered (Windows
+    value off); description changed to "Item check boxes stay out of the
+    way until you hold Ctrl to pick several items. Turn this off to show
+    them whenever you point at an item, as in Windows."
+  * #212 Settings > Files & folders > Copying and moving > "Allow Linux file
+    name characters when renaming" (off); "Names you type may contain : * ?
+    " < > | as Linux allows, when renaming in place, in the Rename dialog and
+    in Properties alike. Such a name cannot be copied to a Windows share or
+    a USB drive as it is. Off, these are refused as in Windows." On, the
+    balloon lists only "\ /" (both always refused).
+- C #133 Format dialog: "Allocation unit size" with "Default allocation
+  size", then "{size} bytes" / "{size} kilobytes" (bytes up to 8192, as
+  Windows lists them), passed to mkfs through UDisks' mkfs-args (FAT32 -s,
+  exFAT/NTFS -c, ext4 -b); "Restore device defaults" (drive's file system,
+  default size, Quick format). Last question now "WARNING: Formatting will
+  erase ALL data on this disk.\nTo format the disk, click OK. To quit, click
+  CANCEL." with "OK" (was "Format") and Cancel focused; title "Format this
+  drive?" kept. Replaces "Formatting erases all data on this drive. Copy
+  anything you want to keep to another drive first." No MS-DOS startup disk.
+- C #231 Folder Options > Search, under "When searching non-indexed
+  locations": "Include system directories" (on) and "Include compressed
+  files (ZIP, 7Z, TAR...)" (off), Windows' defaults (Windows says "ZIP,
+  CAB..."; CAB is Windows-only). Off, the walk does not enter /bin /boot /etc
+  /lib* /opt /sbin /snap /usr /var; on, names inside ZIP, 7Z and TAR files
+  the walk passes are found and open inside the archive. Office.com and
+  "How to search" skipped (no counterpart).
+- Message template regenerated; no .po file touched. features.toml notes
+  for CLIP-016, OPEN-009, NET-021, SRCH-035, LOOK-024, SIDE-034, INT-032,
+  OPS-010, DEV-012, VIEW-020.
+- PASS (round 2, as tester, Rust 1.92.0): rustfmt --check and clippy
+  --workspace --all-targets -D warnings (after the style commit; before it
+  the combined branch itself failed clippy); native/parity/check.py exit 0;
+  i18n.py check exit 0.
+- PASS: ox-core tests of the touched modules (network, search, settings,
+  integration::drive_format, archive, windows_icons, ops::opendocument):
+  596 passed, 0 failed.
+- ox-app tests of the touched modules (clipboard, activation, bounded_io,
+  open_several, format_drive, theme, settings_page, caller_window,
+  folder_options, view_styles, clipboard, opening, search results,
+  name_balloon, renaming, search, network, item_check_boxes, shortcuts,
+  gallery, application::state, column_header_style, user_glyphs, cells):
+  525 passed, 8 failed in a quick run. Rerun of those 8 with check.py's
+  isolation (Python app sources set): 6 PASS (one needed the test fix in
+  c1cb3111; four only needed the Python sources). 2 FAIL, also on
+  test-combined-56 a1082704 unchanged (same panics):
+  column_header_style windows_style_keeps_the_chevron_clear_of_the_text_in_
+  any_column_width (line 289) and windows_style_shows_one_small_chevron_
+  over_the_sorted_column (line 197).
+- NOT TESTED in round 2 (by the rule, or needs hardware): full test runs;
+  xdotool real input; a real UDisks format with an allocation size; SMB
+  Sign out against a real keyring; GNOME/Mutter modality; Wayland.
+
+ROUND 1 NOTES (unchanged):
 - 14 commits on upstream 5d21fd3e, one per fix: GTK_A11Y=none crash; #229
   Confirm Attribute Changes; #225 crumb menu; #226/#223 drag facts; #322
   resize band; #132/#143 Restore previous; #373 SMB lookup threads; #373
@@ -49,6 +144,153 @@ NOTE:
   a_tab_on_results_keeps_its_selection_and_scroll_position (timeout).
 - NOT TESTED: full check.py after the VM changes; MP4 video playback (only its icon showed in the pane here);
   SMB, UDisks on a real drive, polkit, Wayland; anything on Windows.
+
+
+AUDIT ROWS (all 144: done / setting / skipped-why)
+#21    skipped: None (covered by later rows)
+#22    skipped: no user-visible change
+#23    skipped: no user-visible change
+#24    skipped: no user-visible change
+#25    skipped: no user-visible change
+#26    skipped: no user-visible change
+#27    skipped: None (extras)
+#28    skipped: no user-visible change
+#29    done: GTK_A11Y=none crash (round 1); .desktop link read off the main loop (A2)
+#30    skipped: no user-visible change
+#31    skipped: no user-visible change
+#37    skipped: None (extras)
+#39    skipped: no user-visible change
+#52    skipped: no user-visible change
+#53    skipped: no user-visible change
+#54    skipped: no user-visible change
+#61    skipped: no user-visible change
+#64    skipped: no user-visible change
+#75    skipped: no user-visible change
+#77    skipped: no user-visible change
+#78    skipped: no user-visible change
+#83    skipped: no user-visible change
+#84    skipped: no user-visible change
+#87    skipped: no user-visible change
+#89    skipped: None (Linux safety guard)
+#90    skipped: no user-visible change
+#105   skipped: no user-visible change
+#106   setting (exists): "Show check boxes only while Ctrl is held" registered; description says off is Windows' way
+#107   skipped: None (Linux-only)
+#108   skipped: no user-visible change
+#109   skipped: no user-visible change
+#110   skipped: no user-visible change
+#111   skipped: no user-visible change
+#112   skipped: needs VM (see VM CHECK)
+#113   skipped: no user-visible change
+#114   skipped: no user-visible change
+#115   skipped: no user-visible change
+#116   setting: "Show all search matches (like Windows)"
+#125   skipped: no user-visible change
+#126   done: Sign out forgets only that server's saved credentials (A3); undo wording stays VM CHECK 16
+#132   done: Restore previous undoes only what Make default changed (round 1); opt-in default is a QUESTION
+#133   done: Allocation unit size, Restore device defaults, Windows' warning
+#142   skipped: matches Windows 11
+#143   done with #132 (round 1); GTK_USE_PORTAL file after uninstall is a QUESTION
+#152   skipped: no user-visible change
+#154   skipped: no user-visible change
+#155   skipped: no user-visible change
+#156   skipped: no user-visible change
+#157   skipped: no user-visible change
+#158   skipped: no user-visible change
+#162   skipped: needs VM (see VM CHECK)
+#163   skipped: no user-visible change
+#164   done: "." rule fixed; setting "Match words at the start of file extensions (like Windows)" (round 1)
+#166   skipped: None (locale)
+#167   skipped: no user-visible change
+#181   skipped: matches Windows 11
+#182   skipped: no user-visible change
+#183   done: folder infotip (round 1); the one-time migration reset cannot be undone
+#191   setting: "Connect to shares opened by other apps right away (like Windows)"
+#192   skipped: None (replaced by #196)
+#193   skipped: no user-visible change
+#194   skipped: None (replaced by #196)
+#195   skipped: no user-visible change
+#198   skipped: Setting (exists): the daily update check can already be turned off; not in this round's list (QUESTION)
+#199   skipped: no user-visible change
+#208   skipped: no user-visible change
+#209   skipped: matches Windows 11
+#210   skipped: matches Windows 11
+#211   skipped: matches Windows 11
+#212   setting: "Allow Linux file name characters when renaming" (off = Windows); one rule for in-place, Rename dialog and Properties
+#213   skipped: needs VM (see VM CHECK)
+#214   skipped: matches Windows 11
+#215   skipped: needs VM (see VM CHECK)
+#216   done: editable drive label (round 1); Disk Cleanup, indexing/compress boxes and Hardware tab skipped (no counterpart)
+#217   skipped: matches Windows 11
+#218   skipped: matches Windows 11
+#219   skipped: needs VM (see VM CHECK)
+#220   skipped: None for now (no single discovery setting on Linux)
+#221   skipped: matches Windows 11
+#222   skipped: needs VM (see VM CHECK)
+#223   done: drag facts once per drag (round 1); clipboard decode off the main thread (A1)
+#224   skipped: needs VM (see VM CHECK)
+#225   done: crumb menu cap, off-thread sort, idle batches (round 1); leading chevron list stays VM CHECK 5
+#226   done: drag label once per drag (round 1)
+#227   setting: "Neutral selection colors (like Windows)"; dark colors stay VM CHECK 26
+#228   skipped: needs VM (see VM CHECK)
+#229   done: Confirm Attribute Changes (round 1)
+#230   done: Browse... (round 1)
+#231   done: "Include system directories", "Include compressed files (ZIP, 7Z, TAR...)"; Office.com skipped (no counterpart); "How to search" skipped (index has no counterpart)
+#232   skipped: access keys are done by the classic-menu job
+#233   skipped: None for now (cosmetic)
+#234   skipped: needs VM (see VM CHECK)
+#244   skipped: no user-visible change
+#245   skipped: matches Windows 11
+#251   skipped: no user-visible change
+#252   skipped: matches Windows 11
+#253   skipped: matches Windows 11
+#254   skipped: matches Windows 11
+#255   skipped: matches Windows 11
+#256   skipped: None (mode bits)
+#257   skipped: needs VM (see VM CHECK)
+#258   skipped: None (honest label)
+#259   skipped: matches Windows 11
+#260   skipped: needs VM (see VM CHECK)
+#261   skipped: matches Windows 11
+#273   setting: "Show Recent files in the navigation pane"
+#274   skipped: matches Windows 11
+#275   skipped: no user-visible change
+#291   skipped: no user-visible change
+#294   skipped: no user-visible change
+#295   skipped: no user-visible change
+#296   skipped: no user-visible change
+#298   skipped: password-free updates are never enabled here; policy QUESTION
+#299   skipped: needs VM (see VM CHECK)
+#304   skipped: no user-visible change
+#312   skipped: no user-visible change
+#313   skipped: no user-visible change
+#322   done: troughs and controls exempt from the inner band (round 1)
+#323   skipped: no user-visible change
+#324   skipped: no user-visible change
+#327   done: one-time remotePreviews migration (round 1)
+#339   skipped: matches Windows 11
+#340   skipped: no user-visible change
+#341   skipped: no user-visible change
+#354   skipped: no user-visible change
+#355   skipped: needs VM (see VM CHECK)
+#356   skipped: no user-visible change
+#363   skipped: no user-visible change
+#364   skipped: no user-visible change
+#365   skipped: no user-visible change
+#366   skipped: None (extra)
+#367   skipped: no user-visible change
+#371   skipped: no user-visible change
+#372   skipped: the windows-mode-switch job adds the star-prompt setting
+#373   done: lookup threads bounded; setting "Restore over the original (Windows)" (round 1)
+#374   skipped: handled by the sort-header job
+#380   skipped: no user-visible change
+#381   skipped: no user-visible change
+#382   setting: "Keep Open/Save dialogs modal on GNOME (like Windows)"
+#383   skipped: no user-visible change
+#384   skipped: open PR, not merged
+#385   skipped: no user-visible change
+#386   skipped: no user-visible change
+#387   skipped: None (harmless), left alone
 
 VM CHECK
 Windows 11 23H2 or 24H2, a test account, sample files only. Steps for the
@@ -171,3 +413,16 @@ marks "needs VM", unchanged here.
 34. #355 mixed undo. Copy two files to a local folder and one to a share in
     one paste, edit the local copy, Ctrl+Z.
     Look for: which questions Explorer asks and their wording.
+35. #133 Format. This PC > a USB drive > Format..., for FAT32, exFAT and
+    NTFS in turn.
+    Look for: the Allocation unit size list (all entries, exact words) and
+    its default; what "Restore device defaults" resets (label too?); the
+    warning text and buttons.
+36. #231 Folder Options > Search on 24H2.
+    Look for: the exact words of "Include system directories" and "Include
+    compressed files (ZIP, CAB...)", their defaults, and whether a
+    non-indexed search with compressed files on lists items inside a ZIP.
+37. #227 Settings > Personalization > Colors, pick a custom accent (green).
+    Look for: whether File Explorer's hover and selection change color.
+38. #106 View > Show > Item check boxes on.
+    Look for: whether a box shows on every hovered item without Ctrl.

@@ -34,6 +34,16 @@ Reliability first, then Windows look-alikes. Where the current behavior was a cl
 
 The message template (`native/po/openxplorer.pot`) is regenerated in each commit that adds strings; no translation file is changed.
 
+### Further fixes
+
+- **fix(clipboard): Decode a pasted file list off the main thread.** A file list of up to 32 MiB was parsed on the main thread (#223).
+- **fix(open): Read a .desktop link without holding the main loop.** The read waited up to 400 ms on a share that stopped answering (#29); it now runs on a worker while the window goes on.
+- **fix(network): Forget only the signed-out server's saved credentials.** Sign out deleted the saved passwords of every port of the host (#126); it now deletes those of that host and port. Credentials are kept per server, so one share alone cannot be forgotten.
+- **fix(format): Add Allocation unit size and Restore device defaults** (#133), and ask in Windows' words: "WARNING: Formatting will erase ALL data on this disk. To format the disk, click OK. To quit, click CANCEL."
+- **feat(settings):** each owner choice that differs from Windows keeps its default and gains a setting, also set by "Behave like Windows Explorer": "Show all search matches (like Windows)" (#116), "Neutral selection colors (like Windows)" (#227), "Show Recent files in the navigation pane" (#273), "Connect to shares opened by other apps right away (like Windows)" (#191), "Keep Open/Save dialogs modal on GNOME (like Windows)" (#382), and "Show check boxes only while Ctrl is held" (#106). "Allow Linux file name characters when renaming" (off, as in Windows) applies to renaming in place, the Rename dialog and Properties alike (#212).
+- **Folder Options > Search** gains "Include system directories" (on) and "Include compressed files (ZIP, 7Z, TAR...)" (off), Windows' defaults (#231).
+- **style:** three Clippy findings in code this branch builds on.
+
 ## Testing
 
 - `python3 native/parity/check.py` and `python3 native/tools/check.py`, as an unprivileged user with Rust 1.92.0, on a private display and session bus: see the results below.
@@ -41,6 +51,8 @@ The message template (`native/po/openxplorer.pot`) is regenerated in each commit
 - Real input with xdotool on a private Xvfb with a throwaway HOME and generated sample files, with `GTK_A11Y=none` and with it unset: file drag, `:` while renaming, type-to-select, and an MP3 and an MP4 shown in the Preview pane, then renamed and deleted.
 
 ## Results
+
+- Further fixes: rustfmt and workspace Clippy with `-D warnings` PASS; `python3 native/parity/check.py` PASS; message template check PASS; the ox-core tests of the changed modules (596) PASS; the ox-app tests of the changed modules PASS except the two column-header tests listed below. No full run.
 
 - `python3 native/parity/check.py`: PASS (exit 0).
 - `python3 native/tools/check.py`: inventories, driver tests, drawn-icon guard, rustfmt, workspace Clippy with `-D warnings` and the message template check all PASS. It stops at the first failing test program, so all 88 test programs and the doctests were then run with check.py's own isolation helpers, carrying on past failures: 4,971 tests passed, 1 ignored. The ox-app program (every GTK test) passed in full.
@@ -51,7 +63,10 @@ The message template (`native/po/openxplorer.pot`) is regenerated in each commit
 
 The Read-only dialog wording, the folder infotip format and empty-folder text, and Windows' search matches for doc, .doc, docx, pd, txt and mp were checked in a Windows 11 VM, and the branch follows them as described above. Still not checked: the Read-only dialog's wording for a selection of several items.
 
-## Known test failure not caused by this branch
+## Known test failures not caused by this branch
+
+`window::tests::column_header_style::windows_style_keeps_the_chevron_clear_of_the_text_in_any_column_width` and `windows_style_shows_one_small_chevron_over_the_sorted_column` fail in this environment, the same way on the base commit.
+
 
 `window::tests::search_history::a_tab_on_results_keeps_its_selection_and_scroll_position` times out intermittently in this environment; it fails the same way on main 5d21fd3e (3 of 3 runs).
 
