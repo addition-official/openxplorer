@@ -295,10 +295,6 @@ fn new_shortcut_is_the_create_shortcut_wizard() {
     );
 }
 
-/// A shortcut to an Internet address is a `.desktop` link, named "New
-/// Internet Shortcut" as Windows proposes, which opens the address.
-///
-
 /// Opening an installed app's launcher, or a shortcut to one, opens it in
 /// its editor, as OPEN-007 keeps it, until Settings › "Run installed apps'
 /// launchers on double-click" is on; then it starts the app, as Windows

@@ -221,7 +221,7 @@ impl FolderContents {
         };
         match (&windows, &folder) {
             (Some((back, _)), _) => {
-                snapshot.append_scaled_texture(back, gsk::ScalingFilter::Trilinear, &whole)
+                snapshot.append_scaled_texture(back, gsk::ScalingFilter::Trilinear, &whole);
             }
             (None, Some(folder)) => snapshot.append_node(folder),
             (None, None) => {}
@@ -251,7 +251,7 @@ impl FolderContents {
         }
         match (&windows, &folder) {
             (Some((_, front)), _) => {
-                snapshot.append_scaled_texture(front, gsk::ScalingFilter::Trilinear, &whole)
+                snapshot.append_scaled_texture(front, gsk::ScalingFilter::Trilinear, &whole);
             }
             (None, Some(folder)) => draw_front(snapshot, folder, &at),
             (None, None) => {}
