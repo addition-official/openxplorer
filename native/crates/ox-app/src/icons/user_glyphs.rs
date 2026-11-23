@@ -82,10 +82,13 @@ pub(crate) const fn windows_source(icon: Icon) -> WindowsSource {
         Icon::CheckboxChecked => glyph(0xE73A, "CheckboxComposite"),
         Icon::Checkmark => glyph(0xE73E, "CheckMark"),
         Icon::ChevronDown => glyph(0xE70D, "ChevronDown"),
-        Icon::ChevronDown16 => glyph(0xE96E, "ChevronDownSmall"),
-        Icon::ChevronLeft16 => glyph(0xE96F, "ChevronLeftSmall"),
-        Icon::ChevronRight16 => glyph(0xE970, "ChevronRightSmall"),
-        Icon::ChevronUp16 => glyph(0xE96D, "ChevronUpSmall"),
+        // The chevrons are WinUI's, drawn at its 8-pixel font size
+        // ([`em_of`]), as a drop-down button, a breadcrumb or a submenu
+        // draws them.
+        Icon::ChevronDown16 => glyph(0xE70D, "ChevronDown"),
+        Icon::ChevronLeft16 => glyph(0xE76B, "ChevronLeft"),
+        Icon::ChevronRight16 => glyph(0xE76C, "ChevronRight"),
+        Icon::ChevronUp16 => glyph(0xE70E, "ChevronUp"),
         Icon::CircleSmallFilled => glyph(0xE915, "RadioBullet"),
         Icon::ClipboardPaste => glyph(0xE77F, "Paste"),
         Icon::Clock => glyph(0xE917, "Clock"),
@@ -94,7 +97,9 @@ pub(crate) const fn windows_source(icon: Icon) -> WindowsSource {
         Icon::Cut => glyph(0xE8C6, "Cut"),
         Icon::Delete => glyph(0xE74D, "Delete"),
         Icon::Desktop => glyph(0xE7F4, "TVMonitor"),
-        Icon::Dismiss => glyph(0xE8BB, "ChromeClose"),
+        // Menus' and dialogs' thin X, as Windows draws "Remove from list"
+        // and a tab's Close.
+        Icon::Dismiss => glyph(0xE711, "Cancel"),
         Icon::Dismiss16 => glyph(0xE711, "Cancel"),
         Icon::Document => glyph(0xE8A5, "Document"),
         Icon::Eye => glyph(0xE890, "View"),
@@ -204,12 +209,12 @@ pub(crate) const fn glyph_of(icon: Icon) -> Option<WindowsGlyph> {
     }
 }
 
-/// The em Windows 11 draws a glyph at in a square of `size` pixels: the
-/// square itself up to 16 pixels (the tab's 12-pixel close button, the
-/// 16-pixel command bar, navigation buttons, address bar and menus), 16
-/// pixels in the app's 17 to 24 pixel squares, where Windows draws the
-/// same glyphs at its 16-pixel font size, and the square itself again
-/// above that, where the user chose larger icons.
+/// The em Windows 11 draws a glyph at in a square of `size` pixels, as
+/// its controls set the font size: the square itself up to 16 pixels
+/// (the 16-pixel command bar, navigation buttons, address bar and menu
+/// rows, the 12-pixel tab close button), 16 pixels in the app's 17 to 24
+/// pixel squares, and the square itself above that, where the user chose
+/// larger icons.
 pub(crate) const fn windows_em(size: i32) -> i32 {
     if size >= 17 && size <= LARGEST_PADDED {
         16
@@ -218,17 +223,48 @@ pub(crate) const fn windows_em(size: i32) -> i32 {
     }
 }
 
-/// The largest square a glyph is drawn into at a 16-pixel em.
+/// The em Windows 11 draws `icon`'s glyph at in a square of `size`
+/// pixels: chevrons at WinUI's 8-pixel font size (a drop-down button's
+/// caret, a breadcrumb separator, a submenu arrow, an expander), others
+/// as [`windows_em`] has it; never larger than the square.
+pub(crate) const fn em_of(icon: Icon, size: i32) -> i32 {
+    let em = windows_em(size);
+    match icon {
+        Icon::ChevronDown
+        | Icon::ChevronDown16
+        | Icon::ChevronLeft16
+        | Icon::ChevronRight16
+        | Icon::ChevronUp16
+        | Icon::ChevronDoubleLeft16
+        | Icon::ChevronDoubleRight16 => {
+            if em < CHEVRON_EM {
+                em
+            } else {
+                CHEVRON_EM
+            }
+        }
+        _ => em,
+    }
+}
+
+/// WinUI's font size for the chevrons of its controls.
+const CHEVRON_EM: i32 = 8;
+
+/// The largest square a glyph is drawn into at a smaller em.
 const LARGEST_PADDED: i32 = 24;
+
+/// The squares the font's glyphs are made for at an em smaller than the
+/// square: those the app's glyphs are drawn in.
+const PADDED_SQUARES: [i32; 13] = [10, 12, 13, 14, 16, 17, 18, 19, 20, 21, 22, 23, 24];
 
 /// The name of the icon the cache draws `icon`'s glyph as in a square of
 /// `size` pixels: `ox-win-add-20-symbolic` for `ox-add-20-symbolic` where
 /// the em fills the square, and `ox-win-add-20-box20-symbolic` where the
-/// em is smaller ([`windows_em`]).
+/// em is smaller ([`em_of`]).
 fn glyph_icon_name(icon: Icon, size: i32) -> String {
     let name = icon.name();
     let stem = name.strip_prefix("ox-").unwrap_or(name);
-    if windows_em(size) == size {
+    if em_of(icon, size) == size {
         return format!("ox-win-{stem}");
     }
     let stem = stem.strip_suffix("-symbolic").unwrap_or(stem);
@@ -257,22 +293,26 @@ fn icon_named(name: &str) -> Option<Icon> {
 }
 
 /// What the font is asked for: each glyph at an em filling its square,
-/// and at a 16-pixel em in each square from 17 to 24 pixels.
+/// and in each of [`PADDED_SQUARES`] where its em is smaller.
 fn glyph_requests() -> Vec<GlyphRequest> {
     let mut requests = Vec::new();
     for icon in ALL_ICONS {
         let Some(glyph) = glyph_of(icon) else {
             continue;
         };
-        for size in std::iter::once(16).chain(17..=LARGEST_PADDED) {
+        let padded = PADDED_SQUARES
+            .into_iter()
+            .filter(|size| em_of(icon, *size) < *size);
+        for size in std::iter::once(16).chain(padded) {
             requests.push(GlyphRequest {
                 name: glyph_icon_name(icon, size),
                 codepoint: glyph.codepoint,
-                em: windows_em(size).unsigned_abs(),
+                em: em_of(icon, size).unsigned_abs(),
                 size: size.unsigned_abs(),
             });
         }
     }
+    requests.dedup_by(|a, b| a.name == b.name);
     requests
 }
 
@@ -336,9 +376,9 @@ pub(crate) fn drawn_name(icon: Icon, size: i32) -> &'static str {
     if glyph_of(icon).is_none() {
         return own;
     }
-    // Squares above 16 pixels the font has no padded icon for draw the
-    // glyph at an em filling them, as one the user enlarged.
-    let square = if (17..=LARGEST_PADDED).contains(&size) {
+    // A square with a padded icon draws it; any other draws the glyph at
+    // an em filling it, as an icon the user enlarged.
+    let square = if PADDED_SQUARES.contains(&size) && em_of(icon, size) < size {
         size
     } else {
         16
@@ -479,7 +519,7 @@ fn apply() {
     if let Some(stylesheet) = stylesheet {
         gtk::style_context_remove_provider_for_display(&display, &stylesheet);
     }
-    let css = chevron_stylesheet(crate::theme::skin_rules(), |icon| drawn_name(icon, 16));
+    let css = chevron_stylesheet(crate::theme::skin_rules(), drawn_name);
     let stylesheet = (!css.is_empty()).then(|| {
         let provider = gtk::CssProvider::new();
         provider.load_from_string(&css);
@@ -496,8 +536,12 @@ fn apply() {
 
 /// The rules of `rules` that draw a bundled icon through
 /// `-gtk-icontheme`, with only those declarations, the icon names
-/// replaced as `drawn` draws them; empty when `drawn` replaces none.
-pub(crate) fn chevron_stylesheet(rules: &str, drawn: impl Fn(Icon) -> &'static str) -> String {
+/// replaced as `drawn` draws them in the rule's square: its
+/// `background-size`, else its `min-width`, else the square of the
+/// longest earlier selector its own starts with (a `:dir(rtl)` or
+/// `:checked` variant of a rule), else 16 pixels. Empty when `drawn`
+/// replaces none.
+pub(crate) fn chevron_stylesheet(rules: &str, drawn: impl Fn(Icon, i32) -> &'static str) -> String {
     let mut text = String::with_capacity(rules.len());
     let mut rest = rules;
     // Comments out, so a brace inside one cannot split a rule.
@@ -509,11 +553,33 @@ pub(crate) fn chevron_stylesheet(rules: &str, drawn: impl Fn(Icon) -> &'static s
     }
     text.push_str(rest);
     let mut stylesheet = String::new();
+    let mut squares: Vec<(String, i32)> = Vec::new();
     for rule in text.split('}') {
         let Some((selector, body)) = rule.split_once('{') else {
             continue;
         };
         let mut replaced = false;
+        let own = css_pixels(body, "background-size").or_else(|| css_pixels(body, "min-width"));
+        let base = selector
+            .trim()
+            .split(':')
+            .next()
+            .unwrap_or_default()
+            .trim()
+            .to_owned();
+        let square = own.unwrap_or_else(|| {
+            squares
+                .iter()
+                .filter(|(known, _)| base.starts_with(known.as_str()))
+                .max_by_key(|(known, _)| known.len())
+                .map_or(16, |(_, square)| *square)
+        });
+        if let Some(own) = own {
+            for selector in selector.split(',') {
+                let base = selector.trim().split(':').next().unwrap_or_default().trim();
+                squares.push((base.to_owned(), own));
+            }
+        }
         let declarations: Vec<String> = body
             .split(';')
             .filter(|declaration| declaration.contains("-gtk-icontheme(\"ox-"))
@@ -521,7 +587,7 @@ pub(crate) fn chevron_stylesheet(rules: &str, drawn: impl Fn(Icon) -> &'static s
                 let mut declaration = declaration.trim().to_owned();
                 for icon in ALL_ICONS {
                     let quoted = format!("\"{}\"", icon.name());
-                    let drawn_as = drawn(icon);
+                    let drawn_as = drawn(icon, square);
                     if drawn_as != icon.name() && declaration.contains(&quoted) {
                         declaration = declaration.replace(&quoted, &format!("\"{drawn_as}\""));
                         replaced = true;
@@ -538,6 +604,15 @@ pub(crate) fn chevron_stylesheet(rules: &str, drawn: impl Fn(Icon) -> &'static s
         }
     }
     stylesheet
+}
+
+/// The first pixel length the declaration `property` of `body` gives.
+fn css_pixels(body: &str, property: &str) -> Option<i32> {
+    let value = body.split(';').find_map(|declaration| {
+        let (name, value) = declaration.split_once(':')?;
+        (name.trim() == property).then_some(value)
+    })?;
+    value.split_whitespace().next()?.strip_suffix("px")?.parse().ok()
 }
 
 /// Shows every bundled glyph on screen again as [`drawn_name`] draws it
