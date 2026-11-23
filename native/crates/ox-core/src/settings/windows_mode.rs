@@ -97,6 +97,12 @@ pub const WINDOWS_SETTINGS: &[WindowsSetting] = &[
     like_windows!("runInstalledLaunchers", run_installed_launchers, true, "Run installed apps' launchers on double-click"),
     like_windows!("restoreOverOriginal", restore_over_original, true, "Restore over the original (Windows)"),
     like_windows!("extensionWordStarts", extension_word_starts, true, "Match words at the start of file extensions (like Windows)"),
+    like_windows!("showAllSearchMatches", show_all_search_matches, true, "Show all search matches (like Windows)"),
+    like_windows!("neutralSelectionColors", neutral_selection_colors, true, "Neutral selection colors (like Windows)"),
+    like_windows!("recentFilesInNavigationPane", recent_files_in_navigation_pane, false, "Show Recent files in the navigation pane"),
+    like_windows!("connectExternalShares", connect_external_shares, true, "Connect to shares opened by other apps right away (like Windows)"),
+    like_windows!("modalDialogsOnGnome", modal_dialogs_on_gnome, true, "Keep Open/Save dialogs modal on GNOME (like Windows)"),
+    like_windows!("itemChecksOnCtrl", item_checks_on_ctrl, false, "Show check boxes only while Ctrl is held"),
 ];
 
 /// A change of the switch, as an update carries it.

@@ -65,14 +65,15 @@ pub(crate) fn merge_results(listing: Option<Listing<'_>>, text: &str, found: Sea
 /// matches them (SRCH-003, SRCH-004) and that pass `filter`, such as the
 /// options typed into the box (SRCH-044): what a live search of the
 /// folder shows before its walk adds the subfolders' matches, at most
-/// [`RESULT_LIMIT`] with a flag when more matched. The limit counts only
-/// items the search shows.
+/// `limit` (normally [`RESULT_LIMIT`]) with a flag when more matched. The
+/// limit counts only items the search shows.
 pub(crate) fn listed_matches_passing(
     listing: Listing<'_>,
     text: &str,
     filter: &FacetMatcher,
+    limit: usize,
 ) -> MergedResults {
-    matching_items(listing, text, "", filter)
+    matching_items(listing, text, "", filter, limit)
 }
 
 /// The listed items whose name and folder hold every word of `text`,
@@ -80,19 +81,25 @@ pub(crate) fn listed_matches_passing(
 /// within the name (SRCH-004).
 fn listing_matches(listing: Listing<'_>, text: &str) -> MergedResults {
     let folder = display_path(listing.folder).to_lowercase();
-    matching_items(listing, text, &folder, &FacetMatcher::default())
+    matching_items(listing, text, &folder, &FacetMatcher::default(), RESULT_LIMIT)
 }
 
 /// Stops after the first excess match, retaining at most the displayed
 /// rows even when the folder already lists many thousands of matches.
-fn matching_items(listing: Listing<'_>, text: &str, folder: &str, filter: &FacetMatcher) -> MergedResults {
+fn matching_items(
+    listing: Listing<'_>,
+    text: &str,
+    folder: &str,
+    filter: &FacetMatcher,
+    limit: usize,
+) -> MergedResults {
     let pattern = NamePattern::new(text);
     let items = listing.items.iter::<FileItem>().filter_map(Result::ok);
     let mut matching = items.filter(|item| {
         let is_listed = listing.shows_hidden || item.visibility() == Visibility::Visible;
         is_listed && pattern.matches_lowercase(item.lowercase_name(), folder) && filter.matches(item.entry())
     });
-    let items = matching.by_ref().take(RESULT_LIMIT).collect();
+    let items = matching.by_ref().take(limit).collect();
     let is_truncated = matching.next().is_some();
     MergedResults { items, is_truncated }
 }
@@ -220,7 +227,7 @@ mod tests {
                 shows_hidden: false,
             };
 
-            let live = listed_matches_passing(listing, "file", &FacetMatcher::default());
+            let live = listed_matches_passing(listing, "file", &FacetMatcher::default(), RESULT_LIMIT);
             let cached = merge_results(Some(listing), "work file", found(Vec::new(), false));
 
             for matches in [live, cached] {
@@ -229,6 +236,24 @@ mod tests {
                 assert_eq!(self::names(&matches), names[..count.min(RESULT_LIMIT)]);
             }
         }
+    }
+
+    /// "Show all search matches (like Windows)": with no limit, every
+    /// listed match is shown and nothing is said to be left out (#116).
+    #[test]
+    fn without_a_limit_every_listed_match_is_shown() {
+        let count = RESULT_LIMIT * 4;
+        let names: Vec<String> = (0..count).map(|number| format!("file {number}.txt")).collect();
+        let refs: Vec<&str> = names.iter().map(String::as_str).collect();
+        let store = store_of_files(&refs);
+        let listing = Listing {
+            items: &store,
+            folder: FOLDER,
+            shows_hidden: false,
+        };
+        let all = listed_matches_passing(listing, "file", &FacetMatcher::default(), usize::MAX);
+        assert_eq!(all.items.len(), count);
+        assert!(!all.is_truncated);
     }
 
     #[test]

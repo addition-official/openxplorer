@@ -128,6 +128,7 @@ impl AppState {
         let preferences = &settings.data().preferences;
         skin.set_theme(preferences.theme);
         skin.set_uses_desktop_font(preferences.desktop_font);
+        skin.set_neutral_selection_colors(preferences.neutral_selection_colors);
         skin.set_text_size(TextSize::from_percent(preferences.text_size));
         let desktop_text = follow_desktop_text(&skin);
         let system_scheme = follow_system_scheme(&skin, gtk_preference);

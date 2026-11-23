@@ -440,6 +440,43 @@ pub struct Preferences {
     /// on.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub extension_word_starts: bool,
+    /// A search of a folder nobody indexed shows every match, as Windows
+    /// 11's search does, instead of the first 500. Off by default, the
+    /// owner's limit. Stored as `showAllSearchMatches`, only when on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub show_all_search_matches: bool,
+    /// Hover and selection in the file list and the navigation pane keep
+    /// Windows' own colors whatever the desktop's accent color. Off by
+    /// default, the owner's choice: a custom accent tints them. Stored as
+    /// `neutralSelectionColors`, only when on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub neutral_selection_colors: bool,
+    /// The navigation pane shows Recent files while it shows more items
+    /// than Windows 11's. On by default, the owner's choice; Windows 11
+    /// shows recent files on Home only. Stored as
+    /// `recentFilesInNavigationPane`, only when off.
+    #[serde(skip_serializing_if = "is_true")]
+    pub recent_files_in_navigation_pane: bool,
+    /// A share another application opens in this app over D-Bus is
+    /// connected to at once, as Windows Explorer connects to a UNC path
+    /// another program opens. Off by default, the owner's choice: such a
+    /// tab waits for Try again. Stored as `connectExternalShares`, only
+    /// when on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub connect_external_shares: bool,
+    /// Another application's Open or Save dialog stays modal on GNOME,
+    /// whose window manager then attaches it to that application's
+    /// window, as Windows' dialog is modal. Off by default, the owner's
+    /// choice: there the dialog moves on its own and the application
+    /// stays usable. Stored as `modalDialogsOnGnome`, only when on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub modal_dialogs_on_gnome: bool,
+    /// Renaming accepts the characters Linux allows in a name and Windows
+    /// does not (`\ : * ? " < > |`), in place and in the Rename dialog
+    /// alike. Off by default, as in Windows. Stored as
+    /// `allowLinuxNameCharacters`, only when on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub allow_linux_name_characters: bool,
     /// Explicitly enabled installed service actions, keyed by definition digest.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub enabled_service_actions: Vec<String>,
@@ -621,6 +658,18 @@ pub struct Preferences {
     /// (Folder Options' "Always search file names and contents").
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub search_contents: bool,
+    /// A search that walks folders enters the system's own folders, such
+    /// as `/usr` and `/etc` (Folder Options' "Include system
+    /// directories"). On by default, as in Windows; stored as
+    /// `searchSystemDirectories`, only when off.
+    #[serde(skip_serializing_if = "is_true")]
+    pub search_system_directories: bool,
+    /// A search that walks folders also finds the files and folders inside
+    /// ZIP, 7Z and TAR archives by name (Folder Options' "Include
+    /// compressed files"). Off by default, as in Windows; stored as
+    /// `searchCompressedFiles`, only when on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub search_compressed_files: bool,
     /// A search shows the search filter bar above the results, as before,
     /// in place of Windows 11's Search options and Close search in the
     /// command bar (Settings > Search > "Show the search filter bar").
@@ -723,6 +772,7 @@ fn is_automatic_icon_size(size: &u32) -> bool {
 }
 
 impl Default for Preferences {
+    #[expect(clippy::too_many_lines, reason = "one line per preference")]
     fn default() -> Self {
         Self {
             theme: Theme::default(),
@@ -766,6 +816,12 @@ impl Default for Preferences {
             recycle_replaced_files: true,
             restore_over_original: false,
             extension_word_starts: false,
+            show_all_search_matches: false,
+            neutral_selection_colors: false,
+            recent_files_in_navigation_pane: true,
+            connect_external_shares: false,
+            modal_dialogs_on_gnome: false,
+            allow_linux_name_characters: false,
             enabled_service_actions: Vec::new(),
             desktop_font: false,
             hide_sidebar: false,
@@ -804,6 +860,8 @@ impl Default for Preferences {
             type_into_search_box: false,
             show_search_filter_bar: false,
             search_contents: false,
+            search_system_directories: true,
+            search_compressed_files: false,
             paste_pictures_as_files: true,
             copy_paths_as_text: true,
             ctrl_plus_minus_text_size: true,
@@ -856,6 +914,11 @@ impl Preferences {
         replace_if_some(&mut self.hide_preview_handlers, update.hide_preview_handlers);
         replace_if_some(&mut self.type_into_search_box, update.type_into_search_box);
         replace_if_some(&mut self.search_contents, update.search_contents);
+        replace_if_some(
+            &mut self.search_system_directories,
+            update.search_system_directories,
+        );
+        replace_if_some(&mut self.search_compressed_files, update.search_compressed_files);
         replace_if_some(&mut self.show_search_filter_bar, update.show_search_filter_bar);
     }
 
@@ -892,6 +955,21 @@ impl Preferences {
         replace_if_some(&mut self.recycle_replaced_files, update.recycle_replaced_files);
         replace_if_some(&mut self.restore_over_original, update.restore_over_original);
         replace_if_some(&mut self.extension_word_starts, update.extension_word_starts);
+        replace_if_some(&mut self.show_all_search_matches, update.show_all_search_matches);
+        replace_if_some(
+            &mut self.neutral_selection_colors,
+            update.neutral_selection_colors,
+        );
+        replace_if_some(
+            &mut self.recent_files_in_navigation_pane,
+            update.recent_files_in_navigation_pane,
+        );
+        replace_if_some(&mut self.connect_external_shares, update.connect_external_shares);
+        replace_if_some(&mut self.modal_dialogs_on_gnome, update.modal_dialogs_on_gnome);
+        replace_if_some(
+            &mut self.allow_linux_name_characters,
+            update.allow_linux_name_characters,
+        );
         replace_if_some(&mut self.confirm_close_tabs, update.confirm_close_tabs);
         replace_if_some(&mut self.ask_to_run_programs, update.ask_to_run_programs);
         replace_if_some(&mut self.run_installed_launchers, update.run_installed_launchers);
@@ -1276,6 +1354,18 @@ pub struct PreferencesUpdate {
     pub restore_over_original: Option<bool>,
     /// See [`Preferences::extension_word_starts`].
     pub extension_word_starts: Option<bool>,
+    /// See [`Preferences::show_all_search_matches`].
+    pub show_all_search_matches: Option<bool>,
+    /// See [`Preferences::neutral_selection_colors`].
+    pub neutral_selection_colors: Option<bool>,
+    /// See [`Preferences::recent_files_in_navigation_pane`].
+    pub recent_files_in_navigation_pane: Option<bool>,
+    /// See [`Preferences::connect_external_shares`].
+    pub connect_external_shares: Option<bool>,
+    /// See [`Preferences::modal_dialogs_on_gnome`].
+    pub modal_dialogs_on_gnome: Option<bool>,
+    /// See [`Preferences::allow_linux_name_characters`].
+    pub allow_linux_name_characters: Option<bool>,
     /// Ask before closing a window with several tabs.
     pub confirm_close_tabs: Option<bool>,
     /// Ask whether to run a program or script that is opened.
@@ -1367,6 +1457,10 @@ pub struct PreferencesUpdate {
     pub type_into_search_box: Option<bool>,
     /// See [`Preferences::search_contents`].
     pub search_contents: Option<bool>,
+    /// See [`Preferences::search_system_directories`].
+    pub search_system_directories: Option<bool>,
+    /// See [`Preferences::search_compressed_files`].
+    pub search_compressed_files: Option<bool>,
     /// See [`Preferences::show_search_filter_bar`].
     pub show_search_filter_bar: Option<bool>,
     /// See [`Preferences::paste_pictures_as_files`].
@@ -1459,6 +1553,12 @@ impl PreferencesUpdate {
             recycle_replaced_files: flag("recycleReplacedFiles"),
             restore_over_original: flag("restoreOverOriginal"),
             extension_word_starts: flag("extensionWordStarts"),
+            show_all_search_matches: flag("showAllSearchMatches"),
+            neutral_selection_colors: flag("neutralSelectionColors"),
+            recent_files_in_navigation_pane: flag("recentFilesInNavigationPane"),
+            connect_external_shares: flag("connectExternalShares"),
+            modal_dialogs_on_gnome: flag("modalDialogsOnGnome"),
+            allow_linux_name_characters: flag("allowLinuxNameCharacters"),
             confirm_close_tabs: flag("confirmCloseTabs"),
             ask_to_run_programs: flag("askToRunPrograms"),
             run_installed_launchers: flag("runInstalledLaunchers"),
@@ -1504,6 +1604,8 @@ impl PreferencesUpdate {
             type_into_search_box: flag("typeIntoSearchBox"),
             show_search_filter_bar: flag("showSearchFilterBar"),
             search_contents: flag("searchContents"),
+            search_system_directories: flag("searchSystemDirectories"),
+            search_compressed_files: flag("searchCompressedFiles"),
             paste_pictures_as_files: flag("pastePicturesAsFiles"),
             copy_paths_as_text: flag("copyPathsAsText"),
             ctrl_plus_minus_text_size: flag("ctrlPlusMinusTextSize"),

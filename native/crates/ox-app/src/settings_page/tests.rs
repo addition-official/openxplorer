@@ -1794,3 +1794,76 @@ fn the_run_installed_launchers_switch_is_off_and_saves_the_choice() {
         settings.saved_preferences().run_installed_launchers
     });
 }
+
+/// One new switch on its page, its key in `settings.json`, and its
+/// default.
+struct NewSwitch {
+    category: Category,
+    title: &'static str,
+    key: &'static str,
+    default: bool,
+}
+
+/// The switches for owner choices that differ from Windows, and the
+/// Linux name characters: each starts at the owner's default, saves its
+/// own key once changed, and keeps the settings file a new installation's
+/// once changed back (#106, #116, #191, #212, #227, #273, #382).
+#[gtk::test]
+fn the_new_switches_start_at_the_owners_defaults_and_save_their_keys() {
+    let switches = [
+        NewSwitch {
+            category: Category::Search,
+            title: "Show all search matches (like Windows)",
+            key: "showAllSearchMatches",
+            default: false,
+        },
+        NewSwitch {
+            category: Category::Appearance,
+            title: "Neutral selection colors (like Windows)",
+            key: "neutralSelectionColors",
+            default: false,
+        },
+        NewSwitch {
+            category: Category::Appearance,
+            title: "Show Recent files in the navigation pane",
+            key: "recentFilesInNavigationPane",
+            default: true,
+        },
+        NewSwitch {
+            category: Category::DefaultApps,
+            title: "Connect to shares opened by other apps right away (like Windows)",
+            key: "connectExternalShares",
+            default: false,
+        },
+        NewSwitch {
+            category: Category::DefaultApps,
+            title: "Keep Open/Save dialogs modal on GNOME (like Windows)",
+            key: "modalDialogsOnGnome",
+            default: false,
+        },
+        NewSwitch {
+            category: Category::FilesAndFolders,
+            title: "Allow Linux file name characters when renaming",
+            key: "allowLinuxNameCharacters",
+            default: false,
+        },
+        NewSwitch {
+            category: Category::FilesAndFolders,
+            title: "Show check boxes only while Ctrl is held",
+            key: "itemChecksOnCtrl",
+            default: true,
+        },
+    ];
+    let settings = SettingsTest::open();
+    let stored = || {
+        std::fs::read_to_string(settings.test.settings_directory().join("settings.json")).unwrap_or_default()
+    };
+    for new in &switches {
+        let switch = switch_of(&settings.row_in(new.category, new.title));
+        assert_eq!(switch.is_active(), new.default, "{}", new.title);
+        switch.set_active(!new.default);
+        wait_until("the choice to be saved", || stored().contains(new.key));
+        switch.set_active(new.default);
+        wait_until("the default to be saved", || !stored().contains(new.key));
+    }
+}
