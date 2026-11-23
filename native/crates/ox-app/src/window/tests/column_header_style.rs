@@ -174,7 +174,7 @@ fn windows_style_draws_no_accent_or_line_on_the_sorted_title() {
 
 /// With Windows' style, only the sorted title draws a chevron: a small
 /// gray one centered over its column, at the top of the title, up while
-/// ascending and down while descending, as Windows 11's 9 by 5 pixels at
+/// ascending and down while descending, as Windows 11's 8 by 5 pixels at
 /// 100% scale.
 ///
 /// parity: VIEW-014
