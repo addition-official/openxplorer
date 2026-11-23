@@ -1,7 +1,7 @@
 STATUS: DONE
-HEAD: claude/owner-audit-fixes c1cb3111 (on origin/test-combined-56 a1082704)
-QUESTION: 4) #116: the switch lifts the 500 limit of a walked (non-indexed) search only; the search cache keeps its limit (ox-core MAX_RESULT_LIMIT 2000). Lift that too? 5) #298 password-free updates: left alone (never enabled here); policy is the owner's. 6) #132/#143: should "Also handle Open and Save dialogs" start off (this fork's opt-in rule), and should uninstall remove the GTK_USE_PORTAL file? 7) #198: register "check for updates" with the master switch (Windows value off)?
-ANSWERED: 1) #212: kept as is, not registered; its default is already Windows'. 2) #126: per server and port is OK; the keyring schema stays as it is. 3) #126: matching by host for SMB's usual port (445, 0 or none) and by exact port otherwise is OK; not narrowed further.
+HEAD: claude/owner-audit-fixes 3b936a65 (on origin/test-combined-56 a1082704)
+QUESTION: 8) #143 uninstall: NOT DONE. Removing ~/.config/environment.d/60-openxplorer-file-dialogs.conf from a package's postrm breaks two rules this repository enforces: native/tools/verify_deb.py refuses maintainer scripts that touch "/home/" or run "rm " (UPD-018: installing and removing change no user data), and test_build_deb.py test_removing_either_package_leaves_super_e_and_home_folders_alone (INT-033) asserts no script touches a home folder. A root script deleting files in users' homes is also against Debian policy. A way that keeps both rules: ship a systemd user environment generator in the package (/usr/lib/systemd/user-environment-generators/60-openxplorer-file-dialogs) that prints GTK_USE_PORTAL=1 only while the user's own opt-in mark exists, instead of writing the environment.d file; dpkg then removes the generator, and with it the variable, on uninstall, and no script touches a home. Existing users' files would move to it the next time Enable or Make default runs. Go ahead with that, or allow the postrm exception (both checks changed)?
+ANSWERED: 1) #212: kept as is, not registered; its default is already Windows'. 2) #126: per server and port is OK; the keyring schema stays as it is. 3) #126: matching by host for SMB's usual port (445, 0 or none) and by exact port otherwise is OK; not narrowed further. 4) #116: done (b3d91292): with the setting on, the search cache returns every match (ox-core UNLIMITED_RESULTS); the query runs off the main thread, the first 500 hits show at once and the rest are added 500 at a time, one main-loop turn apart. Row text now "A search shows every match, as in Windows, adding them while you keep working. Off, it shows the first 500 and asks you to narrow your search." 5) #298: left alone (owner's policy; #303 gives users a switch). 6) #132/#143: "Also handle Open and Save dialogs" now starts OFF (3b936a65); guide text "which starts off"; uninstall part NOT DONE, see QUESTION 8. 7) #198: not registered with the master switch; update checks stay as the user set them.
 NOTE:
 - ROUND 2 on top of origin/test-combined-56 (a1082704, which already holds
   round 1). Commits: 7f6b4213 style (3 Clippy findings already on the
@@ -93,6 +93,14 @@ NOTE:
   column_header_style windows_style_keeps_the_chevron_clear_of_the_text_in_
   any_column_width (line 289) and windows_style_shows_one_small_chevron_
   over_the_sorted_column (line 197).
+- ANSWERS 4 and 6 (b3d91292, 3b936a65), as tester, Rust 1.92.0: PASS
+  rustfmt --check and clippy --workspace --all-targets -D warnings;
+  parity check exit 0; i18n template check exit 0; ox-core search tests
+  (177, including an_unlimited_search_returns_every_match); ox-app tests
+  of search::results, settings_page (Default apps included),
+  window::tests::search, folder_search and search_history with check.py's
+  isolation: 205 passed, 0 failed. No window-level test drives the cache's
+  batches (add_results_in_batches); NOT TESTED.
 - NOT TESTED in round 2 (by the rule, or needs hardware): full test runs;
   xdotool real input; a real UDisks format with an allocation size; SMB
   Sign out against a real keyring; GNOME/Mutter modality; Wayland.
