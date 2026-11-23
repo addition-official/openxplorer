@@ -1091,4 +1091,3 @@ fn every_kind_of_properties_is_captured() {
         wrapped.close();
     }
 }
-
