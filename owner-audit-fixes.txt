@@ -1,6 +1,7 @@
 STATUS: DONE
 HEAD: claude/owner-audit-fixes c1cb3111 (on origin/test-combined-56 a1082704)
-QUESTION: 1) #212: "Allow Linux file name characters when renaming" is off by default, which is already Windows' value, so it is NOT in WINDOWS_SETTINGS (the registry's own test refuses a line whose default is already Windows'). Register it anyway with an inverted meaning? 2) #126: Sign out cannot forget one share alone: OpenXplorer keys saved credentials per server (host and port; the keyring schema is a compatibility contract) and GVfs keeps no share either. Done per server and port; OK? 3) #126: GVfs may save SMB's usual port as 0 or with no port, so for port 445 its saved passwords are still matched by host (all ports); a custom port matches that port only. OK, or narrow further at the risk of leaving a password behind? 4) #116: the switch lifts the 500 limit of a walked (non-indexed) search only; the search cache keeps its limit (ox-core MAX_RESULT_LIMIT 2000). Lift that too? 5) #298 password-free updates: left alone (never enabled here); policy is the owner's. 6) #132/#143: should "Also handle Open and Save dialogs" start off (this fork's opt-in rule), and should uninstall remove the GTK_USE_PORTAL file? 7) #198: register "check for updates" with the master switch (Windows value off)?
+QUESTION: 4) #116: the switch lifts the 500 limit of a walked (non-indexed) search only; the search cache keeps its limit (ox-core MAX_RESULT_LIMIT 2000). Lift that too? 5) #298 password-free updates: left alone (never enabled here); policy is the owner's. 6) #132/#143: should "Also handle Open and Save dialogs" start off (this fork's opt-in rule), and should uninstall remove the GTK_USE_PORTAL file? 7) #198: register "check for updates" with the master switch (Windows value off)?
+ANSWERED: 1) #212: kept as is, not registered; its default is already Windows'. 2) #126: per server and port is OK; the keyring schema stays as it is. 3) #126: matching by host for SMB's usual port (445, 0 or none) and by exact port otherwise is OK; not narrowed further.
 NOTE:
 - ROUND 2 on top of origin/test-combined-56 (a1082704, which already holds
   round 1). Commits: 7f6b4213 style (3 Clippy findings already on the
@@ -21,7 +22,7 @@ NOTE:
   port only, and GVfs's for a custom port only; memory is still cleared
   for the whole host, as mounts are disconnected host-wide.
 - B, each with the owner's default kept and a line in WINDOWS_SETTINGS
-  (except #212, see QUESTION 1). Rows and visible strings, quoted:
+  (except #212, ANSWERED 1: not registered). Rows and visible strings, quoted:
   * #116 Settings > Search > "Show all search matches (like Windows)";
     description "A search of a folder that is not in the search cache shows
     every match, as in Windows. Off, it shows the first 500 and asks you to
