@@ -1,0 +1,24 @@
+STATUS: RUNNING (merged and pushed; GitHub Actions builds the deb)
+HEAD: test-combined-55 26de5e7b2055eb9e10b81c133524153cca7c864d
+
+BRANCH: test-combined-55, started from deb 54's test-combined-54 c063d9b7, with only the new tips merged; each tip was current when pushed.
+
+MERGES (in the order given):
+- pass-7-views ec9f050f -> 4fe5cda8: no conflicts.
+- user-icon-files f550ffa8 -> 2d6a533d: no conflicts. It then moved to da81802a ("Correct the drive and network groups against the user's imageres"), merged last -> 26de5e7b, no conflicts.
+- claude/review-6-fixes b35a23c7 -> e91a71c6. icons/user_glyphs.rs: both kept. user-icon-files' full_glyph_name helper (an em that fills its square) and review-6's glyph_key (command roles such as Rotate left/right and Set as background keep glyph names of their own), with glyph_key used in glyph_icon_name and full_glyph_name where icon.name() was, so the command roles' glyphs never replace the icons they draw.
+- claude/windows-mode-switch 4f53cc4f -> 5ff49a23: no conflicts.
+- claude/settings-export-letters 19d1dfef -> 8520273c. settings_page/appearance.rs: the layout group's comment names both Name's width and the mapped network folders' letters. redesign.rs: both sets of new rows. .pot regenerated.
+- 3d6ddce0 feat(settings): two pass-7 settings with a Windows value registered in WINDOWS_SETTINGS (ox-core settings/windows_mode.rs), after Column header style:
+  - "Show a line under column titles" (columnTitleLine), Windows value off: its row says "Windows 11 draws none".
+  - "Name column starts at Windows' width (256 px)" (nameColumnWindowsWidth), Windows value on.
+  The guard test passed before this too: it only looks for titles ending "(like Windows)" or "(Windows)", which these two do not have. "Show letters on mapped network folders" is left out, as intended.
+- Status files: the tree carries no status/*.txt or status/*.md (windows-mode-switch's own 31dde276 removed them); the only status/ folders are the icon theme's hicolor/scalable/status icons.
+
+TESTS RUN HERE (for the switch, isolated under Xvfb): ox-core settings::windows_mode 4 of 4 passed; ox-app settings_page::windows_mode (the guard, every_setting_titled_like_windows_is_in_the_registry), settings_page::tests::windows_mode and settings_page::tests::redesign 12 of 12 passed.
+
+SKIPPED: none.
+
+QUESTION: should the guard also catch titles like "Name column starts at Windows' width (256 px)" or "F6 moves like Windows" (which only works today because it was registered by hand)? It only matches "(like Windows)" and "(Windows)" at the end of a title.
+
+CHECKS HERE: cargo check of the workspace (and of all targets): no errors or warnings; rustfmt clean. Commits: 588 on top of main, all by addition-official <239187859+addition-official@users.noreply.github.com> (author and committer) except the owner's 2 #366 commits by AKolenda, as before; no trailers. No release build or long checks here.
