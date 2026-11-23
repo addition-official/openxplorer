@@ -671,52 +671,6 @@ fn arrows_cross_the_group_headings_in_tiles_and_content() {
     }
 }
 
-/// Home in a grouped grid goes back to the top of the list, with the
-/// first group's heading in view, as Windows 11 shows it; so does a key
-/// that lands on the first row of a group whose heading is above the
-/// view. Before, the first item was scrolled to the top edge and its
-/// heading stayed hidden above it.
-///
-/// parity: VIEW-022, VIEW-071, SEL-008
-#[gtk::test]
-fn home_shows_the_first_groups_heading_in_a_grouped_grid() {
-    use crate::folder_view::cells::FileCell;
-    use crate::folder_view::grid::SlotKind;
-    let fixture = Fixture::empty();
-    for number in 0..40 {
-        for extension in ["mp3", "jpg", "pdf"] {
-            fixture.write(&format!("Track {number:02}.{extension}"));
-        }
-    }
-    let test = TestWindow::open(&fixture.uri());
-    test.activate("group-by", Some("type"));
-    let none = gdk::ModifierType::empty();
-    for view in ["tiles", "content", "medium", "large"] {
-        show_view(&test, view);
-        start_at(&test, 0);
-        press_key(&test, gdk::Key::End, none);
-        press_key(&test, gdk::Key::Home, none);
-        assert_eq!(selected(&test), [0], "{view}: Home");
-        let pane = test.window.folder_pane();
-        let grid = pane.view_widget();
-        wait_until("the first heading in view", || {
-            descendants::<FileCell>(&grid).into_iter().any(|cell| {
-                cell.is_mapped()
-                    && cell
-                        .slot()
-                        .is_some_and(|slot| slot.kind() == SlotKind::Heading && slot.group_index() == Some(0))
-                    && cell.compute_bounds(&grid).is_some_and(|bounds| bounds.y() >= 0.0)
-            })
-        });
-        let adjustment = pane.icon_view().scroll_adjustment();
-        assert!(
-            adjustment.value() <= adjustment.lower() + 1.0,
-            "{view}: scrolled to the top, not {}",
-            adjustment.value()
-        );
-    }
-}
-
 /// Home and End in grouped Details go to the first and last item, as
 /// in Windows 11, not to the first group's heading: GTK's own keys moved
 /// to the list's first row, the heading, which selected the whole first

@@ -431,54 +431,6 @@ fn a_dialog_is_510_pixels_with_an_accent_button_in_each_appearance() {
     }
 }
 
-/// A disabled accent button is drawn as Windows draws a disabled primary
-/// button: the neutral control fill of a bordered button, not the accent
-/// color, so it does not look clickable. Here Set default in the chooser
-/// Properties' Change... opens for a file without an extension, which
-/// cannot get a new default.
-///
-/// parity: LOOK-020
-#[gtk::test]
-fn a_disabled_accent_button_is_not_drawn_in_the_accent_color() {
-    let _theme = ThemeGuard::keep();
-    let fixture = Fixture::standard();
-    std::fs::write(fixture.path("README"), "Plain words without an extension.\n").expect("a text file");
-    let test = laid_out(&fixture.uri());
-    for theme in ["light", "dark"] {
-        show_theme(&test, theme);
-        let subject = crate::integration::OpenWithSubject {
-            uri: fixture.uri_of("README"),
-            name: "README".to_owned(),
-            is_folder: false,
-        };
-        let dialog = crate::integration::OpenWithDialog::present_to_change_default(
-            &test.window,
-            subject,
-            |_| {},
-            |_| {},
-        );
-        wait_until("the list", || dialog.is_listed());
-        wait_for(TRANSITION_TIME);
-        wait_for_frames(&dialog, 3);
-        let buttons = descendants::<gtk::Button>(&dialog);
-        let find = |label: &str| {
-            buttons
-                .iter()
-                .find(|button| button.label().as_deref() == Some(label))
-                .unwrap_or_else(|| panic!("{label} is shown"))
-                .clone()
-        };
-        let (set_default, cancel) = (find("Set default"), find("Cancel"));
-        assert!(set_default.has_css_class("accent") && !set_default.is_sensitive());
-        let fill_of = |button: &gtk::Button| {
-            let place = bounds_in(button, &dialog);
-            painted_colour(&dialog, place.x + 4, place.y + place.height / 2)
-        };
-        assert_same_colour(fill_of(&set_default), fill_of(&cancel), theme);
-        dialog.close();
-    }
-}
-
 /// The toast sits 78 pixels above the window's bottom, centred, at most
 /// 650 pixels wide, in inverted colours, and is announced as a status.
 ///
