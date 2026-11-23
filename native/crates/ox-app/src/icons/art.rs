@@ -43,6 +43,9 @@ pub(crate) enum Art {
     /// Windows icon file can draw as a removable or optical drive
     /// (LOOK-030).
     RemovableDrive(Medium),
+    /// The drive the system runs from, Local Disk: the drive glyph, which a
+    /// Windows icon file draws as Windows' drive with its logo (LOOK-030).
+    SystemDrive,
     /// A ZIP archive: the folder with the zip badge in its corner.
     ZipFolder,
     /// The document with the zip badge in its corner, which File icons

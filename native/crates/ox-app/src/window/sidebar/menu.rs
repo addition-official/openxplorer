@@ -548,7 +548,7 @@ impl Sidebar {
             section = Some(entry.section);
             let glyph = match entry.icon {
                 Art::Glyph(icon) | Art::TintedGlyph(icon, _) => icon,
-                Art::RemovableDrive(_) => Icon::HardDrive,
+                Art::RemovableDrive(_) | Art::SystemDrive => Icon::HardDrive,
                 Art::Folder
                 | Art::StandardFolder(_)
                 | Art::ZipFolder
