@@ -1,9 +1,13 @@
 STATUS: DONE
-HEAD: sort-header-windows 3a67e1c5
+HEAD: sort-header-windows 20fb05be
 QUESTION: none
-NOTE: Revised after the deb 51 test. In the Windows column header style, the sort chevron now starts 1-2 px under the header's top edge, centered over the whole column. It measures about 9x5 px at 1x and 18x9 at 2x in app captures. Every title's text sits 6 px lower in this style while the header keeps its height, so the chevron stays 6-7 px clear of the text in a default-width column and in a 100 px one (the narrowest the settings allow). Before the fix that gap was 2 px. The default OpenXplorer style is unchanged. claude/windows-mode-switch does not exist on the fork yet, so columnHeaderStyle is not registered with the "Behave like Windows Explorer" switch. Per the new rule, no full test suite runs after 3a67e1c5. The gap test (windows_style_keeps_the_chevron_clear_of_the_text_in_any_column_width) was added just before that rule arrived.
+NOTE: Windows-style sort chevron matched to reference/ref-01-details-folder.png (Windows 11, 1920x1080, 1x, dark, Name ascending). I measured both images with one script: ink is any pixel more than 25 off the header background in a channel, and rows are counted from the header's first row, under its top line. The chevron box, its row, the label's row and the gap all match exactly. Ours (OpenXplorer, Windows style, same screen: 1920x1080, 1x, dark, Name ascending, same item names) was captured with tools/native_capture.py, run as an unprivileged uid inside bwrap. The default OpenXplorer style is unchanged. Differences seen but outside this job: Windows draws the header label near-white (ours keeps @ox_muted, as in the app's own style); Windows' header is 25 px tall where ours is 31 (owner decision 2026-11-06); and Windows shows the column divider without hover. claude/windows-mode-switch is not on the fork yet, so columnHeaderStyle is not registered with that switch.
 
-PASS header tests (7): ox_app settings_page column header tests (2) and window::tests::column_header_style (5), on the fix
-PASS parity/check.py, i18n check, drawn-icon guard, rustfmt and clippy -D warnings on Rust 1.92.0, on the fix
-NOT RUN full test suite after 3a67e1c5 (stopped per the new rule). The earlier full run, on 05dc1f61, had only root-permission and container failures, unrelated to this branch.
-CAPTURES 1x light and dark, default-width and 100 px Date modified columns, ascending and descending, beside a diagram of the described Windows 11 look (a drawing, not a Windows capture); kept in the chat, none committed.
+MEASURE ref-01 (Windows 11): header top line y=127, header rows y=128-152 (25 px); chevron box x=298 y=128 w=8 h=5, header row 0, center x=301.5 over the Name column (x 172-431); "Name" label caps box x=177 y=136 w=32 h=9, header row 8; gap chevron-to-label 3 px
+MEASURE ours, Windows style: header top line y=137, header rows y=138-168 (31 px); chevron box x=858 y=138 w=8 h=5, header row 0, center x=861.5 over the Name column; "Name" label caps box x=243 y=146 w=31 h=9, header row 8; gap chevron-to-label 3 px
+MATCH chevron width 0 px off, height 0, header row 0, label row 0, gap 0 (target: within 1 px)
+BEFORE (3a67e1c5) chevron 9x5 on header row 1, label row 13, gap 7; (05dc1f61) chevron 7x4 on row 1, label row 10, gap 5
+PASS header tests only, per the new rule: the 7 column_header tests in ox_app (settings_page::appearance, settings_page::tests::column_header, window::tests::column_header_style)
+PASS parity/check.py; rustfmt --check (Rust 1.92.0)
+NOT RUN full test suite (new rule)
+CAPTURES ref-01 next to ours (4x zoom) and our full 1920x1080 capture, kept in the chat, none committed
