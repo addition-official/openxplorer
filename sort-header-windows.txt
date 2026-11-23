@@ -10,4 +10,5 @@ BEFORE (3a67e1c5) chevron 9x5 on header row 1, label row 13, gap 7; (05dc1f61) c
 PASS header tests only, per the new rule: the 7 column_header tests in ox_app (settings_page::appearance, settings_page::tests::column_header, window::tests::column_header_style)
 PASS parity/check.py; rustfmt --check (Rust 1.92.0)
 NOT RUN full test suite (new rule)
+PADDING pass-7-views 7a246d8f restored deb 51's Details header padding (titles 0 12px, the first 26px, Name min-width 115px). Those are the values this branch has always kept, so its header rules (lines 15-82 of folder-views.css) match pass-7-views exactly. The ref-01 capture and measurement above used them: the chevron center is x=861.5 and the Name title's content box (x=242-1483) center is x=862.5, within 1 px. No change was needed at 20fb05be. When merging, keep this branch's Windows-style rules: pass-7-views still carries the older 7x4 version (11px glyph, no text raise).
 CAPTURES ref-01 next to ours (4x zoom) and our full 1920x1080 capture, kept in the chat, none committed
