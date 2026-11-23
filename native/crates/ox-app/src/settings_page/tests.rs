@@ -1774,12 +1774,6 @@ fn icons_from_windows_icon_files_are_off_until_chosen() {
     });
 }
 
-/// "Windows symbol font" names no font by default; a chosen font is
-/// saved by its path alone, the row says how many glyphs it gave while
-/// Windows icon files are on, and Clear forgets it. The font is
-/// synthetic; the file dialog itself is GTK's and is not driven.
-///
-
 /// "Run installed apps' launchers on double-click" is off, as opening never
 /// runs anything by default (OPEN-007), and saves the choice.
 ///
