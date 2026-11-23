@@ -1672,6 +1672,14 @@ impl GalleryView {
     }
 }
 
+/// The local year of `date`, in seconds since the Unix epoch.
+fn year_of(date: u64) -> Option<i32> {
+    let seconds = i64::try_from(date).ok()?;
+    glib::DateTime::from_unix_local(seconds)
+        .ok()
+        .map(|local| local.year())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1758,12 +1766,4 @@ mod tests {
         assert!(f64::from(edge) / 10.0 >= 320.0, "{edge}");
         assert_eq!(sharp_edge(160, 160, None, 1), 160);
     }
-}
-
-/// The local year of `date`, in seconds since the Unix epoch.
-fn year_of(date: u64) -> Option<i32> {
-    let seconds = i64::try_from(date).ok()?;
-    glib::DateTime::from_unix_local(seconds)
-        .ok()
-        .map(|local| local.year())
 }

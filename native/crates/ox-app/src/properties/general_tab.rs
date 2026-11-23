@@ -692,6 +692,30 @@ impl GeneralEdits {
     }
 
     /// Lists the item, named `name` now and `old_name` before any rename,
+    /// in its folder's `.hidden` list for `hide`, or takes it off, and
+    /// lists the folder again in every window.
+    fn list_as_hidden(
+        &self,
+        window: Option<&PropertiesWindow>,
+        (name, old_name): (&str, &str),
+        hide: bool,
+    ) -> Result<(), String> {
+        // A location registered as a previous version since the window
+        // opened is never changed (PROP-024).
+        self.versions
+            .check_writable(&self.uri.borrow())
+            .map_err(|refusal| refusal.to_string())?;
+        self.apply_listing(name, old_name, hide)?;
+        let folder = gtk::gio::File::for_uri(&self.uri.borrow())
+            .parent()
+            .map(|folder| folder.uri().to_string());
+        if let (Some(opener), Some(folder)) = (window.and_then(PropertiesWindow::opener), folder) {
+            opener.announce_hidden_changed(&folder);
+        }
+        Ok(())
+    }
+
+    /// Lists the item, named `name` now and `old_name` before any rename,
     /// in the folder's `.hidden` list, or takes it off, for `hide`.
     fn apply_listing(&self, name: &str, old_name: &str, hide: bool) -> Result<(), String> {
         let Some(list) = &self.hidden_list else {
@@ -833,19 +857,7 @@ impl GeneralEdits {
             }
         }
         if let Some(hide) = listing {
-            // A location registered as a previous version since the window
-            // opened is never changed (PROP-024).
-            self.versions
-                .check_writable(&self.uri.borrow())
-                .map_err(|refusal| refusal.to_string())?;
-            self.apply_listing(&wanted, &original, hide)?;
-            let folder = gtk::gio::File::for_uri(&self.uri.borrow())
-                .parent()
-                .map(|folder| folder.uri().to_string());
-            let opener = window.as_ref().and_then(PropertiesWindow::opener);
-            if let (Some(opener), Some(folder)) = (opener, folder) {
-                opener.announce_hidden_changed(&folder);
-            }
+            self.list_as_hidden(window.as_ref(), (&wanted, &original), hide)?;
         }
         Ok(())
     }

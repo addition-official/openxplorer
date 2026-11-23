@@ -564,7 +564,7 @@ impl BrowserWindow {
 
     /// Lists `folder` again in every browser window after Properties
     /// changed what its `.hidden` list hides (PROP-002, PROP-005): at once,
-    /// and again once GLib has dropped the list it read, which it keeps
+    /// and again once `GLib` has dropped the list it read, which it keeps
     /// for some seconds per folder ([`HIDDEN_CACHE_SECONDS`]), so the change shows also where the
     /// folder was listed just before.
     pub(crate) fn announce_hidden_changed(&self, folder: &str) {
@@ -599,9 +599,9 @@ impl BrowserWindow {
     }
 }
 
-/// When to list a folder again after its `.hidden` list changed: GLib
+/// When to list a folder again after its `.hidden` list changed: `GLib`
 /// keeps the list it read for five seconds by its source, measured at 7 to
-/// 8 seconds on GLib 2.80 as its timer runs on its worker thread.
+/// 8 seconds on `GLib` 2.80 as its timer runs on its worker thread.
 const HIDDEN_CACHE_SECONDS: [u32; 2] = [6, 11];
 
 /// A folder or a file, as `info` says without following a link.
