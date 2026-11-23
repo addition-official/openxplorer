@@ -123,7 +123,6 @@ fn right_clicking_a_file_selects_it_and_opens_the_classic_menu() {
         [
             "Open",
             "Add to Favorites",
-            "Open containing folder in Terminal",
             "Open with…",
             "-",
             "Copy as path",
@@ -137,8 +136,9 @@ fn right_clicking_a_file_selects_it_and_opens_the_classic_menu() {
             "Create shortcut",
             "Delete",
             "Rename",
-            "Duplicate",
             "-",
+            "Duplicate",
+            "Open containing folder in Terminal",
             "Compress to…",
             "-",
             "Configure service actions…",
