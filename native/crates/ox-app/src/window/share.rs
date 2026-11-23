@@ -68,6 +68,9 @@ pub(super) struct ShareState {
     /// The portal's bus name and whether it can share, once the latest
     /// check answered.
     service: RefCell<Option<(String, bool)>>,
+    /// The portal's bus name when it can set the desktop background, as
+    /// the latest check found.
+    wallpaper: RefCell<Option<String>>,
 }
 
 /// Whether the item at `uri` of kind `kind` can be attached to an email:
@@ -149,24 +152,39 @@ impl BrowserWindow {
         state.check.set(check);
         let (window, portal) = (self.downgrade(), portal.to_owned());
         glib::spawn_future_local(async move {
-            let available = match gio::bus_get_future(gio::BusType::Session).await {
+            let (available, wallpaper) = match gio::bus_get_future(gio::BusType::Session).await {
                 Ok(connection) => {
                     crate::theme::system::portal_ready(&connection).await;
-                    email_portal_version(&connection, &portal)
+                    let email = email_portal_version(&connection, &portal)
                         .await
-                        .is_some_and(|version| version >= ATTACHMENTS_VERSION)
+                        .is_some_and(|version| version >= ATTACHMENTS_VERSION);
+                    let wallpaper = ox_core::integration::wallpaper_portal_version(&connection, &portal)
+                        .await
+                        .is_some();
+                    (email, wallpaper)
                 }
-                Err(_) => false,
+                Err(_) => (false, false),
             };
             let Some(window) = window.upgrade() else {
                 return;
             };
             let state = &window.imp().share;
             if state.check.get() == check {
+                state.wallpaper.replace(wallpaper.then(|| portal.clone()));
                 state.service.replace(Some((portal, available)));
                 window.update_share_command();
+                window.show_gallery_commands();
             }
         });
+    }
+
+    /// The bus name of the portal that can set the desktop background;
+    /// `None` where none can, and in an Open or Save dialog.
+    pub(super) fn wallpaper_portal(&self) -> Option<String> {
+        if self.is_picking() {
+            return None;
+        }
+        self.imp().share.wallpaper.borrow().clone()
     }
 
     /// Whether the latest check asked `portal` and has its answer.

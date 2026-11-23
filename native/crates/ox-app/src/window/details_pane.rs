@@ -72,7 +72,7 @@ const STACKED_SIZE: i32 = 80;
 const STACK_STEP: i32 = 10;
 
 /// The small icon beside the name.
-const SMALL_ART: i32 = 20;
+const SMALL_ART: i32 = 32;
 
 /// The glyphs in the pane's buttons.
 const SMALL_GLYPH: i32 = 16;
@@ -708,6 +708,9 @@ fn property_name(name: &str) -> gtk::Label {
 /// passes it by.
 fn property_value(value: &str) -> gtk::Label {
     let label = property_label(value, "detail-value");
+    // At the pane's right edge, as Windows 11 lines its values up.
+    label.set_xalign(1.0);
+    label.set_justify(gtk::Justification::Right);
     label.set_selectable(true);
     label.set_focusable(false);
     label.set_can_focus(false);
