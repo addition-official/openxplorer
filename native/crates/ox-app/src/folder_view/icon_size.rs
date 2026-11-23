@@ -188,10 +188,11 @@ pub(crate) fn cell_size(size: IconSize, text_size: TextSize) -> CellSize {
     let (pitch, _) = windows_spacing(size.pixels());
     CellSize {
         width: text_size::ceil_pixels(pitch * metrics.scale.max(1.0)),
-        // The icon, two lines of name and the box's 2 pixels above and
-        // below: 289 pixels from one row to the next in Extra large at
-        // 100%, as Windows 11 spaces them.
-        height: size.pixels()
+        // The icon, grown with the text as at a desktop scale, two lines
+        // of name and the box's 2 pixels above and below: 289 pixels from
+        // one row to the next in Extra large at 100%, as Windows 11 spaces
+        // them.
+        height: crate::icons::scaled_by(size.pixels(), metrics.scale)
             + text_size::ceil_pixels(2.0 * tile_name_line(metrics.scale))
             + 2 * TILE_BOX_PADDING,
     }
@@ -297,7 +298,9 @@ pub(crate) fn tiles_cell(text_size: TextSize) -> CellSize {
         // 254 pixels apart at 100%, as Windows 11's tiles, and as much more
         // as the text is larger, as Windows' scaling grows them.
         width: windows_scaled(254.0, scale),
-        height: text_size::ceil_pixels(3.0 * text_line(scale) + 2.0).max(TILES_ICON) + TILES_CHROME,
+        height: text_size::ceil_pixels(3.0 * text_line(scale) + 2.0)
+            .max(crate::icons::scaled_by(TILES_ICON, scale))
+            + TILES_CHROME,
     }
 }
 
@@ -306,7 +309,9 @@ pub(crate) fn tiles_cell(text_size: TextSize) -> CellSize {
 /// Windows 11's rows are, with room for the 32-pixel icon.
 pub(crate) fn content_row(text_size: TextSize) -> i32 {
     let scale = text_size::metrics(text_size).scale;
-    let fitted = text_size::ceil_pixels(2.0 * text_line(scale) + 1.0).max(CONTENT_ICON) + CONTENT_CHROME;
+    let fitted = text_size::ceil_pixels(2.0 * text_line(scale) + 1.0)
+        .max(crate::icons::scaled_by(CONTENT_ICON, scale))
+        + CONTENT_CHROME;
     // Larger text spaces the rows as far apart as Windows' scaling does.
     fitted.max(windows_scaled(48.0, scale))
 }
@@ -345,7 +350,9 @@ pub(crate) fn compact_density_line(text_size: TextSize) -> i32 {
 /// A row of Tiles in Compact view at `text_size`: three lines on a
 /// 16-pixel pitch beside the 48-pixel icon, with [`COMPACT_TILES_CHROME`].
 pub(crate) fn compact_density_tiles_row(text_size: TextSize) -> i32 {
-    let fitted = (3 * compact_density_line(text_size)).max(TILES_ICON) + COMPACT_TILES_CHROME;
+    let fitted = (3 * compact_density_line(text_size))
+        .max(crate::icons::scaled_by(TILES_ICON, text_size.scale()))
+        + COMPACT_TILES_CHROME;
     fitted.max(windows_scaled(57.0, text_size::metrics(text_size).scale))
 }
 
@@ -441,6 +448,13 @@ mod tests {
         let larger = TextSize::from_percent(150);
         assert!(cell_size(IconSize::LARGE, larger).width > 109);
         assert!(cell_size(IconSize::LARGE, larger).height > cell_size(IconSize::LARGE, normal).height);
+        // The icon grows with the text too, as at a desktop scale: at 150%
+        // Large's 96 pixels are 144, 48 more, beside the name's growth.
+        assert_eq!(
+            cell_size(IconSize::LARGE, larger).height - cell_size(IconSize::LARGE, normal).height,
+            48 + text_size::ceil_pixels(2.0 * tile_name_line(1.5))
+                - text_size::ceil_pixels(2.0 * tile_name_line(1.0))
+        );
         // The sizes between follow the line through the measured ones.
         let (pitch, gap) = windows_spacing(64);
         assert!(pitch > 75.0 && pitch < 109.0 && (5.0..=8.0).contains(&gap));

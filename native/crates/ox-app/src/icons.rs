@@ -108,14 +108,107 @@ fn decorative_image() -> gtk::Image {
         .build()
 }
 
-/// Shows `icon` in `image` at `size` logical pixels: the glyph of the
-/// Windows symbol font the user chose in its place, when there is one
-/// ([`user_glyphs`], LOOK-031), else the bundled icon.
+/// Shows `icon` in `image` at `size` logical pixels at 100% text, grown
+/// or shrunk with the app's text size ([`scaled`]), so icons keep their
+/// proportion to the text: the glyph of the Windows symbol font the user
+/// chose in its place, when there is one ([`user_glyphs`], LOOK-031),
+/// else the bundled icon. The image is drawn again when the text size
+/// changes.
 pub(crate) fn set_icon(image: &gtk::Image, icon: Icon, size: i32) {
+    draw_icon(image, icon, size, scaled(size));
+    SCALED_IMAGES.with_borrow_mut(|images| images.remember(image, icon, size));
+}
+
+/// Shows `icon` in `image`, `pixels` logical pixels square, as the icon of
+/// a `size`-pixel square at 100% text: the font's glyph keeps the em it has
+/// in that square, so it grows with the square.
+fn draw_icon(image: &gtk::Image, icon: Icon, size: i32, pixels: i32) {
     let name = user_glyphs::drawn_name(icon, size);
     image.set_icon_name(Some(name));
-    image.set_pixel_size(size);
-    keep_loaded(image, name, size);
+    image.set_pixel_size(pixels);
+    keep_loaded(image, name, pixels);
+}
+
+thread_local! {
+    /// The factor icons are drawn at: the app's text size, 1 at 100%.
+    static ICON_SCALE: std::cell::Cell<f64> = const { std::cell::Cell::new(1.0) };
+    /// The images [`set_icon`] showed, to draw again at a new text size.
+    static SCALED_IMAGES: RefCell<ScaledImages> = RefCell::new(ScaledImages::default());
+}
+
+/// The images shown by [`set_icon`], each with its icon and its size at
+/// 100% text, by the image's address.
+#[derive(Default)]
+struct ScaledImages {
+    images: HashMap<usize, (glib::WeakRef<gtk::Image>, Icon, i32)>,
+    /// How many there were after the last pruning.
+    pruned_at: usize,
+}
+
+impl ScaledImages {
+    fn remember(&mut self, image: &gtk::Image, icon: Icon, size: i32) {
+        let key = image.as_ptr() as usize;
+        self.images.insert(key, (image.downgrade(), icon, size));
+        if self.images.len() > (2 * self.pruned_at).max(256) {
+            self.images.retain(|_, (image, _, _)| image.upgrade().is_some());
+            self.pruned_at = self.images.len();
+        }
+    }
+}
+
+/// `size` logical pixels at 100% text, at the app's text size: 20 for 16
+/// at 125%, 32 at 200%, 13 at 80%.
+pub(crate) fn scaled(size: i32) -> i32 {
+    scaled_by(size, ICON_SCALE.with(std::cell::Cell::get))
+}
+
+/// `size` at `scale`, rounded to whole pixels; a size of a pixel or more
+/// never below 1, and a margin of 0 still 0.
+#[expect(clippy::cast_possible_truncation, reason = "icon sizes are small")]
+pub(crate) fn scaled_by(size: i32, scale: f64) -> i32 {
+    let scaled = (f64::from(size) * scale).round() as i32;
+    if size > 0 {
+        scaled.max(1)
+    } else {
+        scaled
+    }
+}
+
+/// Draws icons at `scale`, the app's text size (1 at 100%), and redraws
+/// every icon shown when it changed.
+pub(crate) fn set_icon_scale(scale: f64) {
+    let scale = if scale.is_finite() && scale > 0.0 {
+        scale
+    } else {
+        1.0
+    };
+    if (ICON_SCALE.with(std::cell::Cell::get) - scale).abs() < f64::EPSILON {
+        return;
+    }
+    ICON_SCALE.with(|current| current.set(scale));
+    redraw_scaled_images();
+    user_icons::redraw_art_images();
+    for window in gtk::Window::list_toplevels() {
+        crate::folder_view::rescale_cells(&window);
+    }
+}
+
+/// Draws every image [`set_icon`] showed again, with the glyph and size
+/// it takes now.
+pub(crate) fn redraw_scaled_images() {
+    let images: Vec<(gtk::Image, Icon, i32)> = SCALED_IMAGES.with_borrow(|images| {
+        images
+            .images
+            .values()
+            .filter_map(|(image, icon, size)| Some((image.upgrade()?, *icon, *size)))
+            .collect()
+    });
+    for (image, icon, size) in images {
+        // An image now showing something else is left as it is.
+        if image.icon_name().is_some() {
+            draw_icon(&image, icon, size, scaled(size));
+        }
+    }
 }
 
 /// The scale a window can draw at before it knows its monitor's, on X11

@@ -407,8 +407,7 @@ impl FileCell {
         let cell: Self = glib::Object::new();
         let imp = cell.imp();
         imp.icon_size.set(icon_size);
-        imp.custom_icon.set_size_request(icon_size, icon_size);
-        imp.folder_picture.place_on_icon(icon_size);
+        cell.size_pictures();
         // A folder until bound, so the cell has its full size from the start.
         imp.image.set_art(Art::Folder, icon_size);
         match layout {
@@ -432,6 +431,21 @@ impl FileCell {
             CellLayout::ContentRow => cell.lay_out_with_lines(true),
         }
         cell
+    }
+
+    /// Sizes the custom icon's and the folder picture's places for the
+    /// cell's icon at the app's text size.
+    fn size_pictures(&self) {
+        let imp = self.imp();
+        let pixels = crate::icons::scaled(imp.icon_size.get());
+        imp.custom_icon.set_size_request(pixels, pixels);
+        imp.folder_picture.place_on_icon(pixels);
+    }
+
+    /// Lays the cell out again for a new text size; its art draws itself
+    /// again ([`crate::icons::set_icon_scale`]).
+    pub(crate) fn rescale(&self) {
+        self.size_pictures();
     }
 
     /// Shows `slot` of a grouped grid in place of an item: a group's

@@ -71,9 +71,11 @@ impl NetworkBarPieces {
     /// Sizes the stem and the bar as `network_bar` says, the bar `width`
     /// pixels wide, and shows them.
     fn show_bar(&self, network_bar: NetworkBar, width: i32) {
+        let scaled = super::scaled;
         self.stem
-            .set_size_request(network_bar.stem_width, network_bar.stem_height);
-        self.bar.set_size_request(width, network_bar.bar_height);
+            .set_size_request(scaled(network_bar.stem_width), scaled(network_bar.stem_height));
+        self.bar
+            .set_size_request(scaled(width), scaled(network_bar.bar_height));
         self.stem.set_visible(true);
         self.bar.set_visible(true);
     }
@@ -106,7 +108,7 @@ impl BadgePieces {
         super::set_icon(&self.badge, badge.icon, badge.size);
         self.badge.set_css_classes(&[badge.class]);
         self.badge.set_halign(corner_alignment(badge.corner));
-        self.badge.set_margin_bottom(badge.raised_by);
+        self.badge.set_margin_bottom(super::scaled(badge.raised_by));
         self.badge.set_visible(true);
         self.show_plate(badge);
     }
@@ -117,12 +119,16 @@ impl BadgePieces {
             self.plate.set_visible(false);
             return;
         };
-        let inset = (badge.size - plate_size) / 2;
+        let (plate_size, inset) = (
+            super::scaled(plate_size),
+            super::scaled(badge.size - plate_size) / 2,
+        );
         self.plate.set_size_request(plate_size, plate_size);
         self.plate.set_halign(corner_alignment(badge.corner));
         self.plate.set_margin_start(inset);
         self.plate.set_margin_end(inset);
-        self.plate.set_margin_bottom(badge.raised_by + inset);
+        self.plate
+            .set_margin_bottom(super::scaled(badge.raised_by) + inset);
         self.plate.set_visible(true);
     }
 
@@ -170,6 +176,8 @@ mod imp {
         pub(super) emblems: OnceCell<EmblemPieces>,
         /// What is shown now, if anything.
         pub(super) shown: Cell<Option<ShownArt>>,
+        /// The emblems shown and their icon's size at 100% text.
+        pub(super) shown_emblems: Cell<Option<(super::super::Emblems, i32)>>,
         /// Called after every drawing, for what depends on whether a
         /// Windows icon file's picture shows.
         pub(super) drawn_hooks: RefCell<Vec<DrawnHook>>,
@@ -190,6 +198,7 @@ mod imp {
                 badge: OnceCell::new(),
                 emblems: OnceCell::new(),
                 shown: Cell::new(None),
+                shown_emblems: Cell::new(None),
                 drawn_hooks: RefCell::new(Vec::new()),
             }
         }
@@ -303,20 +312,24 @@ impl ArtImage {
     }
 
     /// Draws what the image shows again, for a change of the Windows icon
-    /// files or of the image's scale.
+    /// files, of the image's scale or of the text size.
     pub(super) fn redraw(&self) {
         if let Some(shown) = self.imp().shown.get() {
             self.draw(shown.art, shown.size);
+        }
+        if let Some((emblems, size)) = self.imp().shown_emblems.get() {
+            self.imp().emblem_pieces().show(emblems, super::scaled(size));
         }
     }
 
     /// Draws `art` at `size`: the user's picture for it from a Windows
     /// icon file, alone, else the app's own pieces.
     fn draw(&self, art: Art, size: i32) {
-        if let Some(texture) = super::user_icons::texture_for(art, size, self.scale_factor()) {
+        let pixels = super::scaled(size);
+        if let Some(texture) = super::user_icons::texture_for(art, pixels, self.scale_factor()) {
             let image = &self.imp().picture;
             image.set_paintable(Some(&texture));
-            image.set_pixel_size(size);
+            image.set_pixel_size(pixels);
             image.set_css_classes(&[USER_ICON_CLASS]);
             self.show_network_bar(None, size);
             self.show_badge(None);
@@ -361,7 +374,8 @@ impl ArtImage {
             // Nothing to hide if no emblem was ever shown.
             return;
         }
-        imp.emblem_pieces().show(emblems, size);
+        imp.shown_emblems.set(Some((emblems, size)));
+        imp.emblem_pieces().show(emblems, super::scaled(size));
     }
 
     /// The emblem images, once an emblem was shown, for tests.

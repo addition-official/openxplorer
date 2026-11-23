@@ -41,3 +41,20 @@ pub(crate) mod tree;
 pub(crate) mod watch;
 
 pub(crate) use cells::{icon_texture, FolderPicture, CUSTOM_ICON, FOLDER_PICTURE};
+
+/// Lays every file cell under `root` out again for a new text size
+/// ([`crate::icons::set_icon_scale`]).
+pub(crate) fn rescale_cells(root: &impl gtk::prelude::IsA<gtk::Widget>) {
+    use gtk::prelude::*;
+    let mut pending = vec![root.clone().upcast::<gtk::Widget>()];
+    while let Some(widget) = pending.pop() {
+        if let Some(cell) = widget.downcast_ref::<cells::FileCell>() {
+            cell.rescale();
+        }
+        let mut child = widget.first_child();
+        while let Some(current) = child {
+            child = current.next_sibling();
+            pending.push(current);
+        }
+    }
+}

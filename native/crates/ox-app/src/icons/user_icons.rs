@@ -68,9 +68,9 @@ struct State {
     generation: u64,
     /// The images the files gave.
     loaded: Option<Rc<LoadedIcons>>,
-    /// The textures loaded so far, by cached file; `None` for one that
-    /// could not be loaded.
-    textures: HashMap<PathBuf, Option<gdk::Texture>>,
+    /// The textures made so far, by cached file and edge in device
+    /// pixels; `None` for one that could not be loaded.
+    textures: HashMap<(PathBuf, u32), Option<gdk::Texture>>,
     /// Every art image made, to redraw.
     art_images: Vec<glib::WeakRef<ArtImage>>,
     /// Art images made since the dead ones were last dropped.
@@ -251,16 +251,23 @@ pub(crate) fn follow_status(follower: impl Fn(Status) -> bool + 'static) {
 }
 
 /// The texture of `role`'s image that best fills `size` logical pixels at
-/// `scale`; `None` when the files do not draw the role, while they are
+/// `scale`: the smallest of the file's images at least that large,
+/// resampled once to exactly `size` × `scale` device pixels, so it is
+/// drawn pixel for pixel. A renderer scaling a larger bitmap itself (the
+/// GPU renderers' linear filter) leaves a zoomed view's icons jagged and
+/// soft. `None` when the files do not draw the role, while they are
 /// read, or when the setting is off.
 pub(crate) fn texture_of(role: IconRole, size: i32, scale: i32) -> Option<gdk::Texture> {
     let pixels = u32::try_from(size.max(1).saturating_mul(scale.max(1))).unwrap_or(1);
     STATE.with_borrow_mut(|state| {
-        let path = state.loaded.as_ref()?.best(role, pixels)?.path.clone();
+        let image = state.loaded.as_ref()?.best(role, pixels)?;
+        // A file without a large enough image keeps its largest as it is.
+        let edge = pixels.min(image.edge);
+        let path = image.path.clone();
         state
             .textures
-            .entry(path)
-            .or_insert_with_key(|path| match gdk::Texture::from_filename(path) {
+            .entry((path, edge))
+            .or_insert_with_key(|(path, edge)| match resampled(path, *edge) {
                 Ok(texture) => Some(texture),
                 Err(error) => {
                     glib::g_warning!(
@@ -272,6 +279,20 @@ pub(crate) fn texture_of(role: IconRole, size: i32, scale: i32) -> Option<gdk::T
             })
             .clone()
     })
+}
+
+/// The PNG at `path`, resampled with gdk-pixbuf's area filter to `edge`
+/// pixels square, or as it is when it already is that size.
+fn resampled(path: &std::path::Path, edge: u32) -> Result<gdk::Texture, glib::Error> {
+    let edge = i32::try_from(edge).unwrap_or(i32::MAX);
+    let pixbuf = gtk::gdk_pixbuf::Pixbuf::from_file(path)?;
+    if pixbuf.width() == edge && pixbuf.height() == edge {
+        return Ok(gdk::Texture::for_pixbuf(&pixbuf));
+    }
+    let scaled = pixbuf
+        .scale_simple(edge, edge, gtk::gdk_pixbuf::InterpType::Hyper)
+        .ok_or_else(|| glib::Error::new(glib::FileError::Nomem, "the icon could not be resampled"))?;
+    Ok(gdk::Texture::for_pixbuf(&scaled))
 }
 
 /// The texture to show for `art` at `size` logical pixels and `scale`, as
@@ -348,10 +369,11 @@ fn redraw_role_image(image: &gtk::Image) {
 
 /// Shows `role` in `image`, or `fallback` when there is no texture for it.
 fn show_role(image: &gtk::Image, role: Option<IconRole>, fallback: Icon, size: i32) {
-    match role.and_then(|role| texture_of(role, size, image.scale_factor())) {
+    let pixels = super::scaled(size);
+    match role.and_then(|role| texture_of(role, pixels, image.scale_factor())) {
         Some(texture) => {
             image.set_paintable(Some(&texture));
-            image.set_pixel_size(size);
+            image.set_pixel_size(pixels);
         }
         None => super::set_icon(image, fallback, size),
     }
@@ -383,7 +405,23 @@ fn redraw_all() {
     // The same icons' other source, File icons (LOOK-029), counts the
     // change too, so folder views that follow its generation draw again.
     super::file_icons::count_new_generation();
-    let (art_images, role_images, status) = STATE.with_borrow(|state| {
+    redraw_art_images();
+    let status = STATE.with_borrow(|state| state.status);
+    let followers = STATE.with_borrow_mut(|state| std::mem::take(&mut state.status_followers));
+    let kept: Vec<StatusFollower> = followers
+        .into_iter()
+        .filter(|follower| follower(status))
+        .collect();
+    STATE.with_borrow_mut(|state| {
+        let added = std::mem::replace(&mut state.status_followers, kept);
+        state.status_followers.extend(added);
+    });
+}
+
+/// Draws every art image and role image again, for a change of the
+/// Windows icon files, the symbol font or the text size.
+pub(crate) fn redraw_art_images() {
+    let (art_images, role_images) = STATE.with_borrow(|state| {
         let art_images: Vec<ArtImage> = state
             .art_images
             .iter()
@@ -394,7 +432,7 @@ fn redraw_all() {
             .iter()
             .filter_map(|kept| Some((kept.image.upgrade()?, kept.role, kept.fallback, kept.size)))
             .collect();
-        (art_images, role_images, state.status)
+        (art_images, role_images)
     });
     for image in art_images {
         image.redraw();
@@ -402,15 +440,6 @@ fn redraw_all() {
     for (image, role, fallback, size) in role_images {
         show_role(&image, role, fallback, size);
     }
-    let followers = STATE.with_borrow_mut(|state| std::mem::take(&mut state.status_followers));
-    let kept: Vec<StatusFollower> = followers
-        .into_iter()
-        .filter(|follower| follower(status))
-        .collect();
-    STATE.with_borrow_mut(|state| {
-        let added = std::mem::replace(&mut state.status_followers, kept);
-        state.status_followers.extend(added);
-    });
 }
 
 /// Waits until the chosen files were read, for tests.

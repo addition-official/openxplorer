@@ -1746,7 +1746,8 @@ fn shows_a_glyph(item: &MenuItem) -> bool {
 fn mark_slot(item: &MenuItem, check: CheckMark) -> gtk::Widget {
     if check != CheckMark::Checked {
         let slot = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-        slot.set_size_request(ROW_GLYPH, ROW_GLYPH);
+        let edge = crate::icons::scaled(ROW_GLYPH);
+        slot.set_size_request(edge, edge);
         slot.add_css_class("menu-mark-slot");
         return slot.upcast();
     }
@@ -1790,8 +1791,11 @@ fn item_content(item: &MenuItem, check: CheckMark, marks: MarkColumn, glyphs: Gl
     let application_icon = item
         .application_icon
         .as_deref()
-        .and_then(|icon| integration::application_image(Some(icon), ROW_GLYPH))
-        .inspect(|image| image.set_size_request(ROW_ICON, ROW_ICON));
+        .and_then(|icon| integration::application_image(Some(icon), crate::icons::scaled(ROW_GLYPH)))
+        .inspect(|image| {
+            let edge = crate::icons::scaled(ROW_ICON);
+            image.set_size_request(edge, edge);
+        });
     let content = gtk::Box::new(gtk::Orientation::Horizontal, 9);
     if marks == MarkColumn::Shown {
         content.append(&mark_slot(item, check));
@@ -1816,8 +1820,8 @@ fn item_content(item: &MenuItem, check: CheckMark, marks: MarkColumn, glyphs: Gl
         // glyph's column empty, so its text sits where other menus' does,
         // as does a text-only row of a menu whose other rows have glyphs.
         let column = gtk::Box::builder()
-            .width_request(ROW_ICON)
-            .height_request(ROW_ICON)
+            .width_request(crate::icons::scaled(ROW_ICON))
+            .height_request(crate::icons::scaled(ROW_ICON))
             .build();
         content.append(&column);
     }

@@ -32,7 +32,45 @@ pub(crate) fn css_for_text_size(text_size: TextSize) -> String {
     rules.extend(tiles_and_content_rules(text_size));
     rules.extend(compact_density_rules(scale, text_size));
     rules.extend(selection_bar_rules(scale));
+    rules.push(chevron_rules(scale));
     rules.join("\n") + "\n"
+}
+
+/// The chevrons the skin draws as backgrounds and icon sources, grown with
+/// the text as the icons are ([`crate::icons::scaled_by`]): a sorted
+/// column's 12-pixel indicator, or its 13-pixel chevron in Windows' header
+/// style, whose indicator stays hidden; the address bar's 12-pixel
+/// dividers and its root and overflow buttons; and the folder tree's
+/// 16-pixel expanders.
+fn chevron_rules(scale: f64) -> String {
+    let px = |size| crate::icons::scaled_by(size, scale);
+    let (sort, windows_sort, crumb, crumb_box, expander) = (px(12), px(13), px(12), px(20), px(16));
+    let sorted = |prefix: &str, part: &str| {
+        format!(
+            "{prefix}columnview.files > header > button.sort-ascending{part}, \
+             {prefix}columnview.files > header > button.sort-descending{part}"
+        )
+    };
+    let hovered = |prefix: &str| {
+        format!(
+            "{prefix}columnview.files > header:hover > button:last-child.sort-ascending, \
+             {prefix}columnview.files > header:hover > button:last-child.sort-descending"
+        )
+    };
+    let indicator = sorted("", " sort-indicator");
+    let windows_indicator = sorted(".windows-column-headers ", " sort-indicator");
+    let windows_chevron = sorted(".windows-column-headers ", "");
+    let windows_hovered = hovered(".windows-column-headers ");
+    format!(
+        "{indicator} {{ -gtk-icon-size: {sort}px; min-width: {sort}px; min-height: {sort}px; }}\n\
+         {windows_indicator} {{ -gtk-icon-size: 0; min-width: 0; min-height: 0; }}\n\
+         {windows_chevron} {{ background-size: {windows_sort}px {windows_sort}px; }}\n\
+         {windows_hovered} {{ background-size: {windows_sort}px {windows_sort}px, auto; }}\n\
+         .address .crumb-divider, .address button.crumb-root, .address button.crumb-overflow \
+         {{ min-width: {crumb_box}px; background-size: {crumb}px {crumb}px; }}\n\
+         .folder-tree treeexpander expander {{ min-width: {expander}px; min-height: {expander}px; \
+         -gtk-icon-size: {expander}px; }}"
+    )
 }
 
 /// A selector's font size, in pixels at 100%.
@@ -490,7 +528,8 @@ fn tile_rule(icon_size: IconSize, text_size: TextSize) -> String {
         return small_icons_rule(text_size);
     }
     let row = grid::cell_size(icon_size, text_size).height;
-    let width = icon_size.pixels();
+    // The icon grows with the text, as at a desktop scale.
+    let width = crate::icons::scaled_by(icon_size.pixels(), text_size.scale());
     let class = icon_size.css_class();
     let (left, right) = icon_size::icon_side_margins(icon_size);
     let beside = icon_size::icon_side_padding(icon_size);
