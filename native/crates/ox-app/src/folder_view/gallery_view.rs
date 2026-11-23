@@ -1108,16 +1108,32 @@ impl GalleryCanvas {
             let layout = self.layout();
             layout.rows.iter().map(|row| (row.y, row.start)).collect()
         };
-        starts
-            .into_iter()
-            .map(|(y, start)| {
-                let date = u32::try_from(start)
-                    .ok()
-                    .and_then(|position| self.item(position))
-                    .and_then(|item| photo_date(item.entry()));
-                ((f64::from(y) / span).min(1.0), date)
-            })
-            .collect()
+        let date_at = |position: usize| {
+            u32::try_from(position)
+                .ok()
+                .and_then(|position| self.item(position))
+                .and_then(|item| photo_date(item.entry()))
+        };
+        let mut timeline = Vec::with_capacity(starts.len());
+        for (index, &(y, start)) in starts.iter().enumerate() {
+            let at = (f64::from(y) / span).min(1.0);
+            let first = date_at(start);
+            timeline.push((at, first));
+            // A row that holds photos of several years marks each of them
+            // too, so the scale skips no year that has photos.
+            let count = usize::try_from(self.n_items()).unwrap_or(0);
+            let end = starts.get(index + 1).map_or(count, |&(_, next)| next);
+            let mut year = first.and_then(year_of);
+            for position in start + 1..end {
+                let date = date_at(position);
+                let this_year = date.and_then(year_of);
+                if this_year.is_some() && this_year != year {
+                    timeline.push((at, date));
+                    year = this_year;
+                }
+            }
+        }
+        timeline
     }
 
     /// Runs `shown` whenever the part on screen or the items change.
@@ -1742,4 +1758,12 @@ mod tests {
         assert!(f64::from(edge) / 10.0 >= 320.0, "{edge}");
         assert_eq!(sharp_edge(160, 160, None, 1), 160);
     }
+}
+
+/// The local year of `date`, in seconds since the Unix epoch.
+fn year_of(date: u64) -> Option<i32> {
+    let seconds = i64::try_from(date).ok()?;
+    glib::DateTime::from_unix_local(seconds)
+        .ok()
+        .map(|local| local.year())
 }
