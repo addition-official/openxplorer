@@ -239,12 +239,17 @@ impl BrowserWindow {
             ));
             return;
         }
-        // Said at once, so the click is seen to do something while the
-        // desktop starts the email app.
-        self.show_message(&ox_core::i18n::gettext("Opening your email app…"));
         let window = self.downgrade();
+        let opening = self.downgrade();
         glib::spawn_future_local(async move {
-            let result = email_files(&portal, sources).await;
+            // Said once the files are open, so the click is seen to do
+            // something while the desktop starts the email app.
+            let said = move || {
+                if let Some(window) = opening.upgrade() {
+                    window.show_message(&ox_core::i18n::gettext("Opening your email app…"));
+                }
+            };
+            let result = email_files(&portal, sources, said).await;
             // A failure is a message to read, not a passing toast.
             if let (Err(error), Some(window)) = (result, window.upgrade()) {
                 window.show_result_dialog(&ox_core::i18n::gettext("Share"), &error.to_string());
@@ -255,8 +260,9 @@ impl BrowserWindow {
 
 /// Finds and opens the files at `sources` on a worker thread, within
 /// [`OPEN_TIMEOUT`], and asks `portal` to email them. A file with no local
-/// path, gone or not a regular file fails as unreadable.
-async fn email_files(portal: &str, sources: Vec<String>) -> Result<(), EmailError> {
+/// path, gone or not a regular file fails as unreadable. `opened` runs once
+/// the files are open, before the portal is asked.
+async fn email_files(portal: &str, sources: Vec<String>, opened: impl FnOnce()) -> Result<(), EmailError> {
     let opening = gio::spawn_blocking(move || {
         let paths = sources
             .iter()
@@ -272,6 +278,7 @@ async fn email_files(portal: &str, sources: Vec<String>) -> Result<(), EmailErro
         Ok(Ok(opened)) => opened?,
         Ok(Err(_)) | Err(_) => return Err(timed_out()),
     };
+    opened();
     let connection = gio::bus_get_future(gio::BusType::Session)
         .await
         .map_err(EmailError::Unavailable)?;
