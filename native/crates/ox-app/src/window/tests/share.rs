@@ -112,7 +112,12 @@ fn with_an_email_portal_share_attaches_the_selected_files() {
     expected.sort();
     assert_eq!(attachments, expected);
     wait_for_frames(&test.window, 3);
-    assert_eq!(test.window.shown_message().as_str(), "", "nothing to report");
+    assert_eq!(
+        test.window.shown_message().as_str(),
+        "Opening your email app…",
+        "only that the email app opens"
+    );
+    assert!(test.shown_dialog().is_none(), "nothing to report");
 }
 
 /// Windows cannot share a folder; nor can Share send an item of the
@@ -145,11 +150,18 @@ fn a_failed_email_shows_the_error_and_cancelling_shows_nothing() {
     select_names(&test, &["Notes 2.txt"]);
 
     share_button(&test).emit_clicked();
-    wait_until("the error", || !test.window.shown_message().is_empty());
-    assert_eq!(
-        test.window.shown_message().as_str(),
-        "The email app could not be opened."
+    // A failure is a message to read, in a dialog of its own.
+    let dialog = test.wait_for_dialog("the error");
+    let shown = super::item_dialogs::texts(&dialog);
+    assert!(
+        shown.contains(
+            &"No email app is set up, so the email could not be written. Choose an email app in your \
+              desktop's settings, then share again."
+                .to_owned()
+        ),
+        "{shown:?}"
     );
+    super::item_dialogs::press(&dialog, "OK");
 
     let fixture = Fixture::standard();
     let test = laid_out(&fixture.uri());
@@ -159,7 +171,7 @@ fn a_failed_email_shows_the_error_and_cancelling_shows_nothing() {
     share_button(&test).emit_clicked();
     wait_until("the portal to be asked", || !cancelled.calls().is_empty());
     wait_for_frames(&test.window, 3);
-    assert_eq!(test.window.shown_message().as_str(), "", "the user chose to");
+    assert!(test.shown_dialog().is_none(), "the user chose to");
 }
 
 /// One email takes at most 16 files, as one D-Bus message carries at
@@ -199,13 +211,17 @@ fn a_file_the_email_address_would_misread_is_refused_by_name() {
     select_names(&test, &[name]);
 
     share_button(&test).emit_clicked();
-    wait_until("the reason", || !test.window.shown_message().is_empty());
-    assert_eq!(
-        test.window.shown_message().as_str(),
-        format!(
-            "“{name}” cannot be attached to an email because its path has &, #, ?, % or a \
-             control character, which the email app could misread. Rename or move it, then share it again."
-        )
+    // A refusal is a message to read, in a dialog of its own.
+    let dialog = test.wait_for_dialog("the reason");
+    let reason = format!(
+        "“{name}” cannot be attached to an email because its path has &, #, ?, % or a \
+         control character, which the email app could misread. Rename or move it, then share it again."
+    );
+    let shown = super::item_dialogs::texts(&dialog);
+    assert!(shown.contains(&reason), "{shown:?}");
+    assert!(
+        test.window.shown_message().is_empty(),
+        "nothing says the email app opens"
     );
     assert!(portal.calls().is_empty(), "the portal is not asked");
 }
