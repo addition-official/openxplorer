@@ -22,7 +22,9 @@ use gtk::{gdk, gio, glib};
 use super::folder_picture::{FOLDER_PICTURE, SMALLEST_PICTURE_ICON};
 use super::FileCell;
 use crate::folder_view::item::FileItem;
+use crate::icons::Art;
 use crate::picture_guard::{self, Limits};
+use crate::thumbnails::folder_preview::{folder_art, kept_folder_art, FolderArt, FolderRequest, KnownArt};
 use crate::thumbnails::{self, OnScreen, PreviewPolicy, PreviewRequest};
 
 /// The metadata key Files stores a custom icon under.
@@ -82,11 +84,13 @@ impl FileCell {
         imp.binding.set(imp.binding.get().wrapping_add(1));
         imp.custom_icon.set_visible(false);
         imp.folder_picture.show_texture(None);
+        imp.folder_contents.show_art(None);
         imp.image.set_opacity(1.0);
         let entry = item.entry();
         let uri = entry.uri.clone();
         let started = self.start_preview(entry, previews);
         let kind_picture = crate::icons::file_icons::picture_for(entry);
+        let contents = self.start_folder_contents(entry, previews).filter(|_| kind_picture.is_none());
         if !uri.starts_with("file:") && !started.wanted && kind_picture.is_none() {
             return;
         }
@@ -114,12 +118,27 @@ impl FileCell {
             if let Some(picture) = own.folder_picture.filter(|_| texture.is_none() && is_folder) {
                 if on_the_folder {
                     if let (Some(cell), Some(picture)) = (cell.upgrade(), icon_texture(picture).await) {
+                        // A folder's own picture takes its contents' place.
+                        cell.hide_folder_contents();
                         cell.imp().folder_picture.show_texture(Some(&picture));
                         cell.imp().picture_lookup.take();
                     }
                     return;
                 }
                 texture = icon_texture(picture).await;
+            }
+            // After the folder's own pictures, its contents, unless they
+            // were drawn at once.
+            if let Some(request) = contents.filter(|_| texture.is_none()).and_then(FolderContentsStart::wanted) {
+                let art = folder_art(request).await;
+                if let Some(cell) = cell.upgrade() {
+                    if let Some(art) = art {
+                        thumbnails::trace::event("folder-shown", &uri);
+                        cell.show_folder_contents(&art);
+                    }
+                    cell.imp().picture_lookup.take();
+                }
+                return;
             }
             if texture.is_none() {
                 if let Some(shown) = shown_at_once {
@@ -155,7 +174,7 @@ impl FileCell {
             if let Some(texture) = texture {
                 thumbnails::trace::event("shown", &uri);
                 cell.show_picture(&texture);
-            } else {
+            } else if !cell.imp().folder_contents.is_visible() {
                 // No picture after all: the type icon it waited without.
                 cell.imp().image.set_opacity(1.0);
             }
@@ -220,6 +239,52 @@ impl FileCell {
         }
     }
 
+    /// Starts showing the contents of `entry`, a folder, on its icon,
+    /// where `previews` allow it and the view draws a folder large enough
+    /// (Medium icons and larger, and Tiles, as Windows): from memory on
+    /// this very frame when they are known, or else to be read once the
+    /// folder's own pictures are looked up. `None` for an item that shows
+    /// no contents.
+    fn start_folder_contents(&self, entry: &ox_core::entry::Entry, previews: PreviewPolicy) -> Option<FolderContentsStart> {
+        let imp = self.imp();
+        let large_enough = (imp.is_tile.get() && imp.icon_size.get() >= SMALLEST_PICTURE_ICON)
+            || (imp.shows_item_lines.get() && !imp.is_content_row.get());
+        if !large_enough || Art::for_entry(entry) != Art::Folder {
+            return None;
+        }
+        let pixels = imp.icon_size.get() * self.scale_factor().max(1);
+        let cell = self.downgrade();
+        let request = FolderRequest {
+            on_screen: OnScreen::new(move || cell.upgrade().is_some_and(|cell| cell.is_on_screen())),
+            ..previews.folder_request(entry, pixels)?
+        };
+        match kept_folder_art(&request) {
+            Some(KnownArt::Drawn(art)) => {
+                thumbnails::trace::event("folder-shown-at-bind", &entry.uri);
+                self.show_folder_contents(&art);
+                Some(FolderContentsStart::Known)
+            }
+            Some(KnownArt::Plain) => Some(FolderContentsStart::Known),
+            None => Some(FolderContentsStart::Wanted(request)),
+        }
+    }
+
+    /// Shows `art` of the folder's contents in place of its plain icon.
+    fn show_folder_contents(&self, art: &FolderArt) {
+        let imp = self.imp();
+        imp.folder_contents.show_art(Some(art));
+        imp.image.set_opacity(0.0);
+    }
+
+    /// Shows the folder's plain icon again.
+    fn hide_folder_contents(&self) {
+        let imp = self.imp();
+        if imp.folder_contents.is_visible() {
+            imp.folder_contents.show_art(None);
+            imp.image.set_opacity(1.0);
+        }
+    }
+
     /// Whether any of the cell is inside the scrolled view that shows it:
     /// GTK binds many cells beyond the view's edges. A cell bound but not
     /// laid out yet, which has no size, is not on the screen yet: the cells
@@ -245,9 +310,11 @@ impl FileCell {
             && bounds.y() + bounds.height() > 0.0
     }
 
-    /// Shows `texture` in place of the type icon.
+    /// Shows `texture` in place of the type icon, and of a folder's
+    /// contents.
     fn show_picture(&self, texture: &gdk::Texture) {
         let imp = self.imp();
+        imp.folder_contents.show_art(None);
         imp.custom_icon.set_paintable(Some(texture));
         imp.custom_icon.set_visible(true);
         imp.image.set_opacity(0.0);
@@ -293,6 +360,14 @@ impl FileCell {
         self.imp().folder_picture.shows_picture()
     }
 
+    /// How many pictures of its contents peek out of the folder the cell
+    /// shows, and whether a page does; `None` while it shows none, for
+    /// tests.
+    #[cfg(test)]
+    pub(crate) fn shown_folder_contents(&self) -> Option<(usize, bool)> {
+        self.imp().folder_contents.shown()
+    }
+
     /// Whether the cell shows a custom icon or a preview, for tests.
     #[cfg(test)]
     pub(crate) fn shows_custom_icon(&self) -> bool {
@@ -311,6 +386,24 @@ struct PreviewStart {
     /// Set once the item's own picture (a custom icon) is found, which
     /// then takes the preview's place.
     own_found: Rc<Cell<bool>>,
+}
+
+/// How the previews of a folder's contents started for a cell.
+enum FolderContentsStart {
+    /// Known at once: drawn, or known to stay plain.
+    Known,
+    /// To be read.
+    Wanted(FolderRequest),
+}
+
+impl FolderContentsStart {
+    /// The request still to be read, if any.
+    fn wanted(self) -> Option<FolderRequest> {
+        match self {
+            Self::Known => None,
+            Self::Wanted(request) => Some(request),
+        }
+    }
 }
 
 /// A preview being read for a cell; stopped when the cell no longer

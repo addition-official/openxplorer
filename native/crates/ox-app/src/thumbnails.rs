@@ -32,6 +32,7 @@
 //! made on slots of their own ([`making`]), so a share that stops
 //! answering never holds up the thumbnails of this computer's files.
 
+pub(crate) mod folder_preview;
 mod memory;
 mod network_fs;
 mod reader;

@@ -17,6 +17,7 @@ use content_columns::ContentColumns;
 use tile_lines::TileLines;
 mod custom_icon;
 mod expander;
+mod folder_contents;
 mod folder_picture;
 mod heading_span;
 mod item_check;
@@ -34,6 +35,7 @@ use gtk::{glib, pango};
 pub(crate) use cell_owners::{CellOwners, PositionMap, TileSlot};
 pub(crate) use custom_icon::{icon_texture, CUSTOM_ICON};
 pub(crate) use expander::connect_expanders;
+pub(crate) use folder_contents::FolderContents;
 pub(crate) use folder_picture::{folder_picture_of, FolderPicture, FOLDER_PICTURE};
 pub(crate) use row_tooltip::{show_row_tooltip, CellTooltip, RowTooltip, TooltipCell};
 
@@ -292,6 +294,9 @@ mod imp {
         /// The folder's picture on its icon (PROP-037), on a tile of
         /// Medium icons or larger.
         pub(super) folder_picture: super::FolderPicture,
+        /// The folder's contents peeking out of its icon (VIEW-058), at
+        /// Medium icons and larger and in Tiles.
+        pub(super) folder_contents: super::FolderContents,
         /// Whether the cell is an icon-view tile.
         pub(super) is_tile: Cell<bool>,
         /// Whether a heading the cell shows has no chevron: List's
@@ -381,6 +386,7 @@ mod imp {
                 self.image.upcast_ref::<gtk::Widget>(),
                 self.custom_icon.upcast_ref(),
                 self.folder_picture.upcast_ref(),
+                self.folder_contents.upcast_ref(),
             ] {
                 art.add_css_class(super::ITEM_ART_CLASS);
             }
@@ -389,6 +395,10 @@ mod imp {
             self.icon_frame.add_overlay(&self.custom_icon);
             self.folder_picture.set_visible(false);
             self.icon_frame.add_overlay(&self.folder_picture);
+            self.folder_contents.set_visible(false);
+            self.folder_contents.set_halign(gtk::Align::Center);
+            self.folder_contents.set_valign(gtk::Align::Center);
+            self.icon_frame.add_overlay(&self.folder_contents);
             cell.append(&self.icon_frame);
             cell.append(&self.label);
         }
@@ -446,6 +456,7 @@ impl FileCell {
         let pixels = crate::icons::scaled(imp.icon_size.get());
         imp.custom_icon.set_size_request(pixels, pixels);
         imp.folder_picture.place_on_icon(pixels);
+        imp.folder_contents.set_edge(pixels);
     }
 
     /// Lays the cell out again for a new text size; its art draws itself
