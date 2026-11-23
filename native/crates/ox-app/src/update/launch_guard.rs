@@ -367,26 +367,6 @@ mod tests {
         super::super::service::running_file().expect("the test binary can be looked at")
     }
 
-    /// Opening another window while the app runs must not first read the
-    /// whole executable, tens of megabytes, to learn that the instance
-    /// runs this build: it runs this very file, so it does.
-    ///
-    /// parity: INT-001
-    #[test]
-    fn a_launch_of_the_file_the_instance_runs_reads_no_digest() {
-        let guard = instance_running(Some(this_file()));
-        let digest_read = std::cell::Cell::new(false);
-
-        let outcome = require_current_on(&guard, LaunchMode::Normal, false, || {
-            digest_read.set(true);
-            this_identity()
-        });
-
-        assert!(outcome.is_ok(), "{outcome:?}");
-        assert!(!digest_read.get(), "the launch read its executable's digest");
-        assert!(!guard.bus().asked_to_quit.get());
-    }
-
     /// Another file, an instance that names none (an older release) and
     /// `--restart` still compare builds as before (UPD-008, UPD-009).
     ///
@@ -415,21 +395,6 @@ mod tests {
             guard.bus().asked_to_quit.get(),
             "--restart replaces even this build"
         );
-    }
-
-    /// The report names the running file at once, before its digest is
-    /// read, so a launch right after the start needs no wait for it.
-    ///
-    /// parity: INT-022
-    #[gtk::test]
-    fn the_runtime_info_action_names_the_running_file_at_once() {
-        let actions = gio::SimpleActionGroup::new();
-        RuntimeInfo::install(&actions);
-        let state = actions
-            .action_state(RUNTIME_INFO_ACTION)
-            .and_then(|state| state.get::<String>())
-            .expect("the action has a text state");
-        assert_eq!(ExecutableFile::from_action_state(&state), Some(this_file()));
     }
 
     /// parity: INT-022

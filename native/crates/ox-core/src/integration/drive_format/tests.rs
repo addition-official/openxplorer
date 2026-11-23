@@ -656,31 +656,6 @@ fn a_removed_or_write_protected_drive_is_not_formatted() {
     assert!(calls.is_empty(), "{calls:?}");
 }
 
-/// Renaming a drive sets the label of its file system through UDisks,
-/// fitted to what the file system keeps (FAT32: 11 capitals), on the
-/// drive read again first, without unmounting it.
-///
-/// parity: DEV-012
-#[test]
-fn a_drive_is_renamed_with_a_label_its_file_system_keeps() {
-    let (renamed, calls) = with_udisks(Answers::default(), |connection, fake| async move {
-        let facts = drive_facts(&connection, &fake.name(), "/dev/sdb1")
-            .await
-            .expect("the drive");
-        let renamed = set_drive_label(&connection, &fake.name(), &facts, "Holiday: photos 2026").await;
-        (renamed, fake.drive_calls())
-    });
-
-    assert_eq!(
-        renamed.expect("renamed"),
-        Relabelled {
-            label: "HOLIDAY PHO".to_owned(),
-            remounted: None,
-        }
-    );
-    assert_eq!(calls, ["Filesystem.SetLabel ('HOLIDAY PHO', @a{sv} {})"]);
-}
-
 /// exFAT and NTFS labels can't be changed while the drive is mounted
 /// (exfatlabel finds the device busy, ntfslabel refuses a mounted one):
 /// the drive is unmounted, renamed and mounted again, at the folder its

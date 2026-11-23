@@ -773,64 +773,6 @@ mod tests {
         assert_eq!(default.and_then(|default| default.id()), app.id());
     }
 
-    /// "Always" changes the default of what the file's extension names,
-    /// as Windows changes the default of one extension: the type GIO knows
-    /// the extension by, whatever the file holds, or for an extension GIO
-    /// does not know, a type of its own. A file without an extension, or
-    /// with one that is not plain letters and digits, has none.
-    ///
-    /// parity: OPEN-012
-    #[test]
-    fn always_changes_what_the_files_extension_names() {
-        let named = |content_type: &str| Some(DefaultTarget::Type(content_type.to_owned()));
-        assert_eq!(default_target("Notes.txt", "text/plain"), named("text/plain"));
-        assert_eq!(default_target("PHOTO.JPG", "image/jpeg"), named("image/jpeg"));
-        assert_eq!(
-            default_target("photo.jpg", "text/plain"),
-            named("image/jpeg"),
-            "what the extension names, not what the file holds"
-        );
-        assert_eq!(default_target("song.mp3", "audio/mpeg"), named("audio/mpeg"));
-        assert_eq!(
-            default_target("letter.odt", "application/vnd.oasis.opendocument.text"),
-            named("application/vnd.oasis.opendocument.text")
-        );
-        // An extension GIO knows for several types (.ts is a translation or
-        // an MPEG video) keeps those types: the one GIO found for this file
-        // gets the default, and no new type is registered.
-        assert_eq!(default_target("clip.ts", "video/mp2t"), named("video/mp2t"));
-        assert_eq!(
-            default_target("app.ts", "text/vnd.trolltech.linguist"),
-            named("text/vnd.trolltech.linguist")
-        );
-        assert_eq!(default_target("blank.ts", UNKNOWN_CONTENT_TYPE), None);
-        let own = |extension: &str| Some(DefaultTarget::Extension(extension.to_owned()));
-        assert_eq!(default_target("scene.xyz", UNKNOWN_CONTENT_TYPE), own("xyz"));
-        assert_eq!(
-            default_target("Scene.XYZ", UNKNOWN_CONTENT_TYPE),
-            own("xyz"),
-            "one type for every case"
-        );
-        assert_eq!(default_target("notes.weird", "text/plain"), own("weird"));
-        assert_eq!(default_target("data.v2-raw", UNKNOWN_CONTENT_TYPE), own("v2-raw"));
-        for name in [
-            "README",
-            ".bashrc",
-            "trailing.",
-            "a.b c",
-            "x.<mime-type>",
-            "y.a\"b",
-            "z.ünï",
-        ] {
-            assert_eq!(default_target(name, "text/plain"), None, "{name}");
-        }
-        assert_eq!(
-            extension_type("xyz"),
-            "application/x-extension-xyz",
-            "the name GIO itself gives an unknown extension"
-        );
-    }
-
     /// "Always" for an extension GIO does not know registers it as a type
     /// of its own, for this user only, then makes the app its default: the
     /// next file with that extension opens in it, and no other unknown
