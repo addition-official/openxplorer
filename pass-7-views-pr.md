@@ -23,15 +23,16 @@ Overnight pass 7 (views) checked every layout against Windows 11 with real xdoto
 
   | Measure | Windows 11 | Before | After |
   |---|---|---|---|
-  | Details header dividers to text | 25 | uneven | 25 |
-  | Details icon x / name x | 4 / 25 | 4 / 25 | 4 / 25 |
   | Compact List row pitch | 21 | 26 | 21 |
   | Extra large / Large / Medium column pitch | 291 / 109 / 75 | 335 / 186 / 139 | 291 / 109 / 75 |
   | Extra large / Large / Medium selection width | 267 / 101 / 70 | not measured | 267 / 101 / 70 |
   | Tiles pitch / box | 254 / 246x52 | not measured | 254 / 246x52 |
   | Content icon x / name x | 36 / 74 | 18 / 59 | 36 / 74 |
 
+  Details keeps its earlier paddings (icon 15 px and name 42 px into the row), which the owner prefers to Windows' tighter ones.
+
   The icon sizes now keep Windows' distance between columns and leave the spare width at the right instead of spreading the columns. Tiles show folders and zip files by name alone. Content shows nothing under a document's name, the date alone for folders and zip files, and keeps the name level with Date modified. Still open: Small icons rows are 28-29 px in the real app (21 in Windows), and Content's date column sits at the row's right where Windows puts it at 38.6% of the row (one width measured, so the rule is unknown).
+- **Larger text (Ctrl+plus).** Rows in Details, List and Small icons, Content's rows and the Tiles columns and rows now grow by the same factor as the text, as Windows' scaling grows its layout. Before, they grew by less, so at 200% Content rows were 82 px apart where 96 keep the 100% proportions, and Tiles 452 instead of 508.
 - **User guide.** It said item check boxes are on by default, as in Windows 11. The owner decision (SEL-014) has them off, and with them on a box shows on hover only while Ctrl is held. The guide now says both.
 
 No new dependency. `native/po/*.po` untouched; no new strings, so the `.pot` is unchanged.
