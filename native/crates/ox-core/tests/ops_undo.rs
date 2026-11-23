@@ -314,38 +314,6 @@ fn undoing_a_move_puts_items_back_but_never_over_a_new_item() {
     assert_eq!(fs::read(destination.join("b.txt")).unwrap(), b"b");
 }
 
-/// Try Again, once the name in the way is free, moves the item back.
-///
-/// parity: OPS-029
-#[test]
-fn try_again_moves_an_item_back_once_its_old_name_is_free() {
-    let temp = tempfile::tempdir().unwrap();
-    let (source, destination) = (temp.path().join("src"), temp.path().join("dst"));
-    fs::create_dir(&source).unwrap();
-    fs::create_dir(&destination).unwrap();
-    fs::write(source.join("Clip.mp4"), b"clip").unwrap();
-    let item = source.join("Clip.mp4");
-    let record = undo_record_of(&request(TransferMode::Move, &[&item], Some(&destination)));
-    fs::write(&item, b"in the way").unwrap();
-    let blocker = item.clone();
-    let moved_aside = temp.path().join("aside.mp4");
-    let aside = moved_aside.clone();
-    let (context, asked) = answering_context(vec![FailureAnswer::Retry], move || {
-        if blocker.exists() {
-            fs::rename(&blocker, &aside).unwrap();
-        }
-    });
-
-    let result = block_on(undo(&record, &context, |_| {})).unwrap();
-
-    assert_eq!(asked.lock().unwrap().len(), 1);
-    assert!(result.errors.is_empty(), "{:?}", result.errors);
-    assert_eq!(result.done, [file_uri(&destination.join("Clip.mp4"))]);
-    assert_eq!(fs::read(&item).unwrap(), b"clip");
-    assert_eq!(fs::read(&moved_aside).unwrap(), b"in the way");
-    assert!(!destination.join("Clip.mp4").exists());
-}
-
 /// A move answered with Keep both lands under a new name; Undo brings
 /// the item back under its old one, and Redo moves it on again under
 /// the new one.

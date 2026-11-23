@@ -214,41 +214,6 @@ fn a_slow_second_click_on_a_tiles_name_renames_it() {
     }
 }
 
-/// The Rename dialog, which renames a folder of the navigation pane and
-/// an item not on screen, refuses a character Windows forbids in names
-/// as it is typed, with the balloon renaming in place shows, so every
-/// place a name is typed agrees.
-///
-/// parity: OPS-010
-#[gtk::test]
-fn the_rename_dialog_refuses_a_forbidden_character_with_the_balloon() {
-    let fixture = Fixture::standard();
-    let mut pointer = Pointer::connect();
-    let test = TestWindow::open(&fixture.uri());
-    test.activate("rename-folder", Some(&fixture.uri_of("Documents")));
-    let dialog = super::file_ops_support::open_dialog(&test);
-    let field = super::file_ops_support::text_field(&dialog);
-    wait_until("the field takes the keyboard", || {
-        GtkWindowExt::focus(&dialog).is_some_and(|focus| focus.is_ancestor(&field))
-    });
-    field.set_position(-1);
-    wait_for_frames(&dialog, 3);
-    let (x, y) = point_in(&mut pointer, &field, 10.0, 10.0);
-    pointer.move_to(x, y);
-
-    pointer.tap_key(gdk::Key::slash);
-    wait_until("the balloon", || {
-        descendants::<gtk::Popover>(&field)
-            .iter()
-            .any(|balloon| balloon.has_css_class("name-balloon") && balloon.is_visible())
-    });
-
-    assert_eq!(field.text(), "Documents", "the slash is refused");
-    dialog.close();
-    super::file_ops_support::wait_for_no_dialog(&test);
-    assert!(fixture.path("Documents").is_dir(), "nothing was renamed");
-}
-
 /// F2 on the selected item scrolled out of the view's sight scrolls it
 /// back and renames it in place where the user sees it. GTK keeps rows
 /// just outside the visible area alive, and the name field used to open

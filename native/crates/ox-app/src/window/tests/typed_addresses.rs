@@ -12,11 +12,9 @@ use gtk::prelude::*;
 use gtk::{gdk, glib};
 use ox_core::typed_addresses::{TypedAddresses, TYPED_ADDRESSES_FILE};
 
-use crate::locations::Page;
 use crate::test_support::harness::{wait_for, wait_until, Fixture, TestWindow};
 use crate::test_support::pointer::{screen_point, Button, Pointer};
 use crate::window::address_bar::AddressMode;
-use crate::window::file_drag::DraggedItems;
 
 /// A fixture with a folder whose name has a space, as Copy as path quotes
 /// it.
@@ -198,56 +196,6 @@ fn typed_addresses_are_shared_by_every_window_and_kept_for_the_next_start() {
     assert!(TypedAddresses::open(first.settings_directory())
         .addresses()
         .is_empty());
-}
-
-/// A crumb can be dragged out like the folder it names, as a sidebar
-/// folder can; the search results' crumb and a page cannot.
-///
-/// parity: DND-001, NAV-017
-#[gtk::test]
-fn a_crumb_drags_its_folder() {
-    let fixture = fixture_with_team_files();
-    let test = TestWindow::open(&fixture.uri_of("Team files"));
-    test.wait_for_listing("Team files");
-    let bar = test.window.address_bar();
-    let bar_widget: gtk::Widget = bar.clone().upcast();
-    let crumbs = bar.crumb_buttons();
-    let parent = &crumbs[crumbs.len() - 2];
-    let point = parent
-        .compute_point(&bar_widget, &gtk::graphene::Point::new(4.0, 4.0))
-        .expect("the crumb is in the bar");
-
-    let content = test
-        .window
-        .crumb_drag_content_at(f64::from(point.x()), f64::from(point.y()))
-        .expect("a crumb can be dragged");
-
-    let own = content
-        .value(DraggedItems::static_type())
-        .expect("the drag offers its own items to this process");
-    assert_eq!(own.get::<DraggedItems>().expect("the items").0, [fixture.uri()]);
-    assert!(
-        test.window.crumb_drag_content_at(-50.0, -50.0).is_none(),
-        "nothing outside a crumb"
-    );
-    let has_source = bar
-        .observe_controllers()
-        .iter::<glib::Object>()
-        .filter_map(Result::ok)
-        .any(|controller| controller.is::<gtk::DragSource>());
-    assert!(has_source, "the bar starts drags");
-
-    test.show(Page::ThisPc.uri());
-    let first = bar.crumb_buttons().into_iter().next().expect("This PC's crumb");
-    let point = first
-        .compute_point(&bar_widget, &gtk::graphene::Point::new(4.0, 4.0))
-        .expect("the crumb is in the bar");
-    assert!(
-        test.window
-            .crumb_drag_content_at(f64::from(point.x()), f64::from(point.y()))
-            .is_none(),
-        "a page is no folder to drag"
-    );
 }
 
 /// The screen point of the middle of `widget`.

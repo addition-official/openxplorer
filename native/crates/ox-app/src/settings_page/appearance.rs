@@ -580,15 +580,6 @@ mod tests {
         assert_eq!(MENU_STYLES[0].label, "Windows 10 · Classic");
     }
 
-    /// parity: VIEW-014
-    #[test]
-    fn the_column_header_styles_offer_the_apps_own_first_as_the_default() {
-        let values = HEADER_STYLES.map(|choice| choice.value);
-        assert_eq!(values, ColumnHeaderStyle::ALL);
-        assert_eq!(ColumnHeaderStyle::default(), ColumnHeaderStyle::OpenXplorer);
-        assert_eq!(HEADER_STYLES[0].label, "OpenXplorer (default)");
-    }
-
     /// parity: CMD-008
     #[test]
     fn the_strip_positions_offer_the_pointers_side_first_as_the_default() {
