@@ -78,9 +78,10 @@ fn painted_box(image: &gtk::Image, name: &str, size: i32) -> Option<(i32, i32, i
     inked_box(&texture)
 }
 
-/// Chevrons are drawn at the ems measured on Windows 11 at 1x: 12 in a
-/// 16-pixel square (a submenu's arrow), 10 in a 12-pixel one (a
-/// breadcrumb separator) and 8 elsewhere; a drop-down button's caret in
+/// Chevrons are drawn at the ems that give Windows 11's ink at 1x with the
+/// real font: 13 in a 16-pixel square (a submenu's arrow, 5 by 10), 11 in
+/// a 12- or 13-pixel one (a breadcrumb separator, 5 by 8; Windows' sort
+/// chevron) and 8 elsewhere; a drop-down button's caret in
 /// the command bar's 17-pixel square inks 8 whole pixels, not the 16 of
 /// the glyphs beside it, and not 9 blurred across a half pixel.
 ///
@@ -89,7 +90,7 @@ fn painted_box(image: &gtk::Image, name: &str, size: i32) -> Option<(i32, i32, i
 fn chevrons_are_drawn_at_windows_ems() {
     use ox_core::windows_glyphs::synthetic::SyntheticGlyph;
 
-    for (size, em) in [(12, 10), (16, 12), (17, 8), (20, 8), (10, 8), (8, 8)] {
+    for (size, em) in [(12, 11), (13, 11), (16, 13), (17, 8), (20, 8), (10, 8), (8, 8)] {
         assert_eq!(em_of(Icon::ChevronRight16, size), em, "{size}");
     }
     for size in [12, 17] {

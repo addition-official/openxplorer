@@ -175,7 +175,7 @@ impl IconRole {
             IconRole::OpticalDrive => (Imageres, 56, BestMatch),
             IconRole::RecycleBinEmpty => (Imageres, 55, Verified),
             IconRole::RecycleBinFull => (Imageres, 54, Verified),
-            IconRole::ZipFolder => (Imageres, 175, Verified),
+            IconRole::ZipFolder => (Imageres, 174, Verified),
             IconRole::TextFile => (Imageres, 102, Verified),
             IconRole::ImageFile => (Imageres, 132, BestMatch),
             IconRole::AudioFile => (Imageres, 131, BestMatch),

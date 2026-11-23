@@ -228,24 +228,39 @@ pub(crate) const fn windows_em(size: i32) -> i32 {
 /// the search box's magnifier and the new-tab button's plus at 12;
 /// others as [`windows_em`] has it. Never larger than the square.
 pub(crate) const fn em_of(icon: Icon, size: i32) -> i32 {
+    // Each em gives the ink Windows 11 draws there, from the real Segoe
+    // Fluent Icons' ink at every em (measured on the user's PC), whose
+    // glyphs ink less than their em, or all of it.
     let em = match icon {
-        // The command bar's drop-down caret, whatever its square.
+        // The command bar's drop-down caret, 6 by 4, whatever its square.
         Icon::ChevronDown => CHEVRON_EM,
+        // A drop-down list's, the address bar's history and a sort
+        // indicator's chevron, as WinUI's ComboBox draws its 12-pixel one.
+        Icon::ChevronDown16 | Icon::ChevronUp16 if size == 12 => 12,
         Icon::ChevronDown16
         | Icon::ChevronLeft16
         | Icon::ChevronRight16
         | Icon::ChevronUp16
         | Icon::ChevronDoubleLeft16
         | Icon::ChevronDoubleRight16 => match size {
-            16 => 12,
-            12 => 10,
+            // A submenu's arrow, 5 by 10.
+            16 => 13,
+            // A breadcrumb separator, 5 by 8, and Windows' column sort
+            // chevron, 8 by 5 (7 by 5 in Windows).
+            12 | 13 => 11,
             _ => CHEVRON_EM,
         },
+        // Caption buttons: the Chrome glyphs ink their em, 10.
         Icon::Subtract | Icon::Maximize | Icon::SquareMultiple | Icon::Dismiss if size <= 15 => CAPTION_EM,
-        // A Quick access row's pin, in the square that fits the app's own.
-        Icon::Pin if size == 14 => 11,
-        Icon::Search if size == 15 => 12,
-        Icon::Add if size == 14 => 12,
+        // A Quick access row's pin inks its em, Windows' 10 by 10.
+        Icon::Pin if size == 14 => 10,
+        // The search box's magnifier, 11 by 11.
+        Icon::Search if size == 15 => 13,
+        // Back, Forward, Up and Refresh beside the address bar: the
+        // arrows ink their whole em, Windows' 12 by 12.
+        Icon::ArrowLeft | Icon::ArrowRight | Icon::ArrowUp | Icon::ArrowClockwise if size == 16 => 12,
+        // The new-tab plus (11 by 11 at 14, its square) and the tab's
+        // close X (9 by 9 at 13, its square) fill their squares.
         _ => windows_em(size),
     };
     if em < size {
@@ -264,9 +279,15 @@ const CAPTION_EM: i32 = 10;
 /// The glyph of `icon` in a square of `size` pixels: a dismiss X in a
 /// square of 15 pixels or less is a caption or dialog button, which
 /// Windows draws as `ChromeClose`; elsewhere it is the thin Cancel, as a
-/// menu's "Close tab" is.
+/// menu's "Close tab" is. The command bar's New, in its 18-pixel square,
+/// is Windows' circled plus, `AddTo`; the new-tab button's plus stays
+/// plain.
 const fn glyph_at(icon: Icon, size: i32) -> Option<WindowsGlyph> {
     match icon {
+        Icon::Add if size >= 17 => Some(WindowsGlyph {
+            codepoint: 0xECC8,
+            name: "AddTo",
+        }),
         Icon::Dismiss if size <= 15 => Some(WindowsGlyph {
             codepoint: 0xE8BB,
             name: "ChromeClose",
@@ -287,13 +308,21 @@ const PADDED_SQUARES: [i32; 16] = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20
 /// the em fills the square, and `ox-win-add-20-box20-symbolic` where the
 /// em is smaller ([`em_of`]).
 fn glyph_icon_name(icon: Icon, size: i32) -> String {
+    if em_of(icon, size) == size {
+        return full_glyph_name(icon);
+    }
     let name = icon.name();
     let stem = name.strip_prefix("ox-").unwrap_or(name);
-    if em_of(icon, size) == size {
-        return format!("ox-win-{stem}");
-    }
     let stem = stem.strip_suffix("-symbolic").unwrap_or(stem);
     format!("ox-win-{stem}-box{size}-symbolic")
+}
+
+/// The name of `icon`'s glyph drawn at an em filling its square, which
+/// any square can show: `ox-win-add-20-symbolic` for `ox-add-20-symbolic`.
+fn full_glyph_name(icon: Icon) -> String {
+    let name = icon.name();
+    let stem = name.strip_prefix("ox-").unwrap_or(name);
+    format!("ox-win-{stem}")
 }
 
 /// What the font is asked for: each glyph at an em filling its square,
@@ -304,10 +333,18 @@ fn glyph_requests() -> Vec<GlyphRequest> {
         let Some(glyph) = glyph_of(icon) else {
             continue;
         };
+        // The glyph filling its em, for squares where the em fills the
+        // square, even when Windows' 16-pixel square holds a smaller em.
+        requests.push(GlyphRequest {
+            name: full_glyph_name(icon),
+            codepoint: glyph.codepoint,
+            em: 16,
+            size: 16,
+        });
         let padded = PADDED_SQUARES
             .into_iter()
             .filter(|size| em_of(icon, *size) < *size);
-        for size in std::iter::once(16).chain(padded) {
+        for size in padded {
             let codepoint = match glyph_at(icon, size) {
                 Some(glyph) => glyph.codepoint,
                 None => glyph.codepoint,
@@ -386,13 +423,18 @@ pub(crate) fn drawn_name(icon: Icon, size: i32) -> &'static str {
     }
     // A square with a padded icon draws it; any other draws the glyph at
     // an em filling it, as an icon the user enlarged.
+    // 0 stands for the glyph filling its em.
     let square = if PADDED_SQUARES.contains(&size) && em_of(icon, size) < size {
         size
     } else {
-        16
+        0
     };
     STATE.with_borrow_mut(|state| {
-        let name = glyph_icon_name(icon, square);
+        let name = if square == 0 {
+            full_glyph_name(icon)
+        } else {
+            glyph_icon_name(icon, square)
+        };
         let has_glyph = state.loaded.as_ref().is_some_and(|loaded| loaded.contains(&name));
         if !has_glyph {
             return own;

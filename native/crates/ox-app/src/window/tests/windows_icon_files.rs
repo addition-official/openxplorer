@@ -188,8 +188,9 @@ fn the_windows_glyphs_come_from_the_chosen_symbol_font() {
 
     let home = TestHome::new();
     let font = home.home.parent().expect("the root").join("SegoeIcons.ttf");
-    // Add, Back and Cancel (the tab's close button); Cut is left out.
-    let codepoints = [0xE710, 0xE72B, 0xE711];
+    // Add, AddTo (New's circled plus), Back and Cancel (the tab's close
+    // button); Cut is left out.
+    let codepoints = [0xE710, 0xECC8, 0xE72B, 0xE711];
     std::fs::write(&font, SyntheticFont::with_codepoints(&codepoints).build()).expect("written");
     let folders = FolderLocations::new(home.home.clone(), &home.config);
     let test = TestWindow::open_with_standard_folders(&file_uri(&home.home), folders, |_| {});
@@ -211,8 +212,10 @@ fn the_windows_glyphs_come_from_the_chosen_symbol_font() {
             .any(|image| image.icon_name().as_deref() == Some(name))
     };
     for glyph in [
-        "ox-win-add-20-symbolic",
-        "ox-win-arrow-left-20-symbolic",
+        // New's circled plus in its 18-pixel square, Back at its 12-pixel
+        // em in its 16-pixel square, and the tab's close at its 12.
+        "ox-win-add-20-box18-symbolic",
+        "ox-win-arrow-left-20-box16-symbolic",
         "ox-win-dismiss-16-symbolic",
     ] {
         wait_until(&format!("{glyph} on screen"), || shown(glyph));
