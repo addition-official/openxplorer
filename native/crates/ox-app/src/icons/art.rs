@@ -44,7 +44,8 @@ pub(crate) enum Art {
     /// (LOOK-030).
     RemovableDrive(Medium),
     /// The drive the system runs from, Local Disk: the drive glyph, which a
-    /// Windows icon file draws as Windows' drive with its logo (LOOK-030).
+    /// Windows icon file draws as the plain fixed drive (LOOK-030), never
+    /// with Windows' logo.
     SystemDrive,
     /// A ZIP archive: the folder with the zip badge in its corner.
     ZipFolder,

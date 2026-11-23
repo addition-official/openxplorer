@@ -66,11 +66,9 @@ pub enum IconRole {
     NetworkDrive,
     /// A share mapped as a drive, not connected.
     NetworkDriveDisconnected,
-    /// A fixed drive other than the system's own.
+    /// A fixed drive, Local Disk among them: the plain drive, never
+    /// Windows' drive with its logo, on a system that is not Windows.
     Drive,
-    /// The drive the system runs from, Local Disk: Windows' drive with the
-    /// Windows logo, as its C: shows.
-    SystemDrive,
     /// A removable drive: a USB stick, an SD card, an external disk.
     RemovableDrive,
     /// An optical drive: a CD, DVD or Blu-ray disc.
@@ -116,7 +114,7 @@ pub enum Provenance {
 
 impl IconRole {
     /// Every role, in the order of [`IconRole`].
-    pub const ALL: [IconRole; 31] = [
+    pub const ALL: [IconRole; 30] = [
         IconRole::Folder,
         IconRole::Desktop,
         IconRole::Downloads,
@@ -133,7 +131,6 @@ impl IconRole {
         IconRole::NetworkDrive,
         IconRole::NetworkDriveDisconnected,
         IconRole::Drive,
-        IconRole::SystemDrive,
         IconRole::RemovableDrive,
         IconRole::OpticalDrive,
         IconRole::RecycleBinEmpty,
@@ -178,8 +175,6 @@ impl IconRole {
             IconRole::NetworkDrive => (Imageres, 33, Verified),
             IconRole::NetworkDriveDisconnected => (Imageres, 31, Verified),
             IconRole::Drive => (Imageres, 32, Verified),
-            // The drive with the Windows logo, as Local Disk (C:) shows.
-            IconRole::SystemDrive => (Imageres, 36, Verified),
             // The plain dark drive, as a USB stick shows in Windows 11.
             IconRole::RemovableDrive => (Imageres, 35, Verified),
             // A disc in its drive: the app lists an optical drive only
@@ -219,7 +214,6 @@ impl IconRole {
             IconRole::NetworkDrive => "network-drive",
             IconRole::NetworkDriveDisconnected => "network-drive-disconnected",
             IconRole::Drive => "drive",
-            IconRole::SystemDrive => "system-drive",
             IconRole::RemovableDrive => "removable-drive",
             IconRole::OpticalDrive => "optical-drive",
             IconRole::RecycleBinEmpty => "recycle-bin-empty",

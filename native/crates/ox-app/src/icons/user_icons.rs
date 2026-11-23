@@ -115,10 +115,11 @@ pub(crate) fn role_of(art: Art) -> Option<IconRole> {
         Art::StandardFolder(folder) => known_folder_role(folder).unwrap_or(IconRole::Folder),
         Art::ZipFolder | Art::File(FileType::Archive) => IconRole::ZipFolder,
         Art::File(file_type) => file_role(file_type),
-        Art::Glyph(Icon::HardDrive) => IconRole::Drive,
+        // Every fixed drive, Local Disk too, is the plain drive: no Windows
+        // logo on a disk that is not Windows'.
+        Art::Glyph(Icon::HardDrive) | Art::SystemDrive => IconRole::Drive,
         Art::RemovableDrive(Medium::Disk) => IconRole::RemovableDrive,
         Art::RemovableDrive(Medium::Optical) => IconRole::OpticalDrive,
-        Art::SystemDrive => IconRole::SystemDrive,
         Art::Glyph(Icon::Delete) => IconRole::RecycleBinEmpty,
         Art::TintedGlyph(Icon::Delete, _) => IconRole::RecycleBinFull,
         Art::Glyph(Icon::Home) | Art::TintedGlyph(Icon::Home, _) => IconRole::Home,
