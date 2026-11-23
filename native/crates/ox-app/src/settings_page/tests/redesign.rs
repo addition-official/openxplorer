@@ -256,6 +256,8 @@ fn every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages() {
         "Delete files on removable drives permanently (like Windows)",
         // The Details view's sort arrow (VIEW-014).
         "Column header style",
+        // One switch for every setting with a Windows value (SET-020).
+        "Behave like Windows Explorer",
     ];
     for title in added_since {
         settings.row(title);
