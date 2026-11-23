@@ -274,6 +274,12 @@ pub struct Preferences {
     /// only when off.
     #[serde(rename = "columnTitleLine", skip_serializing_if = "is_true")]
     pub column_title_line: bool,
+    /// The Details view's Name column starts 256 pixels wide, as Windows
+    /// 11's does, rather than filling the room the other columns leave.
+    /// Off by default (the owner's choice). Stored as
+    /// `nameColumnWindowsWidth`, only when on.
+    #[serde(rename = "nameColumnWindowsWidth", skip_serializing_if = "std::ops::Not::not")]
+    pub name_column_windows_width: bool,
     /// Shift+F10 opens the classic (Windows 10) menu instead of the
     /// right-click menu's style, which Windows 11 opens on Shift+F10.
     /// Stored only when on.
@@ -670,6 +676,7 @@ impl Default for Preferences {
             strip_position: StripPosition::Pointer,
             column_header_style: ColumnHeaderStyle::OpenXplorer,
             column_title_line: true,
+            name_column_windows_width: false,
             shift_f10_classic: false,
             classic_menu_chosen: false,
             item_counts_chosen: false,
@@ -965,6 +972,10 @@ impl Preferences {
         replace_if_some(&mut self.strip_position, update.strip_position);
         replace_if_some(&mut self.column_header_style, update.column_header_style);
         replace_if_some(&mut self.column_title_line, update.column_title_line);
+        replace_if_some(
+            &mut self.name_column_windows_width,
+            update.name_column_windows_width,
+        );
         if let Some(options) = &update.details_pane_options {
             self.details_pane_options = options.clone();
         }
@@ -1135,6 +1146,8 @@ pub struct PreferencesUpdate {
     pub column_header_style: Option<ColumnHeaderStyle>,
     /// Whether a line runs under the Details view's column titles.
     pub column_title_line: Option<bool>,
+    /// Whether the Name column starts at Windows' 256 pixels.
+    pub name_column_windows_width: Option<bool>,
     /// Whether Shift+F10 opens the classic menu.
     pub shift_f10_classic: Option<bool>,
     /// New network refresh interval in seconds.
@@ -1318,6 +1331,7 @@ impl PreferencesUpdate {
             strip_position: text("menuStripPosition").and_then(StripPosition::from_key),
             column_header_style: text("columnHeaderStyle").and_then(ColumnHeaderStyle::from_key),
             column_title_line: flag("columnTitleLine"),
+            name_column_windows_width: flag("nameColumnWindowsWidth"),
             shift_f10_classic: flag("shiftF10Classic"),
             network_interval: values.get("networkInterval").and_then(read_network_interval),
             window_size: values.get("windowSize").and_then(WindowSize::from_json),

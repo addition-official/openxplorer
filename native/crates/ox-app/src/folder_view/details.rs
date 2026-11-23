@@ -334,6 +334,9 @@ mod imp {
         /// widens the default column widths; 0 until a text size is set,
         /// which counts as 1 ([`super::DetailsView::text_scale`]).
         pub(super) text_scale: Cell<f64>,
+        /// Whether Name starts at Windows' width rather than filling the
+        /// room ([`super::DetailsView::set_name_starts_at_windows_width`]).
+        pub(super) name_windows_width: Cell<bool>,
         /// What the cells share, set by [`super::DetailsView::new`].
         pub(super) cells: OnceCell<super::CellContext>,
         /// The folder's selection model, while the view shows it.
@@ -845,6 +848,9 @@ impl DetailsView {
         let scale = self.text_scale();
         for (column, view_column) in self.view_columns() {
             let mut width = column_widths::start_width_at(column, saved, scale);
+            if column == SortColumn::Name && width.is_none() {
+                width = self.windows_name_width(scale);
+            }
             // Size starts wide enough for its text in the list's font, also
             // from a saved width narrower than that.
             if column == SortColumn::Size {
@@ -855,6 +861,45 @@ impl DetailsView {
         }
         // Applying widths is not a resize by the user: reporting it would
         // save widths the user never set.
+        self.cancel_resize_report();
+    }
+
+    /// Name's width at `scale` while it starts at Windows' width, else
+    /// `None`: it fills the room.
+    fn windows_name_width(&self, scale: f64) -> Option<u32> {
+        self.imp()
+            .name_windows_width
+            .get()
+            .then(|| column_widths::scaled_width(column_widths::WINDOWS_NAME_WIDTH, scale))
+    }
+
+    /// Starts Name at Windows' 256 pixels (times the text size) when `on`,
+    /// so the rows, their selection and their hover end after the last
+    /// column as in Windows 11; else Name fills the room again. A width
+    /// the user gave Name stays either way.
+    pub(crate) fn set_name_starts_at_windows_width(&self, on: bool) {
+        let imp = self.imp();
+        if imp.name_windows_width.replace(on) == on {
+            return;
+        }
+        let Some(name) = self.column(SortColumn::Name) else {
+            return;
+        };
+        let scale = self.text_scale();
+        let windows = column_widths::fixed_width(
+            SortColumn::Name,
+            Some(column_widths::scaled_width(
+                column_widths::WINDOWS_NAME_WIDTH,
+                scale,
+            )),
+        );
+        if on && name.expands() {
+            name.set_expand(false);
+            name.set_fixed_width(windows);
+        } else if !on && name.fixed_width() == windows {
+            name.set_fixed_width(column_widths::fixed_width(SortColumn::Name, None));
+            name.set_expand(true);
+        }
         self.cancel_resize_report();
     }
 
