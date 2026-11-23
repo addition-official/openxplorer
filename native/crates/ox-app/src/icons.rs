@@ -162,10 +162,16 @@ pub(crate) fn scaled(size: i32) -> i32 {
     scaled_by(size, ICON_SCALE.with(std::cell::Cell::get))
 }
 
-/// `size` at `scale`, rounded to whole pixels, never below 1.
+/// `size` at `scale`, rounded to whole pixels; a size of a pixel or more
+/// never below 1, and a margin of 0 still 0.
 #[expect(clippy::cast_possible_truncation, reason = "icon sizes are small")]
 pub(crate) fn scaled_by(size: i32, scale: f64) -> i32 {
-    ((f64::from(size) * scale).round() as i32).max(1)
+    let scaled = (f64::from(size) * scale).round() as i32;
+    if size > 0 {
+        scaled.max(1)
+    } else {
+        scaled
+    }
 }
 
 /// Draws icons at `scale`, the app's text size (1 at 100%), and redraws
