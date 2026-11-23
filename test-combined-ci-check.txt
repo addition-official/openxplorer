@@ -1,0 +1,6 @@
+STATUS: DONE (deb ready; built by GitHub Actions)
+HEAD: test-combined-ci-check 692b684b05abcb947d49404f0317763012bd7ab3
+DEB: claude/test-combined-ci-check-deb 432ea0a3aa573a40a774f24cee9a8d252e0c5635
+  openxplorer_2.0.23+testci.check_all.deb (io.winspace.Development)
+SHA256: 4e9ed03419b0a4f70397d46461634ab304e357514d5c073c6446147ba5f6f1d2
+RUN: https://github.com/addition-official/openxplorer/actions/runs/45096229740
