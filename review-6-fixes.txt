@@ -33,6 +33,9 @@ ITEMS
 SETTINGS for the "Behave like Windows Explorer" switch
 - None added. If the old Hidden behavior (rename to a dot-name) was wanted on purpose, a setting "Hide items by renaming them with a leading dot" (off = like Windows) would bring it back.
 
+MERGE NOTE
+- With origin/pass-7-views (fetched after ec04d87f): column_text.rs merges cleanly; window/empty_page.rs conflicts because pass-7 removes the two tests at the end of the file (a_drive_that_stopped_answering_is_not_ready, an_unreachable_share_shows_the_windows_error_code_under_details) that this branch edited. Resolve by keeping the removal; wherever those tests now live, EmptyState::Unavailable gains a `local: bool` field, so a constructed value needs `local: false` and a pattern needs `..`.
+
 LONG NAMES (1920x1080, 1x, dark, same RefTest items; 108-character .jpg name; measured with measure_label.py on the reference and on ours)
 | Place | Windows 11 | Ours | Overlap |
 |---|---|---|---|
