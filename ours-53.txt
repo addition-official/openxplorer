@@ -1,0 +1,18 @@
+STATUS: DONE
+HEAD: test-combined-53 8ea787de, built here and captured with its own snapshot hook.
+QUESTION: none.
+NOTE: Our side of reference/ (ref-01 to ref-33): ours-53/ours-NN-<name>.png, named as the references. 1x, dark, default settings, built-in icons (no Windows icon files, no symbol font). Window 1920x1032: the reference's 1920x1080 screen less its taskbar, so y = 0 is the top of the window in both.
+NOTE: Test data, all fictional: a folder Documents/RefTest under the fictional home /home/demo with the reference's names (Music, Photos, Projects, Archive.zip, Budget 2026.xlsx, the 111-character .jpg name, Invoice 1042.pdf, Meeting notes.txt, Report final.docx); the .jpg is a generated 3840x2400 gray gradient. The rest of the home is tools/native_capture.py's fictional demo tree, so the navigation pane also shows its Launch planning pin. Sizes and dates differ from the reference's.
+NOTE: Properties (22, 23) and the Shift+Delete question (33) are captured as their own window, as the snapshot hook saves them, not over the main window as in the reference.
+NOTE: test-combined-53 has 873181e6 and 97a1e3cd (the 1x icon sizes) but not f9990748 (exact-size resampling of Windows icon files' pictures) or 0613fcfb/31929ba8 (icons grow with text size); neither shows at 100% with built-in icons.
+NOTE: Audit: python3 tools/audit-public-data.py over ours-53 reported no issues; every picture was also reviewed by eye.
+
+CAPTURED (31)
+01-details-folder, 02-details-selected (Meeting notes.txt), 04-menu-file, 05-menu-file-classic, 06-menu-blank, 07-menu-new, 08-menu-sort, 09-menu-view, 10-menu-seemore, 11-view-xlarge, 12-view-large, 13-view-medium, 14-view-small, 15-view-list, 16-view-tiles, 17-view-content, 18-pane-details-jpg, 19-pane-details-txt, 20-pane-preview-txt, 21-pane-preview-jpg, 22-properties-file (General), 23-properties-folder (Projects, General), 24-home, 25-this-pc, 26-recycle-bin (empty), 27-network (empty), 28-address-edit, 29-search-results ("notes"), 30-menu-tab, 32-rename-inline, 33-confirm-permanent-delete.
+
+PARTLY REPRODUCED
+28-address-edit: the address bar is in edit mode with the path selected, but its history list does not open from the snapshot hook (action=address-history did not show it).
+
+NOT REPRODUCED, SKIPPED
+03-details-hover: the snapshot hook's hover step rests the pointer only on menu rows, not on a file row.
+31-menu-navpane: no snapshot step opens the navigation pane's right-click menu for a place (Documents).
