@@ -12,7 +12,7 @@ MERGES (on top of test-combined-50 f16d903f, in the order given):
 - pass-10-home-recent 6b955294 -> 324adadc. details_pane/content.rs folder_art: kept deb 50's version (tab_icon, which already draws This PC's and now Home's tinted icon, and Network's), over pass-10's older if-chain, which only adds Home's tint that deb 50's code already gives.
 - pass-11-new-menu 79b5d324 -> 96532c83. docs.json word-merged.
 - pass-12-details-status 4003f521 -> 822e7717, pass-14-tabs-windows 668aae98 -> a0d584f9: no conflicts.
-- pass-15-errors 057d9388 -> 57a7a70f. worker_questions.rs: both sides' new tests kept (pass-17's an_answered_question_does_not_keep_the_keyboard and run_for, pass-15's a_write_protected_drive_asks_in_windows_words).
+- pass-15-errors 057d9388 -> 57a7a70f. worker_questions.rs: both sides' new tests kept (the tree's an_answered_question_does_not_keep_the_keyboard and run_for, pass-15's a_write_protected_drive_asks_in_windows_words).
 - pass-16-clipboard 4b53d3a0 -> 6db21bb5. docs.json word-merged.
 - pass-18-drives 00759d7b -> e293654a. worker_questions.rs: pass-18's file, which holds every test of the tree's, unchanged, plus a_destination_that_went_away_is_said_to_be_unavailable. redesign.rs: both new rows. docs.json: one paragraph word-merged (the shortcut sentence).
 - pass-19-a11y e25d3a79 -> 2747d636: generated files only.
@@ -28,4 +28,4 @@ QUICK CHECKS (before pushing):
 - POLKIT: record /var/lib/openxplorer/install-updates-without-password = "off" before install -> /etc/polkit-1/rules.d empty after install, record still "off". Purged afterwards.
 - NO WINDOWS ICON OR FONT DATA: 678 files; none named .ttf/.otf/.ttc/.fon/.woff/.woff2/.ico/.cur/.exe/.dll/.mun/.res; none starting with a TrueType/OpenType/collection/WOFF, PE (MZ) or ICO/CUR header; file(1) reports no font and no Windows type.
 
-AFTER THE PUSH (running): unique string per merged branch, 3 full ox_app runs in one process each (pass-19 SIGTRAP check), failures by name against main, smoke run, input sweep.
+LONG TESTS: dropped (user request). The unique-string check and the first full test run were stopped part way; no results from them are reported.
