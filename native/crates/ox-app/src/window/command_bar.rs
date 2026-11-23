@@ -1027,19 +1027,19 @@ fn photo_commands() -> Vec<(gtk::Widget, Option<OverflowEntry>)> {
     };
     let (background, background_entry) = photo_command(
         ox_core::i18n::gettext("Set as background"),
-        Icon::Image,
+        Icon::SetAsBackground,
         WindowAction::SetAsBackground,
         "set-background-command",
     );
     let (rotate_left, rotate_left_entry) = photo_command(
         ox_core::i18n::gettext("Rotate left"),
-        Icon::ArrowCounterclockwise,
+        Icon::RotateLeft,
         WindowAction::RotateLeft,
         "rotate-left-command",
     );
     let (rotate_right, rotate_right_entry) = photo_command(
         ox_core::i18n::gettext("Rotate right"),
-        Icon::ArrowClockwise,
+        Icon::RotateRight,
         WindowAction::RotateRight,
         "rotate-right-command",
     );
