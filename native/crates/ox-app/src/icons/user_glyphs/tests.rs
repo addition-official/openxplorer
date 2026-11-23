@@ -402,16 +402,18 @@ fn a_larger_square_draws_the_glyph_at_a_16_pixel_em() {
     assert_eq!(ink, (2, 2, 17, 17), "16 pixels of em in the middle of 20");
 }
 
-/// Chevrons are drawn at `WinUI`'s 8-pixel font size in their square: a
-/// drop-down button's caret in the command bar's 17-pixel square inks
-/// 8 pixels, not the 16 of the glyphs beside it.
+/// Chevrons are drawn at the ems measured on Windows 11 at 1x: 12 in a
+/// 16-pixel square (a submenu's arrow), 10 in a 12-pixel one (a
+/// breadcrumb separator) and 8 elsewhere; a drop-down button's caret in
+/// the command bar's 17-pixel square inks 8 whole pixels, not the 16 of
+/// the glyphs beside it, and not 9 blurred across a half pixel.
 ///
 /// parity: LOOK-031
 #[gtk::test]
-fn chevrons_are_drawn_at_an_8_pixel_em() {
+fn chevrons_are_drawn_at_windows_ems() {
     use ox_core::windows_glyphs::synthetic::SyntheticGlyph;
 
-    for (size, em) in [(12, 8), (16, 8), (17, 8), (20, 8), (8, 8)] {
+    for (size, em) in [(12, 10), (16, 12), (17, 8), (20, 8), (10, 8), (8, 8)] {
         assert_eq!(em_of(Icon::ChevronDown, size), em, "{size}");
     }
     assert_eq!(em_of(Icon::Cut, 17), 16);
@@ -431,12 +433,12 @@ fn chevrons_are_drawn_at_an_8_pixel_em() {
     std::fs::write(&font_path, font.build()).expect("written");
     follow_preferences(&with_font(&font_path));
     wait_until_read();
-    let image = crate::icons::image(Icon::ChevronDown, 16);
+    let image = crate::icons::image(Icon::ChevronDown, 17);
     let name = image.icon_name().expect("a name").to_string();
-    assert_eq!(name, "ox-win-chevron-down-20-box16-symbolic");
+    assert_eq!(name, "ox-win-chevron-down-20-box17-symbolic");
     assert_eq!(
-        painted_box(&image, &name, 16),
+        painted_box(&image, &name, 17),
         Some((4, 4, 11, 11)),
-        "an 8-pixel em in 16"
+        "an 8-pixel em on whole pixels in 17"
     );
 }

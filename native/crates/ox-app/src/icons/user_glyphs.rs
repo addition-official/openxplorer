@@ -96,8 +96,8 @@ pub(crate) const fn windows_source(icon: Icon) -> WindowsSource {
         Icon::Cut => glyph(0xE8C6, "Cut"),
         Icon::Delete => glyph(0xE74D, "Delete"),
         Icon::Desktop => glyph(0xE7F4, "TVMonitor"),
-        // Menus' and dialogs' thin X, as Windows draws "Remove from list"
-        // and a tab's Close.
+        // The thin X of a tab's Close and a menu's "Close tab"; a caption
+        // or dialog button draws `ChromeClose` instead ([`glyph_at`]).
         Icon::Dismiss | Icon::Dismiss16 => glyph(0xE711, "Cancel"),
         Icon::Document => glyph(0xE8A5, "Document"),
         Icon::Eye => glyph(0xE890, "View"),
@@ -222,38 +222,64 @@ pub(crate) const fn windows_em(size: i32) -> i32 {
 }
 
 /// The em Windows 11 draws `icon`'s glyph at in a square of `size`
-/// pixels: chevrons at `WinUI`'s 8-pixel font size (a drop-down button's
-/// caret, a breadcrumb separator, a submenu arrow, an expander), others
-/// as [`windows_em`] has it; never larger than the square.
+/// pixels, as measured on Windows 11's own screens at 1x: chevrons at
+/// 12 pixels in a 16-pixel square (a submenu's arrow, a heading's or a
+/// tree's expander), 10 in a 12-pixel square (a breadcrumb separator)
+/// and `WinUI`'s 8 elsewhere (a drop-down button's caret, a column's sort
+/// arrow); the caption buttons' glyphs at 10 in their 12-pixel squares;
+/// the search box's magnifier and the new-tab button's plus at 12;
+/// others as [`windows_em`] has it. Never larger than the square.
 pub(crate) const fn em_of(icon: Icon, size: i32) -> i32 {
-    let em = windows_em(size);
-    match icon {
+    let em = match icon {
         Icon::ChevronDown
         | Icon::ChevronDown16
         | Icon::ChevronLeft16
         | Icon::ChevronRight16
         | Icon::ChevronUp16
         | Icon::ChevronDoubleLeft16
-        | Icon::ChevronDoubleRight16 => {
-            if em < CHEVRON_EM {
-                em
-            } else {
-                CHEVRON_EM
-            }
-        }
-        _ => em,
+        | Icon::ChevronDoubleRight16 => match size {
+            16 => 12,
+            12 => 10,
+            _ => CHEVRON_EM,
+        },
+        Icon::Subtract | Icon::Maximize | Icon::SquareMultiple | Icon::Dismiss if size <= 12 => CAPTION_EM,
+        Icon::Search if size == 15 => 12,
+        Icon::Add if size == 14 => 12,
+        _ => windows_em(size),
+    };
+    if em < size {
+        em
+    } else {
+        size
     }
 }
 
-/// `WinUI`'s font size for the chevrons of its controls.
+/// `WinUI`'s font size for the chevrons of its drop-down buttons.
 const CHEVRON_EM: i32 = 8;
+
+/// The font size of the caption buttons' glyphs.
+const CAPTION_EM: i32 = 10;
+
+/// The glyph of `icon` in a square of `size` pixels: a dismiss X in a
+/// square of 12 pixels or less is a caption or dialog button, which
+/// Windows draws as `ChromeClose`; elsewhere it is the thin Cancel, as a
+/// menu's "Close tab" is.
+const fn glyph_at(icon: Icon, size: i32) -> Option<WindowsGlyph> {
+    match icon {
+        Icon::Dismiss if size <= 12 => Some(WindowsGlyph {
+            codepoint: 0xE8BB,
+            name: "ChromeClose",
+        }),
+        _ => glyph_of(icon),
+    }
+}
 
 /// The largest square a glyph is drawn into at a smaller em.
 const LARGEST_PADDED: i32 = 24;
 
 /// The squares the font's glyphs are made for at an em smaller than the
 /// square: those the app's glyphs are drawn in.
-const PADDED_SQUARES: [i32; 13] = [10, 12, 13, 14, 16, 17, 18, 19, 20, 21, 22, 23, 24];
+const PADDED_SQUARES: [i32; 16] = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24];
 
 /// The name of the icon the cache draws `icon`'s glyph as in a square of
 /// `size` pixels: `ox-win-add-20-symbolic` for `ox-add-20-symbolic` where
@@ -302,9 +328,13 @@ fn glyph_requests() -> Vec<GlyphRequest> {
             .into_iter()
             .filter(|size| em_of(icon, *size) < *size);
         for size in std::iter::once(16).chain(padded) {
+            let codepoint = match glyph_at(icon, size) {
+                Some(glyph) => glyph.codepoint,
+                None => glyph.codepoint,
+            };
             requests.push(GlyphRequest {
                 name: glyph_icon_name(icon, size),
-                codepoint: glyph.codepoint,
+                codepoint,
                 em: em_of(icon, size).unsigned_abs(),
                 size: size.unsigned_abs(),
             });

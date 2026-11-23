@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 use super::truetype::{Font, MAX_FONT_SIZE};
 
 /// Changes whenever the reader would write a glyph differently.
-const READER_VERSION: u32 = 2;
+const READER_VERSION: u32 = 3;
 
 /// The name of a cache folder's list of glyphs.
 const INDEX: &str = "index";
