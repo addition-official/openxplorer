@@ -196,12 +196,6 @@ pub(crate) fn cell_size(size: IconSize, text_size: TextSize) -> CellSize {
     }
 }
 
-/// How many pixels an icon of `size` grows with the text at `scale`, as
-/// at a desktop scale ([`crate::icons::scaled_by`]).
-fn growth_with_text(size: IconSize, scale: f64) -> i32 {
-    crate::icons::scaled_by(size.pixels(), scale) - size.pixels()
-}
-
 /// The icon edge of Tiles: Windows 11's tiles show 48-pixel icons and
 /// thumbnails (VIEW-071).
 pub(crate) const TILES_ICON: i32 = 48;
@@ -326,6 +320,12 @@ pub(crate) fn compact_density_heading_row(text_size: TextSize, content: bool) ->
 pub(crate) fn compact_row(text_size: TextSize) -> i32 {
     let scale = text_size::metrics(text_size).scale;
     text_size::ceil_pixels(24.0 * scale + 2.0).max(26)
+}
+
+/// How many pixels an icon of `size` grows with the text at `scale`, as
+/// at a desktop scale ([`crate::icons::scaled_by`]).
+fn growth_with_text(size: IconSize, scale: f64) -> i32 {
+    crate::icons::scaled_by(size.pixels(), scale) - size.pixels()
 }
 
 #[cfg(test)]
