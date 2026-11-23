@@ -97,7 +97,11 @@ impl EmptyState {
                     local: false,
                 };
             }
-            _ if is_local_location(uri) => return local_unavailable(uri, error),
+            // A share mounted at a local path that went away keeps saying
+            // it was disconnected, below.
+            _ if is_local_location(uri) && error.to_string() != super::loading::disconnected_message() => {
+                return local_unavailable(uri, error)
+            }
             _ => {
                 return EmptyState::Unavailable {
                     message: error.to_string(),
