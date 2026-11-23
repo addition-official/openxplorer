@@ -134,10 +134,7 @@ fn several_items_show_their_count_and_windows_hint() {
     model.select_positions(&positions);
     assert_eq!(pane.shown_name(), "2 items selected");
     assert!(pane.shows_hint(), "Windows' hint");
-    assert_eq!(
-        pane.hint_text(),
-        "Select a single file to get more information and share your cloud content."
-    );
+    assert_eq!(pane.hint_text(), "Select a single file to get more information.");
     assert!(!pane.shows_properties(), "no Details rows");
     assert!(pane.shows_properties_button(), "Properties of the selection");
     model.select_positions(&positions[..1]);
@@ -168,8 +165,8 @@ fn nothing_selected_shows_windows_hint_alone() {
     assert!(pane.shows_hint());
     assert_eq!(
         pane.hint_text(),
-        "Select a single file to get more information and share your cloud content.",
-        "Windows' hint, word for word (checked on Windows 11, 2026-11-22)"
+        "Select a single file to get more information.",
+        "Windows' hint without its cloud wording: there is no cloud here"
     );
     assert!(!pane.shows_properties(), "no Details rows");
     assert!(!pane.shows_properties_button() && !pane.shows_share());
