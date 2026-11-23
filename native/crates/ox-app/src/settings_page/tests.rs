@@ -1541,8 +1541,11 @@ fn tab_leaves_the_category_list_without_opening_another_category() {
     wait_until("Settings shows", || list.is_mapped());
     let chosen = list.selected_row().expect("a category is chosen");
     chosen.grab_focus();
-    let (x, y) = crate::test_support::pointer::screen_point(&mut pointer, &list, (10.0, 10.0), (20, 20));
-    // The keyboard follows the pointer on the private display.
+    let (x, y) = crate::test_support::pointer::screen_point(&mut pointer, &test.window, (4.0, 4.0), (8, 8));
+    // The keyboard follows the pointer on the private display. It rests on
+    // the window's edge, where no widget has a tooltip: left over a row, it
+    // stayed where later tests' windows show the navigation pane's
+    // tooltips.
     pointer.move_to(x, y);
     wait_until("the category has the keyboard", || chosen.has_focus());
 
@@ -1593,8 +1596,10 @@ fn tab_leaves_the_theme_cards_and_the_arrows_still_choose() {
     system.activate();
     wait_until("the cards to be laid out", || dark.width() > 0);
     assert!(system.grab_focus());
-    let (x, y) = crate::test_support::pointer::screen_point(&mut pointer, &system, (4.0, 4.0), (8, 8));
-    // The keyboard follows the pointer on the private display.
+    let (x, y) =
+        crate::test_support::pointer::screen_point(&mut pointer, &settings.test.window, (4.0, 4.0), (8, 8));
+    // The keyboard follows the pointer on the private display. It rests on
+    // the window's edge, where no widget has a tooltip.
     pointer.move_to(x, y);
     let radios = [&system, &light, &dark];
     let in_cards = || radios.iter().any(|radio| radio.has_focus());

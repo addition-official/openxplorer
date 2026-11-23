@@ -1143,3 +1143,83 @@ fn the_keyboard_entering_a_scrolled_list_lands_on_an_item_in_view() {
     );
     assert!(pane.positions_shown().contains(&0), "and is scrolled into view");
 }
+
+/// Home, which Ctrl+T opens, has no current item in Windows 11 File
+/// Explorer, so the first real Down selects its first item (checked in a
+/// Windows 11 VM, 2026-11-22), unlike a folder opened from outside or by
+/// its address, whose first item is ringed so that Down selects the second
+/// (`focus_ring.rs`,
+/// `a_folder_opened_from_outside_or_typed_rings_its_first_item_and_down_selects_the_second`).
+///
+/// parity: SEL-020, ACC-016
+#[gtk::test]
+fn the_first_down_on_home_in_a_new_tab_selects_its_first_item() {
+    let home = TestHome::new();
+    std::fs::create_dir_all(home.home.join("Desktop")).expect("a folder");
+    // Before the window opens, which a new pointer would put away.
+    let mut pointer = Pointer::connect();
+    let test = TestWindow::open_with_standard_folders(&home.uri_of("Documents"), home.locations(), |_| {});
+    test.activate("view", Some("details"));
+    test.wait_for_listing("Documents");
+    test.window.present();
+    wait_for_frames(&test.window, 3);
+    let (x, y) = screen_point(&mut pointer, &test.window, (4.0, 4.0), (8, 8));
+    // The keyboard follows the pointer on the private display; the pointer
+    // rests on the window's edge, off every row.
+    pointer.move_to(x, y);
+    // Home is the test's home, not the test session's empty one.
+    test.window.imp().locations.borrow_mut().home = Some(home.home.clone());
+
+    test.activate("new-tab", None);
+    test.wait_for_listing("Home in the new tab");
+    assert_eq!(
+        test.window.current_uri(),
+        Some(file_uri(&home.home)),
+        "a new tab opens Home"
+    );
+    wait_until("the keyboard in Home's list", || {
+        test.window.folder_pane().view_has_focus()
+    });
+    assert!(test.selected_names().is_empty(), "nothing is selected yet");
+    pointer.tap_key(gdk::Key::Down);
+    wait_until("the first Down selects Home's first item", || {
+        test.selected_names() == ["Desktop"]
+    });
+}
+
+/// A window closed or hidden while the pointer rests on a control whose
+/// tooltip is about to show logs no critical message: GTK 4.14's tooltip
+/// timer asks for the pointer's position on the window it started for,
+/// which has no surface once the window is gone. Checked with the real
+/// pointer, as a user closing Properties or a dialog with the keyboard
+/// leaves it. (A pointer moved by the tests while they put windows away
+/// did trigger it: `Gdk-CRITICAL gdk_surface_get_device_position`.)
+#[gtk::test]
+fn closing_a_window_with_a_tooltip_pending_logs_no_critical() {
+    let recorder = crate::test_support::gtk_log::LogRecorder::start();
+    let fixture = Fixture::standard();
+    let mut pointer = Pointer::connect();
+    for hide in [false, true] {
+        let test = TestWindow::open(&fixture.uri());
+        test.window.present();
+        wait_for_frames(&test.window, 3);
+        let refresh = refresh_button(&test);
+        let (x, y) = screen_point(&mut pointer, &refresh, (8.0, 8.0), (8, 8));
+        pointer.move_to(x - 30, y);
+        pointer.move_to(x, y);
+        wait_for(std::time::Duration::from_millis(100));
+        if hide {
+            test.window.set_visible(false);
+        } else {
+            test.window.close();
+        }
+        // Longer than GTK's tooltip delay.
+        wait_for(std::time::Duration::from_millis(1200));
+    }
+    let criticals: Vec<String> = recorder
+        .warnings()
+        .into_iter()
+        .filter(|warning| warning.contains("gdk_surface_get_device_position"))
+        .collect();
+    assert!(criticals.is_empty(), "{criticals:?}");
+}
