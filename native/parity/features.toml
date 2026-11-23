@@ -9079,7 +9079,7 @@ native_note = "native/crates/ox-app/src/window/tests/clipboard.rs (copy_then_pas
 id = "CLIP-002"
 area = "CLIP"
 title = "Ctrl+X cuts and dims the cut items"
-behaviour = "Ctrl+X (not in text fields) puts the selection on the file clipboard as a move, without a message; cut items are shown at 50% opacity until pasted or the clipboard changes. Cutting items in previous-version (snapshot) locations is refused: 'Previous versions are read-only. Use Restore a copy.'"
+behaviour = "Ctrl+X (not in text fields) puts the selection on the file clipboard as a move, without a message; a cut item's icon is shown at 50% opacity until pasted or the clipboard changes, while its name and, in Details, its other columns stay at full strength, as Windows 11 File Explorer draws it (checked on Windows 11, 2026-11-22; the Python app faded the whole row). Cutting items in previous-version (snapshot) locations is refused: 'Previous versions are read-only. Use Restore a copy.'"
 origin = ["openxplorer", "dolphin"]
 priority = "must"
 openxplorer = "has"
@@ -9096,7 +9096,7 @@ python_tests = ["v2.0.0:desktop/tests/ui_release.py::Ctrl+X produces a cut paylo
 bridge = ["clipboardSet", "clipboardGet"]
 dolphin = "Cut items shown semi-transparent; KFileItemClipboard"
 native = "done"
-native_note = "native/crates/ox-app/src/window/tests/clipboard.rs (cut_then_paste_moves_the_items_and_empties_the_cut, a_cut_dims_its_items_in_both_views_until_the_clipboard_changes, ctrl_x_in_a_previous_version_is_refused_and_ctrl_c_copies). GTK gives rows and tiles no per-item class, so the cells of a cut item fade to 50% and the selection behind them stays clear. The owner removed the success message to match Windows Explorer, which shows none: only failures and refusals are shown."
+native_note = "native/crates/ox-app/src/window/tests/clipboard.rs (cut_then_paste_moves_the_items_and_empties_the_cut, a_cut_dims_its_items_in_both_views_until_the_clipboard_changes, ctrl_x_in_a_previous_version_is_refused_and_ctrl_c_copies). GTK gives rows and tiles no per-item class, so the cells of a cut item fade to 50% and the selection behind them stays clear. The owner removed the success message to match Windows Explorer, which shows none: only failures and refusals are shown. The look is checked on drawn pixels in native/crates/ox-app/src/window/tests/cut_look.rs (a_cut_item_fades_only_its_icon_in_details, a_cut_item_fades_only_its_icon_in_large_icons): folder-views.css fades .cut .item-art."
 
 [[feature]]
 id = "CLIP-003"
