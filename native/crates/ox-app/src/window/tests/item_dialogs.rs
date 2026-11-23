@@ -1239,11 +1239,10 @@ fn hidden_lists_the_name_without_renaming() {
     assert_eq!(window.title_text(), "Notes 2 Properties");
     // GLib reads the folder's list again only some seconds after it last
     // read it, so the view follows within that time.
-    crate::test_support::harness::wait_for(std::time::Duration::from_secs(12));
-    assert!(
-        !test.names().contains(&"Notes 2.txt".to_owned()),
-        "the view hides it"
-    );
+    crate::test_support::harness::wait_for(std::time::Duration::from_secs(11));
+    wait_until("the view hides it", || {
+        !test.names().contains(&"Notes 2.txt".to_owned())
+    });
 
     check(&general(&window), "Hidden").set_active(false);
     press(&window, "Apply");
