@@ -145,7 +145,7 @@ pub(super) fn compose(art: Art, size: i32) -> Composition {
             ..plain(icon, size)
         },
         Art::Folder | Art::StandardFolder(_) => plain(Icon::FileFolder, size),
-        Art::RemovableDrive(_) => plain(Icon::HardDrive, size),
+        Art::RemovableDrive(_) | Art::SystemDrive => plain(Icon::HardDrive, size),
         Art::File(file_type) => plain(file_type.icon(size), size),
         Art::ZipFolder => Composition {
             badge: Some(zip_badge(size)),

@@ -118,6 +118,7 @@ pub(crate) fn role_of(art: Art) -> Option<IconRole> {
         Art::Glyph(Icon::HardDrive) => IconRole::Drive,
         Art::RemovableDrive(Medium::Disk) => IconRole::RemovableDrive,
         Art::RemovableDrive(Medium::Optical) => IconRole::OpticalDrive,
+        Art::SystemDrive => IconRole::SystemDrive,
         Art::Glyph(Icon::Delete) => IconRole::RecycleBinEmpty,
         Art::TintedGlyph(Icon::Delete, _) => IconRole::RecycleBinFull,
         Art::Glyph(Icon::Home) | Art::TintedGlyph(Icon::Home, _) => IconRole::Home,

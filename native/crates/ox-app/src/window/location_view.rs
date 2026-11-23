@@ -298,7 +298,9 @@ pub(in crate::window) fn tab_icon(uri: &str, locations: &LocationContext, places
     }
     if is_device_location(uri) {
         Art::Glyph(Icon::Phone)
-    } else if is_drive_root(uri) || drives.iter().any(|drive| location::same_location(drive, uri)) {
+    } else if is_drive_root(uri) {
+        Art::SystemDrive
+    } else if drives.iter().any(|drive| location::same_location(drive, uri)) {
         Art::Glyph(Icon::HardDrive)
     } else if is_archive_location(uri) {
         Art::ZipFolder
@@ -747,10 +749,11 @@ mod tests {
             },
             // The root of the file system is the Local Disk of the
             // navigation pane and This PC, whose drive it shows, as
-            // Windows 11 File Explorer's tab of a drive does.
+            // Windows 11 File Explorer's tab of a drive does: the system's
+            // own drive, which a Windows icon file draws with its logo.
             IconCase {
                 uri: "file:///",
-                tab: Art::Glyph(Icon::HardDrive),
+                tab: Art::SystemDrive,
                 address: Icon::HardDrive,
             },
             IconCase {

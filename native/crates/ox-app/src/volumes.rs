@@ -190,6 +190,8 @@ impl VolumeRow {
             VolumeState::Mounted { controls, .. } if controls.can_eject || controls.can_stop => {
                 Art::RemovableDrive(Medium::Disk)
             }
+            // The root, Local Disk, is the system's own drive.
+            VolumeState::Mounted { uri, .. } if location::same_location(uri, "file:///") => Art::SystemDrive,
             VolumeState::Mounted { .. } | VolumeState::Mountable { .. } => Art::Glyph(Icon::HardDrive),
         }
     }
