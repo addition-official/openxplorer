@@ -67,7 +67,6 @@ mod icons;
 mod input;
 mod item_check_boxes;
 mod item_dialogs;
-mod kept_menus;
 mod known_folder_tabs;
 mod landing_pages;
 mod late_replies;
