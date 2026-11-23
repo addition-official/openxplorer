@@ -1,6 +1,27 @@
 STATUS: DONE
-HEAD: user-icon-files 97a1e3cd (sizes the built-in icons to Windows 11's measured sizes; 873181e6 fixed the font's ems and half-pixel blur)
-QUESTION: none.
+HEAD: user-icon-files f9990748 (resamples Windows icon files' pictures to the exact size shown; 97a1e3cd and 873181e6 kept, not reverted)
+QUESTION: Ctrl+plus and Ctrl+minus are this app's text size (80% to 200%), and icons stay at their 1x size while text grows, as they always have (before 873181e6 too: same boxes, measured). Windows' own text-size setting leaves icons alone as well. Should icons, rows' glyphs and menus' glyphs grow with the app's text size? That is a design change across the app, so I have not made it without a yes.
+NOTE: Round 8, deb 52 report on Ctrl+plus/minus. Measured by script, not by eye, on 1920x1032, 1x, dark captures of the RefTest folder: every text size (80, 90, 100, 110, 125, 150, 175, 200%) in Details, a menu at 80, 150 and 200%, every named view (Extra large, Large, Medium, Small, List, Tiles, Content) with built-in icons and with the synthetic font, and the zoom steps between (32, 80, 128, 256) with synthetic Windows icon files on.
+NOTE: Found: (1) Text size: no icon changes size with text, before or after my commits; 873181e6 and 97a1e3cd changed only the 1x boxes (built-in at 200%: nav 12-14, files 14x13, command bar 14-16, carets 6x3; font: 16 and 8), so they did not cause the report and are kept, as the PC manager workflow asked. (2) Views: each view's icon is Windows' size and sharp (vector art drawn at its size). (3) With Windows icon files on, the zoom steps between the named views took the next larger bitmap (256 for 80 or 128, 48 for 40) and left the renderer to scale it; the GPU renderers' linear filter shrinks it jagged and soft (Xvfb's software renderer filters better, so the captures understate it). FIXED in f9990748: each picture is resampled once with gdk-pixbuf's area filter to exactly its device pixels and kept per size. Measured on the 80 px step: mean difference from an area-filtered resample of the source 4.47 -> 1.36 (lanczos 3.97 -> 1.43), drawn pixel for pixel.
+NOTE: Merge checks: `git merge-tree --write-tree origin/test-combined-51 f9990748` exits 0 (tree d471cdcd); against origin/test-combined-52 also exits 0 (tree b783f813).
+
+ZOOM STEPS (views), the second item's icon, ink w x h at 1x (Windows ref-11..17 | ours built-in, f9990748). Icon size = the view's nominal edge, the same in both.
+view          | icon size Windows / ours | Windows ink | ours ink | sharp
+Extra large   | 256 / 256 | 224x176 | 226x210 | yes (vector; icon files: resampled to 256)
+Large         | 96 / 96   | 85x67   | 86x80   | yes
+Medium        | 48 / 48   | 43x34   | 44x44   | yes
+Small icons   | 16 / 16   | 16x13   | 14x14   | yes
+List          | 16 / 16   | 16x12   | 16x14   | yes
+Tiles         | 48 / 48   | 43x26   | 46x42   | yes
+Content       | 32 / 32   | 28x19   | 32x30   | yes
+Widths agree within 2 px except Tiles (+3) and Content (+4), where the measurement box may have caught more than the icon. Heights differ because the app's folder artwork is taller than Windows' flatter folder (artwork shape, not size). Steps between (22, 28, 32, 40, 56, 64, 80, 128, 160, 192) draw the same artwork at their own size; with Windows icon files on they are now resampled to it.
+TEXT SIZE (Ctrl+plus/minus), Details, built-in | font: icons unchanged at every step: nav 12-14 | 16, files 14x13 (pictures), command bar 14-16 | 16, carets 6x3 | 8. Rows, text and menus grow with the text (theme/fonts.rs); icons do not. See QUESTION.
+Layout differences in the views (tile spacing: ours about 187 px apart in Large, Windows 109; Windows' Small icons lays out in rows) are not icon sizes and are left to the views job.
+
+PASS round 8 on f9990748: cargo fmt; cargo clippy -p ox-app --all-targets -D warnings; ox-app icons:: 67/67 (two texture-size expectations updated to the exact-size rule, no new tests), windows_icon_files 3/3, settings_page:: 117/117.
+NOT RUN round 8: the full suite, 3x runs; a GPU renderer (this container has none).
+
+ROUND 7
 NOTE: Round 7, from the answers relayed by the PC manager workflow session. (1) The built-in icons are resized on this branch to the sizes measured on Windows 11. Each gets a square that gives Windows' ink; the artwork is unchanged and the font keeps its measured ems in each place. (2) The CLA line stays out of the PR text; that session adds it when it opens the PR.
 NOTE: Merge check: `git merge-tree --write-tree origin/test-combined-51 97a1e3cd` exits 0 (tree ec8cc281).
 
