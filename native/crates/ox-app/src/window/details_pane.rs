@@ -20,6 +20,7 @@
 
 mod content;
 mod contents;
+mod drive;
 mod media;
 mod metadata;
 mod options_menu;
@@ -40,7 +41,11 @@ use super::window_action::WindowAction;
 
 pub(super) use content::{describe_tiles, pane_content, PaneFacts};
 use content::{PaneContent, Preview};
+#[cfg(feature = "fuzzing")]
+pub(crate) use preview_page::fuzz_text;
 pub(super) use preview_page::PreviewRules;
+#[cfg(feature = "fuzzing")]
+pub(crate) use rich_text::fuzz_rtf;
 
 /// What the pane at the right shows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -169,6 +174,13 @@ mod imp {
         pub(super) has_selection: Cell<bool>,
         /// The file rows of the content shown.
         pub(super) base_rows: RefCell<Vec<super::content::Property>>,
+        /// The drive selected on This PC whose space is read, if any.
+        pub(super) drive: RefCell<Option<String>>,
+        /// Its space rows, once read.
+        pub(super) drive_rows: RefCell<Vec<super::content::Property>>,
+        /// Counts the drives measured, so an answer for an earlier one is
+        /// dropped.
+        pub(super) drive_generation: Cell<u64>,
         /// The selected file's own details, read by the reader.
         pub(super) metadata: super::metadata::MetadataState,
         /// Counts the content shown, so a preview read for an earlier
@@ -449,6 +461,7 @@ impl DetailsPane {
         imp.shows_hint.set(content.hint);
         self.show_mode();
         imp.base_rows.replace(content.properties.clone());
+        self.follow_drive(content.measures_drive.as_deref());
         self.follow_metadata(content.metadata.as_ref());
         self.redraw_properties();
         let preview_only = imp.mode.get() == PaneMode::Preview;
@@ -510,8 +523,8 @@ impl DetailsPane {
             .set_visible(details && imp.share_offered.get() && imp.has_selection.get());
     }
 
-    /// Draws the Details rows again: the file rows, then the rows the
-    /// reader found, then those the preview found (an image's Dimensions,
+    /// Draws the Details rows again: the file rows (a drive's Type and
+    /// space), then the rows the reader found, then those the preview found (an image's Dimensions,
     /// a recording's Length) that the reader did not give.
     pub(super) fn redraw_properties(&self) {
         let imp = self.imp();
@@ -520,7 +533,7 @@ impl DetailsPane {
             grid.remove(&child);
         }
         let mut shown: Vec<&str> = Vec::new();
-        for property in imp.base_rows.borrow().iter() {
+        for property in imp.base_rows.borrow().iter().chain(&self.shown_drive_rows()) {
             self.add_property(property.key, &property.name, &property.value);
             shown.push(property.key);
         }

@@ -675,6 +675,16 @@ impl CommandBar {
         button.popover().and_downcast::<MenuPopover>()
     }
 
+    /// The New button, for tests.
+    #[cfg(test)]
+    pub(super) fn new_button(&self) -> gtk::MenuButton {
+        self.imp()
+            .new_button
+            .get()
+            .expect("the command bar has New")
+            .clone()
+    }
+
     pub(super) fn set_new_enabled(&self, enabled: bool) {
         if let Some(button) = self.imp().new_button.get() {
             button.set_sensitive(enabled);

@@ -558,7 +558,25 @@ impl BrowserWindow {
         }
         let address = locations.display_location(uri);
         let icon = step_icon(uri, &locations.home_uri(), is_search);
-        self.address_bar().show_location(&crumbs, &address, icon);
+        // The same place as the tab shows, for Windows icon files (LOOK-030).
+        let role = (!is_search)
+            .then(|| {
+                let drive_roots: Vec<String> = self
+                    .imp()
+                    .volumes
+                    .borrow()
+                    .iter()
+                    .filter(|row| row.kind == VolumeKind::Drive && !row.is_network())
+                    .filter_map(|row| row.uri().map(str::to_owned))
+                    .collect();
+                tab_icon(
+                    uri,
+                    &locations,
+                    (&self.network_locations(), &known_folders, &drive_roots),
+                )
+            })
+            .and_then(crate::icons::user_icons::role_of);
+        self.address_bar().show_location(&crumbs, &address, icon, role);
     }
 
     /// Redraws the tab strip.

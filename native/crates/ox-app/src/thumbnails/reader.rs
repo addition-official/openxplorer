@@ -51,6 +51,8 @@ pub(super) enum Cached {
 /// A read waiting for its batch.
 struct Read {
     version: Version,
+    /// GNOME's recorded failures count too, besides the app's own.
+    gnome_failures_count: bool,
     flavor: ThumbnailFlavor,
     pixels: i32,
     answer: async_channel::Sender<Cached>,
@@ -77,6 +79,7 @@ thread_local! {
 pub(super) async fn read(
     cache_dir: PathBuf,
     version: Version,
+    gnome_failures_count: bool,
     flavor: ThumbnailFlavor,
     pixels: i32,
 ) -> Cached {
@@ -84,6 +87,7 @@ pub(super) async fn read(
     WAITING.with_borrow_mut(|waiting| {
         waiting.push(Read {
             version,
+            gnome_failures_count,
             flavor,
             pixels,
             answer,
@@ -139,7 +143,12 @@ fn read_batch(cache_dir: &std::path::Path, batch: Vec<Read>) {
             found.push((read, hit.bytes));
             continue;
         }
-        let cached = if thumbnail_cache::has_failed(cache_dir, &read.version) {
+        let failed = if read.gnome_failures_count {
+            thumbnail_cache::has_failed(cache_dir, &read.version)
+        } else {
+            thumbnail_cache::app_has_failed(cache_dir, &read.version)
+        };
+        let cached = if failed {
             super::trace::event("fail-hit", &read.version.uri);
             Cached::Failed
         } else {

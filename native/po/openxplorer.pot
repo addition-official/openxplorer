@@ -26,7 +26,7 @@ msgid "- Deleted items go to the Recycle Bin of their drive. Restore puts them b
 msgstr ""
 
 #: crates/ox-app/resources/manual.md
-msgid "- New in the command bar lists what Windows 11 lists: Folder, Shortcut, Bitmap image, Rich Text Document, Text Document and Compressed (zipped) Folder, with OpenDocument Presentation, Spreadsheet and Text while an office suite such as LibreOffice is installed, then the files in your Templates folder. A new item is made at once as, for example, \"New Text Document.txt\" (or \"New Text Document (2).txt\" when that name is taken), then renamed in place: type its name and press Enter.\n- Cut, Copy and Paste work with other file managers. Paste on one selected folder pastes into that folder.\n- Rename with F2. Select several items to rename them together. As in Windows, \\ / : * ? \" < > | can’t be typed in a name, and a file given a name that is taken is offered the next free number, such as Report (2).txt.\n- Delete or Ctrl+D moves items to the Recycle Bin; Shift+Delete deletes them permanently after asking. Locations without a Recycle Bin offer a confirmed permanent delete.\n- When a name is already taken, OpenXplorer asks whether to replace, skip or keep both. Nothing is replaced without your answer.\n- Undo (Ctrl+Z) and Redo (Ctrl+Y) reverse the last operations.\n- Copies and moves show processed bytes and speed; a total and estimated time remaining appear when the total is known. Pause, Resume and Cancel apply to each job; finished items stay finished.\n- Up to four copy, move or delete jobs can run while you browse. Wait for a job using overlapping source or destination folders to finish before starting another. Archive operations, renaming, restore and Undo remain exclusive."
+msgid "- New in the command bar lists what Windows 11 lists: Folder, Shortcut, Bitmap image, Text Document and Compressed (zipped) Folder, with Rich Text Document while an app opens RTF files and OpenDocument Presentation, Spreadsheet and Text while an office suite such as LibreOffice is installed, then the files in your Templates folder. A new item is made at once as, for example, \"New Text Document.txt\" (or \"New Text Document (2).txt\" when that name is taken), then renamed in place: type its name and press Enter.\n- Cut, Copy and Paste work with other file managers. Paste on one selected folder pastes into that folder.\n- Rename with F2. Select several items to rename them together. As in Windows, \\ / : * ? \" < > | can’t be typed in a name, and a file given a name that is taken is offered the next free number, such as Report (2).txt.\n- Delete or Ctrl+D moves items to the Recycle Bin; Shift+Delete deletes them permanently after asking. Locations without a Recycle Bin offer a confirmed permanent delete.\n- When a name is already taken, OpenXplorer asks whether to replace, skip or keep both. Nothing is replaced without your answer.\n- Undo (Ctrl+Z) and Redo (Ctrl+Y) reverse the last operations.\n- Copies and moves show processed bytes and speed; a total and estimated time remaining appear when the total is known. Pause, Resume and Cancel apply to each job; finished items stay finished.\n- Up to four copy, move or delete jobs can run while you browse. Wait for a job using overlapping source or destination folders to finish before starting another. Archive operations, renaming, restore and Undo remain exclusive."
 msgstr ""
 
 #: crates/ox-app/resources/manual.md
@@ -138,7 +138,7 @@ msgid "File commands"
 msgstr ""
 
 #: crates/ox-app/resources/ui/details-pane.ui
-msgid "Select a single file to get more information."
+msgid "Select a single file to get more information and share your cloud content."
 msgstr ""
 
 #: crates/ox-app/resources/ui/network-sign-in.ui
@@ -516,6 +516,11 @@ msgstr ""
 msgid "{error}\n\nThe archive is unchanged. Existing files were not overwritten."
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/devices.rs crates/ox-app/src/window/mounting.rs
+msgid "'{drive}' is currently in use."
+msgstr ""
+
 #: crates/ox-app/src/devices.rs
 msgid "Could not disconnect"
 msgstr ""
@@ -548,13 +553,13 @@ msgstr ""
 msgid "Safely remove"
 msgstr ""
 
+#: crates/ox-app/src/devices.rs crates/ox-app/src/window/mounting.rs
+msgid "Save any open files on this disc, and then close the files or programs using the files before trying again."
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/devices.rs
 msgid "The '{label}' device can now be safely removed from the computer."
-msgstr ""
-
-#: crates/ox-app/src/devices.rs
-msgid "This device is currently in use. Close any programs or windows that might be using the device, and then try again."
 msgstr ""
 
 #: crates/ox-app/src/dialog/fields.rs crates/ox-core/src/format.rs
@@ -569,7 +574,7 @@ msgstr ""
 msgid "Capacity"
 msgstr ""
 
-#: crates/ox-app/src/dialogs/format_drive.rs crates/ox-app/src/properties/drive_tab.rs
+#: crates/ox-app/src/dialogs/format_drive.rs crates/ox-app/src/properties/drive_tab.rs crates/ox-app/src/window/details_pane/content.rs
 msgid "File system"
 msgstr ""
 
@@ -981,7 +986,7 @@ msgstr ""
 msgid "Date accessed"
 msgstr ""
 
-#: crates/ox-app/src/folder_view/sort_roles.rs crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-core/src/grouping.rs
+#: crates/ox-app/src/folder_view/sort_roles.rs crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs crates/ox-core/src/grouping.rs
 msgid "Date created"
 msgstr ""
 
@@ -1426,7 +1431,7 @@ msgstr ""
 msgid "Not set"
 msgstr ""
 
-#: crates/ox-app/resources/ui/window.ui crates/ox-app/src/integration/status.rs crates/ox-app/src/window/activation.rs crates/ox-app/src/window/title_bar.rs packaging/data/io.winspace.Development.desktop packaging/data/io.winspace.Development.metainfo.xml
+#: crates/ox-app/resources/ui/window.ui crates/ox-app/src/integration/status.rs crates/ox-app/src/window/activation.rs crates/ox-app/src/window/mounting.rs crates/ox-app/src/window/title_bar.rs packaging/data/io.winspace.Development.desktop packaging/data/io.winspace.Development.metainfo.xml
 msgid "OpenXplorer"
 msgstr ""
 
@@ -1735,7 +1740,7 @@ msgstr ""
 msgid "Data rate"
 msgstr ""
 
-#: crates/ox-app/src/properties/details_rows.rs
+#: crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/properties/general_tab.rs
 msgid "Description"
 msgstr ""
 
@@ -3105,6 +3110,30 @@ msgid "Buttons in the right-click menu"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "Choose Windows icon files"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "Choose files…"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "Choose font…"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "Choose the Windows symbol font"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs crates/ox-app/src/settings_page/indexed_folders/suggestions.rs
+msgid "Clear"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "Column header style"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "Ctrl + and Ctrl − change it anywhere; Ctrl 0 resets. Desktop scaling is unchanged."
 msgstr ""
 
@@ -3122,7 +3151,19 @@ msgid "English: no translation for {language} is installed"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "Fonts"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "Hide expand arrows in the sidebar"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "How the Details view marks the sorted column. OpenXplorer puts an arrow after its title and colors a sort other than Name ascending; Windows shows only a small gray arrow above the title, as Windows 11 does."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "Icons from Windows icon files"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
@@ -3142,7 +3183,31 @@ msgid "Near the pointer (default)"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "No files chosen"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "No font chosen"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "Off: OpenXplorer's own icons"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "On, but no file is chosen yet"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "OpenXplorer (default)"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "OpenXplorer shows its menus, buttons and messages in your desktop's language when a translation for it is installed, and in English otherwise. Change the language in your desktop's language or region settings, then start OpenXplorer again."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "Reading the chosen files…"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs crates/ox-app/src/settings_page/file_icons.rs crates/ox-app/src/window/type_applications.rs
@@ -3170,6 +3235,10 @@ msgid "Show more items in the tab menu"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "Shows folders, the standard folders, drives, Home, Gallery, This PC, Network, the Recycle Bin, Settings and common file types with the icons of Windows icon files you choose, for example imageres.dll.mun and shell32.dll.mun from a Windows installation. OpenXplorer includes no Windows icons: it reads the files you choose while it runs and keeps their pictures only in your cache folder. Anything the files do not have keeps OpenXplorer's own icon."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "Sidebar and column widths"
 msgstr ""
 
@@ -3186,7 +3255,19 @@ msgid "Text uses your desktop's interface font and size instead of Segoe UI."
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "The .dll, .mun or .exe files the icons are read from. Only where they are is saved, never the icons. Choosing files again replaces the list."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "The Segoe Fluent Icons font (SegoeIcons.ttf) or Segoe MDL2 Assets (segmdl2.ttf) from a Windows installation, whose glyphs then draw the command bar, menus, navigation buttons and address bar, in your theme's colors. Only where the font is is saved; it is read, never installed. Glyphs it lacks keep OpenXplorer's own."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "The app, menus, and network sign-in use the same theme."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "The chosen files have none of these icons, so OpenXplorer's own are shown"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
@@ -3206,6 +3287,10 @@ msgid "Where the Cut, Copy, Rename and Delete buttons appear in the right-click 
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "Windows"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "Windows 10 is compact and shows familiar text commands."
 msgstr ""
 
@@ -3217,6 +3302,14 @@ msgstr ""
 msgid "Windows 11 · Compact actions (default)"
 msgstr ""
 
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "Windows icon files"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "Windows symbol font"
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/settings_page/appearance.rs
 msgid "Your desktop's language ({language})"
@@ -3224,6 +3317,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
 msgid "appearance dark light system colour color mode"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "column header title sort sorted arrow chevron caret accent underline details view windows 11 style look"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
@@ -3243,11 +3340,19 @@ msgid "hide expand arrows chevron expander triangle sidebar navigation pane tree
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "it has none of these glyphs, so OpenXplorer's own are shown"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "language languages translation translations locale localization interface display chinese english region"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
 msgid "navigation pane sidebar recent files locations recycle bin trash drive space capacity usage bar extra more rows windows"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "reading…"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
@@ -3263,7 +3368,38 @@ msgid "tab menu right-click move tab new window open windows extra more items wi
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "used while Icons from Windows icon files is on"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "windows icons icon files choose browse imageres shell32 dll mun exe clear remove"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "windows icons icon files imageres shell32 dll mun exe resources folder drive recycle bin this pc home gallery look classic original"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "windows symbol font glyphs segoe fluent icons mdl2 assets segoeicons segmdl2 ttf command bar menu buttons"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "zoom font larger smaller ctrl plus minus reset accessibility scale. Ctrl + makes text larger, Ctrl − smaller, and Ctrl 0 resets it. Saved for all windows; desktop scaling is unchanged."
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "{found} of {total} icons come from the chosen files"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "{found} of {wanted} glyphs"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "{name} · {state}"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -3856,6 +3992,18 @@ msgid "Copying and moving"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs
+msgid "Delete files on removable drives permanently (like Windows)"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/files_folders.rs
+msgid "Delete on a USB stick or SD card asks, then deletes for good. Off: the items go to the drive's own Recycle Bin and keep using its space until it is emptied."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/files_folders.rs
+msgid "Deleting"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/files_folders.rs
 msgid "Documents and other files"
 msgstr ""
 
@@ -4017,6 +4165,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs
 msgid "copy cut paths text clipboard terminal editor plain ctrl+c paste location"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/files_folders.rs
+msgid "delete permanently removable drive usb stick sd card memory card recycle bin trash space windows erase"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs
@@ -4385,10 +4537,6 @@ msgstr ""
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/settings_page/indexed_folders/suggestions.rs
 msgid "Cache {label}"
-msgstr ""
-
-#: crates/ox-app/src/settings_page/indexed_folders/suggestions.rs
-msgid "Clear"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/indexed_folders.rs crates/ox-app/src/settings_page/indexed_folders/suggestions.rs
@@ -5398,10 +5546,6 @@ msgid "Reset text size"
 msgstr ""
 
 #: crates/ox-app/src/window/command_bar/menus.rs
-msgid "Rich Text Document"
-msgstr ""
-
-#: crates/ox-app/src/window/command_bar/menus.rs
 msgid "Select items matching…"
 msgstr ""
 
@@ -5489,7 +5633,7 @@ msgstr ""
 msgid "Smaller"
 msgstr ""
 
-#: crates/ox-app/src/window/conflict_window.rs crates/ox-app/src/window/file_ops/failure_dialog.rs
+#: crates/ox-app/src/window/conflict_window.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/mounting.rs
 msgid "Continue"
 msgstr ""
 
@@ -5772,6 +5916,18 @@ msgstr ""
 
 #: crates/ox-app/src/window/details_pane/content.rs
 msgid "Space"
+msgstr ""
+
+#: crates/ox-app/src/window/details_pane/content.rs
+msgid "Space free"
+msgstr ""
+
+#: crates/ox-app/src/window/details_pane/content.rs
+msgid "Space used"
+msgstr ""
+
+#: crates/ox-app/src/window/details_pane/content.rs
+msgid "Total size"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -6311,6 +6467,10 @@ msgstr ""
 msgid "Interrupted Action"
 msgstr ""
 
+#: crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/loading/denied_folder.rs
+msgid "Location is not available"
+msgstr ""
+
 #: crates/ox-app/src/window/file_ops/failure_dialog.rs
 msgid "Remove the write-protection or use another disk."
 msgstr ""
@@ -6362,7 +6522,7 @@ msgstr ""
 msgid "Total size: {size}"
 msgstr ""
 
-#: crates/ox-app/resources/ui/transfer-panel.ui crates/ox-app/src/window/file_ops/failure_dialog.rs
+#: crates/ox-app/resources/ui/transfer-panel.ui crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/mounting.rs
 msgid "Try Again"
 msgstr ""
 
@@ -6384,6 +6544,11 @@ msgstr ""
 
 #: crates/ox-app/src/window/file_ops/failure_dialog.rs
 msgid "You'll need to provide administrator permission to move to this folder"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/file_ops/failure_dialog.rs
+msgid "{location} is unavailable. If the location is on this PC, make sure the device or drive is connected or the disc is inserted, and then try again. If the location is on a network, make sure you're connected to the network or Internet, and then try again. If the location still can't be found, it might have been moved or deleted."
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -6610,6 +6775,10 @@ msgstr ""
 
 #: crates/ox-app/src/window/file_ops/opendocuments.rs crates/ox-core/src/entry/type_label.rs
 msgid "OpenDocument Text"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/opendocuments.rs
+msgid "Rich Text Document"
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/pasted_content.rs
@@ -7070,10 +7239,6 @@ msgstr ""
 msgid "“{name}” is not a link."
 msgstr ""
 
-#: crates/ox-app/src/window/loading/denied_folder.rs
-msgid "Location is not available"
-msgstr ""
-
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/loading/denied_folder.rs
 msgid "{path} is not accessible.\n\nAccess is denied."
@@ -7158,6 +7323,10 @@ msgstr ""
 
 #: crates/ox-app/src/window/mounting.rs
 msgid "Finish the current operation before disconnecting."
+msgstr ""
+
+#: crates/ox-app/src/window/mounting.rs
+msgid "If you choose to continue, the files will be closed, which might cause data to be lost."
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -10541,6 +10710,10 @@ msgstr ""
 
 #: crates/ox-core/src/sizes/result.rs
 msgid "Time limit reached"
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "A device which does not exist was specified."
 msgstr ""
 
 #: crates/ox-core/src/system_error.rs

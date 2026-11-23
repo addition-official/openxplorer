@@ -54,6 +54,8 @@ use rustix::process::{kill_process_group, Pid, Resource, Signal};
 
 use super::writer::{self, Source};
 
+pub(crate) mod documents;
+
 /// The group every thumbnailer file keeps its keys in.
 const GROUP: &str = "Thumbnailer Entry";
 
@@ -403,6 +405,22 @@ impl Thumbnailer {
     }
 }
 
+/// Reads `bytes` as a `.thumbnailer` entry and builds its command, and as
+/// a thumbnailer's picture, for the fuzz targets.
+#[cfg(feature = "fuzzing")]
+pub(crate) fn fuzz_thumbnailer(bytes: &[u8]) {
+    if let Some(thumbnailer) = std::str::from_utf8(bytes).ok().and_then(Thumbnailer::parse) {
+        let _ = thumbnailer.handles("image/png");
+        let _ = thumbnailer.command(
+            Path::new("/home/alex/Pictures/100% done %u.png"),
+            "file:///home/alex/Pictures/100%25%20done%20%25u.png",
+            Path::new("/tmp/openxplorer-thumbnail.png"),
+            256,
+        );
+    }
+    let _ = drawn_png(bytes);
+}
+
 /// Whether `declared` names `content_type`, itself or a kind of it.
 fn covers(content_type: &str, declared: &str) -> bool {
     declared == content_type
@@ -602,6 +620,18 @@ pub(crate) fn pdf_pages(
     cancellation: &gio::Cancellable,
 ) -> Option<Vec<Pixbuf>> {
     let sandbox = PDF_SANDBOX.get_or_init(pdf_sandbox).as_ref()?;
+    pdf_pages_in(sandbox, path, first, last, width, cancellation)
+}
+
+/// [`pdf_pages`] in `sandbox`.
+fn pdf_pages_in(
+    sandbox: &Sandbox,
+    path: &Path,
+    first: u32,
+    last: u32,
+    width: i32,
+    cancellation: &gio::Cancellable,
+) -> Option<Vec<Pixbuf>> {
     let workspace = Workspace::new()?;
     let output = format!("{INSIDE}/{PDF_PAGE}");
     let tallest = width.saturating_mul(PDF_PAGE_ASPECT_LIMIT).to_string();
@@ -1292,7 +1322,11 @@ struct Workspace(PathBuf);
 impl Workspace {
     /// A new folder under the system's temporary folder.
     fn new() -> Option<Self> {
-        let parent = glib::tmp_dir();
+        Self::new_in(&glib::tmp_dir())
+    }
+
+    /// A new folder in `parent`.
+    fn new_in(parent: &Path) -> Option<Self> {
         for _ in 0..8 {
             let path = parent.join(format!("{WORKSPACE}{:08x}", glib::random_int()));
             match fs::DirBuilder::new().mode(0o700).create(&path) {
@@ -1508,6 +1542,16 @@ fn drawn_png(bytes: &[u8]) -> Option<Vec<u8>> {
 /// where `systemd-run --user` finds the user's service manager; the
 /// command takes it away from the program again ([`Limits::Scope`]).
 fn run_with(command: &[OsString], runtime_dir: bool, cancellation: &gio::Cancellable) -> Option<ExitStatus> {
+    run_within(command, runtime_dir, cancellation, TIMEOUT)
+}
+
+/// [`run_with`], with `timeout` in place of [`TIMEOUT`].
+fn run_within(
+    command: &[OsString],
+    runtime_dir: bool,
+    cancellation: &gio::Cancellable,
+    timeout: Duration,
+) -> Option<ExitStatus> {
     let (program, arguments) = command.split_first()?;
     let mut child = std::process::Command::new(program)
         .args(arguments)
@@ -1531,7 +1575,7 @@ fn run_with(command: &[OsString], runtime_dir: bool, cancellation: &gio::Cancell
         .process_group(0)
         .spawn()
         .ok()?;
-    let deadline = Instant::now() + TIMEOUT;
+    let deadline = Instant::now() + timeout;
     loop {
         if let Ok(Some(status)) = child.try_wait() {
             return Some(status);

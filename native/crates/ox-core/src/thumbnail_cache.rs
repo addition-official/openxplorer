@@ -265,7 +265,19 @@ pub fn look_up(cache_dir: &Path, version: &Version, flavor: ThumbnailFlavor) -> 
 /// Whether the app, or GNOME's thumbnailer factory, failed to make a
 /// thumbnail of `version` of its file. Blocks.
 pub fn has_failed(cache_dir: &Path, version: &Version) -> bool {
-    [FAILURE_FOLDER, GNOME_FAILURE_FOLDER].iter().any(|program| {
+    failed_for(cache_dir, version, &[FAILURE_FOLDER, GNOME_FAILURE_FOLDER])
+}
+
+/// Whether the app itself failed to make a thumbnail of `version` of its
+/// file: for a type GNOME's thumbnailer factory gives up on that the app
+/// makes another way, as an office document. Blocks.
+pub fn app_has_failed(cache_dir: &Path, version: &Version) -> bool {
+    failed_for(cache_dir, version, &[FAILURE_FOLDER])
+}
+
+/// Whether one of `programs` recorded a failure for `version` of its file.
+fn failed_for(cache_dir: &Path, version: &Version, programs: &[&str]) -> bool {
+    programs.iter().any(|program| {
         let path = failure_folder(cache_dir, program).join(format!("{}.png", entry_name(&version.uri)));
         read_entry(&path)
             .and_then(|bytes| png_keys(&bytes))

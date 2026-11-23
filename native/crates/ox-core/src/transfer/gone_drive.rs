@@ -9,9 +9,12 @@
 //! directory" the question read "Item Not Found … This is no longer
 //! located in <the source folder>", blaming an item that is still where it
 //! was, and every entry of a folder being copied was asked about in turn.
-//! Windows says "The device is not ready." in its "Interrupted Action"
-//! question; so does this engine, once for the item, when the drive that
-//! held the destination folder is gone.
+//! Windows 11 says "Error 0x800701B1: A device which does not exist was
+//! specified." in its "Interrupted Action" question; so does this engine,
+//! once for the item, when the drive that held the destination folder is
+//! gone. After Skip, Windows asks nothing more: it says the destination
+//! "is unavailable" ("Location is not available") and OK ends the copy,
+//! as [`ItemFailures`](super::item_failure) does here.
 //!
 //! A drive counts as gone when the mount that held the destination folder
 //! when the run started has left the mount table, or, for a local drive,
@@ -40,12 +43,18 @@ const GONE_DEVICE_ERRORS: [i32; 5] = [
     rustix::io::Errno::SHUTDOWN.raw_os_error(),
 ];
 
-/// Windows' words for a drive that is not there any more
-/// (`ERROR_NOT_READY`), as the failure of an item written to it. It is a
-/// [`TransferError::NotMounted`]: the whole item fails at once, not entry
-/// by entry, as for a share that went away.
+/// Windows' words for a drive pulled out while it is written to
+/// (`ERROR_DEV_NOT_EXIST`, "A device which does not exist was
+/// specified.", as Windows 11's copy reports it), as the failure of an
+/// item written to it. It is a [`TransferError::NotMounted`]: the whole
+/// item fails at once, not entry by entry, as for a share that went away.
 pub(crate) fn device_not_ready() -> TransferError {
-    TransferError::NotMounted(crate::system_error::NOT_READY.message())
+    TransferError::NotMounted(crate::system_error::DEV_NOT_EXIST.message())
+}
+
+/// Whether `error`, as a question shows it, is [`device_not_ready`]'s.
+pub(crate) fn is_device_gone_message(error: &str) -> bool {
+    error == crate::system_error::DEV_NOT_EXIST.message()
 }
 
 /// The drive of a run's destination folder, as found when the run started.
@@ -250,15 +259,16 @@ mod tests {
         }
     }
 
-    /// The failure of an item on a gone drive reads Windows' "The device is
-    /// not ready." and fails the whole item at once.
+    /// The failure of an item on a gone drive reads Windows' "A device
+    /// which does not exist was specified." and fails the whole item at
+    /// once.
     ///
     /// parity: OPS-047
     #[test]
     fn a_gone_drive_is_not_ready() {
         assert_eq!(
             device_not_ready(),
-            TransferError::NotMounted("The device is not ready.".into())
+            TransferError::NotMounted("A device which does not exist was specified.".into())
         );
         assert!(is_drive_error(&TransferError::NotFound(
             "No such file or directory".into()

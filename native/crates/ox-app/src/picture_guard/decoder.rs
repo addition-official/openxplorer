@@ -35,7 +35,7 @@ use gtk::gdk_pixbuf::{Colorspace, Pixbuf};
 use gtk::gio;
 use gtk::glib;
 use gtk::prelude::*;
-use rustix::process::{kill_process_group, Pid, Signal};
+use rustix::process::{kill_process_group, waitid, Pid, Signal, WaitId, WaitIdOptions};
 
 use super::{Decoded, Limits, Refusal, READ_CHUNK};
 
@@ -417,8 +417,7 @@ impl Pool {
         cancellable: Option<&gio::Cancellable>,
     ) -> Result<Decoded, Refusal> {
         crate::thumbnails::trace::event("decode-request", &format!("{width}x{height}"));
-        let idle = self.idle.lock().unwrap_or_else(PoisonError::into_inner).pop();
-        let decoder = match idle {
+        let decoder = match self.take_idle() {
             Some(decoder) => decoder,
             None => Decoder::start(&self.words)?,
         };
@@ -430,6 +429,20 @@ impl Pool {
             }
         }
         result
+    }
+
+    /// An idle decoder still running, if one is. One that ended while it
+    /// waited (killed, or out of processor time) is dropped, which reaps
+    /// it ([`stop`]), so it neither lingers as a zombie nor refuses the
+    /// next picture as damaged.
+    fn take_idle(&self) -> Option<Decoder> {
+        let mut idle = self.idle.lock().unwrap_or_else(PoisonError::into_inner);
+        while let Some(decoder) = idle.pop() {
+            if decoder.is_running() {
+                return Some(decoder);
+            }
+        }
+        None
     }
 }
 
@@ -454,8 +467,7 @@ impl Pool {
                 (start..pictures.len()).for_each(|index| each(index, Err(Refusal::Cancelled)));
                 return;
             }
-            let idle = self.idle.lock().unwrap_or_else(PoisonError::into_inner).pop();
-            let decoder = match idle.map_or_else(|| Decoder::start(&self.words), Ok) {
+            let decoder = match self.take_idle().map_or_else(|| Decoder::start(&self.words), Ok) {
                 Ok(decoder) => decoder,
                 Err(refusal) => {
                     (start..pictures.len()).for_each(|index| each(index, Err(refusal)));
@@ -509,6 +521,17 @@ struct Decoder {
 }
 
 impl Decoder {
+    /// Whether the decoder's process has not ended. It is not reaped here:
+    /// until [`stop`] reaps it its number stays its own, so the kill there
+    /// reaches no other process that took the number over.
+    fn is_running(&self) -> bool {
+        let Some(pid) = i32::try_from(self.child.0.id()).ok().and_then(Pid::from_raw) else {
+            return false;
+        };
+        let ended = WaitIdOptions::EXITED | WaitIdOptions::NOHANG | WaitIdOptions::NOWAIT;
+        matches!(waitid(WaitId::Pid(pid), ended), Ok(None))
+    }
+
     /// Starts a decoder with `words`.
     fn start(words: &[OsString]) -> Result<Self, Refusal> {
         crate::thumbnails::trace::event("decoder-start", "");
@@ -531,7 +554,7 @@ impl Decoder {
         } else {
             command.arg(DECODER_FLAG);
         }
-        let mut child = Process(command.spawn().map_err(|_| Refusal::Unreadable)?);
+        let mut child = Process(spawn_lasting(command).map_err(|_| Refusal::Unreadable)?);
         let (Some(stdin), Some(stdout)) = (child.0.stdin.take(), child.0.stdout.take()) else {
             return Err(Refusal::Unreadable);
         };
@@ -884,6 +907,46 @@ fn answer_limit(width: i32, height: i32, limits: Limits) -> u64 {
         .saturating_add(1024 * 1024)
 }
 
+/// A start request for the thread that starts decoders: the command, and
+/// where to send the process it started.
+type SpawnRequest = (Command, mpsc::Sender<std::io::Result<Child>>);
+
+/// Starts `command` on a thread that lasts as long as the app, rather than
+/// on the caller's.
+///
+/// bubblewrap's `--die-with-parent` (`PR_SET_PDEATHSIG`) kills the sandbox
+/// when the thread that started it ends, not when the app does: the
+/// kernel counts that thread as its parent. The pool's decoders are started
+/// from GIO's worker threads, which end once idle for a while, so an idle
+/// decoder died with its thread and lay in the pool unreaped until the next
+/// picture found it dead. Started here, a decoder ends with the app alone.
+fn spawn_lasting(mut command: Command) -> std::io::Result<Child> {
+    static SPAWNER: OnceLock<Option<mpsc::Sender<SpawnRequest>>> = OnceLock::new();
+    let spawner = SPAWNER.get_or_init(|| {
+        let (requests, received) = mpsc::channel::<SpawnRequest>();
+        thread::Builder::new()
+            .name("ox-picture-spawner".to_owned())
+            .spawn(move || {
+                for (mut command, reply) in received {
+                    let _ = reply.send(command.spawn());
+                }
+            })
+            .ok()
+            .map(|_| requests)
+    });
+    let Some(spawner) = spawner else {
+        // No thread could be started: the caller's thread is all there is.
+        return command.spawn();
+    };
+    let (reply, started) = mpsc::channel();
+    if let Err(mpsc::SendError((mut command, _))) = spawner.send((command, reply)) {
+        return command.spawn();
+    }
+    started
+        .recv()
+        .unwrap_or_else(|_| Err(std::io::Error::other("the decoder spawner ended")))
+}
+
 /// Kills the process group `child` leads, and reaps the child.
 fn stop(child: &mut Child) {
     let group = i32::try_from(child.id())
@@ -980,6 +1043,58 @@ fn parse_answer(bytes: &[u8]) -> Result<Decoded, Refusal> {
         width: own_width,
         height: own_height,
     })
+}
+
+/// Reads `bytes` as the decoder's frames and answers, and as the app's
+/// requests, for the fuzz targets: what each side reads from the other.
+#[cfg(feature = "fuzzing")]
+pub(crate) fn fuzz_answer(bytes: &[u8]) {
+    let _ = parse_answer(bytes);
+    let limit = std::sync::atomic::AtomicU64::new(64 * 1024 * 1024);
+    let mut stream = bytes;
+    while let Some(frame) = read_frame(&mut stream, &limit) {
+        let _ = parse_answer(&frame);
+    }
+    let mut stream = bytes;
+    while read_request(&mut stream).is_some() {}
+}
+
+/// Serves one request for the picture `picture`, sent in the pieces
+/// `cuts` gives, as the decoder process does, within `limits`, for the
+/// fuzz targets; then reads the answer as the app does.
+#[cfg(feature = "fuzzing")]
+pub(crate) fn fuzz_serve(picture: &[u8], cuts: &[usize], fit: (i32, i32), limits: Limits) {
+    // A vector picture is drawn under resource limits of its own, which
+    // would apply to the fuzzing process.
+    if super::vector::may_be_vector(picture) {
+        return;
+    }
+    IN_CHILD.store(true, Ordering::Relaxed);
+    let mut request = REQUEST.to_vec();
+    for value in [fit.0, fit.1] {
+        request.extend_from_slice(&value.to_le_bytes());
+    }
+    let millis = u64::try_from(limits.time.as_millis()).unwrap_or(u64::MAX);
+    for value in [limits.max_pixels, limits.max_jpeg_pixels, millis] {
+        request.extend_from_slice(&value.to_le_bytes());
+    }
+    let mut from = 0;
+    for &cut in cuts.iter().chain(std::iter::once(&picture.len())) {
+        let to = cut.clamp(from, picture.len());
+        if to > from {
+            request.extend_from_slice(&u32::try_from(to - from).unwrap_or(u32::MAX).to_le_bytes());
+            request.extend_from_slice(&picture[from..to]);
+        }
+        from = to;
+    }
+    request.extend_from_slice(&0_u32.to_le_bytes());
+    let mut output = Vec::new();
+    let _ = serve(&mut request.as_slice(), &mut output);
+    let limit = std::sync::atomic::AtomicU64::new(u64::MAX);
+    if let Some(answer) = read_frame(&mut output.as_slice(), &limit) {
+        let answer = answer.strip_prefix(&[ENDING_MARK]).unwrap_or(&answer);
+        let _ = parse_answer(answer);
+    }
 }
 
 /// Where `needle` first starts in `haystack`.

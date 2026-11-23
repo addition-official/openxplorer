@@ -25,6 +25,7 @@ use crate::test_support::python::{python_preference, python_saves_preferences};
 use crate::text_size::TextSize;
 use crate::window::WindowAction;
 
+mod column_header;
 mod indexing;
 mod moved_from_more;
 mod passwordless;
@@ -554,7 +555,11 @@ fn escape_leaves_the_search_and_shows_every_row_again() {
             "Music icon",
             "Code icon",
             "File name endings",
+            "Icons from Windows icon files",
+            "Windows icon files",
+            "Windows symbol font",
             "Compact view",
+            "Column header style",
             "Hide expand arrows in the sidebar",
             "Show more items in the navigation pane",
             "Show more items in the tab menu",
@@ -635,8 +640,11 @@ fn every_setting_of_the_python_page_has_a_row() {
 
 /// Rows that work but disable their button while there is nothing for it
 /// to do, as Restore previous with no handler recorded (INT-030), or the
-/// Super+E switch outside KDE Plasma (INT-033).
-const ROWS_FOLLOWING_THEIR_STATE: [&str; 4] = [
+/// Super+E switch outside KDE Plasma (INT-033), or Clear while no Windows
+/// icon file is chosen (LOOK-030).
+const ROWS_FOLLOWING_THEIR_STATE: [&str; 6] = [
+    "Windows icon files",
+    "Windows symbol font",
     "Restore the previous file handlers",
     "Give ZIP files back to the previous app",
     "Open ZIP files from other apps with OpenXplorer",
@@ -888,6 +896,33 @@ fn the_search_filter_bar_switch_is_off_by_default_and_saves_the_choice() {
 
     wait_until("the choice to be saved", || {
         settings.saved_preferences().show_search_filter_bar
+    });
+}
+
+/// "Delete files on removable drives permanently (like Windows)" is off
+/// by default (the drive's own Recycle Bin, OPS-018) and saved only when
+/// on.
+///
+/// parity: OPS-018
+#[gtk::test]
+fn the_removable_drives_delete_switch_is_off_by_default_and_saved_when_on() {
+    let settings = SettingsTest::open();
+    let switch = switch_of(&settings.row("Delete files on removable drives permanently (like Windows)"));
+    assert!(!switch.is_active(), "off by default");
+
+    switch.set_active(true);
+    wait_until("the choice to be saved", || {
+        settings.saved_preferences().delete_removable_permanently
+    });
+    let stored = std::fs::read_to_string(settings.test.settings_directory().join("settings.json")).unwrap();
+    assert!(
+        stored.contains("deleteRemovablePermanently"),
+        "stored when on: {stored}"
+    );
+
+    switch.set_active(false);
+    wait_until("the choice to be saved", || {
+        !settings.saved_preferences().delete_removable_permanently
     });
 }
 
@@ -1506,8 +1541,11 @@ fn tab_leaves_the_category_list_without_opening_another_category() {
     wait_until("Settings shows", || list.is_mapped());
     let chosen = list.selected_row().expect("a category is chosen");
     chosen.grab_focus();
-    let (x, y) = crate::test_support::pointer::screen_point(&mut pointer, &list, (10.0, 10.0), (20, 20));
-    // The keyboard follows the pointer on the private display.
+    let (x, y) = crate::test_support::pointer::screen_point(&mut pointer, &test.window, (4.0, 4.0), (8, 8));
+    // The keyboard follows the pointer on the private display. It rests on
+    // the window's edge, where no widget has a tooltip: left over a row, it
+    // stayed where later tests' windows show the navigation pane's
+    // tooltips.
     pointer.move_to(x, y);
     wait_until("the category has the keyboard", || chosen.has_focus());
 
@@ -1558,8 +1596,10 @@ fn tab_leaves_the_theme_cards_and_the_arrows_still_choose() {
     system.activate();
     wait_until("the cards to be laid out", || dark.width() > 0);
     assert!(system.grab_focus());
-    let (x, y) = crate::test_support::pointer::screen_point(&mut pointer, &system, (4.0, 4.0), (8, 8));
-    // The keyboard follows the pointer on the private display.
+    let (x, y) =
+        crate::test_support::pointer::screen_point(&mut pointer, &settings.test.window, (4.0, 4.0), (8, 8));
+    // The keyboard follows the pointer on the private display. It rests on
+    // the window's edge, where no widget has a tooltip.
     pointer.move_to(x, y);
     let radios = [&system, &light, &dark];
     let in_cards = || radios.iter().any(|radio| radio.has_focus());
@@ -1578,4 +1618,156 @@ fn tab_leaves_the_theme_cards_and_the_arrows_still_choose() {
     assert!(light.is_active(), "and chooses it");
     pointer.tap_key(gtk::gdk::Key::Tab);
     wait_until("Tab leaves the theme cards from the new choice", || !in_cards());
+}
+
+/// "Icons from Windows icon files" is off by default with no file chosen;
+/// turned on with chosen files, it saves both, says how many icons the
+/// files gave, and the navigation pane draws them. The files are
+/// synthetic, built in the test; the file dialog itself is GTK's and is
+/// not driven, so the chosen paths are saved as its answer would be.
+///
+/// parity: LOOK-030
+#[gtk::test]
+fn icons_from_windows_icon_files_are_off_until_chosen() {
+    use ox_core::windows_icons::synthetic::SyntheticIconFile;
+    use ox_core::windows_icons::IconRole;
+
+    use crate::icons::{user_icons, Art, ArtImage};
+
+    let settings = SettingsTest::open();
+    let row = settings.row("Icons from Windows icon files");
+    let switch = switch_of(&row);
+    assert!(!switch.is_active(), "off by default");
+    assert_eq!(row.shown_description(), "Off: OpenXplorer's own icons");
+    let files_row = settings.row("Windows icon files");
+    assert_eq!(files_row.shown_description(), "No files chosen");
+    // Both close the File icons group (LOOK-029), one more source of the
+    // same icons.
+    let file_icons = settings
+        .page
+        .category_section(Category::Appearance)
+        .groups()
+        .into_iter()
+        .find(|group| group.heading_text().trim() == "File icons")
+        .expect("Appearance has File icons");
+    let titles: Vec<&str> = file_icons.rows().iter().map(|row| row.text().title).collect();
+    assert_eq!(
+        titles[titles.len() - 3..],
+        [
+            "Icons from Windows icon files",
+            "Windows icon files",
+            "Windows symbol font"
+        ]
+    );
+    let font_row = settings.row("Windows symbol font");
+    assert_eq!(font_row.shown_description(), "No font chosen");
+    let clear = files_row
+        .controls()
+        .into_iter()
+        .filter_map(|control| control.downcast::<gtk::Button>().ok())
+        .find(|button| button.label().as_deref() == Some("Clear"))
+        .expect("a Clear button");
+    assert!(!clear.is_sensitive(), "nothing to clear");
+    assert!(!settings.saved_preferences().use_icon_files);
+
+    let folder = tempfile::tempdir().expect("a temporary folder");
+    let imageres = folder.path().join("imageres.dll.mun");
+    std::fs::write(&imageres, SyntheticIconFile::with_groups(&[3, 32]).build()).expect("written");
+    switch.set_active(true);
+    wait_until("the switch to be saved", || {
+        settings.saved_preferences().use_icon_files
+    });
+    assert_eq!(row.shown_description(), "On, but no file is chosen yet");
+    settings
+        .page
+        .save_preferences(ox_core::settings::PreferencesUpdate {
+            icon_files: Some(vec![imageres.display().to_string()]),
+            ..ox_core::settings::PreferencesUpdate::default()
+        });
+    wait_until("the files to be saved", || {
+        !settings.saved_preferences().icon_files.is_empty()
+    });
+    wait_until("the files to be read", || {
+        user_icons::status() == user_icons::Status::Ready { found: 2 }
+    });
+    wait_until("the row to say so", || {
+        row.shown_description() == format!("2 of {} icons come from the chosen files", IconRole::ALL.len())
+    });
+    assert_eq!(files_row.shown_description(), "imageres.dll.mun");
+    assert!(clear.is_sensitive());
+    let sidebar_drive = descendants::<ArtImage>(&settings.test.window)
+        .into_iter()
+        .find(|image| image.art() == Some(Art::Glyph(crate::icons::Icon::HardDrive)))
+        .expect("the navigation pane shows Local Disk");
+    wait_until("Local Disk to show the file's icon", || {
+        sidebar_drive.shows_user_icon()
+    });
+
+    clear.emit_clicked();
+    wait_until("the files to be forgotten", || {
+        settings.saved_preferences().icon_files.is_empty()
+    });
+    wait_until("the app's own icons to return", || {
+        !sidebar_drive.shows_user_icon()
+    });
+    switch.set_active(false);
+    wait_until("the switch to be saved off", || {
+        !settings.saved_preferences().use_icon_files
+    });
+}
+
+/// "Windows symbol font" names no font by default; a chosen font is
+/// saved by its path alone, the row says how many glyphs it gave while
+/// Windows icon files are on, and Clear forgets it. The font is
+/// synthetic; the file dialog itself is GTK's and is not driven.
+///
+/// parity: LOOK-031
+#[gtk::test]
+fn the_windows_symbol_font_row_saves_the_path_and_counts_the_glyphs() {
+    use ox_core::windows_glyphs::synthetic::SyntheticFont;
+
+    use crate::icons::user_glyphs;
+
+    let settings = SettingsTest::open();
+    let row = settings.row("Windows symbol font");
+    assert_eq!(row.shown_description(), "No font chosen");
+    let clear = row
+        .controls()
+        .into_iter()
+        .filter_map(|control| control.downcast::<gtk::Button>().ok())
+        .find(|button| button.label().as_deref() == Some("Clear"))
+        .expect("a Clear button");
+    assert!(!clear.is_sensitive());
+
+    let folder = tempfile::tempdir().expect("a temporary folder");
+    let font = folder.path().join("SegoeIcons.ttf");
+    std::fs::write(&font, SyntheticFont::with_codepoints(&[0xE710, 0xE72B]).build()).expect("written");
+    settings
+        .page
+        .save_preferences(ox_core::settings::PreferencesUpdate {
+            symbol_font: Some(font.display().to_string()),
+            ..ox_core::settings::PreferencesUpdate::default()
+        });
+    wait_until("the font to be saved", || {
+        settings.saved_preferences().symbol_font.is_some()
+    });
+    wait_until("the row to say it waits for the switch", || {
+        row.shown_description() == "SegoeIcons.ttf · used while Icons from Windows icon files is on"
+    });
+    switch_of(&settings.row("Icons from Windows icon files")).set_active(true);
+    let expected = format!("SegoeIcons.ttf · 2 of {} glyphs", user_glyphs::glyph_count());
+    wait_until("the glyphs to be counted", || row.shown_description() == expected);
+    assert!(clear.is_sensitive());
+
+    clear.emit_clicked();
+    wait_until("the font to be forgotten", || {
+        settings.saved_preferences().symbol_font.is_none()
+    });
+    wait_until("the row to say so", || {
+        row.shown_description() == "No font chosen"
+    });
+    switch_of(&settings.row("Icons from Windows icon files")).set_active(false);
+    wait_until("the switch to be saved off", || {
+        !settings.saved_preferences().use_icon_files
+    });
 }

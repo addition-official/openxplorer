@@ -37,7 +37,7 @@ use super::create::name_taken_or;
 use super::error::OpsError;
 use super::results::{AskedItem, ItemQuestions};
 use super::run_transfer::TransferOutcome;
-use super::shortcuts::create_shortcut;
+use super::shortcuts::{create_shortcut_named, ShortcutNames};
 use super::undo::UndoRecord;
 use crate::location::{file_uri, normalise, typed_local_path, validate_name};
 use crate::transfer::{TransferMode, MAX_ITEMS};
@@ -263,6 +263,8 @@ pub struct LinkRequest {
     pub uris: Vec<String>,
     /// The folder the links go into.
     pub destination_folder: String,
+    /// Whether the links' names keep their items' extensions.
+    pub names: ShortcutNames,
 }
 
 /// Makes a symbolic link in the request's folder to each of its items, on
@@ -312,7 +314,7 @@ fn create_links_blocking(
         };
         // An item that gets no link is asked about in the progress window
         // (OPS-047).
-        let attempt = || link_item(uri, &folder).map_err(OpsError::Failed);
+        let attempt = || link_item(uri, &folder, request.names).map_err(OpsError::Failed);
         if let Some(link) = questions.run(&mut outcome.result, asked, attempt) {
             outcome.result.done.push(uri.clone());
             outcome.created.push(file_uri(&link));
@@ -331,14 +333,15 @@ fn create_links_blocking(
 
 /// Makes the shortcut to the item at `uri` in `folder`, named as Windows
 /// names one ([`create_shortcut`]); the link's path, or why there is none.
-fn link_item(uri: &str, folder: &Path) -> Result<PathBuf, String> {
+fn link_item(uri: &str, folder: &Path, names: ShortcutNames) -> Result<PathBuf, String> {
     let target = gio::File::for_uri(uri)
         .path()
         .ok_or_else(|| crate::i18n::gettext(NOT_LOCAL_ITEM))?;
     if target.file_name().is_none() {
         return Err(crate::i18n::gettext(NOT_LOCAL_ITEM));
     }
-    let link = create_shortcut(uri, &file_uri(folder)).map_err(|error| error.to_string())?;
+    let link =
+        create_shortcut_named(uri, &file_uri(folder), None, names).map_err(|error| error.to_string())?;
     gio::File::for_uri(&link)
         .path()
         .ok_or_else(|| crate::i18n::gettext(NOT_LOCAL_ITEM))
@@ -372,6 +375,7 @@ mod tests {
         let request = LinkRequest {
             uris: vec![file_uri(&item)],
             destination_folder: file_uri(&links),
+            names: ShortcutNames::WholeName,
         };
 
         let outcome = create_links_blocking(&request, &context()).expect("the folder is local");
@@ -502,6 +506,7 @@ mod tests {
         let request = LinkRequest {
             uris: vec![file_uri(&item)],
             destination_folder: file_uri(&links),
+            names: ShortcutNames::WholeName,
         };
 
         let outcome = create_links_blocking(&request, &context()).expect("the folder is local");
@@ -523,10 +528,12 @@ mod tests {
         let to_share = LinkRequest {
             uris: vec![file_uri(&folder.path().join("a.txt"))],
             destination_folder: "smb://nas/share/folder".to_owned(),
+            names: ShortcutNames::WholeName,
         };
         let from_share = LinkRequest {
             uris: vec!["smb://nas/share/a.txt".to_owned()],
             destination_folder: file_uri(folder.path()),
+            names: ShortcutNames::WholeName,
         };
 
         let refused = create_links_blocking(&to_share, &context());

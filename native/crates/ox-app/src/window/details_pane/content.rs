@@ -39,7 +39,10 @@ pub(in crate::window) mod keys {
     pub(in crate::window) const SIZE: &str = "Size";
     pub(in crate::window) const LOCATION: &str = "Location";
     pub(in crate::window) const MODIFIED: &str = "Modified";
-    pub(in crate::window) const CREATED: &str = "Created";
+    pub(in crate::window) const SPACE_USED: &str = "SpaceUsed";
+    pub(in crate::window) const SPACE_FREE: &str = "SpaceFree";
+    pub(in crate::window) const TOTAL_SIZE: &str = "TotalSize";
+    pub(in crate::window) const FILE_SYSTEM: &str = "FileSystem";
     pub(in crate::window) const DIMENSIONS: &str = "Dimensions";
     pub(in crate::window) const LENGTH: &str = "Length";
 }
@@ -257,6 +260,9 @@ pub(in crate::window) struct PaneContent {
     /// The location whose Properties the pane's button opens in place of
     /// the selection's: a drive selected on This PC.
     pub properties_of: Option<String>,
+    /// The drive whose space the pane reads and adds under Type
+    /// ([`drive_rows`]): a drive selected on This PC.
+    pub measures_drive: Option<String>,
     /// The Details rows, in display order.
     pub properties: Vec<Property>,
     /// The content preview of one selected file.
@@ -311,34 +317,43 @@ fn item_content(item: &FileItem, facts: &PaneFacts<'_>) -> PaneContent {
     } else {
         entry.size.map(format::short_size).unwrap_or_default()
     };
-    // A folder lists Type, File location and Date modified, as Windows'
-    // pane does; a file adds its Size and Date created.
-    let created = if entry.is_dir {
-        String::new()
-    } else {
-        dates(entry.meta.created)
-    };
+    // A file lists Type, Size, File location and Date modified, and a
+    // folder the same without Size, as Windows 11's pane does (checked on
+    // Windows 11, 2026-11-22: no Date created). A file in the Recycle Bin
+    // is located in the trash folder that holds it, as Windows names
+    // C:\$Recycle.Bin\S-1-5-..., and headed by the path it was deleted
+    // from.
+    let location = entry
+        .meta
+        .trash_file
+        .as_deref()
+        .unwrap_or_else(|| entry.item_uri());
     let mut properties = vec![
         Property::new(keys::TYPE, message_id("Type"), entry.type_label.clone()),
         Property::new(keys::SIZE, message_id("Size"), size),
         Property::new(
             keys::LOCATION,
             message_id("File location"),
-            container_text(entry.item_uri(), facts.locations),
+            container_text(location, facts.locations),
         ),
         Property::new(keys::MODIFIED, message_id("Date modified"), dates(entry.modified)),
-        Property::new(keys::CREATED, message_id("Date created"), created),
     ];
     properties.retain(|property| !property.value.is_empty());
+    let name = entry
+        .trash_orig_path
+        .as_ref()
+        .filter(|_| entry.uri.starts_with("trash:"))
+        .map_or_else(|| entry.name.clone(), |path| path.display().to_string());
     PaneContent {
         preview: Preview::Art(item.art()),
-        name: entry.name.clone(),
+        name,
         small_icon: !entry.is_dir,
         subject: Subject::Selection,
         hint: false,
         // Items inside a ZIP have no file of their own to describe.
         has_properties: !ox_core::location::is_archive_location(facts.folder_uri),
         properties_of: None,
+        measures_drive: None,
         properties,
         media: MediaPreview::of(item, facts.preview_rules),
         metadata: MetadataRequest::of(item),
@@ -358,6 +373,7 @@ fn several_content(items: &[FileItem], facts: &PaneFacts<'_>) -> PaneContent {
         hint: true,
         has_properties: !ox_core::location::is_archive_location(facts.folder_uri),
         properties_of: None,
+        measures_drive: None,
         properties: Vec::new(),
         media: None,
         metadata: None,
@@ -392,6 +408,7 @@ fn folder_content(facts: &PaneFacts<'_>) -> PaneContent {
         hint: true,
         has_properties: false,
         properties_of: None,
+        measures_drive: None,
         properties: Vec::new(),
         media: None,
         metadata: None,
@@ -414,11 +431,20 @@ pub(in crate::window) fn describe_tiles(content: &mut PaneContent, selected: &[T
             content.hint = false;
             content.has_properties = tile.properties.is_some();
             content.properties_of.clone_from(&tile.properties);
-            content.properties = tile
-                .note
-                .iter()
-                .map(|note| Property::new(keys::SIZE, message_id("Space"), note.clone()))
-                .collect();
+            content.measures_drive.clone_from(&tile.properties);
+            content.properties = if tile.properties.is_some() {
+                // A drive that can be measured: its Type and space, which
+                // the pane reads from it off the main thread
+                // ([`drive_rows`]), as Windows 11 lists C: (checked on
+                // Windows 11, 2026-11-22).
+                Vec::new()
+            } else {
+                // A drive or share to connect: what its tile says.
+                tile.note
+                    .iter()
+                    .map(|note| Property::new(keys::SIZE, message_id("Space"), note.clone()))
+                    .collect()
+            };
         }
         several => {
             content.name = items_selected(several.len());
@@ -427,8 +453,53 @@ pub(in crate::window) fn describe_tiles(content: &mut PaneContent, selected: &[T
             content.subject = Subject::Selection;
             content.hint = true;
             content.properties = Vec::new();
+            content.measures_drive = None;
         }
     }
+}
+
+/// The rows of a drive of type `kind` ("Local Disk") with `free` of
+/// `size` bytes free on a file system `filesystem` ("NTFS", "ext4"), as
+/// Windows 11's pane lists a drive: Type, Space used as a whole
+/// percentage ("37%"), Space free, Total size and File system; Type and
+/// File system only when known.
+pub(in crate::window) fn drive_rows(
+    kind: Option<&str>,
+    free: u64,
+    size: u64,
+    filesystem: Option<&str>,
+) -> Vec<Property> {
+    let used = size.saturating_sub(free);
+    let percent = if size == 0 {
+        0
+    } else {
+        (u128::from(used) * 100 + u128::from(size) / 2) / u128::from(size)
+    };
+    let mut rows: Vec<Property> = kind
+        .map(|kind| Property::new(keys::TYPE, message_id("Type"), kind.to_owned()))
+        .into_iter()
+        .collect();
+    rows.extend([
+        Property::new(keys::SPACE_USED, message_id("Space used"), format!("{percent}%")),
+        Property::new(
+            keys::SPACE_FREE,
+            message_id("Space free"),
+            format::short_size(free),
+        ),
+        Property::new(
+            keys::TOTAL_SIZE,
+            message_id("Total size"),
+            format::short_size(size),
+        ),
+    ]);
+    if let Some(filesystem) = filesystem.filter(|filesystem| !filesystem.is_empty()) {
+        rows.push(Property::new(
+            keys::FILE_SYSTEM,
+            message_id("File system"),
+            filesystem.to_owned(),
+        ));
+    }
+    rows
 }
 
 /// Whether `uri` is the top of a ZIP opened like a folder (ARC-026).
@@ -601,11 +672,13 @@ mod tests {
         assert_eq!(property(&one, keys::SIZE), Some("4.38\u{a0}KB"));
     }
 
-    /// One file shows Windows 11's rows, in its order and wording.
+    /// One file shows Windows 11's rows, in its order and wording: Type,
+    /// Size, File location and Date modified, with no Date created
+    /// (checked on Windows 11, 2026-11-22).
     ///
     /// parity: PROP-009
     #[test]
-    fn a_file_shows_its_type_size_location_and_dates() {
+    fn a_file_shows_its_type_size_location_and_date_modified() {
         let mut entry = file_entry("Notes.txt");
         entry.size = Some(2048);
         entry.modified = Some(1_790_000_000);
@@ -613,7 +686,7 @@ mod tests {
         let content = content_for(&[FileItem::new(entry.clone())], "file:///tmp/ox-test");
         assert_eq!(
             names(&content),
-            ["Type", "Size", "File location", "Date modified", "Date created"]
+            ["Type", "Size", "File location", "Date modified"]
         );
         assert_eq!(content.name, "Notes.txt");
         assert_eq!(
@@ -636,9 +709,43 @@ mod tests {
     #[test]
     fn a_missing_date_leaves_its_row_out() {
         let mut entry = file_entry("Notes.txt");
-        entry.meta.created = None;
+        entry.modified = None;
         let content = content_for(&[FileItem::new(entry)], "file:///tmp/ox-test");
-        assert_eq!(property(&content, keys::CREATED), None);
+        assert_eq!(property(&content, keys::MODIFIED), None);
+    }
+
+    /// A file in the Recycle Bin is headed by the full path it was
+    /// deleted from, and located in the trash folder that holds it, with
+    /// no Original location or Date deleted rows, as Windows 11's pane
+    /// shows a recycled file (C:\$Recycle.Bin\S-1-5-..., checked on
+    /// Windows 11, 2026-11-22).
+    ///
+    /// parity: PROP-009
+    #[test]
+    fn a_recycled_file_is_headed_by_where_it_was_and_located_in_the_trash() {
+        let mut entry = file_entry("f2.txt");
+        entry.uri = "trash:///f2.txt".to_owned();
+        entry.size = Some(3);
+        entry.modified = Some(1_790_000_000);
+        entry.meta.created = Some(1_780_000_000);
+        entry.trash_orig_path = Some(PathBuf::from("/home/demo/OXT2/f2.txt"));
+        entry.trash_deletion_date = Some(1_795_000_000);
+        entry.meta.trash_file = Some("file:///home/demo/.local/share/Trash/files/f2.txt".to_owned());
+        let content = content_for(&[FileItem::new(entry)], "trash:///");
+        assert_eq!(content.name, "/home/demo/OXT2/f2.txt");
+        assert_eq!(
+            names(&content),
+            ["Type", "Size", "File location", "Date modified"]
+        );
+        assert_eq!(
+            property(&content, keys::LOCATION),
+            Some(
+                context()
+                    .display_location("file:///home/demo/.local/share/Trash/files")
+                    .as_str()
+            )
+        );
+        assert!(content.has_properties);
     }
 
     /// Condensed dates give the day only; otherwise the time follows.
@@ -820,10 +927,47 @@ mod tests {
         assert_eq!(content.properties_of.as_deref(), Some("file:///"));
         assert!(!content.hint);
         assert_eq!(content.name, "Local Disk");
+        assert!(
+            content.properties.is_empty(),
+            "its rows are read from the drive: {:?}",
+            names(&content)
+        );
+        assert_eq!(content.measures_drive.as_deref(), Some("file:///"));
         let mut content = content_for(&[], Page::ThisPc.uri());
         describe_tiles(&mut content, &[tile("Local Disk"), tile("Backup")]);
         assert_eq!(content.name, "2 items selected");
         assert!(content.hint && content.properties.is_empty());
+    }
+
+    /// A drive's rows, as Windows 11's pane lists them: Type, Space used
+    /// as a percentage, Space free, Total size and File system
+    /// (checked on Windows 11, 2026-11-22: "37%", "39.7 GB", "62.8 GB",
+    /// "NTFS").
+    ///
+    /// parity: PROP-009
+    #[test]
+    fn a_drives_space_rows_read_as_windows_lists_them() {
+        // 39.7 GB free of 62.8 GB.
+        let rows = drive_rows(Some("Local Disk"), 42_628_000_000, 67_432_000_000, Some("NTFS"));
+        let shown: Vec<(&str, &str)> = rows
+            .iter()
+            .map(|row| (row.name.as_str(), row.value.as_str()))
+            .collect();
+        assert_eq!(
+            shown,
+            [
+                ("Type", "Local Disk"),
+                ("Space used", "37%"),
+                ("Space free", "39.7\u{a0}GB"),
+                ("Total size", "62.8\u{a0}GB"),
+                ("File system", "NTFS"),
+            ]
+        );
+        assert_eq!(
+            drive_rows(None, 0, 10, None).len(),
+            3,
+            "no Type or File system unknown"
+        );
     }
 
     /// parity: LOOK-016
