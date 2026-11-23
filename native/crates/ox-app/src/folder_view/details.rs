@@ -871,7 +871,8 @@ impl DetailsView {
     /// Draws the list's text `scale` times its 100% size: each column
     /// still at its default width for the old size takes its default for
     /// the new one, so larger text is not cut short (ACC-012); a width the
-    /// user chose stays. Not a resize by the user, so nothing is saved.
+    /// user chose grows by as much as the text, as Windows' scaling grows
+    /// it. Not a resize by the user, so nothing is saved.
     pub(crate) fn set_text_scale(&self, scale: f64) {
         let old = self.text_scale();
         self.imp().text_scale.set(scale);
@@ -885,9 +886,20 @@ impl DetailsView {
             }
             let at_default =
                 column_widths::fixed_width(column, column_widths::scaled_default_width(column, old));
-            if view_column.fixed_width() >= 0 && view_column.fixed_width() == at_default {
+            let fixed = view_column.fixed_width();
+            if fixed >= 0 && fixed == at_default {
                 let width = column_widths::scaled_default_width(column, scale);
                 view_column.set_fixed_width(column_widths::fixed_width(column, width));
+            } else if let Some(shown) = column_widths::saved_width(column, fixed) {
+                // A width the user chose grows and shrinks with the text.
+                #[expect(
+                    clippy::cast_possible_truncation,
+                    clippy::cast_sign_loss,
+                    reason = "widths are small and positive"
+                )]
+                let at_100 = (shown / old).round() as u32;
+                let width = column_widths::scaled_width(at_100, scale);
+                view_column.set_fixed_width(column_widths::fixed_width(column, Some(width)));
             }
         }
         self.cancel_resize_report();
@@ -964,15 +976,17 @@ impl DetailsView {
         }
     }
 
-    /// The widths the user set, in the form settings save them. Name
-    /// counts only once it has a width of its own.
+    /// The widths the user set, in the form settings save them: as wide as
+    /// at 100% text, whatever the text size now. Name counts only once it
+    /// has a width of its own.
     pub(crate) fn widths_to_save(&self) -> Vec<ColumnWidth> {
         let listing = self.imp().listing.get();
+        let scale = self.text_scale();
         let saved = self
             .view_columns()
             .filter(|(column, _)| saves_width(*column, listing));
         let widths = saved.filter_map(|(column, view_column)| {
-            let pixels = column_widths::saved_width(column, view_column.fixed_width())?;
+            let pixels = (column_widths::saved_width(column, view_column.fixed_width())? / scale).round();
             let column = column_widths::settings_column(column);
             Some(ColumnWidth { column, pixels })
         });

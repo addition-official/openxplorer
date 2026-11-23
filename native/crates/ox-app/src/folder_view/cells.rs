@@ -11,6 +11,8 @@
 //! screen scale changes.
 
 mod cell_owners;
+mod content_columns;
+use content_columns::ContentColumns;
 mod custom_icon;
 mod expander;
 mod folder_picture;
@@ -88,8 +90,7 @@ const LINES_ICON_GAP: i32 = 10;
 const CONTENT_ICON_GAP: i32 = 7;
 
 /// How wide Content's date modified is, in characters, so its column of
-/// date modified and size starts at the same place on every row, as
-/// Windows 11 sets these properties at the right of each row.
+/// date modified and size is as wide on every row.
 const CONTENT_DATE_CHARS: i32 = 20;
 
 /// The list item behind a factory object (column cells are list items too).
@@ -123,6 +124,18 @@ fn dim_cell_label_with(text: &str) -> gtk::Label {
     label.set_single_line_mode(true);
     label.add_css_class("cell-dim");
     label
+}
+
+/// The width and height of the picture at `uri`, read from its header,
+/// for a file on this computer; `None` elsewhere, where reading could
+/// wait on a network, or when the header says nothing.
+fn picture_dimensions(uri: &str) -> Option<(i32, i32)> {
+    let path = gtk::gio::File::for_uri(uri).path()?;
+    if path.components().any(|part| part.as_os_str() == "gvfs") {
+        return None;
+    }
+    let (_, width, height) = gtk::gdk_pixbuf::Pixbuf::file_info(&path)?;
+    Some((width, height))
 }
 
 /// Where a [`FileCell`] is shown.
@@ -314,6 +327,15 @@ mod imp {
         /// Content's "Date modified:" and "Size:" lines, each hidden while
         /// it has nothing to say.
         pub(super) properties: RefCell<Vec<gtk::Box>>,
+        /// Content's column of those lines.
+        pub(super) properties_column: gtk::Box,
+        /// Content's column of a picture's "Type:" and "Dimensions:",
+        /// hidden for other items.
+        pub(super) picture_column: gtk::Box,
+        /// A picture's type, in [`Self::picture_column`].
+        pub(super) picture_kind: gtk::Label,
+        /// A picture's width and height, in [`Self::picture_column`].
+        pub(super) picture_dimensions: gtk::Label,
         /// Whether the cell shows [`super::ItemLines`].
         pub(super) shows_item_lines: Cell<bool>,
         /// Whether the cell is a Content row, which shows no type under a
@@ -730,15 +752,33 @@ impl FileCell {
             line.add_css_class("cell-dim");
         }
         lines.append(&imp.kind);
-        self.append(lines);
         if !content {
+            self.append(lines);
             lines.append(&imp.size);
             return;
         }
-        let properties = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        let pictures = &imp.picture_column;
+        pictures.set_orientation(gtk::Orientation::Vertical);
+        pictures.set_valign(gtk::Align::Start);
+        pictures.add_css_class("item-properties");
+        pictures.set_visible(false);
+        for (caption, value) in [
+            (ox_core::i18n::gettext("Type:"), &imp.picture_kind),
+            (ox_core::i18n::gettext("Dimensions:"), &imp.picture_dimensions),
+        ] {
+            let line = gtk::Box::new(gtk::Orientation::Horizontal, 4);
+            line.append(&dim_cell_label_with(&caption));
+            value.set_xalign(0.0);
+            value.set_ellipsize(pango::EllipsizeMode::End);
+            value.set_single_line_mode(true);
+            line.append(value);
+            pictures.append(&line);
+        }
+        let properties = &imp.properties_column;
+        properties.set_orientation(gtk::Orientation::Vertical);
         properties.set_valign(gtk::Align::Start);
-        // Only the name's lines take the room to spare, which keeps the
-        // date and size at the row's right.
+        // ContentColumns places the column; only the name takes the room
+        // to spare.
         properties.set_hexpand(false);
         properties.add_css_class("item-properties");
         let mut captioned = Vec::new();
@@ -758,7 +798,10 @@ impl FileCell {
         // same place on each.
         imp.modified.set_width_chars(CONTENT_DATE_CHARS);
         imp.modified.set_max_width_chars(CONTENT_DATE_CHARS);
-        self.append(&properties);
+        // Content's columns start where Windows 11 starts them.
+        let columns = ContentColumns::new(lines, pictures, properties);
+        columns.set_hexpand(true);
+        self.append(&columns);
         imp.properties.replace(captioned);
     }
 
@@ -846,6 +889,7 @@ impl FileCell {
             let mut lines = ItemLines::of(item);
             let folder_like = opens_as_folder(item);
             if imp.is_content_row.get() {
+                self.show_picture_column(item, &lines.kind);
                 // Windows 11's Content rows put nothing under a name that
                 // has no author or tags to show, and give a folder or a
                 // ZIP archive its date alone (measured on its capture).
@@ -859,6 +903,30 @@ impl FileCell {
                 lines.size.clear();
             }
             self.show_item_lines(&lines);
+        }
+    }
+
+    /// Shows a picture's type, `kind`, and its dimensions in Content's
+    /// middle column, as Windows 11 does; hides the column for other items.
+    fn show_picture_column(&self, item: &FileItem, kind: &str) {
+        let imp = self.imp();
+        let entry = item.entry();
+        let is_picture = !entry.is_dir
+            && entry
+                .content_type
+                .as_deref()
+                .is_some_and(|kind| kind.starts_with("image/"));
+        imp.picture_column.set_visible(is_picture);
+        if !is_picture {
+            return;
+        }
+        imp.picture_kind.set_text(kind);
+        let dimensions = picture_dimensions(&entry.uri)
+            .map(|(width, height)| format!("{width} x {height}"))
+            .unwrap_or_default();
+        imp.picture_dimensions.set_text(&dimensions);
+        if let Some(line) = imp.picture_dimensions.parent() {
+            line.set_visible(!dimensions.is_empty());
         }
     }
 

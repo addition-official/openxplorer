@@ -14,12 +14,16 @@
    src/folder_view/details.rs), and their cells and titles pad for them. */
 columnview.files { background-color: @ox_bg; color: @ox_text; }
 columnview.files > header { border-bottom: 1px solid @ox_border; padding: 0; }
+/* "Show a line under column titles" off: no line, as in Windows 11; the
+   titles keep their height. */
+window.no-column-title-line columnview.files > header { border-bottom-color: transparent; }
 columnview.files > header > button {
   background: none;
   border-style: none;
-  /* The dividers between titles show only while the pointer is over the
-     titles, as in Windows 11 File Explorer. */
-  border-right: 1px solid transparent;
+  /* A faint divider after each title, shown all the time as in Windows
+     11 File Explorer (its reference capture without hover: #636363 on
+     #191919, the full height of the titles). */
+  border-right: 1px solid alpha(@ox_text, 0.32);
   border-radius: 0;
   color: @ox_muted;
   font-weight: normal;
@@ -29,7 +33,6 @@ columnview.files > header > button {
   min-height: 31px;
   box-shadow: none;
 }
-columnview.files > header:hover > button { border-right-color: @ox_border; }
 columnview.files > header > button:hover { background-color: @ox_hover; }
 /* Name, which takes the room the other columns leave, gives way first
    when the list is narrower than its columns, as beside the details pane
@@ -492,6 +495,9 @@ gridview.files.content.keyboard-in > child:focus:not(:focus-visible):not(.file-d
 gridview.files.tiles > child box, gridview.files.content > child box { margin: 0; }
 gridview.files > child .item-lines { border-spacing: 1px; }
 gridview.files > child .item-properties { border-spacing: 1px; margin: 0 8px 0 24px; }
+/* Content's columns have no side margins: cells/content_columns.rs starts
+   each where Windows 11 does. */
+gridview.files.content > child .item-properties { margin-left: 0; margin-right: 0; }
 /* Content's name and date stand on the row's first line, 2 pixels lower
    than the top in the usual view, where two lines used to center them. */
 window:not(.compact-density) gridview.files.content > child .item-lines,

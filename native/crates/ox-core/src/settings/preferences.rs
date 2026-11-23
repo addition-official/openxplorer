@@ -269,6 +269,11 @@ pub struct Preferences {
         skip_serializing_if = "ColumnHeaderStyle::is_openxplorer"
     )]
     pub column_header_style: ColumnHeaderStyle,
+    /// A line under the Details view's column titles. On by default, the
+    /// owner's choice; Windows 11 draws none. Stored as `columnTitleLine`,
+    /// only when off.
+    #[serde(rename = "columnTitleLine", skip_serializing_if = "is_true")]
+    pub column_title_line: bool,
     /// Shift+F10 opens the classic (Windows 10) menu instead of the
     /// right-click menu's style, which Windows 11 opens on Shift+F10.
     /// Stored only when on.
@@ -698,6 +703,7 @@ impl Default for Preferences {
             context_menu: ContextMenu::default(),
             strip_position: StripPosition::Pointer,
             column_header_style: ColumnHeaderStyle::OpenXplorer,
+            column_title_line: true,
             shift_f10_classic: false,
             f6_like_windows: false,
             classic_menu_chosen: false,
@@ -935,6 +941,7 @@ impl Preferences {
     /// Applies every valid value in `update` and silently ignores the rest,
     /// exactly like `update_preferences` in the Python app. A present
     /// `column_widths` replaces all saved column widths.
+    #[expect(clippy::too_many_lines, reason = "one line per preference")]
     pub fn apply(&mut self, update: &PreferencesUpdate) {
         let text_size = update.text_size.filter(|size| TEXT_SIZES.contains(size));
         let network_interval = update
@@ -1000,6 +1007,7 @@ impl Preferences {
         replace_if_some(&mut self.zip_opening, update.zip_opening);
         replace_if_some(&mut self.strip_position, update.strip_position);
         replace_if_some(&mut self.column_header_style, update.column_header_style);
+        replace_if_some(&mut self.column_title_line, update.column_title_line);
         if let Some(options) = &update.details_pane_options {
             self.details_pane_options = options.clone();
         }
@@ -1169,6 +1177,8 @@ pub struct PreferencesUpdate {
     pub strip_position: Option<StripPosition>,
     /// How the Details view draws the sorted column's title.
     pub column_header_style: Option<ColumnHeaderStyle>,
+    /// Whether a line runs under the Details view's column titles.
+    pub column_title_line: Option<bool>,
     /// Whether Shift+F10 opens the classic menu.
     pub shift_f10_classic: Option<bool>,
     /// Whether F6 visits only the regions Windows 11's F6 does.
@@ -1362,6 +1372,7 @@ impl PreferencesUpdate {
             context_menu: text("contextMenu").and_then(ContextMenu::from_key),
             strip_position: text("menuStripPosition").and_then(StripPosition::from_key),
             column_header_style: text("columnHeaderStyle").and_then(ColumnHeaderStyle::from_key),
+            column_title_line: flag("columnTitleLine"),
             shift_f10_classic: flag("shiftF10Classic"),
             f6_like_windows: flag("f6LikeWindows"),
             network_interval: values.get("networkInterval").and_then(read_network_interval),

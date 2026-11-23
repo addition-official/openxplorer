@@ -261,6 +261,8 @@ fn every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages() {
         "Match words at the start of file extensions (like Windows)",
         // The Details view's sort arrow (VIEW-014).
         "Column header style",
+        // The line under the column titles, which Windows 11 has not.
+        "Show a line under column titles",
         // The owner's opt-in for Windows' permanent delete on removable
         // drives (OPS-018).
         "Delete files on removable drives permanently (like Windows)",
