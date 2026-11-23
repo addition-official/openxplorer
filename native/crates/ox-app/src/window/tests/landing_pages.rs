@@ -196,11 +196,20 @@ fn this_pc_counts_its_tiles_in_the_status_bar_and_the_details_pane() {
         art_image_showing(&pane, Art::Glyph(Icon::HardDrive)).is_some(),
         "the drive's icon"
     );
+    // As Windows 11 lists C: (checked 2026-11-22): Type, Space used,
+    // Space free, Total size and File system, read off the main thread.
     wait_until("its space", || {
-        pane.shown_properties()
-            .iter()
-            .any(|property| property.value.contains(" free of "))
+        let names: Vec<String> = pane.shown_properties().into_iter().map(|row| row.name).collect();
+        names.starts_with(&[
+            "Type".to_owned(),
+            "Space used".to_owned(),
+            "Space free".to_owned(),
+            "Total size".to_owned(),
+        ])
     });
+    let rows = pane.shown_properties();
+    assert_eq!(rows[0].value, "Local Disk");
+    assert!(rows[1].value.ends_with('%'), "{rows:?}");
 
     flow.unselect_all();
     wait_until("nothing selected", || {
