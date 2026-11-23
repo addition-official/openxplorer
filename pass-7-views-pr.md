@@ -1,6 +1,6 @@
 # Title
 
-fix(views): Head groups in every layout, fill Small icons' rows, and fix Home and reflow in grouped views
+fix(views): Head groups in every layout, match Windows 11's spacing, and fix Home and reflow in grouped views
 
 # Body
 
@@ -19,6 +19,19 @@ Overnight pass 7 (views) checked every layout against Windows 11 with real xdoto
   - **Details:** GTK's Home moved the keyboard to the list's first row, which is the first group's heading. The heading then selected the whole first group, and the keyboard outline stayed on the heading. Home and End now go to the first and last item. Shift extends the selection and Ctrl moves only the keyboard. Home also scrolls to the top.
   - **Tiles, Content and the icon sizes:** Home selected the first item but scrolled it to the top edge, so the first heading stayed hidden above it. A key that lands on a group's first row now brings that group's heading into view too.
 - **Grouped grid reflow.** The grouped grid keeps one object for each heading-line slot and each blank. When the column count changed (Ctrl+wheel, a narrower window), the change it reported to GTK treated any line slot as unchanged, even when its object had moved. GTK printed "Duplicate item detected in list. Picking one randomly." and could draw the wrong slot. This could already happen in Tiles when the window was resized; zooming grouped icons made it easy to hit. Line and blank slots now match only when they are the same group's same one.
+- **Spacing measured against Windows 11.** Reference captures of Windows 11 (1920x1080, 1x, dark, Compact view) were compared with ours by script, and gaps over 1 px fixed:
+
+  | Measure | Windows 11 | Before | After |
+  |---|---|---|---|
+  | Details header dividers to text | 25 | uneven | 25 |
+  | Details icon x / name x | 4 / 25 | 4 / 25 | 4 / 25 |
+  | Compact List row pitch | 21 | 26 | 21 |
+  | Extra large / Large / Medium column pitch | 291 / 109 / 75 | 335 / 186 / 139 | 291 / 109 / 75 |
+  | Extra large / Large / Medium selection width | 267 / 101 / 70 | not measured | 267 / 101 / 70 |
+  | Tiles pitch / box | 254 / 246x52 | not measured | 254 / 246x52 |
+  | Content icon x / name x | 36 / 74 | 18 / 59 | 36 / 74 |
+
+  The icon sizes now keep Windows' distance between columns and leave the spare width at the right instead of spreading the columns. Tiles show folders and zip files by name alone. Content shows nothing under a document's name, the date alone for folders and zip files, and keeps the name level with Date modified. Still open: Small icons rows are 28-29 px in the real app (21 in Windows), and Content's date column sits at the row's right where Windows puts it at 38.6% of the row (one width measured, so the rule is unknown).
 - **User guide.** It said item check boxes are on by default, as in Windows 11. The owner decision (SEL-014) has them off, and with them on a box shows on hover only while Ctrl is held. The guide now says both.
 
 No new dependency. `native/po/*.po` untouched; no new strings, so the `.pot` is unchanged.
@@ -60,6 +73,8 @@ Checks run in this container (tests run as root here; Clippy and rustfmt with th
 
 - VIEW-022 / VIEW-071: "Icons and List keep the grouped order without headings" is gone: every icon size heads its groups, and List stands its groups side by side as columns, as the Windows 11 VM shows.
 - VIEW-008 / VIEW-005: Small icons fill rows left to right and scroll down (VM-checked), replacing the column-first layout of 2026-11-18 (`review4-diffs`).
+
+Round five ran only the touched modules' tests (205 passed, 1 root-only failure that also fails on main) and `cargo +1.92 fmt`.
 
 ## Not tested
 
