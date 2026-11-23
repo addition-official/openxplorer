@@ -1,5 +1,9 @@
-STATUS: RUNNING (merged and pushed; GitHub Actions builds the deb)
+STATUS: DONE (deb ready; built by GitHub Actions)
 HEAD: test-combined-53 8ea787defc7b5b56858badc8d531d3cfeec6a5d2
+DEB: claude/test-combined-53-deb db3017cfc70591d7b77237ecec3691f79133ff3d
+  openxplorer_2.0.23+test53_all.deb (io.winspace.Development)
+SHA256: fb02ef406e912d249fc33616a29605440d5ce48880c639ae50f6a316d2d1f17c
+RUN: https://github.com/addition-official/openxplorer/actions/runs/45112209631
 
 BRANCH: test-combined-53, started from deb 52's test-combined-52 119b7347 (its workflow file included), with only the new tips merged; each tip was still current after merging. claude/windows-mode-switch not merged, as asked.
 
