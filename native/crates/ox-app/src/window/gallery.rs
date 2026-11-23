@@ -110,9 +110,13 @@ impl BrowserWindow {
             plain_action(WindowAction::GalleryManage, BrowserWindow::ask_gallery_locations),
             plain_action(WindowAction::RotateLeft, |window| window.rotate_selection(false)),
             plain_action(WindowAction::RotateRight, |window| window.rotate_selection(true)),
-            // Not done: the app has no way of its own to set the desktop's
-            // background, so the command shows, as in Windows, but grayed.
-            plain_action(WindowAction::SetAsBackground, |_| {}),
+            // Through the desktop's Wallpaper portal, which shows its own
+            // preview and asks before anything changes; grayed where the
+            // desktop has none.
+            plain_action(
+                WindowAction::SetAsBackground,
+                BrowserWindow::set_selection_as_background,
+            ),
         ]);
         self.set_action_enabled(WindowAction::SetAsBackground, false);
     }
@@ -193,10 +197,69 @@ impl BrowserWindow {
         bar.show_collection(collection);
         bar.show_gallery_menus(in_gallery);
         let rotatable = !self.rotatable_selection().is_empty();
-        let photos = in_gallery && self.folder_pane().model().summary().count > 0;
+        // In any folder, selected pictures bring the photo commands, as
+        // Windows 11's command bar adds them for a selected picture.
+        let pictures = self.selected_pictures();
+        let photos = (in_gallery && self.folder_pane().model().summary().count > 0) || !pictures.is_empty();
         bar.show_photo_commands(photos);
         self.set_action_enabled(WindowAction::RotateLeft, rotatable);
         self.set_action_enabled(WindowAction::RotateRight, rotatable);
+        let background = pictures.len() == 1 && self.wallpaper_portal().is_some();
+        self.set_action_enabled(WindowAction::SetAsBackground, background);
+    }
+
+    /// The local paths of the selected pictures; empty unless something is
+    /// selected and every selected item is a picture on this computer.
+    fn selected_pictures(&self) -> Vec<std::path::PathBuf> {
+        let items = self.folder_pane().model().selected_items();
+        let paths: Vec<std::path::PathBuf> = items
+            .iter()
+            .filter(|item| {
+                let entry = item.entry();
+                !entry.is_dir
+                    && entry
+                        .content_type
+                        .as_deref()
+                        .is_some_and(|content_type| content_type.starts_with("image/"))
+            })
+            .filter_map(|item| gio::File::for_uri(&item.entry().uri).path())
+            .collect();
+        if paths.len() == items.len() {
+            paths
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// Set as background: hands the one selected picture to the desktop's
+    /// Wallpaper portal, which shows its preview and asks the user; a
+    /// failure says why.
+    fn set_selection_as_background(&self) {
+        let pictures = self.selected_pictures();
+        let (Some(portal), [path]) = (self.wallpaper_portal(), pictures.as_slice()) else {
+            return;
+        };
+        let path = path.clone();
+        let window = self.downgrade();
+        glib::spawn_future_local(async move {
+            let result = async {
+                let picture = gio::spawn_blocking(move || ox_core::integration::open_picture(&path))
+                    .await
+                    .unwrap_or_else(|_| {
+                        Err(ox_core::integration::WallpaperError::Unreadable(
+                            std::io::ErrorKind::Other.into(),
+                        ))
+                    })?;
+                let connection = gio::bus_get_future(gio::BusType::Session)
+                    .await
+                    .map_err(ox_core::integration::WallpaperError::Unavailable)?;
+                ox_core::integration::set_wallpaper_file(&connection, &portal, &picture).await
+            }
+            .await;
+            if let (Err(error), Some(window)) = (result, window.upgrade()) {
+                window.show_result_dialog(&ox_core::i18n::gettext("Set as background"), &error.to_string());
+            }
+        });
     }
 
     /// Adds the folder at `uri` to Gallery's collection, or removes it,

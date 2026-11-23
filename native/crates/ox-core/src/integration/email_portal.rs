@@ -245,7 +245,7 @@ pub async fn compose_email(
 /// `unique_name`, as the portal documentation lets a caller compute it:
 /// `:1.48` and `openxplorer_email1` give
 /// `/org/freedesktop/portal/desktop/request/1_48/openxplorer_email1`.
-fn request_path(unique_name: &str, token: &str) -> String {
+pub(super) fn request_path(unique_name: &str, token: &str) -> String {
     let sender = unique_name.trim_start_matches(':').replace('.', "_");
     format!("/org/freedesktop/portal/desktop/request/{sender}/{token}")
 }

@@ -1025,9 +1025,6 @@ fn photo_commands() -> Vec<(gtk::Widget, Option<OverflowEntry>)> {
         WindowAction::SetAsBackground,
         "set-background-command",
     );
-    background.set_tooltip_text(Some(&ox_core::i18n::gettext(
-        "Setting the desktop background is not available yet.",
-    )));
     let (rotate_left, rotate_left_entry) = photo_command(
         ox_core::i18n::gettext("Rotate left"),
         Icon::ArrowCounterclockwise,
