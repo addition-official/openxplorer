@@ -234,8 +234,12 @@ fn every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages() {
     );
     let rows = every_row(&settings);
     // "Open Quick access on Home" came later, and so did the rows of the
-    // folder options Windows users look for in settings.
+    // folder options Windows users look for in settings, and icons from
+    // Windows icon files (LOOK-030).
     let added_since = [
+        "Icons from Windows icon files",
+        "Windows icon files",
+        "Windows symbol font",
         "Open Quick access on Home",
         "Show hidden files, folders, and drives",
         "Hide extensions for known file types",
@@ -251,11 +255,19 @@ fn every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages() {
         "Music icon",
         "Code icon",
         "File name endings",
+        // Previous Versions' Restore as Windows', off by default.
+        "Restore over the original (Windows)",
+        // Search words from an extension's start, as Windows', off by default.
+        "Match words at the start of file extensions (like Windows)",
+        // The Details view's sort arrow (VIEW-014).
+        "Column header style",
         // The owner's opt-in for Windows' permanent delete on removable
         // drives (OPS-018).
         "Delete files on removable drives permanently (like Windows)",
-        // The Details view's sort arrow (VIEW-014).
-        "Column header style",
+        // Opening installed apps' launchers (OPEN-029).
+        "Run installed apps' launchers on double-click",
+        // The choice of Windows 11's F6 order (ACC-015).
+        "F6 moves like Windows",
         // One switch for every setting with a Windows value (SET-020).
         "Behave like Windows Explorer",
         // Whether the main keyboard's Ctrl+plus and Ctrl+minus change the
@@ -654,6 +666,8 @@ fn the_search_finds_settings_by_the_words_people_use() {
         (
             "wastebasket",
             &[
+                // It can draw the Recycle Bin with a Windows file's icon.
+                "Icons from Windows icon files",
                 // It brings the Recycle Bin back to the navigation pane.
                 "Show more items in the navigation pane",
                 "When replacing a file, move the old one to the Recycle Bin",

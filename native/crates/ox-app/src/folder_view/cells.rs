@@ -18,6 +18,7 @@ mod heading_span;
 mod item_check;
 mod marks;
 pub(crate) use item_check::own_clicks;
+mod folder_summary;
 mod row_tooltip;
 
 use std::rc::Rc;
@@ -57,8 +58,9 @@ pub(crate) fn row_check_room(after_arrows: bool) -> f64 {
     f64::from(ROW_CHECK_WIDTH + ROW_ICON_GAP + shift)
 }
 
-/// Gap between a tile's icon and its name (`.file-tile{gap:8px}`).
-const TILE_ICON_GAP: i32 = 8;
+/// Gap between a tile's icon and its name: 4 pixels, as Windows 11 sets
+/// the name under the icon (the web app's `.file-tile` had 8).
+const TILE_ICON_GAP: i32 = 4;
 
 /// Gap between a compact item's icon and its name.
 const COMPACT_ICON_GAP: i32 = 6;
@@ -78,8 +80,12 @@ const SMALL_ICONS_NAME_CHARS: i32 = 1;
 /// line height).
 const TILE_NAME_LINES: i32 = 2;
 
-/// Gap between the icon and the text of Tiles and Content (VIEW-071).
+/// Gap between the icon and the text of Tiles (VIEW-071).
 const LINES_ICON_GAP: i32 = 10;
+
+/// Gap between Content's icon and its name: Windows 11 starts the name
+/// 11 pixels right of a folder icon's ink.
+const CONTENT_ICON_GAP: i32 = 7;
 
 /// How wide Content's date modified is, in characters, so its column of
 /// date modified and size starts at the same place on every row, as
@@ -198,6 +204,17 @@ pub(crate) struct ItemLines {
     pub modified: String,
 }
 
+/// Whether Windows 11 shows `item` as a folder in Tiles and Content: a
+/// folder, or a ZIP archive, which it opens as a compressed folder.
+fn opens_as_folder(item: &FileItem) -> bool {
+    let entry = item.entry();
+    (entry.is_dir && !entry.is_shortcut())
+        || entry
+            .content_type
+            .as_deref()
+            .is_some_and(|kind| kind == "application/zip")
+}
+
 impl ItemLines {
     /// The lines for `item`, written as Windows 11's Tiles and Content
     /// write them: the type's name, the size with three significant digits
@@ -266,6 +283,12 @@ mod imp {
         pub(super) is_details_row: Cell<bool>,
         /// The running lookup of the custom icon or preview.
         pub(super) picture_lookup: RefCell<Option<glib::JoinHandle<()>>>,
+        /// Counts the waits for a cached thumbnail, so a wait's end does
+        /// not show the type icon of an item bound since.
+        pub(super) icon_wait: Cell<u32>,
+        /// Counts the items the cell was bound to and unbound from, so a
+        /// preview read for one item is never shown for another.
+        pub(super) binding: Cell<u32>,
         /// Holds the icon, and on a tile spans it, with the check box in
         /// its top left corner.
         pub(super) icon_frame: gtk::Overlay,
@@ -679,14 +702,20 @@ impl FileCell {
         // and Content's date and size line up at its right on every row.
         self.set_hexpand(true);
         self.set_orientation(gtk::Orientation::Horizontal);
-        self.set_spacing(LINES_ICON_GAP);
+        self.set_spacing(if content { CONTENT_ICON_GAP } else { LINES_ICON_GAP });
         self.put_check_before_icon();
         imp.icon_frame.set_valign(gtk::Align::Center);
         // The name moves into the lines beside the icon.
         self.remove(&imp.label);
         let lines = &imp.lines;
         lines.set_orientation(gtk::Orientation::Vertical);
-        lines.set_valign(gtk::Align::Center);
+        // Content keeps the name on the row's first line, level with its
+        // date, whether a line follows it or not, as Windows 11 does.
+        lines.set_valign(if content {
+            gtk::Align::Start
+        } else {
+            gtk::Align::Center
+        });
         lines.set_hexpand(true);
         lines.add_css_class("item-lines");
         let label = &imp.label;
@@ -707,7 +736,7 @@ impl FileCell {
             return;
         }
         let properties = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        properties.set_valign(gtk::Align::Center);
+        properties.set_valign(gtk::Align::Start);
         // Only the name's lines take the room to spare, which keeps the
         // date and size at the row's right.
         properties.set_hexpand(false);
@@ -815,9 +844,19 @@ impl FileCell {
         imp.label.set_text(&item.entry().name);
         if imp.shows_item_lines.get() {
             let mut lines = ItemLines::of(item);
-            if imp.is_content_row.get() && item.entry().is_dir {
-                // Windows 11's Content rows give a folder its name alone.
+            let folder_like = opens_as_folder(item);
+            if imp.is_content_row.get() {
+                // Windows 11's Content rows put nothing under a name that
+                // has no author or tags to show, and give a folder or a
+                // ZIP archive its date alone (measured on its capture).
                 lines.kind.clear();
+                if folder_like {
+                    lines.size.clear();
+                }
+            } else if folder_like {
+                // Its Tiles give a folder or a ZIP archive its name alone.
+                lines.kind.clear();
+                lines.size.clear();
             }
             self.show_item_lines(&lines);
         }
@@ -990,14 +1029,6 @@ impl FileCell {
         self.imp().label.text().to_string()
     }
 
-    /// The icon's frame and the name label, for tests of where a view
-    /// draws them.
-    #[cfg(test)]
-    pub(crate) fn icon_and_name(&self) -> (gtk::Widget, gtk::Widget) {
-        let imp = self.imp();
-        (imp.icon_frame.clone().upcast(), imp.label.clone().upcast())
-    }
-
     /// The art the icon shows, for tests.
     #[cfg(test)]
     pub(crate) fn art(&self) -> Option<Art> {
@@ -1082,7 +1113,13 @@ pub(crate) fn connect_mapped_file_cells(
         }
     });
     factory.connect_unbind(|_, object| {
-        if let Some(cell) = as_list_item(object).child().and_downcast::<FileCell>() {
+        let list_item = as_list_item(object);
+        if crate::thumbnails::trace::enabled() {
+            if let Some(item) = bound_item(list_item) {
+                crate::thumbnails::trace::event("unbind", &item.entry().uri);
+            }
+        }
+        if let Some(cell) = list_item.child().and_downcast::<FileCell>() {
             cell.cancel_picture_lookup();
         }
     });

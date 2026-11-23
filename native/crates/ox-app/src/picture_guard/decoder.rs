@@ -35,7 +35,7 @@ use gtk::gdk_pixbuf::{Colorspace, Pixbuf};
 use gtk::gio;
 use gtk::glib;
 use gtk::prelude::*;
-use rustix::process::{kill_process_group, Pid, Signal};
+use rustix::process::{kill_process_group, waitid, Pid, Signal, WaitId, WaitIdOptions};
 
 use super::{Decoded, Limits, Refusal, READ_CHUNK};
 
@@ -129,6 +129,36 @@ pub(super) fn decode(
                 super::decode_reader_here_to_fit(&mut reader, width, height, limits, cancellable)
             }
         },
+    }
+}
+
+/// The pictures in `pictures`, each decoded to fit `width` × `height`
+/// within `limits` as [`decode`] decodes one, in one batch: by one decoder
+/// process where they run, handing each result to `each` with its index as
+/// it comes. Blocks.
+pub(super) fn decode_batch(
+    pictures: Vec<Vec<u8>>,
+    width: i32,
+    height: i32,
+    limits: Limits,
+    cancellable: Option<&gio::Cancellable>,
+    each: &mut dyn FnMut(usize, Result<Decoded, Refusal>),
+) {
+    crate::thumbnails::trace::event("decode-batch", &pictures.len().to_string());
+    match RUNNER.get_or_init(find_runner) {
+        Runner::Pool(pool) => {
+            pool.decode_batch(&pictures, width, height, limits, cancellable, each);
+            pool.stop_unused_later();
+        }
+        Runner::InProcess => {
+            for (index, picture) in pictures.into_iter().enumerate() {
+                let mut reader = std::io::Cursor::new(picture);
+                each(
+                    index,
+                    super::decode_reader_here_to_fit(&mut reader, width, height, limits, cancellable),
+                );
+            }
+        }
     }
 }
 
@@ -293,7 +323,39 @@ struct Pool {
     stopping_unused: AtomicBool,
 }
 
+/// Starts decoders until `count` wait idle, on a thread of its own, so the
+/// first thumbnails a view reads find their decoders started: one takes
+/// some tens of milliseconds to start in its sandbox.
+pub(super) fn warm_up(count: usize) {
+    let _ = thread::Builder::new()
+        .name("ox-picture-warm-up".to_owned())
+        .spawn(move || {
+            if let Runner::Pool(pool) = RUNNER.get_or_init(find_runner) {
+                pool.warm_up(count.min(POOL_SIZE));
+                // Started for pictures that may never be asked for: they
+                // are stopped as any unused decoder is.
+                pool.stop_unused_later();
+            }
+        });
+}
+
 impl Pool {
+    /// Starts decoders until `count` wait idle.
+    fn warm_up(&self, count: usize) {
+        loop {
+            if self.idle.lock().unwrap_or_else(PoisonError::into_inner).len() >= count {
+                return;
+            }
+            let Ok(decoder) = Decoder::start(&self.words) else {
+                return;
+            };
+            self.idle
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .push(decoder);
+        }
+    }
+
     fn new(words: Vec<OsString>) -> Self {
         Self {
             words,
@@ -354,8 +416,8 @@ impl Pool {
         limits: Limits,
         cancellable: Option<&gio::Cancellable>,
     ) -> Result<Decoded, Refusal> {
-        let idle = self.idle.lock().unwrap_or_else(PoisonError::into_inner).pop();
-        let decoder = match idle {
+        crate::thumbnails::trace::event("decode-request", &format!("{width}x{height}"));
+        let decoder = match self.take_idle() {
             Some(decoder) => decoder,
             None => Decoder::start(&self.words)?,
         };
@@ -367,6 +429,64 @@ impl Pool {
             }
         }
         result
+    }
+
+    /// An idle decoder still running, if one is. One that ended while it
+    /// waited (killed, or out of processor time) is dropped, which reaps
+    /// it ([`stop`]), so it neither lingers as a zombie nor refuses the
+    /// next picture as damaged.
+    fn take_idle(&self) -> Option<Decoder> {
+        let mut idle = self.idle.lock().unwrap_or_else(PoisonError::into_inner);
+        while let Some(decoder) = idle.pop() {
+            if decoder.is_running() {
+                return Some(decoder);
+            }
+        }
+        None
+    }
+}
+
+impl Pool {
+    /// Decodes `pictures` in turn with one decoder, handing each result to
+    /// `each` with its index as it comes: the cached thumbnails of a
+    /// screenful of tiles cost one request and one wait rather than one of
+    /// each a picture. A picture that crashes or hangs its decoder is
+    /// refused alone, and the pictures after it go to another decoder.
+    fn decode_batch(
+        &self,
+        pictures: &[Vec<u8>],
+        width: i32,
+        height: i32,
+        limits: Limits,
+        cancellable: Option<&gio::Cancellable>,
+        each: &mut dyn FnMut(usize, Result<Decoded, Refusal>),
+    ) {
+        let mut start = 0;
+        while start < pictures.len() {
+            if cancellable.is_some_and(CancellableExt::is_cancelled) {
+                (start..pictures.len()).for_each(|index| each(index, Err(Refusal::Cancelled)));
+                return;
+            }
+            let decoder = match self.take_idle().map_or_else(|| Decoder::start(&self.words), Ok) {
+                Ok(decoder) => decoder,
+                Err(refusal) => {
+                    (start..pictures.len()).for_each(|index| each(index, Err(refusal)));
+                    return;
+                }
+            };
+            let rest = pictures.get(start..).unwrap_or_default().to_vec();
+            let (answered, kept) =
+                decoder.decode_many(rest, width, height, limits, cancellable, &mut |index, result| {
+                    each(start + index, result);
+                });
+            start += answered.max(1);
+            if let Some(decoder) = kept {
+                let mut idle = self.idle.lock().unwrap_or_else(PoisonError::into_inner);
+                if idle.len() < POOL_SIZE && decoder.served < PICTURES_PER_DECODER {
+                    idle.push(decoder);
+                }
+            }
+        }
     }
 }
 
@@ -401,8 +521,20 @@ struct Decoder {
 }
 
 impl Decoder {
+    /// Whether the decoder's process has not ended. It is not reaped here:
+    /// until [`stop`] reaps it its number stays its own, so the kill there
+    /// reaches no other process that took the number over.
+    fn is_running(&self) -> bool {
+        let Some(pid) = i32::try_from(self.child.0.id()).ok().and_then(Pid::from_raw) else {
+            return false;
+        };
+        let ended = WaitIdOptions::EXITED | WaitIdOptions::NOHANG | WaitIdOptions::NOWAIT;
+        matches!(waitid(WaitId::Pid(pid), ended), Ok(None))
+    }
+
     /// Starts a decoder with `words`.
     fn start(words: &[OsString]) -> Result<Self, Refusal> {
+        crate::thumbnails::trace::event("decoder-start", "");
         let (program, before) = words.split_first().ok_or(Refusal::Unreadable)?;
         let mut command = Command::new(program);
         command
@@ -422,7 +554,7 @@ impl Decoder {
         } else {
             command.arg(DECODER_FLAG);
         }
-        let mut child = Process(command.spawn().map_err(|_| Refusal::Unreadable)?);
+        let mut child = Process(spawn_lasting(command).map_err(|_| Refusal::Unreadable)?);
         let (Some(stdin), Some(stdout)) = (child.0.stdin.take(), child.0.stdout.take()) else {
             return Err(Refusal::Unreadable);
         };
@@ -467,13 +599,7 @@ impl Decoder {
         // Drop any answer left from an earlier picture: there is none, as
         // each is taken before the decoder is reused.
         while self.answers.try_recv().is_ok() {}
-        let mut request = REQUEST.to_vec();
-        request.extend_from_slice(&width.to_le_bytes());
-        request.extend_from_slice(&height.to_le_bytes());
-        request.extend_from_slice(&limits.max_pixels.to_le_bytes());
-        request.extend_from_slice(&limits.max_jpeg_pixels.to_le_bytes());
-        let milliseconds = u64::try_from(limits.time.as_millis()).unwrap_or(u64::MAX);
-        request.extend_from_slice(&milliseconds.to_le_bytes());
+        let request = request_header(width, height, limits);
         let answered = Arc::new(AtomicBool::new(false));
         let (give_back, returned) = mpsc::channel();
         let stdin = self.stdin;
@@ -538,6 +664,108 @@ impl Decoder {
             });
         (result, kept)
     }
+}
+
+impl Decoder {
+    /// Decodes `pictures` in turn, all of them sent at once by a thread of
+    /// their own and answered in order: how many were answered (the
+    /// picture a decoder crashed, hung or ended on is answered by its
+    /// refusal), and the decoder again when it answered them all and can
+    /// serve more.
+    fn decode_many(
+        self,
+        pictures: Vec<Vec<u8>>,
+        width: i32,
+        height: i32,
+        limits: Limits,
+        cancellable: Option<&gio::Cancellable>,
+        each: &mut dyn FnMut(usize, Result<Decoded, Refusal>),
+    ) -> (usize, Option<Self>) {
+        let count = pictures.len();
+        self.limit
+            .store(answer_limit(width, height, limits), Ordering::Relaxed);
+        while self.answers.try_recv().is_ok() {}
+        let request = request_header(width, height, limits);
+        let (give_back, returned) = mpsc::channel();
+        let mut stdin = self.stdin;
+        let spawned = thread::Builder::new()
+            .name("ox-picture-batch".to_owned())
+            .spawn(move || {
+                let sent = pictures.iter().try_for_each(|picture| {
+                    stdin.write_all(&request)?;
+                    for chunk in picture.chunks(READ_CHUNK) {
+                        stdin.write_all(&u32::try_from(chunk.len()).unwrap_or(0).to_le_bytes())?;
+                        stdin.write_all(chunk)?;
+                    }
+                    stdin.write_all(&0_u32.to_le_bytes())
+                });
+                let sent = sent.and_then(|()| stdin.flush());
+                let _ = give_back.send(sent.ok().map(|()| stdin));
+            });
+        if spawned.is_err() {
+            (0..count).for_each(|index| each(index, Err(Refusal::Unreadable)));
+            return (count, None);
+        }
+        for index in 0..count {
+            let deadline = Instant::now() + limits.time.saturating_add(GRACE);
+            let outcome = loop {
+                match self.answers.recv_timeout(POLL) {
+                    Ok(answer) => break Ok(answer),
+                    Err(mpsc::RecvTimeoutError::Disconnected) => break Err(Refusal::Damaged),
+                    Err(mpsc::RecvTimeoutError::Timeout) => {}
+                }
+                if cancellable.is_some_and(CancellableExt::is_cancelled) {
+                    break Err(Refusal::Cancelled);
+                }
+                if Instant::now() >= deadline {
+                    break Err(Refusal::TimedOut);
+                }
+            };
+            match outcome {
+                Ok(answer) => {
+                    each(index, parse_answer(&answer));
+                    if answer.first() == Some(&ENDING_MARK) {
+                        return (index + 1, None);
+                    }
+                }
+                Err(Refusal::Cancelled) => {
+                    (index..count).for_each(|index| each(index, Err(Refusal::Cancelled)));
+                    return (count, None);
+                }
+                Err(refusal) => {
+                    each(index, Err(refusal));
+                    return (index + 1, None);
+                }
+            }
+        }
+        let kept = returned
+            .recv_timeout(RETURN_WAIT)
+            .ok()
+            .flatten()
+            .map(|stdin| Self {
+                child: self.child,
+                stdin,
+                answers: self.answers,
+                limit: self.limit,
+                served: self
+                    .served
+                    .saturating_add(u32::try_from(count).unwrap_or(u32::MAX)),
+                idle_since: Instant::now(),
+            });
+        (count, kept)
+    }
+}
+
+/// What starts a request for a picture `width` × `height` within `limits`.
+fn request_header(width: i32, height: i32, limits: Limits) -> Vec<u8> {
+    let mut request = REQUEST.to_vec();
+    request.extend_from_slice(&width.to_le_bytes());
+    request.extend_from_slice(&height.to_le_bytes());
+    request.extend_from_slice(&limits.max_pixels.to_le_bytes());
+    request.extend_from_slice(&limits.max_jpeg_pixels.to_le_bytes());
+    let milliseconds = u64::try_from(limits.time.as_millis()).unwrap_or(u64::MAX);
+    request.extend_from_slice(&milliseconds.to_le_bytes());
+    request
 }
 
 /// A decoder's process, stopped with everything it started when dropped.
@@ -679,6 +907,46 @@ fn answer_limit(width: i32, height: i32, limits: Limits) -> u64 {
         .saturating_add(1024 * 1024)
 }
 
+/// A start request for the thread that starts decoders: the command, and
+/// where to send the process it started.
+type SpawnRequest = (Command, mpsc::Sender<std::io::Result<Child>>);
+
+/// Starts `command` on a thread that lasts as long as the app, rather than
+/// on the caller's.
+///
+/// bubblewrap's `--die-with-parent` (`PR_SET_PDEATHSIG`) kills the sandbox
+/// when the thread that started it ends, not when the app does: the
+/// kernel counts that thread as its parent. The pool's decoders are started
+/// from GIO's worker threads, which end once idle for a while, so an idle
+/// decoder died with its thread and lay in the pool unreaped until the next
+/// picture found it dead. Started here, a decoder ends with the app alone.
+fn spawn_lasting(mut command: Command) -> std::io::Result<Child> {
+    static SPAWNER: OnceLock<Option<mpsc::Sender<SpawnRequest>>> = OnceLock::new();
+    let spawner = SPAWNER.get_or_init(|| {
+        let (requests, received) = mpsc::channel::<SpawnRequest>();
+        thread::Builder::new()
+            .name("ox-picture-spawner".to_owned())
+            .spawn(move || {
+                for (mut command, reply) in received {
+                    let _ = reply.send(command.spawn());
+                }
+            })
+            .ok()
+            .map(|_| requests)
+    });
+    let Some(spawner) = spawner else {
+        // No thread could be started: the caller's thread is all there is.
+        return command.spawn();
+    };
+    let (reply, started) = mpsc::channel();
+    if let Err(mpsc::SendError((mut command, _))) = spawner.send((command, reply)) {
+        return command.spawn();
+    }
+    started
+        .recv()
+        .unwrap_or_else(|_| Err(std::io::Error::other("the decoder spawner ended")))
+}
+
 /// Kills the process group `child` leads, and reaps the child.
 fn stop(child: &mut Child) {
     let group = i32::try_from(child.id())
@@ -775,6 +1043,58 @@ fn parse_answer(bytes: &[u8]) -> Result<Decoded, Refusal> {
         width: own_width,
         height: own_height,
     })
+}
+
+/// Reads `bytes` as the decoder's frames and answers, and as the app's
+/// requests, for the fuzz targets: what each side reads from the other.
+#[cfg(feature = "fuzzing")]
+pub(crate) fn fuzz_answer(bytes: &[u8]) {
+    let _ = parse_answer(bytes);
+    let limit = std::sync::atomic::AtomicU64::new(64 * 1024 * 1024);
+    let mut stream = bytes;
+    while let Some(frame) = read_frame(&mut stream, &limit) {
+        let _ = parse_answer(&frame);
+    }
+    let mut stream = bytes;
+    while read_request(&mut stream).is_some() {}
+}
+
+/// Serves one request for the picture `picture`, sent in the pieces
+/// `cuts` gives, as the decoder process does, within `limits`, for the
+/// fuzz targets; then reads the answer as the app does.
+#[cfg(feature = "fuzzing")]
+pub(crate) fn fuzz_serve(picture: &[u8], cuts: &[usize], fit: (i32, i32), limits: Limits) {
+    // A vector picture is drawn under resource limits of its own, which
+    // would apply to the fuzzing process.
+    if super::vector::may_be_vector(picture) {
+        return;
+    }
+    IN_CHILD.store(true, Ordering::Relaxed);
+    let mut request = REQUEST.to_vec();
+    for value in [fit.0, fit.1] {
+        request.extend_from_slice(&value.to_le_bytes());
+    }
+    let millis = u64::try_from(limits.time.as_millis()).unwrap_or(u64::MAX);
+    for value in [limits.max_pixels, limits.max_jpeg_pixels, millis] {
+        request.extend_from_slice(&value.to_le_bytes());
+    }
+    let mut from = 0;
+    for &cut in cuts.iter().chain(std::iter::once(&picture.len())) {
+        let to = cut.clamp(from, picture.len());
+        if to > from {
+            request.extend_from_slice(&u32::try_from(to - from).unwrap_or(u32::MAX).to_le_bytes());
+            request.extend_from_slice(&picture[from..to]);
+        }
+        from = to;
+    }
+    request.extend_from_slice(&0_u32.to_le_bytes());
+    let mut output = Vec::new();
+    let _ = serve(&mut request.as_slice(), &mut output);
+    let limit = std::sync::atomic::AtomicU64::new(u64::MAX);
+    if let Some(answer) = read_frame(&mut output.as_slice(), &limit) {
+        let answer = answer.strip_prefix(&[ENDING_MARK]).unwrap_or(&answer);
+        let _ = parse_answer(answer);
+    }
 }
 
 /// Where `needle` first starts in `haystack`.
@@ -971,6 +1291,19 @@ fn serve(input: &mut impl Read, output: &mut impl Write) -> bool {
         if width == tests::CRASH_WIDTH {
             std::process::abort();
         }
+        #[cfg(test)]
+        let result = {
+            let mut head = Vec::new();
+            let _ = (&mut chunks)
+                .take(tests::CRASH_PICTURE.len() as u64)
+                .read_to_end(&mut head);
+            if head == tests::CRASH_PICTURE {
+                std::process::abort();
+            }
+            let mut reader = std::io::Cursor::new(head).chain(&mut chunks);
+            super::decode_reader_here_to_fit(&mut reader, width, height, limits, None)
+        };
+        #[cfg(not(test))]
         let result = super::decode_reader_here_to_fit(&mut chunks, width, height, limits, None);
         let ending = ENDING.load(Ordering::Relaxed);
         let mut answer = answer(&result);

@@ -557,6 +557,9 @@ fn escape_leaves_the_search_and_shows_every_row_again() {
             "Music icon",
             "Code icon",
             "File name endings",
+            "Icons from Windows icon files",
+            "Windows icon files",
+            "Windows symbol font",
             "Compact view",
             "Column header style",
             "Hide expand arrows in the sidebar",
@@ -565,6 +568,7 @@ fn escape_leaves_the_search_and_shows_every_row_again() {
             "Right-click menu",
             "Buttons in the right-click menu",
             "Shift+F10 opens the classic menu",
+            "F6 moves like Windows",
             "Sidebar and column widths"
         ]
     );
@@ -639,8 +643,11 @@ fn every_setting_of_the_python_page_has_a_row() {
 
 /// Rows that work but disable their button while there is nothing for it
 /// to do, as Restore previous with no handler recorded (INT-030), or the
-/// Super+E switch outside KDE Plasma (INT-033).
-const ROWS_FOLLOWING_THEIR_STATE: [&str; 4] = [
+/// Super+E switch outside KDE Plasma (INT-033), or Clear while no Windows
+/// icon file is chosen (LOOK-030).
+const ROWS_FOLLOWING_THEIR_STATE: [&str; 6] = [
+    "Windows icon files",
+    "Windows symbol font",
     "Restore the previous file handlers",
     "Give ZIP files back to the previous app",
     "Open ZIP files from other apps with OpenXplorer",
@@ -830,6 +837,31 @@ fn the_shift_f10_switch_is_off_and_saves_the_choice() {
     });
 }
 
+/// "F6 moves like Windows" sits with the keyboard's Shift+F10 row, is off
+/// by default, as F6's own cycle (ACC-015) was designed, and saves the
+/// choice, which the open window then takes up.
+///
+/// parity: ACC-015
+#[gtk::test]
+fn the_f6_like_windows_switch_is_off_and_saves_the_choice() {
+    let settings = SettingsTest::open();
+    let row = settings.row("F6 moves like Windows");
+    let switch = switch_of(&row);
+    assert!(!switch.is_active(), "off by default");
+
+    switch.set_active(true);
+    wait_until("the choice to be saved", || {
+        settings.saved_preferences().f6_like_windows
+    });
+    wait_until("the window to follow", || {
+        settings.test.context.settings_data().preferences.f6_like_windows
+    });
+    switch.set_active(false);
+    wait_until("the choice to be saved off", || {
+        !settings.saved_preferences().f6_like_windows
+    });
+}
+
 /// The Compact view switch is off by default and saves the choice
 /// (VIEW-067), which the open window then takes up.
 ///
@@ -895,33 +927,6 @@ fn the_search_filter_bar_switch_is_off_by_default_and_saves_the_choice() {
     });
 }
 
-/// "Delete files on removable drives permanently (like Windows)" is off
-/// by default (the drive's own Recycle Bin, OPS-018) and saved only when
-/// on.
-///
-/// parity: OPS-018
-#[gtk::test]
-fn the_removable_drives_delete_switch_is_off_by_default_and_saved_when_on() {
-    let settings = SettingsTest::open();
-    let switch = switch_of(&settings.row("Delete files on removable drives permanently (like Windows)"));
-    assert!(!switch.is_active(), "off by default");
-
-    switch.set_active(true);
-    wait_until("the choice to be saved", || {
-        settings.saved_preferences().delete_removable_permanently
-    });
-    let stored = std::fs::read_to_string(settings.test.settings_directory().join("settings.json")).unwrap();
-    assert!(
-        stored.contains("deleteRemovablePermanently"),
-        "stored when on: {stored}"
-    );
-
-    switch.set_active(false);
-    wait_until("the choice to be saved", || {
-        !settings.saved_preferences().delete_removable_permanently
-    });
-}
-
 /// "When replacing a file, move the old one to the Recycle Bin" is in
 /// Files & folders, on by default (the owner's choice), and saves only
 /// its turning off, which the window's next Replace follows.
@@ -960,6 +965,65 @@ fn the_replaced_files_switch_is_on_by_default_and_saves_only_its_turning_off() {
         !stored.contains("recycleReplacedFiles"),
         "stored only when off: {stored}"
     );
+}
+
+/// "Restore over the original (Windows)" is in Files & folders, off by
+/// default (the owner's choice), and saves only its turning on, which
+/// Previous Versions' Restore follows.
+///
+/// parity: PROP-025
+#[gtk::test]
+fn the_restore_over_the_original_switch_is_off_by_default_and_saves_only_its_turning_on() {
+    let settings = SettingsTest::open();
+    let switch = switch_of(&settings.row("Restore over the original (Windows)"));
+    assert!(!switch.is_active(), "off by default");
+    assert!(!settings.test.window.restores_over_original());
+
+    switch.set_active(true);
+    wait_until("the choice to be saved", || {
+        settings.saved_preferences().restore_over_original
+    });
+    let stored = std::fs::read_to_string(settings.test.settings_directory().join("settings.json")).unwrap();
+    assert!(stored.contains("restoreOverOriginal"), "stored when on: {stored}");
+    wait_until("the window to follow", || {
+        settings.test.window.restores_over_original()
+    });
+
+    switch.set_active(false);
+    wait_until("the choice to be saved", || {
+        !settings.saved_preferences().restore_over_original
+    });
+    let stored = std::fs::read_to_string(settings.test.settings_directory().join("settings.json")).unwrap();
+    assert!(
+        !stored.contains("restoreOverOriginal"),
+        "stored only when on: {stored}"
+    );
+}
+
+/// Settings > Search > "Match words at the start of file extensions (like
+/// Windows)" is off by default, the owner's rule, and the searches started
+/// after it is turned on match words from an extension's start.
+///
+/// parity: SRCH-004
+#[gtk::test]
+fn the_extension_word_switch_is_off_by_default_and_reaches_the_searches() {
+    let settings = SettingsTest::open();
+    let title = "Match words at the start of file extensions (like Windows)";
+    let switch = switch_of(&settings.row_in(Category::Search, title));
+    assert!(!switch.is_active(), "off by default");
+    let finds_docx = || ox_core::search::NamePattern::new("doc").matches("report.docx");
+    assert!(!finds_docx());
+
+    switch.set_active(true);
+    wait_until("the choice to be saved", || {
+        settings.saved_preferences().extension_word_starts
+    });
+    wait_until("the searches to follow", finds_docx);
+    let stored = std::fs::read_to_string(settings.test.settings_directory().join("settings.json")).unwrap();
+    assert!(stored.contains("extensionWordStarts"), "stored when on: {stored}");
+
+    switch.set_active(false);
+    wait_until("the searches to follow", || !finds_docx());
 }
 
 /// "Show thumbnails in network folders" is off by default, as Windows 11
@@ -1614,4 +1678,122 @@ fn tab_leaves_the_theme_cards_and_the_arrows_still_choose() {
     assert!(light.is_active(), "and chooses it");
     pointer.tap_key(gtk::gdk::Key::Tab);
     wait_until("Tab leaves the theme cards from the new choice", || !in_cards());
+}
+
+/// "Icons from Windows icon files" is off by default with no file chosen;
+/// turned on with chosen files, it saves both, says how many icons the
+/// files gave, and the navigation pane draws them. The files are
+/// synthetic, built in the test; the file dialog itself is GTK's and is
+/// not driven, so the chosen paths are saved as its answer would be.
+///
+/// parity: LOOK-030
+#[gtk::test]
+fn icons_from_windows_icon_files_are_off_until_chosen() {
+    use ox_core::windows_icons::synthetic::SyntheticIconFile;
+    use ox_core::windows_icons::IconRole;
+
+    use crate::icons::{user_icons, Art, ArtImage};
+
+    let settings = SettingsTest::open();
+    let row = settings.row("Icons from Windows icon files");
+    let switch = switch_of(&row);
+    assert!(!switch.is_active(), "off by default");
+    assert_eq!(row.shown_description(), "Off: OpenXplorer's own icons");
+    let files_row = settings.row("Windows icon files");
+    assert_eq!(files_row.shown_description(), "No files chosen");
+    // Both close the File icons group (LOOK-029), one more source of the
+    // same icons.
+    let file_icons = settings
+        .page
+        .category_section(Category::Appearance)
+        .groups()
+        .into_iter()
+        .find(|group| group.heading_text().trim() == "File icons")
+        .expect("Appearance has File icons");
+    let titles: Vec<&str> = file_icons.rows().iter().map(|row| row.text().title).collect();
+    assert_eq!(
+        titles[titles.len() - 3..],
+        [
+            "Icons from Windows icon files",
+            "Windows icon files",
+            "Windows symbol font"
+        ]
+    );
+    let font_row = settings.row("Windows symbol font");
+    assert_eq!(font_row.shown_description(), "No font chosen");
+    let clear = files_row
+        .controls()
+        .into_iter()
+        .filter_map(|control| control.downcast::<gtk::Button>().ok())
+        .find(|button| button.label().as_deref() == Some("Clear"))
+        .expect("a Clear button");
+    assert!(!clear.is_sensitive(), "nothing to clear");
+    assert!(!settings.saved_preferences().use_icon_files);
+
+    let folder = tempfile::tempdir().expect("a temporary folder");
+    let imageres = folder.path().join("imageres.dll.mun");
+    std::fs::write(&imageres, SyntheticIconFile::with_groups(&[3, 32]).build()).expect("written");
+    switch.set_active(true);
+    wait_until("the switch to be saved", || {
+        settings.saved_preferences().use_icon_files
+    });
+    assert_eq!(row.shown_description(), "On, but no file is chosen yet");
+    settings
+        .page
+        .save_preferences(ox_core::settings::PreferencesUpdate {
+            icon_files: Some(vec![imageres.display().to_string()]),
+            ..ox_core::settings::PreferencesUpdate::default()
+        });
+    wait_until("the files to be saved", || {
+        !settings.saved_preferences().icon_files.is_empty()
+    });
+    wait_until("the files to be read", || {
+        user_icons::status() == user_icons::Status::Ready { found: 2 }
+    });
+    wait_until("the row to say so", || {
+        row.shown_description() == format!("2 of {} icons come from the chosen files", IconRole::ALL.len())
+    });
+    assert_eq!(files_row.shown_description(), "imageres.dll.mun");
+    assert!(clear.is_sensitive());
+    let sidebar_drive = descendants::<ArtImage>(&settings.test.window)
+        .into_iter()
+        .find(|image| image.art() == Some(Art::Glyph(crate::icons::Icon::HardDrive)))
+        .expect("the navigation pane shows Local Disk");
+    wait_until("Local Disk to show the file's icon", || {
+        sidebar_drive.shows_user_icon()
+    });
+
+    clear.emit_clicked();
+    wait_until("the files to be forgotten", || {
+        settings.saved_preferences().icon_files.is_empty()
+    });
+    wait_until("the app's own icons to return", || {
+        !sidebar_drive.shows_user_icon()
+    });
+    switch.set_active(false);
+    wait_until("the switch to be saved off", || {
+        !settings.saved_preferences().use_icon_files
+    });
+}
+
+/// "Windows symbol font" names no font by default; a chosen font is
+/// saved by its path alone, the row says how many glyphs it gave while
+/// Windows icon files are on, and Clear forgets it. The font is
+/// synthetic; the file dialog itself is GTK's and is not driven.
+///
+
+/// "Run installed apps' launchers on double-click" is off, as opening never
+/// runs anything by default (OPEN-007), and saves the choice.
+///
+/// parity: OPEN-029
+#[gtk::test]
+fn the_run_installed_launchers_switch_is_off_and_saves_the_choice() {
+    let settings = SettingsTest::open();
+    let switch = switch_of(&settings.row("Run installed apps' launchers on double-click"));
+    assert!(!switch.is_active(), "off by default");
+
+    switch.set_active(true);
+    wait_until("the choice to be saved", || {
+        settings.saved_preferences().run_installed_launchers
+    });
 }

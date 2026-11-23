@@ -89,6 +89,14 @@ const SEARCH_FILTER_BAR: RowText = RowText {
     keywords: "search filter bar strip options scope kind date size cache save search windows layout",
 };
 
+const EXTENSION_WORD_STARTS: RowText = RowText {
+    title: "Match words at the start of file extensions (like Windows)",
+    description: "A word also finds names whose extension starts with it, as in Windows: \
+                  “doc” finds “report.docx”. Off: a word finds an extension only when it is \
+                  the whole extension.",
+    keywords: "search word extension suffix type docx pdf partial match windows file name",
+};
+
 const WATCH_FOLDERS: RowText = RowText {
     title: "Watch folders for changes",
     description: "Watch enabled local folders for changes while OpenXplorer is open.",
@@ -157,6 +165,17 @@ fn search_results_group(page: &SettingsPage) -> SettingsGroup {
         },
     };
     row.add_control(&page.preference_switch(filter_bar), ControlName::RowTitle);
+    group.add_row(&row);
+    // Off by default, the owner's rule; on, words match as Windows'.
+    let row = SettingRow::new(EXTENSION_WORD_STARTS);
+    let extension_starts = PreferenceBinding {
+        read: |preferences| preferences.extension_word_starts,
+        write: |on| PreferencesUpdate {
+            extension_word_starts: Some(on),
+            ..PreferencesUpdate::default()
+        },
+    };
+    row.add_control(&page.preference_switch(extension_starts), ControlName::RowTitle);
     group.add_row(&row);
     group
 }
@@ -545,7 +564,7 @@ impl SettingsPage {
         } else {
             PinIndexing::Off
         };
-        let pins = self.context().settings_data().pins;
+        let pins = ox_core::places::pinned_folders(&self.context().settings_data());
         let cache = self.context().search_cache().clone();
         let page = self.downgrade();
         glib::spawn_future_local(async move {

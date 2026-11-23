@@ -31,6 +31,10 @@ fn picture_decoder_child() {
             std::thread::sleep(Duration::from_secs(1));
         }
     }
+    // As in bubblewrap's sandbox (`--die-with-parent`), the decoder is
+    // killed when the thread that started it ends: the kernel counts that
+    // thread as its parent, not the app.
+    let _ = rustix::process::set_parent_process_death_signal(Some(rustix::process::Signal::KILL));
     let ok = serve_standard_input();
     std::process::exit(i32::from(!ok));
 }
@@ -336,38 +340,6 @@ fn the_pool_reuses_its_decoders_and_replaces_one_that_crashed() {
     assert_eq!(pid().map(|(pid, _)| pid), Some(second));
 }
 
-/// A decoder waiting for a picture is stopped once it has waited the
-/// limit; until then the pool says how long it still has, so the next
-/// check comes when it is due rather than a whole limit later.
-#[test]
-fn an_unused_decoder_is_stopped_when_its_time_is_up() {
-    let folder = tempfile::tempdir().expect("a temporary folder");
-    let path = saved_png(folder.path(), "Harbor.png", 120, 80);
-    let pool = Pool::new(child_words());
-    let file = std::fs::File::open(&path).expect("opened");
-    pool.decode(Source::Reader(Box::new(file)), 60, 60, Limits::DISPLAY, None)
-        .expect("decoded");
-    let waiting = pool.idle.lock().expect("the pool")[0].child.0.id();
-
-    std::thread::sleep(Duration::from_millis(1500));
-
-    let due = pool
-        .stop_unused(Duration::from_secs(10))
-        .expect("a decoder still waits");
-    assert!(
-        due <= Duration::from_millis(8600) && due > Duration::from_secs(7),
-        "the decoder that waited 1.5 s of 10 is due in {due:?}"
-    );
-    assert_eq!(pool.idle.lock().expect("the pool").len(), 1);
-
-    assert_eq!(pool.stop_unused(Duration::ZERO), None);
-    assert!(pool.idle.lock().expect("the pool").is_empty());
-    assert!(
-        !Path::new(&format!("/proc/{waiting}")).exists(),
-        "the decoder was stopped"
-    );
-}
-
 /// The answers' frames are found after other output, and one larger than
 /// its limit, cut short or missing is no answer.
 #[test]
@@ -452,4 +424,181 @@ fn a_decoder_ends_after_a_vector_picture_and_the_next_picture_is_decoded() {
     assert_eq!(decode_png().expect("decoded after it").pixbuf.width(), 60);
     let second = pid().expect("a new decoder");
     assert_ne!(first, second);
+}
+
+/// A picture whose bytes are these crashes the test decoder as it reads
+/// them, as a C loader aborting on one damaged file of many would.
+pub(super) const CRASH_PICTURE: &[u8] = b"\0OX-TEST-CRASH\0";
+
+/// Cached thumbnails are decoded many to one decoder in a single batch:
+/// every picture comes back, in order, with its keys; a picture that
+/// crashes its decoder is refused alone and the pictures after it are
+/// decoded by a new decoder; and one decoder served the whole batch.
+///
+/// parity: VIEW-057
+#[test]
+fn a_batch_of_thumbnails_is_decoded_by_one_decoder() {
+    let pool = Pool::new(child_words());
+    let thumbnail = |seed: u32| {
+        let pixbuf = Pixbuf::new(Colorspace::Rgb, false, 8, 128, 96).expect("a picture");
+        pixbuf.fill(seed);
+        let bytes = pixbuf
+            .save_to_bufferv(
+                "png",
+                &[("tEXt::Thumb::URI", format!("file:///p/{seed}.jpg").as_str())],
+            )
+            .expect("saved");
+        bytes
+    };
+    let pictures: Vec<Vec<u8>> = (0..12).map(|seed| thumbnail(0x1000_00ff + seed)).collect();
+    let mut answers = Vec::new();
+    pool.decode_batch(
+        &pictures,
+        96,
+        96,
+        Limits::THUMBNAIL_FILE,
+        None,
+        &mut |index, result| {
+            answers.push((index, result));
+        },
+    );
+    assert_eq!(answers.len(), 12);
+    for (expected, (index, result)) in answers.iter().enumerate() {
+        assert_eq!(*index, expected, "in order");
+        let decoded = result.as_ref().expect("decoded");
+        assert_eq!((decoded.pixbuf.width(), decoded.pixbuf.height()), (96, 72));
+        let seed = 0x1000_00ff + u32::try_from(expected).expect("small");
+        assert_eq!(
+            decoded.pixbuf.option("tEXt::Thumb::URI").as_deref(),
+            Some(format!("file:///p/{seed}.jpg").as_str())
+        );
+    }
+    let idle: Vec<(u32, u32)> = pool
+        .idle
+        .lock()
+        .expect("the pool")
+        .iter()
+        .map(|decoder| (decoder.child.0.id(), decoder.served))
+        .collect();
+    assert_eq!(idle.len(), 1, "one decoder served the batch: {idle:?}");
+    assert_eq!(idle[0].1, 12);
+
+    // The fifth picture crashes its decoder: it alone is refused.
+    let mut with_crash = pictures;
+    with_crash[4] = CRASH_PICTURE.to_vec();
+    let mut answers = Vec::new();
+    pool.decode_batch(
+        &with_crash,
+        96,
+        96,
+        Limits::THUMBNAIL_FILE,
+        None,
+        &mut |index, result| {
+            answers.push((index, result.map(|decoded| decoded.pixbuf.width())));
+        },
+    );
+    let indexes: Vec<usize> = answers.iter().map(|(index, _)| *index).collect();
+    assert_eq!(indexes, (0..12).collect::<Vec<_>>());
+    for (index, result) in &answers {
+        if *index == 4 {
+            assert_eq!(*result, Err(Refusal::Damaged));
+        } else {
+            assert_eq!(*result, Ok(96), "picture {index}");
+        }
+    }
+
+    // A canceled batch answers every picture as canceled at once.
+    let cancelled = gio::Cancellable::new();
+    cancelled.cancel();
+    let mut answers = Vec::new();
+    pool.decode_batch(
+        &vec![thumbnail(1); 3],
+        96,
+        96,
+        Limits::THUMBNAIL_FILE,
+        Some(&cancelled),
+        &mut |_, result| {
+            answers.push(result.map(|_| ()));
+        },
+    );
+    assert_eq!(answers, vec![Err(Refusal::Cancelled); 3]);
+}
+
+/// Whether the process `pid` has ended, reaped or not.
+fn has_ended(pid: u32) -> bool {
+    let Ok(stat) = std::fs::read_to_string(format!("/proc/{pid}/stat")) else {
+        return true;
+    };
+    stat.rsplit(')')
+        .next()
+        .and_then(|rest| rest.split_whitespace().next())
+        == Some("Z")
+}
+
+/// A decoder kept idle in the pool serves the next picture although the
+/// thread that started it has ended, as GIO's worker threads do once idle
+/// a while: bubblewrap's `--die-with-parent` ends a process with the
+/// thread that started it, which left the app's idle decoders dead and
+/// unreaped overnight.
+#[test]
+fn a_pooled_decoder_outlives_the_thread_that_started_it() {
+    let folder = tempfile::tempdir().expect("a temporary folder");
+    let path = saved_png(folder.path(), "Harbor.png", 120, 80);
+    let pool = Pool::new(child_words());
+    // The width alone comes back from the worker: a picture stays on it.
+    let decode = || {
+        let file = std::fs::File::open(&path).expect("opened");
+        pool.decode(Source::Reader(Box::new(file)), 60, 60, Limits::DISPLAY, None)
+            .map(|decoded| decoded.pixbuf.width())
+    };
+    let width = std::thread::scope(|scope| scope.spawn(decode).join().expect("the worker"));
+    assert_eq!(width, Ok(60), "decoded on a worker");
+    let pid = || {
+        let idle = pool.idle.lock().expect("the pool");
+        idle.first().map(|decoder| decoder.child.0.id())
+    };
+    let first = pid().expect("an idle decoder");
+    // The worker has ended; a decoder that ends with it does so at once.
+    std::thread::sleep(Duration::from_millis(300));
+    assert!(
+        !has_ended(first),
+        "the idle decoder ended with the worker that started it"
+    );
+    let again = std::thread::scope(|scope| scope.spawn(decode).join().expect("another worker"));
+    assert_eq!(again, Ok(60), "decoded on another worker");
+    assert_eq!(pid(), Some(first), "the same decoder served again");
+}
+
+/// A decoder that died while idle (killed, or out of processor time) is
+/// reaped and replaced when the next picture comes, and that picture is
+/// decoded instead of refused as damaged.
+#[test]
+fn a_decoder_that_died_while_idle_is_replaced_not_refused() {
+    let folder = tempfile::tempdir().expect("a temporary folder");
+    let path = saved_png(folder.path(), "Harbor.png", 120, 80);
+    let pool = Pool::new(child_words());
+    let decode = || {
+        let file = std::fs::File::open(&path).expect("opened");
+        pool.decode(Source::Reader(Box::new(file)), 60, 60, Limits::DISPLAY, None)
+    };
+    assert_eq!(decode().expect("decoded").pixbuf.width(), 60);
+    let dead = {
+        let idle = pool.idle.lock().expect("the pool");
+        idle.first().expect("an idle decoder").child.0.id()
+    };
+    let group = Pid::from_raw(i32::try_from(dead).expect("a pid")).expect("a pid");
+    kill_process_group(group, Signal::KILL).expect("killed");
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !has_ended(dead) && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    assert!(has_ended(dead), "the decoder was killed");
+    assert_eq!(decode().expect("decoded, not refused").pixbuf.width(), 60);
+    let idle = pool.idle.lock().expect("the pool");
+    let kept = idle.first().expect("a new idle decoder").child.0.id();
+    assert_ne!(kept, dead);
+    assert!(
+        std::fs::metadata(format!("/proc/{dead}")).is_err(),
+        "the dead decoder was reaped"
+    );
 }

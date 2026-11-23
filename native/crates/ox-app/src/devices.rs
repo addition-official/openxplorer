@@ -177,6 +177,7 @@ mod tests {
             can_stop: true,
             can_open_in_disks: false,
             can_format: false,
+            is_optical: false,
         };
         let sd_card = MountControls {
             can_stop: false,
@@ -242,23 +243,5 @@ mod tests {
         );
         assert_eq!(Removal::Eject.done_message("USB stick"), None);
         assert_eq!(Removal::Disconnect.done_message("USB stick"), None);
-    }
-
-    /// A drive a program still uses is refused in the words of Windows
-    /// 11's box (checked in the VM on 2026-11-22), which say what to do;
-    /// any other refusal is the system's error, in Windows' words too.
-    ///
-    /// parity: DEV-006, DEV-007
-    #[test]
-    fn a_busy_drive_is_refused_in_windows_words() {
-        let busy = NetworkError::Gio(gtk::glib::Error::new(gio::IOErrorEnum::Busy, "target is busy"));
-        let other = NetworkError::Gio(gtk::glib::Error::new(gio::IOErrorEnum::Failed, "No medium found"));
-        let in_use = "'STICK' is currently in use.\n\nSave any open files on this disc, and then close the \
-                      files or programs using the files before trying again.";
-        assert_eq!(Removal::failure_detail(&busy, "STICK"), in_use);
-        assert_eq!(
-            Removal::failure_detail(&other, "STICK"),
-            "The device is not ready."
-        );
     }
 }

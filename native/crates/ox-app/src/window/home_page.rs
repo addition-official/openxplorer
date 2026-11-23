@@ -437,7 +437,10 @@ fn folder_tile(place: &Place, locations: &LocationContext, compact: bool) -> Ite
             TILE_ICON,
         )
     } else {
-        ArtImage::new(Art::Folder, TILE_ICON)
+        // A standard folder is its own tile when Windows icon files draw
+        // it (LOOK-030); its glyph then steps aside.
+        let art = place.known_folder.map_or(Art::Folder, Art::StandardFolder);
+        ArtImage::new(art, TILE_ICON)
     };
     let icon = gtk::Overlay::builder()
         .child(&art)
@@ -449,6 +452,11 @@ fn folder_tile(place: &Place, locations: &LocationContext, compact: bool) -> Ite
         emblem.set_valign(gtk::Align::End);
         emblem.set_margin_bottom(6);
         emblem.add_css_class("home-emblem");
+        art.connect_drawn(glib::clone!(
+            #[weak]
+            emblem,
+            move |art| emblem.set_visible(!art.shows_user_icon())
+        ));
         icon.add_overlay(&emblem);
     }
     let lines = gtk::Box::new(gtk::Orientation::Vertical, 1);
@@ -612,6 +620,9 @@ const COMPACT_ROW_PITCH: i32 = 26;
 /// name: Windows puts names about 90 pixels in from the pane's edge.
 const ROW_INDENT: i32 = 34;
 const ICON_GAP: i32 = 14;
+/// Pixels between the end of a cut text and the next column, as Windows
+/// 11 leaves them.
+const COLUMN_GAP: i32 = 12;
 
 /// The columns of the Recent and Favorites list: every row's cells and
 /// the header's share their widths, which the header sets.
@@ -740,6 +751,19 @@ fn file_row(
     for cell in [&date, &location] {
         cell.set_valign(gtk::Align::Center);
     }
+    // Each text is cut with "..." at its column's edge, a gap before the
+    // next column, as Windows 11 cuts them. The columns share their widths
+    // through size groups, which give every cell the widest natural width
+    // among them, so a long name's full width would widen its column past
+    // the header's and run up to the next.
+    for text in [&name_text, &date, &location] {
+        text.set_max_width_chars(1);
+        text.set_margin_end(COLUMN_GAP);
+    }
+    // The name fills the Name column, whose width the header sets.
+    name_text.set_hexpand(true);
+    // The whole name on hover, as Windows shows it.
+    name_text.set_tooltip_text(Some(shown));
     let spacer = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     spacer.set_size_request(ROW_INDENT, -1);
     row.append(&spacer);

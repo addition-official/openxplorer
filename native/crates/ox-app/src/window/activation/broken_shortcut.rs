@@ -85,14 +85,15 @@ pub(super) fn broken(entry: &Entry, destination: ShortcutDestination) -> BrokenS
 }
 
 impl BrowserWindow {
-    /// Asks "Problem with Shortcut" about `broken`: whether to delete a
+    /// Asks "Problem with Shortcut", a message box with the warning icon as
+    /// Windows shows it, about `broken`: whether to delete a
     /// shortcut whose item is gone, or, for one onto a drive that is not
     /// connected, says so.
     pub(in crate::window) async fn report_broken_shortcut(&self, broken: BrokenShortcut) {
         let title = ox_core::i18n::gettext_static(PROBLEM_WITH_SHORTCUT);
         if matches!(broken.destination, ShortcutDestination::Unavailable { .. }) {
             let message = ox_core::i18n::format_message(UNAVAILABLE, &[("name", &broken.name)]);
-            let dialog = Dialog::new(self, title, &message);
+            let dialog = Dialog::message_box(self, title, &message);
             dialog.add_button(&ox_core::i18n::gettext("OK"), ButtonStyle::Accent);
             dialog.open();
             dialog.next_response().await;
@@ -101,7 +102,7 @@ impl BrowserWindow {
         }
         let message =
             ox_core::i18n::format_message(CHANGED_OR_MOVED, &[("name", &broken.destination.item_name())]);
-        let dialog = Dialog::new(self, title, &message);
+        let dialog = Dialog::message_box(self, title, &message);
         let yes = dialog.add_button(ox_core::i18n::gettext_static("Yes"), ButtonStyle::Accent);
         let no = dialog.add_button(ox_core::i18n::gettext_static("No"), ButtonStyle::Bordered);
         // Alt+Y and Alt+N in every language, and Y and N alone, as Windows'

@@ -83,22 +83,27 @@ columnview.files > header > button.custom-sort {
 }
 /* Settings > Appearance > "Column header style" set to Windows puts this
    class on the window (src/window/column_header_style.rs), and the sorted
-   title is drawn as in Windows 11 File Explorer instead: only a small gray
-   chevron, 7 by 4 pixels at 100% scale (11px of the 16px glyph), centered
-   over the column on the title's top edge, up while ascending and down
-   while descending. The title keeps the others' color and weight, with no
-   accent and no line, GTK's indicator stays hidden, and hover and press
-   are Windows' subtle grays. The chevron is the title's background,
-   centered on the content box, whose padding is even once the 14px ends
-   are left out, so it stands over the column's middle. */
+   title is drawn as in Windows 11 File Explorer instead: only a thin gray
+   chevron, 8 by 5 pixels at 100% scale (13px of the 16px glyph), on the
+   title's first row and centered over the column, up while ascending and
+   down while descending; every title's text sits 2px higher than in the
+   app's own style, its caps 8 pixels down, the title keeping its height,
+   so 3 pixels stay clear between them, as measured on Windows 11's
+   Details header (reference ref-01 on the status branch). The title
+   keeps the others' color and weight, with no accent and no line, GTK's
+   indicator stays hidden, and hover and press are Windows' subtle grays.
+   The chevron is the title's background, centered on the content box,
+   whose padding is even once the 14px ends are left out, so it stands
+   over the column's middle. */
+.windows-column-headers columnview.files > header > button > box { margin-bottom: 4px; }
 .windows-column-headers columnview.files > header > button.sort-ascending,
 .windows-column-headers columnview.files > header > button.sort-descending {
   color: @ox_muted;
   box-shadow: none;
   background-repeat: no-repeat;
   background-origin: content-box;
-  background-position: center -2px;
-  background-size: 11px 11px;
+  background-position: center -4px;
+  background-size: 13px 13px;
 }
 .windows-column-headers columnview.files > header > button.sort-ascending { background-image: -gtk-icontheme("ox-chevron-up-16-symbolic"); }
 .windows-column-headers columnview.files > header > button.sort-descending { background-image: -gtk-icontheme("ox-chevron-down-16-symbolic"); }
@@ -117,8 +122,8 @@ columnview.files > header > button.custom-sort {
 .windows-column-headers columnview.files > header:hover > button:last-child.sort-descending {
   background-repeat: no-repeat, no-repeat;
   background-origin: content-box, padding-box;
-  background-position: center -2px, left top;
-  background-size: 11px 11px, auto;
+  background-position: center -4px, left top;
+  background-size: 13px 13px, auto;
 }
 .windows-column-headers columnview.files > header:hover > button:last-child.sort-ascending {
   background-image: -gtk-icontheme("ox-chevron-up-16-symbolic"),
@@ -425,7 +430,7 @@ gridview.files.icons-small.icon-groups > child > .item-cell.group-slot.heading-r
    of the grid too, and show none (src/folder_view/grid/grouped.rs).
    Tiles: the icon left of its name, type and size, 8px apart across and
    6px down, as Windows 11 spaces them. Content: one row per item across
-   the width, 16px in from each side, with a thin line under each. Their
+   the width, 34px in at the left and 16px at the right, with a thin line under each. Their
    heights follow the text size (src/theme/fonts.rs). */
 gridview.files.tiles > child, gridview.files.content > child {
   padding: 0;
@@ -449,7 +454,8 @@ gridview.files.tiles > child > .item-cell:not(.group-slot) {
   transition: background-color 83ms linear;
 }
 gridview.files.content > child > .item-cell:not(.group-slot) {
-  padding: 6px 16px;
+  /* Windows 11 sets the icon's ink 36px in from the row's edge. */
+  padding: 6px 16px 6px 34px;
   border-bottom: 1px solid @ox_border;
   transition: background-color 83ms linear;
 }
@@ -486,6 +492,10 @@ gridview.files.content.keyboard-in > child:focus:not(:focus-visible):not(.file-d
 gridview.files.tiles > child box, gridview.files.content > child box { margin: 0; }
 gridview.files > child .item-lines { border-spacing: 1px; }
 gridview.files > child .item-properties { border-spacing: 1px; margin: 0 8px 0 24px; }
+/* Content's name and date stand on the row's first line, 2 pixels lower
+   than the top in the usual view, where two lines used to center them. */
+window:not(.compact-density) gridview.files.content > child .item-lines,
+window:not(.compact-density) gridview.files.content > child .item-properties { margin-top: 2px; margin-bottom: -2px; }
 gridview.files > child .item-properties > box { border-spacing: 4px; }
 /* A group's heading, as the details view draws it (VIEW-022): the
    title over the items' left edge, with no line after it; the heading

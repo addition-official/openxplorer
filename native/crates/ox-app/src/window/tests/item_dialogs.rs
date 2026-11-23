@@ -9,6 +9,7 @@
 
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
+use std::path::Path;
 
 use gtk::glib;
 use gtk::prelude::*;
@@ -117,6 +118,28 @@ pub(super) fn check(widget: &impl IsA<gtk::Widget>, label: &str) -> gtk::CheckBu
                 .is_some_and(|text| crate::test_support::harness::without_mnemonic(&text) == label)
         })
         .unwrap_or_else(|| panic!("a {label} check box"))
+}
+
+/// Waits for Confirm Attribute Changes over `window`, chooses `answer`
+/// unless it is empty and presses `button`; returns the dialog's texts.
+pub(super) fn answer_attribute_changes(window: &PropertiesWindow, answer: &str, button: &str) -> Vec<String> {
+    let over_window = || {
+        gtk::Window::list_toplevels()
+            .into_iter()
+            .filter_map(|shown| shown.downcast::<Dialog>().ok())
+            .find(|dialog| {
+                dialog.is_visible() && dialog.transient_for().as_ref() == Some(window.upcast_ref())
+            })
+    };
+    wait_until("Confirm Attribute Changes", || over_window().is_some());
+    let dialog = over_window().expect("wait_until returned once the dialog showed");
+    assert_eq!(dialog.title(), Some("Confirm Attribute Changes".into()));
+    let texts = dialog.texts();
+    if !answer.is_empty() {
+        check(&dialog, answer).set_active(true);
+    }
+    dialog.press(button);
+    texts
 }
 
 /// A button's text: its label, or the label inside it.
@@ -448,9 +471,15 @@ fn a_partial_or_failed_folder_count_is_never_shown_as_exact() {
     );
 }
 
+/// Whether the `.hidden` list of the folder at `folder` names `name`.
+fn hidden_list_names(folder: &Path, name: &str) -> bool {
+    fs::read_to_string(folder.join(".hidden")).is_ok_and(|list| list.lines().any(|line| line == name))
+}
+
 /// Edit... after Apply on General changes the item as it is now: Read-only
-/// stays, and after Hidden renamed the file Edit changes the file under its
-/// new name, never an unrelated file that took the old one.
+/// stays, and Hidden, which lists the name in the folder's `.hidden` list
+/// as Windows sets the attribute, leaves the name, so Edit changes the
+/// same file.
 ///
 /// parity: PROP-007
 #[gtk::test]
@@ -467,20 +496,19 @@ fn edit_after_general_changes_the_item_as_it_is_now() {
     check(&general_page, "Read-only").set_active(true);
     check(&general_page, "Hidden").set_active(true);
     press(&window, "Apply");
-    let hidden = fixture.path(".Notes 2.txt");
-    wait_until("the hidden name", || hidden.exists());
+    let hidden = path.clone();
+    wait_until("the hidden name", || {
+        hidden_list_names(fixture.root(), "Notes 2.txt")
+    });
     wait_until("Read-only", || mode_of(&hidden) == 0o444);
-    // Another file takes the old name.
-    fs::write(&path, b"unrelated").expect("a file");
-    fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).expect("a known mode");
     window.select_tab("security");
     let security = tab(&window, "security");
     wait_until("the Security tab read again", || {
-        texts(&security).iter().any(|text| text.ends_with(".Notes 2.txt"))
+        texts(&security).iter().any(|text| text.ends_with("Notes 2.txt"))
     });
 
     press(&security, "Edit...");
-    let edit = sub_dialog(&window, "Permissions for .Notes 2.txt");
+    let edit = sub_dialog(&window, "Permissions for Notes 2.txt");
     let names = descendants::<gtk::ListBox>(&edit).remove(0);
     names.select_row(names.row_at_index(2).as_ref());
     let read = descendants::<gtk::CheckButton>(&edit)
@@ -493,7 +521,6 @@ fn edit_after_general_changes_the_item_as_it_is_now() {
     edit.ok_button().emit_clicked();
 
     wait_until("the change", || mode_of(&hidden) == 0o440);
-    assert_eq!(mode_of(&path), 0o600, "the unrelated file is untouched");
 }
 
 /// Tabs taller than the screen, as at a large text size, scroll inside
@@ -871,6 +898,12 @@ fn a_folders_read_only_reaches_the_files_inside_only() {
     assert!(!read_only.is_inconsistent() && read_only.is_active(), "ticked");
     assert!(window.apply_button().is_sensitive());
     press(&window, "Apply");
+    let texts = answer_attribute_changes(
+        &window,
+        "Apply changes to this folder, subfolders and files",
+        "OK",
+    );
+    assert!(texts.iter().any(|text| text == "set read-only"), "{texts:?}");
 
     wait_until("the files inside", || {
         mode_of(&fixture.path("Album/photo.png")) == 0o444
@@ -882,6 +915,106 @@ fn a_folders_read_only_reaches_the_files_inside_only() {
     );
     wait_until("Apply to grey", || !window.apply_button().is_sensitive());
     assert!(!window.is_closed(), "Apply keeps the window open");
+}
+
+/// A folder's Read-only asks first, as Windows does: "this folder only"
+/// leaves every file and subfolder inside as it was, and Cancel changes
+/// nothing and keeps the change to apply.
+///
+/// parity: PROP-003
+#[gtk::test]
+fn a_folders_read_only_asks_before_it_reaches_inside() {
+    let fixture = Fixture::standard();
+    fs::create_dir_all(fixture.path("Album/2026")).expect("folders");
+    for name in ["Album/photo.png", "Album/2026/beach.png"] {
+        fs::write(fixture.path(name), b"p").expect("a file");
+        fs::set_permissions(fixture.path(name), fs::Permissions::from_mode(0o644)).expect("mode");
+    }
+    let test = TestWindow::open(&fixture.uri());
+    test.select_named("Album");
+    test.activate("properties", None);
+    let window = test.wait_for_properties("Album Properties");
+    let read_only = check(&general(&window), "Read-only (Only applies to files in folder)");
+    let folder_mode = mode_of(&fixture.path("Album"));
+
+    read_only.set_active(true);
+    press(&window, "Apply");
+    let texts = answer_attribute_changes(&window, "", "Cancel");
+    assert!(
+        texts
+            .iter()
+            .any(|text| text == "Apply changes to this folder only"),
+        "{texts:?}"
+    );
+    wait_until("the buttons back", || window.ok_button().is_sensitive());
+    assert!(window.apply_button().is_sensitive(), "the change stays to apply");
+    assert!(!window.is_closed());
+    assert_eq!(
+        mode_of(&fixture.path("Album/photo.png")),
+        0o644,
+        "Cancel changes nothing"
+    );
+
+    press(&window, "Apply");
+    answer_attribute_changes(&window, "Apply changes to this folder only", "OK");
+    wait_until("Apply to grey", || !window.apply_button().is_sensitive());
+    assert_eq!(
+        mode_of(&fixture.path("Album/photo.png")),
+        0o644,
+        "its files stay writable"
+    );
+    assert_eq!(
+        mode_of(&fixture.path("Album/2026/beach.png")),
+        0o644,
+        "so do its subfolders' files"
+    );
+    assert_eq!(mode_of(&fixture.path("Album/2026")) & 0o200, 0o200);
+    assert_eq!(
+        mode_of(&fixture.path("Album")),
+        folder_mode,
+        "the folder keeps its bits"
+    );
+}
+
+/// With a folder among several items, Read-only asks in the selection's
+/// words; "the selected items only" changes the selected files and
+/// nothing inside the folder.
+///
+/// parity: PROP-002, PROP-003
+#[gtk::test]
+fn several_items_read_only_asks_and_can_stop_at_the_selection() {
+    let fixture = Fixture::standard();
+    fixture.write("Documents/inside.txt");
+    for name in ["Documents/inside.txt", "Notes 2.txt"] {
+        fs::set_permissions(fixture.path(name), fs::Permissions::from_mode(0o644)).expect("mode");
+    }
+    let test = TestWindow::open(&fixture.uri());
+    super::file_ops_support::select_names(&test, &["Documents", "Notes 2.txt"]);
+    test.activate("properties", None);
+    let window = test.wait_for_properties("Documents, Notes 2.txt Properties");
+    let read_only = check(&window, "Read-only (Only applies to files in folder)");
+    wait_until("the items read", || read_only.is_sensitive());
+
+    while !read_only.is_active() || read_only.is_inconsistent() {
+        read_only.set_active(!read_only.is_active());
+    }
+    press(&window, "Apply");
+    let texts = answer_attribute_changes(&window, "Apply changes to the selected items only", "OK");
+    assert!(
+        texts
+            .iter()
+            .any(|text| text == "Apply changes to the selected items, subfolders and files"),
+        "{texts:?}"
+    );
+    wait_until("the selected file", || {
+        mode_of(&fixture.path("Notes 2.txt")) == 0o444
+    });
+    wait_until("Apply to grey", || !window.apply_button().is_sensitive());
+    assert_eq!(
+        mode_of(&fixture.path("Documents/inside.txt")),
+        0o644,
+        "the folder's file is left alone"
+    );
 }
 
 /// A folder's Read-only changed while Apply makes the change before it
@@ -902,6 +1035,7 @@ fn a_folders_read_only_changed_during_apply_stays_to_apply() {
 
     read_only.set_active(true);
     press(&window, "Apply");
+    answer_attribute_changes(&window, "", "OK");
     // Apply greys the buttons as it starts the change, which then runs off
     // the main thread until the main loop takes its result.
     while window.ok_button().is_sensitive() {
@@ -1021,8 +1155,10 @@ fn alt_and_an_underlined_letter_press_the_properties_controls() {
     press_alt(&mut pointer, gtk::gdk::Key::h);
     wait_until("Alt+H ticks Hidden", || hidden.is_active());
     press_alt(&mut pointer, gtk::gdk::Key::a);
-    let hidden_path = fixture.path(".Notes 2.txt");
-    wait_until("Alt+A applies", || hidden_path.exists());
+    let hidden_path = fixture.path("Notes 2.txt");
+    wait_until("Alt+A applies", || {
+        hidden_list_names(fixture.root(), "Notes 2.txt")
+    });
     wait_until("Read-only applied", || mode_of(&hidden_path) & 0o222 == 0);
 
     window.select_tab("security");
@@ -1077,15 +1213,16 @@ fn an_item_that_cannot_be_renamed_greys_its_name_and_hidden() {
     );
 }
 
-/// Hidden adds a leading dot to the name on Apply, and a taken name is
-/// refused with the normal message.
+/// Hidden lists the name in the folder's `.hidden` list on Apply, as
+/// Windows sets the Hidden attribute, and never renames the item, so
+/// links and other apps' lists still find it; clearing it takes the name
+/// off the list.
 ///
 /// parity: PROP-005
 #[gtk::test]
-fn hidden_renames_with_a_leading_dot() {
+fn hidden_lists_the_name_without_renaming() {
     let fixture = Fixture::standard();
-    fs::write(fixture.path("Taken.txt"), b"keep").expect("a file");
-    fs::write(fixture.path(".Taken.txt"), b"hidden").expect("a file");
+    fs::write(fixture.path(".hidden"), "Other.txt\n").expect("a list");
     let test = TestWindow::open(&fixture.uri());
     test.select_named("Notes 2.txt");
     test.activate("properties", None);
@@ -1094,22 +1231,27 @@ fn hidden_renames_with_a_leading_dot() {
     check(&general(&window), "Hidden").set_active(true);
     press(&window, "Apply");
 
-    wait_until("the hidden name", || fixture.path(".Notes 2.txt").exists());
-    assert!(!fixture.path("Notes 2.txt").exists());
-    wait_until("the new title", || window.title_text() == ".Notes 2 Properties");
-    assert_eq!(name_field(&window).text(), ".Notes 2");
+    wait_until("the name listed", || {
+        hidden_list_names(fixture.root(), "Notes 2.txt")
+    });
+    assert!(fixture.path("Notes 2.txt").exists(), "the name stays");
+    assert!(hidden_list_names(fixture.root(), "Other.txt"), "other lines stay");
+    assert_eq!(window.title_text(), "Notes 2 Properties");
+    // GLib reads the folder's list again only some seconds after it last
+    // read it, so the view follows within that time.
+    crate::test_support::harness::wait_for(std::time::Duration::from_secs(12));
+    assert!(
+        !test.names().contains(&"Notes 2.txt".to_owned()),
+        "the view hides it"
+    );
 
-    test.select_named("Taken.txt");
-    test.activate("properties", None);
-    let taken = test.wait_for_properties("Taken Properties");
-    check(&general(&taken), "Hidden").set_active(true);
-    taken.ok_button().emit_clicked();
-    let refusal = message_over(&taken);
-    assert!(!refusal.message_text().is_empty());
-    refusal.press("OK");
-    assert!(!taken.is_closed(), "a refused change keeps the window open");
-    assert_eq!(fs::read(fixture.path(".Taken.txt")).expect("kept"), b"hidden");
-    assert_eq!(fs::read(fixture.path("Taken.txt")).expect("kept"), b"keep");
+    check(&general(&window), "Hidden").set_active(false);
+    press(&window, "Apply");
+    wait_until("the name off the list", || {
+        !hidden_list_names(fixture.root(), "Notes 2.txt")
+    });
+    assert!(hidden_list_names(fixture.root(), "Other.txt"));
+    window.close();
 }
 
 /// The name renames the item on OK, refusing a taken name in a message
@@ -1562,8 +1704,8 @@ fn properties_of_several_items_total_them_and_change_them_together() {
 
 /// Several items' Read-only and Hidden are half ticked where the items
 /// differ, and OK or Apply gives every item the state chosen: Read-only
-/// takes write from every file, and Hidden adds a leading dot to each
-/// name, as one item's do, and the title follows the new names.
+/// takes write from every file, and Hidden lists every name in the
+/// folder's `.hidden` list, as one item's do, renaming nothing.
 ///
 /// parity: PROP-002
 #[gtk::test]
@@ -1602,15 +1744,12 @@ fn several_items_attributes_show_mixed_and_apply_to_every_item() {
     press(&window, "Apply");
 
     wait_until("every name hidden", || {
-        fixture.path(".Notes 2.txt").exists() && fixture.path(".Notes 10.txt").exists()
+        hidden_list_names(fixture.root(), "Notes 2.txt") && hidden_list_names(fixture.root(), "Notes 10.txt")
     });
-    wait_until("the new title", || {
-        window.title_text() == ".Notes 2.txt, .Notes 10.txt Properties"
-    });
-    for name in [".Notes 2.txt", ".Notes 10.txt"] {
+    assert_eq!(window.title_text(), "Notes 2.txt, Notes 10.txt Properties");
+    for name in ["Notes 2.txt", "Notes 10.txt"] {
         assert_eq!(mode_of(&fixture.path(name)) & 0o222, 0, "{name} is read-only");
     }
-    assert!(!fixture.path("Notes 2.txt").exists() && !fixture.path("Notes 10.txt").exists());
     assert!(hidden.is_active() && read_only.is_active());
     assert!(!window.apply_button().is_sensitive(), "nothing is left to apply");
     window.close();
@@ -2231,7 +2370,8 @@ fn a_file_without_snapshots_explains_that_none_were_found() {
             .any(|text| text == "There are no previous versions available.")
     });
     assert!(versions.texts().iter().any(|text| text == "File versions:"));
-    assert!(versions
+    // A file on this computer has no server to mention, as in Windows.
+    assert!(!versions
         .texts()
         .iter()
         .any(|text| text.starts_with("No matching previous versions were found")));
@@ -2362,6 +2502,69 @@ fn restore_a_copy_copies_the_version_into_a_live_folder_only() {
     assert_eq!(
         fs::read(fixture.path("Documents/plan.txt")).expect("the live file"),
         b"live plan"
+    );
+}
+
+/// With "Restore over the original (Windows)" on, Restore copies the
+/// version back into the item's folder and asks "Replace or Skip Files"
+/// as a paste does: Skip keeps the live file, Replace puts the version
+/// there. The setting is off by default, so Restore asks for a folder.
+///
+/// parity: PROP-025
+#[gtk::test]
+fn restore_over_the_original_asks_before_replacing_the_live_item() {
+    let fixture = fixture_with_snapshot();
+    let test = TestWindow::open(&fixture.uri());
+    assert!(
+        !test.context.settings_data().preferences.restore_over_original,
+        "off by default, the owner's choice"
+    );
+    let update = ox_core::settings::PreferencesUpdate {
+        restore_over_original: Some(true),
+        ..ox_core::settings::PreferencesUpdate::default()
+    };
+    ox_core::settings::Settings::open(test.settings_directory())
+        .update_preferences(&update)
+        .expect("the settings file takes the choice");
+    test.context.reload_settings();
+    wait_until("the window to read the choice", || {
+        test.context.settings_data().preferences.restore_over_original
+    });
+    let version = fixture
+        .path("Documents")
+        .join(".snapshot")
+        .join(SNAPSHOT_NAME)
+        .join("plan.txt");
+    let request = RestoreRequest {
+        version_uri: ox_core::location::file_uri(&version),
+        label: SNAPSHOT_NAME.to_owned(),
+        name: "plan.txt".to_owned(),
+    };
+    let live = fixture.path("Documents/plan.txt");
+    let original = ox_core::location::file_uri(&live);
+
+    test.window.restore_over_original(&request, &original);
+    super::file_ops_support::answer_conflicts(&test, super::file_ops_support::ConflictAnswer::Skip);
+    super::file_ops_support::assert_ended_without_a_message(&test);
+    assert_eq!(
+        fs::read(&live).expect("the live file"),
+        b"live plan",
+        "Skip keeps it"
+    );
+
+    test.window.restore_over_original(&request, &original);
+    super::file_ops_support::answer_conflicts(&test, super::file_ops_support::ConflictAnswer::Replace);
+    wait_until("the version back in place", || {
+        fs::read(&live).is_ok_and(|bytes| bytes == b"earlier plan")
+    });
+    assert_eq!(
+        fs::read(&version).expect("the snapshot file"),
+        b"earlier plan",
+        "the snapshot is never changed"
+    );
+    assert!(
+        !fixture.path("Documents/plan - Copy.txt").exists(),
+        "no copy name"
     );
 }
 

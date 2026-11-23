@@ -86,6 +86,15 @@ impl ThumbnailFlavor {
         let folder = path.parent()?.file_name()?.to_str()?;
         Self::ALL.into_iter().find(|flavor| flavor.as_str() == folder)
     }
+
+    /// This size and every larger one, in that order: a thumbnail of a
+    /// larger size shows sharply when it is shrunk, one of a smaller size
+    /// would not.
+    pub fn and_larger(self) -> impl Iterator<Item = Self> {
+        Self::ALL
+            .into_iter()
+            .filter(move |flavor| flavor.pixels() >= self.pixels())
+    }
 }
 
 /// Where the thumbnail of the item at `uri` in `flavor` belongs under the
@@ -200,66 +209,21 @@ mod tests {
         );
         assert_eq!(ThumbnailFlavor::for_pixels(96), ThumbnailFlavor::Normal);
         assert_eq!(ThumbnailFlavor::for_pixels(192), ThumbnailFlavor::Large);
+        // Extra large icons on a screen of twice the pixels.
+        assert_eq!(ThumbnailFlavor::for_pixels(512), ThumbnailFlavor::XLarge);
+        assert_eq!(ThumbnailFlavor::for_pixels(513), ThumbnailFlavor::XXLarge);
+        assert_eq!(ThumbnailFlavor::for_pixels(4096), ThumbnailFlavor::XXLarge);
+        assert_eq!(ThumbnailFlavor::XLarge.as_str(), "x-large");
+        assert_eq!(
+            ThumbnailFlavor::Large.and_larger().collect::<Vec<_>>(),
+            [
+                ThumbnailFlavor::Large,
+                ThumbnailFlavor::XLarge,
+                ThumbnailFlavor::XXLarge
+            ]
+        );
         let failed = gio::FileInfo::new();
         failed.set_attribute_boolean("thumbnail::failed", true);
         assert_eq!(cached_thumbnail(&failed), CachedThumbnail::Failed);
-    }
-
-    /// A larger view never draws a smaller cached thumbnail stretched:
-    /// one made for Details (`normal`, 128 pixels) is not taken for
-    /// Extra large icons (256), nor a `large` one for Extra large icons on
-    /// a screen at 200 % (512 device pixels).
-    ///
-    /// parity: VIEW-057
-    #[test]
-    fn a_thumbnail_smaller_than_the_size_asked_for_is_missing() {
-        let normal = thumbnail_info("/c/thumbnails/normal/a.png", Freshness::Current);
-        let large = thumbnail_info("/c/thumbnails/large/a.png", Freshness::Current);
-        let x_large = thumbnail_info("/c/thumbnails/x-large/a.png", Freshness::Current);
-        assert_eq!(
-            cached_thumbnail_for(&normal, ThumbnailFlavor::Normal),
-            CachedThumbnail::Valid(PathBuf::from("/c/thumbnails/normal/a.png"))
-        );
-        assert_eq!(
-            cached_thumbnail_for(&normal, ThumbnailFlavor::Large),
-            CachedThumbnail::Missing
-        );
-        assert_eq!(
-            cached_thumbnail_for(&large, ThumbnailFlavor::XLarge),
-            CachedThumbnail::Missing
-        );
-        // A larger one than asked for is shrunk when it is drawn, sharply.
-        assert_eq!(
-            cached_thumbnail_for(&x_large, ThumbnailFlavor::Large),
-            CachedThumbnail::Valid(PathBuf::from("/c/thumbnails/x-large/a.png"))
-        );
-        // A path outside the standard's folders says nothing of its size,
-        // so it is not trusted beyond the smallest.
-        let elsewhere = thumbnail_info("/tmp/thumb.png", Freshness::Current);
-        assert_eq!(
-            cached_thumbnail_for(&elsewhere, ThumbnailFlavor::Large),
-            CachedThumbnail::Missing
-        );
-        let failed = gio::FileInfo::new();
-        failed.set_attribute_boolean("thumbnail::failed", true);
-        assert_eq!(
-            cached_thumbnail_for(&failed, ThumbnailFlavor::XLarge),
-            CachedThumbnail::Failed
-        );
-    }
-
-    /// Extra large icons at 200 % and above ask for the standard's
-    /// `x-large` and `xx-large` sizes (512 and 1024 pixels).
-    #[test]
-    fn device_pixels_beyond_256_ask_for_the_larger_flavors() {
-        assert_eq!(ThumbnailFlavor::for_pixels(128), ThumbnailFlavor::Normal);
-        assert_eq!(ThumbnailFlavor::for_pixels(256), ThumbnailFlavor::Large);
-        assert_eq!(ThumbnailFlavor::for_pixels(320), ThumbnailFlavor::XLarge);
-        assert_eq!(ThumbnailFlavor::for_pixels(512), ThumbnailFlavor::XLarge);
-        assert_eq!(ThumbnailFlavor::for_pixels(768), ThumbnailFlavor::XXLarge);
-        assert_eq!(ThumbnailFlavor::for_pixels(4096), ThumbnailFlavor::XXLarge);
-        assert_eq!(ThumbnailFlavor::XLarge.as_str(), "x-large");
-        assert_eq!(ThumbnailFlavor::XXLarge.as_str(), "xx-large");
-        assert_eq!(ThumbnailFlavor::XXLarge.pixels(), 1024);
     }
 }

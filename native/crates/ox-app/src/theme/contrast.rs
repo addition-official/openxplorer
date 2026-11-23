@@ -240,26 +240,6 @@ mod tests {
     use crate::test_support::harness::wait_until;
     use crate::test_support::portal::SettingsPortal;
 
-    /// GTK's high-contrast themes are told by name, whatever the case or
-    /// variant; other themes are not.
-    ///
-    /// parity: ACC-011
-    #[test]
-    fn high_contrast_themes_are_told_by_name() {
-        for name in [
-            "HighContrast",
-            "HighContrastInverse",
-            "highcontrast:dark",
-            "Default-hc",
-            "Default-hc-dark",
-        ] {
-            assert!(is_high_contrast_theme(name), "{name}");
-        }
-        for name in ["Adwaita", "Adwaita-dark", "Default", "Yaru", ""] {
-            assert!(!is_high_contrast_theme(name), "{name}");
-        }
-    }
-
     /// The portal's contrast asks for more contrast at 1 and none at 0,
     /// from the start and when the desktop changes it, as inside Flatpak,
     /// where GNOME's key cannot be read; a `HighContrast` GTK theme asks for

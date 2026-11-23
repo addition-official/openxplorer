@@ -54,6 +54,8 @@ use rustix::process::{kill_process_group, Pid, Resource, Signal};
 
 use super::writer::{self, Source};
 
+pub(crate) mod documents;
+
 /// The group every thumbnailer file keeps its keys in.
 const GROUP: &str = "Thumbnailer Entry";
 
@@ -184,6 +186,25 @@ pub(super) struct Job {
     pub modified: u64,
     /// The size of the thumbnail wanted.
     pub flavor: ThumbnailFlavor,
+    /// Its size in bytes, when known, which keeps the thumbnail valid too.
+    pub size: Option<u64>,
+    /// The edge it is shown at, in device pixels ([`Source::shown`]).
+    pub shown: i32,
+}
+
+/// Why a thumbnailer made no thumbnail.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum NotMade {
+    /// No program of the desktop's makes the type, or none can run here:
+    /// one installed later may.
+    NoProgram,
+    /// The program ran to its end and left no picture worth showing: the
+    /// file is one it cannot read, and is not given to it again until it
+    /// changes, as GNOME's thumbnailer factory does.
+    Failed,
+    /// The program was stopped (the request was dropped, or it outlasted
+    /// its time), or the cache could not be written: it may be tried again.
+    Interrupted,
 }
 
 /// What the user turned external thumbnailers off for in
@@ -384,6 +405,22 @@ impl Thumbnailer {
     }
 }
 
+/// Reads `bytes` as a `.thumbnailer` entry and builds its command, and as
+/// a thumbnailer's picture, for the fuzz targets.
+#[cfg(feature = "fuzzing")]
+pub(crate) fn fuzz_thumbnailer(bytes: &[u8]) {
+    if let Some(thumbnailer) = std::str::from_utf8(bytes).ok().and_then(Thumbnailer::parse) {
+        let _ = thumbnailer.handles("image/png");
+        let _ = thumbnailer.command(
+            Path::new("/home/alex/Pictures/100% done %u.png"),
+            "file:///home/alex/Pictures/100%25%20done%20%25u.png",
+            Path::new("/tmp/openxplorer-thumbnail.png"),
+            256,
+        );
+    }
+    let _ = drawn_png(bytes);
+}
+
 /// Whether `declared` names `content_type`, itself or a kind of it.
 fn covers(content_type: &str, declared: &str) -> bool {
     declared == content_type
@@ -501,36 +538,54 @@ fn installed_program(program: &str) -> bool {
 /// Standard asks; `None` when none makes the type, the user turned them
 /// off for it, it failed, or the request was cancelled. Blocks: run it off
 /// the main thread.
+#[cfg(test)]
 pub(super) fn write_thumbnail(
     job: &Job,
     catalogue: &Catalogue,
     cancellation: &gio::Cancellable,
 ) -> Option<PathBuf> {
-    let thumbnailer = catalogue.for_type(&job.content_type)?;
-    let sandbox = catalogue.sandbox.as_ref()?;
+    make_thumbnail(job, catalogue, cancellation)
+        .ok()
+        .map(|made| made.path)
+}
+
+/// Makes the thumbnail of `job` as [`write_thumbnail`] does: the
+/// thumbnail and its picture, or why there is none. Blocks.
+pub(super) fn make_thumbnail(
+    job: &Job,
+    catalogue: &Catalogue,
+    cancellation: &gio::Cancellable,
+) -> Result<writer::Made, NotMade> {
+    let thumbnailer = catalogue.for_type(&job.content_type).ok_or(NotMade::NoProgram)?;
+    let sandbox = catalogue.sandbox.as_ref().ok_or(NotMade::NoProgram)?;
     // A thumbnailer takes a file of this computer, its `%i` being a path: a
     // file on a share, a phone or in an archive is left to the service.
-    let path = gio::File::for_uri(&job.uri).path()?;
+    let path = gio::File::for_uri(&job.uri).path().ok_or(NotMade::NoProgram)?;
     // The program writes its picture in a private folder of its own, never
     // in the cache: the app copies a good picture there itself.
-    let workspace = Workspace::new()?;
+    let workspace = Workspace::new().ok_or(NotMade::Interrupted)?;
     let pixels = job.flavor.pixels();
     let command = sandbox.command(thumbnailer, &path, workspace.path(), pixels);
+    super::trace::event("thumbnailer", &job.uri);
     // One that failed on its own may still have written a good picture, so
     // the picture alone decides; a stopped one left none worth reading.
-    run_with(&command, sandbox.needs_runtime_dir(), cancellation)?;
-    let picture = read_picture(&workspace.path().join(OUTPUT), pixels)?;
+    run_with(&command, sandbox.needs_runtime_dir(), cancellation).ok_or(NotMade::Interrupted)?;
+    let picture = read_picture(&workspace.path().join(OUTPUT), pixels);
     drop(workspace);
     if cancellation.is_cancelled() {
-        return None;
+        return Err(NotMade::Interrupted);
     }
+    let picture = picture.ok_or(NotMade::Failed)?;
     let source = Source {
         uri: job.uri.clone(),
         modified: job.modified,
+        size: job.size,
+        mime_type: Some(job.content_type.clone()),
+        shown: job.shown,
     };
     // Nothing follows this program, so why the cache refused the picture is
     // of no use here: no thumbnail was made.
-    writer::save_thumbnail(&job.cache_dir, &source, job.flavor, &picture).ok()
+    writer::save_thumbnail(&job.cache_dir, &source, job.flavor, &picture).map_err(|_| NotMade::Interrupted)
 }
 
 /// The poppler program that draws a PDF's pages for the Preview pane.
@@ -565,6 +620,18 @@ pub(crate) fn pdf_pages(
     cancellation: &gio::Cancellable,
 ) -> Option<Vec<Pixbuf>> {
     let sandbox = PDF_SANDBOX.get_or_init(pdf_sandbox).as_ref()?;
+    pdf_pages_in(sandbox, path, first, last, width, cancellation)
+}
+
+/// [`pdf_pages`] in `sandbox`.
+fn pdf_pages_in(
+    sandbox: &Sandbox,
+    path: &Path,
+    first: u32,
+    last: u32,
+    width: i32,
+    cancellation: &gio::Cancellable,
+) -> Option<Vec<Pixbuf>> {
     let workspace = Workspace::new()?;
     let output = format!("{INSIDE}/{PDF_PAGE}");
     let tallest = width.saturating_mul(PDF_PAGE_ASPECT_LIMIT).to_string();
@@ -1255,7 +1322,11 @@ struct Workspace(PathBuf);
 impl Workspace {
     /// A new folder under the system's temporary folder.
     fn new() -> Option<Self> {
-        let parent = glib::tmp_dir();
+        Self::new_in(&glib::tmp_dir())
+    }
+
+    /// A new folder in `parent`.
+    fn new_in(parent: &Path) -> Option<Self> {
         for _ in 0..8 {
             let path = parent.join(format!("{WORKSPACE}{:08x}", glib::random_int()));
             match fs::DirBuilder::new().mode(0o700).create(&path) {
@@ -1471,6 +1542,16 @@ fn drawn_png(bytes: &[u8]) -> Option<Vec<u8>> {
 /// where `systemd-run --user` finds the user's service manager; the
 /// command takes it away from the program again ([`Limits::Scope`]).
 fn run_with(command: &[OsString], runtime_dir: bool, cancellation: &gio::Cancellable) -> Option<ExitStatus> {
+    run_within(command, runtime_dir, cancellation, TIMEOUT)
+}
+
+/// [`run_with`], with `timeout` in place of [`TIMEOUT`].
+fn run_within(
+    command: &[OsString],
+    runtime_dir: bool,
+    cancellation: &gio::Cancellable,
+    timeout: Duration,
+) -> Option<ExitStatus> {
     let (program, arguments) = command.split_first()?;
     let mut child = std::process::Command::new(program)
         .args(arguments)
@@ -1494,7 +1575,7 @@ fn run_with(command: &[OsString], runtime_dir: bool, cancellation: &gio::Cancell
         .process_group(0)
         .spawn()
         .ok()?;
-    let deadline = Instant::now() + TIMEOUT;
+    let deadline = Instant::now() + timeout;
     loop {
         if let Ok(Some(status)) = child.try_wait() {
             return Some(status);
@@ -1707,6 +1788,8 @@ mod tests {
             content_type: BUNDLE.to_owned(),
             modified: 1_700_000_000,
             flavor: ThumbnailFlavor::Normal,
+            size: None,
+            shown: 128,
         };
         let catalogue = Catalogue::of(&dirs, || Some(Sandbox::Off));
         // Without a sandbox that works here no program is kept at all, and
@@ -1777,6 +1860,8 @@ mod tests {
             content_type: BUNDLE.to_owned(),
             modified: 1_700_000_000,
             flavor: ThumbnailFlavor::Normal,
+            size: None,
+            shown: 128,
         };
         let slow = Catalogue::for_test(vec![Thumbnailer::for_test(
             &[script.to_str().expect("a path"), "%i", "%o", "%s"],
@@ -1821,6 +1906,8 @@ mod tests {
             content_type: BUNDLE.to_owned(),
             modified: 1_700_000_000,
             flavor: ThumbnailFlavor::Normal,
+            size: None,
+            shown: 128,
         };
         let cancellation = gio::Cancellable::new();
 
@@ -1861,6 +1948,8 @@ mod tests {
             content_type: content_type.to_owned(),
             modified: 1_700_000_000,
             flavor: ThumbnailFlavor::Normal,
+            size: None,
+            shown: 128,
         };
 
         assert!(write_thumbnail(&job_of(&png, "image/png"), &catalogue, &gio::Cancellable::new()).is_none());
@@ -1893,6 +1982,8 @@ mod tests {
             content_type: BUNDLE.to_owned(),
             modified: 1_700_000_000,
             flavor: ThumbnailFlavor::Normal,
+            size: None,
+            shown: 128,
         };
         let on = Catalogue::of(&dirs, || Some(Sandbox::Off));
         let off = on.with_disabled(Disabled {
@@ -1934,6 +2025,8 @@ mod tests {
                 content_type: BUNDLE.to_owned(),
                 modified: 1_700_000_000,
                 flavor: ThumbnailFlavor::Normal,
+                size: None,
+                shown: 128,
             };
 
             let written = write_thumbnail(&job, &Catalogue::for_test(vec![entry]), &gio::Cancellable::new())
@@ -2073,6 +2166,8 @@ mod tests {
             content_type: BUNDLE.to_owned(),
             modified: 1_700_000_000,
             flavor: ThumbnailFlavor::Normal,
+            size: None,
+            shown: 128,
         };
 
         let written = write_thumbnail(&job, &catalogue, &gio::Cancellable::new())
@@ -2310,6 +2405,8 @@ mod tests {
             content_type: BUNDLE.to_owned(),
             modified: 1_700_000_000,
             flavor: ThumbnailFlavor::Normal,
+            size: None,
+            shown: 128,
         };
 
         assert!(

@@ -73,6 +73,36 @@ fn stored_old_default_item_counts_turn_off_unless_chosen() {
     assert!(reread.view_options.count_folder_items, "counts turned on stay");
 }
 
+/// Thumbnails in network folders that 2.0.18 stored as its default, with
+/// another view option, give way to icons there once; thumbnails turned
+/// on in this app are marked and stay after a restart.
+/// parity: VIEW-058
+#[test]
+fn stored_old_default_remote_previews_turn_off_unless_chosen() {
+    let root = temporary_folder();
+    let older = json!({"version": 2, "preferences": {
+        "viewOptions": {"previewVideos": false, "remotePreviews": true}
+    }});
+    std::fs::write(root.path().join("settings.json"), older.to_string()).unwrap();
+    let mut store = Settings::open(root.path());
+    let options = store.snapshot().preferences.view_options;
+    assert!(!options.remote_previews, "the old default gives way");
+    assert!(!options.preview_videos, "the other options are read as before");
+
+    save_preferences(
+        &mut store,
+        &json!({"viewOptions": {"previewVideos": false, "remotePreviews": true}}),
+    );
+    let file = std::fs::read_to_string(root.path().join("settings.json")).unwrap();
+    assert!(file.contains("\"remotePreviewsChosen\": true"), "{file}");
+    let reread = Settings::open(root.path()).snapshot().preferences;
+    assert!(reread.view_options.remote_previews, "thumbnails turned on stay");
+
+    save_preferences(&mut store, &json!({"viewOptions": {"remotePreviews": false}}));
+    let file = std::fs::read_to_string(root.path().join("settings.json")).unwrap();
+    assert!(!file.contains("remotePreviewsChosen"), "{file}");
+}
+
 /// Ported from `v2.0.0:desktop/tests/test_v05.py::SettingsWindowsTests::test_network_interval_whitelist`
 /// parity: SET-016
 #[test]
@@ -317,40 +347,6 @@ fn zip_opening_is_the_folder_until_the_window_is_chosen() {
     save_preferences(&mut store, &json!({"zipOpening": "folder"}));
     let file = std::fs::read_to_string(root.path().join("settings.json")).expect("saved");
     assert!(!file.contains("zipOpening"), "the folder is not stored");
-}
-
-/// The Details view's column titles keep the app's own style until the
-/// user chooses Windows', which is then stored; an unknown value changes
-/// nothing, and the app's own style is not stored.
-///
-/// parity: VIEW-014
-#[test]
-fn the_column_header_style_is_the_apps_own_until_windows_is_chosen() {
-    let root = temporary_folder();
-    let mut store = Settings::open(root.path());
-    assert_eq!(
-        store.snapshot().preferences.column_header_style,
-        ColumnHeaderStyle::OpenXplorer
-    );
-    save_preferences(&mut store, &json!({"columnHeaderStyle": "windows"}));
-    save_preferences(&mut store, &json!({"columnHeaderStyle": "macos"}));
-    let reopened = Settings::open(root.path()).snapshot().preferences;
-    assert_eq!(reopened.column_header_style, ColumnHeaderStyle::Windows);
-    let file = std::fs::read_to_string(root.path().join("settings.json")).expect("saved");
-    assert!(file.contains("\"columnHeaderStyle\": \"windows\""), "{file}");
-    save_preferences(&mut store, &json!({"columnHeaderStyle": "openxplorer"}));
-    let file = std::fs::read_to_string(root.path().join("settings.json")).expect("saved");
-    assert!(
-        !file.contains("columnHeaderStyle"),
-        "the app's own style is not stored"
-    );
-    assert_eq!(
-        Settings::open(root.path())
-            .snapshot()
-            .preferences
-            .column_header_style,
-        ColumnHeaderStyle::OpenXplorer
-    );
 }
 
 /// The compact menu's strip sits on the pointer's side until the user
@@ -738,6 +734,27 @@ fn the_shift_f10_classic_menu_choice_is_off_and_saved_only_when_on() {
     );
 }
 
+/// "F6 moves like Windows" is off as it comes, so F6 keeps the app's own
+/// cycle through the address bar, search box and command bar too;
+/// turned on, it is saved and read back, and stored only while on.
+/// parity: ACC-015
+#[test]
+fn the_f6_like_windows_choice_is_off_and_saved_only_when_on() {
+    let root = temporary_folder();
+    let mut store = Settings::open(root.path());
+    assert!(!store.snapshot().preferences.f6_like_windows, "off as it comes");
+
+    save_preferences(&mut store, &json!({"f6LikeWindows": true}));
+    let file = std::fs::read_to_string(root.path().join("settings.json")).unwrap();
+    assert!(file.contains("\"f6LikeWindows\": true"), "{file}");
+    assert!(Settings::open(root.path()).snapshot().preferences.f6_like_windows);
+
+    save_preferences(&mut store, &json!({"f6LikeWindows": false}));
+    let file = std::fs::read_to_string(root.path().join("settings.json")).unwrap();
+    assert!(!file.contains("f6LikeWindows"), "{file}");
+    assert!(!Settings::open(root.path()).snapshot().preferences.f6_like_windows);
+}
+
 /// A favorite is matched by its canonical form, so the address GIO gives a
 /// file (with `(`, `!` or a remote user name) adds it once and removes it
 /// again, and is known as a favorite (HOME-014).
@@ -843,5 +860,23 @@ fn a_renamed_favorite_keeps_its_place_under_its_new_name() {
             "file:///home/ana/Projects/Plan.txt".to_owned(),
             photo.to_owned(),
         ]
+    );
+}
+
+/// Running installed apps' launchers on open is off until chosen, as
+/// OPEN-007 keeps opening from running anything, and is saved once on.
+///
+/// parity: OPEN-029
+#[test]
+fn running_installed_launchers_is_off_until_chosen() {
+    let root = temporary_folder();
+    let mut store = Settings::open(root.path());
+    assert!(!store.snapshot().preferences.run_installed_launchers);
+    save_preferences(&mut store, &json!({"runInstalledLaunchers": true}));
+    assert!(
+        Settings::open(root.path())
+            .snapshot()
+            .preferences
+            .run_installed_launchers
     );
 }

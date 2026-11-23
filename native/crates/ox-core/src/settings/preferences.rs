@@ -276,6 +276,12 @@ pub struct Preferences {
     /// Stored only when on.
     #[serde(rename = "shiftF10Classic", skip_serializing_if = "std::ops::Not::not")]
     pub shift_f10_classic: bool,
+    /// F6 visits only the regions Windows 11's F6 does (the tabs, the
+    /// navigation pane, the file list, the Details pane and the status
+    /// bar), leaving the address bar, search box and command bar to Tab.
+    /// Off, F6 visits those too. Stored only when on.
+    #[serde(rename = "f6LikeWindows", skip_serializing_if = "std::ops::Not::not")]
+    pub f6_like_windows: bool,
     /// Folder item counts were turned on in this app. Files of older
     /// releases store `viewOptions.countFolderItems: true`, then the
     /// default, whenever any view option changed, so without this mark
@@ -283,6 +289,13 @@ pub struct Preferences {
     /// (`read.rs`). Stored only when set.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub item_counts_chosen: bool,
+    /// Thumbnails in network folders were turned on in this app since
+    /// 2.0.18, which stored `viewOptions.remotePreviews: true`, its short-
+    /// lived default, whenever any view option changed. Without this mark
+    /// that value gives way to icons in network folders, the default
+    /// again, once (`read.rs`). Stored only when set.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub remote_previews_chosen: bool,
     /// The classic menu was chosen in this app. Files the Python app or an
     /// older release wrote store `"win10"`, its default, whether chosen or
     /// not, so without this mark that value gives way to the compact menu
@@ -373,6 +386,13 @@ pub struct Preferences {
     /// its application (Dolphin's "Always ask"); off, it only ever opens.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub ask_to_run_programs: bool,
+    /// Opening an installed application's launcher (one in an
+    /// applications folder, or a link to one) starts the application, as
+    /// Windows runs a shortcut to a program; a launcher that is neither
+    /// installed nor marked trusted asks first. Off, as OPEN-007 keeps it:
+    /// a launcher opens in its editor.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub run_installed_launchers: bool,
     /// The progress window shows "More details": the speed graph, the
     /// name, the time and the items remaining. Windows keeps it as it
     /// was last left, across sessions; stored only when on.
@@ -386,6 +406,20 @@ pub struct Preferences {
     /// `recycleReplacedFiles`, only when off.
     #[serde(skip_serializing_if = "is_true")]
     pub recycle_replaced_files: bool,
+    /// Previous Versions' Restore copies the version back over the item,
+    /// asking "Replace or Skip Files" as a paste does, as Windows 11's
+    /// Restore does. Off by default, the owner's choice: Restore then
+    /// asks for another folder and never touches the live item. Stored as
+    /// `restoreOverOriginal`, only when on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub restore_over_original: bool,
+    /// A search word also matches from the start of a name's extension,
+    /// as Windows 11's search does: `doc` finds `report.docx`. Off by
+    /// default, the owner's rule: a word reaches into an extension only
+    /// as the whole extension. Stored as `extensionWordStarts`, only when
+    /// on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub extension_word_starts: bool,
     /// Explicitly enabled installed service actions, keyed by definition digest.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub enabled_service_actions: Vec<String>,
@@ -453,6 +487,21 @@ pub struct Preferences {
     /// Stored only when there is one.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub gallery_folders: Vec<String>,
+    /// Draw folder, drive and place icons from the Windows icon files in
+    /// [`Self::icon_files`] (LOOK-030). Off by default; stored only when on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub use_icon_files: bool,
+    /// The Windows icon files the user chose (`.dll`, `.mun` or `.exe`),
+    /// as absolute paths, in the order chosen; only the paths are stored,
+    /// never the icons. Stored only when there is one.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub icon_files: Vec<String>,
+    /// The Windows symbol font the user chose (`SegoeIcons.ttf` or
+    /// `segmdl2.ttf`), as an absolute path, whose glyphs the app draws
+    /// while [`Self::use_icon_files`] is on (LOOK-031); only the path is
+    /// stored, never the font. Stored only when chosen.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub symbol_font: Option<String>,
     /// The icon each kind of item shows, where the user chose one
     /// (LOOK-029); see [`super::file_icons`]. Stored only when there is
     /// one.
@@ -665,8 +714,10 @@ impl Default for Preferences {
             strip_position: StripPosition::Pointer,
             column_header_style: ColumnHeaderStyle::OpenXplorer,
             shift_f10_classic: false,
+            f6_like_windows: false,
             classic_menu_chosen: false,
             item_counts_chosen: false,
+            remote_previews_chosen: false,
             network_interval: DEFAULT_NETWORK_INTERVAL,
             text_size: DEFAULT_TEXT_SIZE,
             sidebar_width: None,
@@ -687,8 +738,11 @@ impl Default for Preferences {
             delete_removable_permanently: false,
             confirm_close_tabs: false,
             ask_to_run_programs: false,
+            run_installed_launchers: false,
             progress_details: false,
             recycle_replaced_files: true,
+            restore_over_original: false,
+            extension_word_starts: false,
             enabled_service_actions: Vec::new(),
             desktop_font: false,
             hide_sidebar: false,
@@ -703,6 +757,9 @@ impl Default for Preferences {
             favorites: Vec::new(),
             home_folded: Vec::new(),
             gallery_folders: Vec::new(),
+            use_icon_files: false,
+            icon_files: Vec::new(),
+            symbol_font: None,
             file_icons: FileIcons::new(),
             restore_session: false,
             startup_folder: None,
@@ -810,8 +867,11 @@ impl Preferences {
             update.delete_removable_permanently,
         );
         replace_if_some(&mut self.recycle_replaced_files, update.recycle_replaced_files);
+        replace_if_some(&mut self.restore_over_original, update.restore_over_original);
+        replace_if_some(&mut self.extension_word_starts, update.extension_word_starts);
         replace_if_some(&mut self.confirm_close_tabs, update.confirm_close_tabs);
         replace_if_some(&mut self.ask_to_run_programs, update.ask_to_run_programs);
+        replace_if_some(&mut self.run_installed_launchers, update.run_installed_launchers);
     }
 
     /// The sidebar sections and places hidden: up to 16 short ASCII keys
@@ -853,6 +913,17 @@ impl Preferences {
         }
         if let Some(folders) = &update.gallery_folders {
             self.gallery_folders = canonical_gallery_folders(folders);
+        }
+        replace_if_some(&mut self.use_icon_files, update.use_icon_files);
+        if let Some(files) = &update.icon_files {
+            self.icon_files = canonical_icon_files(files);
+        }
+        if let Some(font) = &update.symbol_font {
+            if font.is_empty() {
+                self.symbol_font = None;
+            } else if is_symbol_font_path(font) {
+                self.symbol_font = Some(font.clone());
+            }
         }
         if let Some(icons) = &update.file_icons {
             self.file_icons = canonical_file_icons(icons);
@@ -927,6 +998,7 @@ impl Preferences {
         self.apply_service_actions(update.enabled_service_actions.as_ref());
         replace_if_some(&mut self.desktop_font, update.desktop_font);
         replace_if_some(&mut self.shift_f10_classic, update.shift_f10_classic);
+        replace_if_some(&mut self.f6_like_windows, update.f6_like_windows);
         replace_if_some(&mut self.progress_details, update.progress_details);
         replace_if_some(&mut self.hide_sidebar, update.hide_sidebar);
         replace_if_some(&mut self.hide_expand_arrows, update.hide_expand_arrows);
@@ -1009,6 +1081,7 @@ impl Preferences {
         let columns_changed = options.details_columns != self.view_options.details_columns;
         self.view_options = options.clone();
         self.item_counts_chosen = options.count_folder_items;
+        self.remote_previews_chosen = options.remote_previews;
         columns_changed
     }
 
@@ -1129,6 +1202,8 @@ pub struct PreferencesUpdate {
     pub column_header_style: Option<ColumnHeaderStyle>,
     /// Whether Shift+F10 opens the classic menu.
     pub shift_f10_classic: Option<bool>,
+    /// Whether F6 visits only the regions Windows 11's F6 does.
+    pub f6_like_windows: Option<bool>,
     /// New network refresh interval in seconds.
     pub network_interval: Option<u32>,
     /// The size new windows open at.
@@ -1161,10 +1236,16 @@ pub struct PreferencesUpdate {
     pub delete_removable_permanently: Option<bool>,
     /// See [`Preferences::recycle_replaced_files`].
     pub recycle_replaced_files: Option<bool>,
+    /// See [`Preferences::restore_over_original`].
+    pub restore_over_original: Option<bool>,
+    /// See [`Preferences::extension_word_starts`].
+    pub extension_word_starts: Option<bool>,
     /// Ask before closing a window with several tabs.
     pub confirm_close_tabs: Option<bool>,
     /// Ask whether to run a program or script that is opened.
     pub ask_to_run_programs: Option<bool>,
+    /// See [`Preferences::run_installed_launchers`].
+    pub run_installed_launchers: Option<bool>,
     /// Show the progress window's details.
     pub progress_details: Option<bool>,
     /// Replaces the allowlist of installed service actions.
@@ -1200,6 +1281,14 @@ pub struct PreferencesUpdate {
     /// Replaces the folders added to Gallery; local folders only, up to
     /// 64, each once.
     pub gallery_folders: Option<Vec<String>>,
+    /// Turn icons from Windows icon files on or off.
+    pub use_icon_files: Option<bool>,
+    /// Replaces the chosen Windows icon files; see
+    /// [`Preferences::icon_files`].
+    pub icon_files: Option<Vec<String>>,
+    /// The Windows symbol font to read glyphs from; empty forgets it. A
+    /// path that is not an absolute `.ttf` or `.otf` path is ignored.
+    pub symbol_font: Option<String>,
     /// Replaces the chosen file icons; kinds and icons the app does not
     /// know are dropped.
     pub file_icons: Option<FileIcons>,
@@ -1285,6 +1374,10 @@ impl PreferencesUpdate {
     /// # Errors
     ///
     /// [`SettingsError::Invalid`] if `value` is not an object.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one line per stored preference, which reads best as one list"
+    )]
     pub fn from_json(value: &Value) -> Result<Self, SettingsError> {
         let Some(values) = value.as_object() else {
             return Err(SettingsError::invalid(crate::i18n::gettext(
@@ -1306,6 +1399,7 @@ impl PreferencesUpdate {
             strip_position: text("menuStripPosition").and_then(StripPosition::from_key),
             column_header_style: text("columnHeaderStyle").and_then(ColumnHeaderStyle::from_key),
             shift_f10_classic: flag("shiftF10Classic"),
+            f6_like_windows: flag("f6LikeWindows"),
             network_interval: values.get("networkInterval").and_then(read_network_interval),
             window_size: values.get("windowSize").and_then(WindowSize::from_json),
             dialog_size: values.get("dialogSize").and_then(WindowSize::from_json),
@@ -1324,8 +1418,11 @@ impl PreferencesUpdate {
             confirm_empty_trash: flag("confirmEmptyTrash"),
             delete_removable_permanently: flag("deleteRemovablePermanently"),
             recycle_replaced_files: flag("recycleReplacedFiles"),
+            restore_over_original: flag("restoreOverOriginal"),
+            extension_word_starts: flag("extensionWordStarts"),
             confirm_close_tabs: flag("confirmCloseTabs"),
             ask_to_run_programs: flag("askToRunPrograms"),
+            run_installed_launchers: flag("runInstalledLaunchers"),
             progress_details: flag("progressDetails"),
             enabled_service_actions: values.get("enabledServiceActions").and_then(read_keys),
             desktop_font: flag("desktopFont"),
@@ -1344,6 +1441,9 @@ impl PreferencesUpdate {
             favorites: values.get("favorites").and_then(read_keys),
             home_folded: values.get("homeFolded").and_then(read_keys),
             gallery_folders: values.get("galleryFolders").and_then(read_keys),
+            use_icon_files: flag("useIconFiles"),
+            icon_files: values.get("iconFiles").and_then(read_keys),
+            symbol_font: text("symbolFont").map(str::to_owned),
             file_icons: values.get("fileIcons").and_then(read_file_icons),
             restore_session: flag("restoreSession"),
             startup_folder: text("startupFolder").map(str::to_owned),
@@ -1434,6 +1534,50 @@ fn canonical_gallery_folders(folders: &[String]) -> Vec<String> {
         }
     }
     kept
+}
+
+/// The kinds of file icons are read from, by extension.
+const ICON_FILE_EXTENSIONS: [&str; 3] = ["dll", "mun", "exe"];
+
+/// The icon files of `files` that may be read: absolute paths of at most
+/// 4096 bytes without control characters, ending in `.dll`, `.mun` or
+/// `.exe` in any letter case, each once, at most
+/// [`crate::windows_icons::MAX_FILES`]. The file may have been
+/// edited by hand, and the app opens each one.
+fn canonical_icon_files(files: &[String]) -> Vec<String> {
+    let mut kept: Vec<String> = Vec::new();
+    for path in files {
+        let extension = std::path::Path::new(path)
+            .extension()
+            .and_then(std::ffi::OsStr::to_str)
+            .map(str::to_ascii_lowercase);
+        let usable = path.starts_with('/')
+            && path.len() <= MAX_PLACE_LOCATION
+            && !path.contains(char::is_control)
+            && extension.is_some_and(|extension| ICON_FILE_EXTENSIONS.contains(&extension.as_str()));
+        if usable && !kept.contains(path) {
+            kept.push(path.clone());
+        }
+        if kept.len() == crate::windows_icons::MAX_FILES {
+            break;
+        }
+    }
+    kept
+}
+
+/// Whether `path` may name the symbol font: an absolute path of at most
+/// 4096 bytes without control characters, ending in `.ttf` or `.otf` in
+/// any letter case. The file may have been edited by hand, and the app
+/// reads the font it names.
+fn is_symbol_font_path(path: &str) -> bool {
+    let extension = std::path::Path::new(path)
+        .extension()
+        .and_then(std::ffi::OsStr::to_str)
+        .map(str::to_ascii_lowercase);
+    path.starts_with('/')
+        && path.len() <= MAX_PLACE_LOCATION
+        && !path.contains(char::is_control)
+        && matches!(extension.as_deref(), Some("ttf" | "otf"))
 }
 
 /// The form Gallery's collection keeps the folder `uri` in: a local
@@ -1562,6 +1706,90 @@ mod tests {
             ["file:///home/demo/Camera%20imports"]
         );
         assert_eq!(gallery_folder_key("smb://nas/photos"), None);
+    }
+
+    /// The Windows symbol font is unset by default and not stored until
+    /// chosen; only an absolute `.ttf` or `.otf` path is taken, and an
+    /// empty one forgets it (LOOK-031).
+    ///
+    /// parity: LOOK-031
+    #[test]
+    fn the_symbol_font_is_unset_by_default_and_takes_only_font_paths() {
+        let mut preferences = Preferences::default();
+        assert_eq!(preferences.symbol_font, None);
+        let stored = serde_json::to_value(&preferences).expect("serializable");
+        assert!(stored.get("symbolFont").is_none(), "not stored until chosen");
+        let choose = |path: &str| PreferencesUpdate {
+            symbol_font: Some(path.to_owned()),
+            ..PreferencesUpdate::default()
+        };
+        preferences.apply(&choose("/mnt/windows/Windows/Fonts/SegoeIcons.ttf"));
+        assert_eq!(
+            preferences.symbol_font.as_deref(),
+            Some("/mnt/windows/Windows/Fonts/SegoeIcons.ttf")
+        );
+        let stored = serde_json::to_value(&preferences).expect("serializable");
+        let read = PreferencesUpdate::from_json(&stored).expect("an update");
+        assert_eq!(
+            read.symbol_font.as_deref(),
+            Some("/mnt/windows/Windows/Fonts/SegoeIcons.ttf")
+        );
+        for refused in [
+            "fonts/segmdl2.ttf",
+            "/srv/fonts/notes.txt",
+            "/srv/fonts/new\nline.ttf",
+        ] {
+            preferences.apply(&choose(refused));
+            assert_eq!(
+                preferences.symbol_font.as_deref(),
+                Some("/mnt/windows/Windows/Fonts/SegoeIcons.ttf"),
+                "{refused}"
+            );
+        }
+        preferences.apply(&choose("/srv/fonts/SEGMDL2.TTF"));
+        assert_eq!(preferences.symbol_font.as_deref(), Some("/srv/fonts/SEGMDL2.TTF"));
+        preferences.apply(&choose(""));
+        assert_eq!(preferences.symbol_font, None, "empty forgets it");
+    }
+
+    /// Only absolute paths of `.dll`, `.mun` and `.exe` files are kept,
+    /// each once and at most 16, from a hand-edited file.
+    ///
+    /// parity: LOOK-030
+    #[test]
+    fn icon_files_keep_only_absolute_icon_file_paths() {
+        let update = PreferencesUpdate::from_json(&json!({
+            "useIconFiles": "yes",
+            "iconFiles": [
+                "/mnt/windows/Windows/SystemResources/imageres.dll.mun",
+                "/mnt/windows/Windows/SystemResources/imageres.dll.mun",
+                "/mnt/windows/Windows/SystemResources/SHELL32.DLL.MUN",
+                "/srv/icons/explorer.exe",
+                "icons/imageres.dll",
+                "/srv/icons/notes.txt",
+                "/srv/icons/line\\nbreak.dll",
+                "/srv/icons/new\nline.dll",
+            ],
+        }))
+        .expect("an update");
+        assert_eq!(update.use_icon_files, None, "not a boolean");
+        let mut preferences = Preferences::default();
+        preferences.apply(&update);
+        assert_eq!(
+            preferences.icon_files,
+            [
+                "/mnt/windows/Windows/SystemResources/imageres.dll.mun",
+                "/mnt/windows/Windows/SystemResources/SHELL32.DLL.MUN",
+                "/srv/icons/explorer.exe",
+                "/srv/icons/line\\nbreak.dll",
+            ]
+        );
+        let many: Vec<String> = (0..40).map(|index| format!("/srv/icons/{index}.dll")).collect();
+        preferences.apply(&PreferencesUpdate {
+            icon_files: Some(many),
+            ..PreferencesUpdate::default()
+        });
+        assert_eq!(preferences.icon_files.len(), 16);
     }
 
     /// Favorites from a damaged or hand-edited file keep only locations

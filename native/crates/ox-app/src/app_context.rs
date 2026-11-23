@@ -249,8 +249,10 @@ impl AppContext {
             .set(SettingsStore::new(settings))
             .expect("a new AppContext has no settings yet");
         context.watch_known_folders(folder_locations);
+        context.follow_search_preferences();
         context.read_saved_searches();
         context.follow_recent_privacy();
+        context.follow_icon_files();
         context
     }
 
@@ -566,10 +568,38 @@ impl AppContext {
         })
     }
 
+    /// Draws the icons of the Windows icon files the user chose, when that
+    /// is on, now and whenever the settings change (LOOK-030).
+    fn follow_icon_files(&self) {
+        crate::icons::user_icons::remember_standard_folders(&self.known_folders());
+        crate::icons::user_icons::follow_preferences(&self.settings_data().preferences);
+        crate::icons::user_glyphs::follow_preferences(&self.settings_data().preferences);
+        let context = self.downgrade();
+        self.connect_places_changed(move || {
+            if let Some(context) = context.upgrade() {
+                crate::icons::user_icons::remember_standard_folders(&context.known_folders());
+                crate::icons::user_icons::follow_preferences(&context.settings_data().preferences);
+                crate::icons::user_glyphs::follow_preferences(&context.settings_data().preferences);
+            }
+        });
+    }
+
     /// Tells every window to redraw its sidebar and landing page.
     fn notify_places_changed(&self) {
+        self.follow_search_preferences();
         self.export_pins();
         self.emit_by_name::<()>(PLACES_CHANGED, &[]);
+    }
+
+    /// Makes the searches started from now on match words in extensions as
+    /// Settings > Search says (`extension_word_starts`).
+    fn follow_search_preferences(&self) {
+        let mode = if self.settings_data().preferences.extension_word_starts {
+            ox_core::search::ExtensionWords::FromStart
+        } else {
+            ox_core::search::ExtensionWords::WholeOnly
+        };
+        ox_core::search::set_extension_words(mode);
     }
 
     /// Calls `callback` whenever the places may have changed.
@@ -667,7 +697,10 @@ pub(super) fn recent_entry(entry: &Entry) -> RecentEntry {
         is_dir: entry.is_dir,
         size: entry.size.unwrap_or(0),
         // `settings.json` keeps 0 for an unknown time, as core.py does.
-        modified: entry.modified.unwrap_or(0),
+        modified: entry
+            .modified
+            .and_then(|seconds| u64::try_from(seconds).ok())
+            .unwrap_or(0),
         opened: None,
     }
 }

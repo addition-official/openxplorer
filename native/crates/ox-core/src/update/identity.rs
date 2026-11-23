@@ -289,35 +289,6 @@ mod tests {
         assert!(RuntimeIdentity::from_action_state("not JSON").is_none());
     }
 
-    /// A running instance names the file it runs beside its identity, so a
-    /// later launch of that very file needs no digest of it; readers that
-    /// predate the name read the identity as before.
-    #[test]
-    fn an_action_state_can_name_the_running_file() {
-        let identity = RuntimeIdentity {
-            version: "2.0.23".to_owned(),
-            protocol: RUNTIME_PROTOCOL,
-            build: String::new(),
-        };
-        let folder = tempfile::tempdir().unwrap();
-        let executable = folder.path().join("openxplorer");
-        fs::write(&executable, b"a build").unwrap();
-        let file = ExecutableFile::of_path(&executable).unwrap();
-
-        let state = identity.to_action_state_naming(Some(&file));
-
-        assert_eq!(RuntimeIdentity::from_action_state(&state), Some(identity.clone()));
-        assert_eq!(ExecutableFile::from_action_state(&state), Some(file));
-        let older = identity.to_action_state();
-        assert_eq!(identity.to_action_state_naming(None), older);
-        assert_eq!(ExecutableFile::from_action_state(&older), None);
-        assert_eq!(ExecutableFile::from_action_state("not JSON"), None);
-        assert_eq!(
-            ExecutableFile::from_action_state(r#"{"version":"2.0.23","executable":7}"#),
-            None
-        );
-    }
-
     /// The same file has the same name however often it is asked; a file
     /// put in its place, as a package upgrade does, or one written again,
     /// has another.

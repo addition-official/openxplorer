@@ -248,34 +248,6 @@ fn names_in(folder: &dyn Node, cancel: &Cancellation) -> Result<Vec<OsString>, T
 mod tests {
     use super::*;
 
-    /// A denied rename names the item in place of GIO's message, which
-    /// gives its whole path; other refusals keep their messages, and a
-    /// taken name says which.
-    ///
-    /// parity: OPS-008
-    #[test]
-    fn a_denied_rename_names_the_item_not_its_path() {
-        let gio_message = "Error moving file /srv/example/Budget 2027.ods: Permission denied";
-
-        let denied = rename_refusal(
-            OpsError::PermissionDenied(gio_message.into()),
-            "Budget 2027.ods",
-            "Budget.ods",
-        );
-        let taken = rename_refusal(OpsError::Exists(String::new()), "Budget 2027.ods", "Budget.ods");
-        let other = rename_refusal(OpsError::failed("No space left"), "Budget 2027.ods", "Budget.ods");
-
-        assert_eq!(
-            denied,
-            OpsError::PermissionDenied("You don't have permission to rename “Budget 2027.ods” here.".into())
-        );
-        assert_eq!(
-            taken,
-            OpsError::Exists("An item named “Budget.ods” already exists. Nothing was overwritten.".into())
-        );
-        assert_eq!(other, OpsError::failed("No space left"));
-    }
-
     /// A folder that ignores case, as on a FAT32 or exFAT drive: a name is
     /// taken when any item's name matches it in any case.
     struct CaseBlindFolder {

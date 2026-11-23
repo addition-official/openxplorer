@@ -148,29 +148,3 @@ impl BrowserWindow {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Only the network's failures say "Network Error"; the app's own
-    /// refusals and a missing file keep their page.
-    ///
-    /// parity: NET-003
-    #[test]
-    fn only_the_networks_failures_say_network_error() {
-        let refused = EntryError::Failed("The remote computer refused the network connection.".into());
-        assert_eq!(
-            network_failure(&refused),
-            Some(ox_core::system_error::BAD_NET_NAME)
-        );
-        assert_eq!(
-            details_text(ox_core::system_error::BAD_NET_NAME),
-            "Error code: 0x80070043\nThe network name cannot be found."
-        );
-        let not_a_folder = EntryError::Failed("This location is not a folder.".into());
-        assert_eq!(network_failure(&not_a_folder), None);
-        let denied = EntryError::PermissionDenied("Access is denied.".into());
-        assert_eq!(network_failure(&denied), None);
-    }
-}

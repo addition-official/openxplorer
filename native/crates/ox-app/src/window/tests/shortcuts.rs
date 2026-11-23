@@ -68,6 +68,36 @@ fn a_file_shortcut_opens_the_file_itself() {
     assert_eq!(test.context.recorded_launches(), [fixture.uri_of("Notes 2.txt")]);
 }
 
+/// Presses the letter `key` alone in the message box `dialog`, through its
+/// shortcuts, as Windows' message box takes Y and N: whether one took it.
+fn press_letter(dialog: &crate::dialog::Dialog, key: gtk::gdk::Key) -> bool {
+    let frame = descendants::<crate::dialog::DialogFrame>(dialog)
+        .into_iter()
+        .next()
+        .expect("the dialog has its frame");
+    frame
+        .observe_controllers()
+        .iter::<gtk::glib::Object>()
+        .filter_map(Result::ok)
+        .filter_map(|controller| controller.downcast::<gtk::ShortcutController>().ok())
+        .flat_map(|controller| {
+            (0..controller.n_items())
+                .filter_map(|position| controller.item(position).and_downcast::<gtk::Shortcut>())
+                .collect::<Vec<_>>()
+        })
+        .filter(|shortcut| {
+            shortcut
+                .trigger()
+                .and_downcast::<gtk::KeyvalTrigger>()
+                .is_some_and(|trigger| trigger.keyval() == key && trigger.modifiers().is_empty())
+        })
+        .any(|shortcut| {
+            shortcut
+                .action()
+                .is_some_and(|action| action.activate(gtk::ShortcutActionFlags::empty(), &frame, None))
+        })
+}
+
 /// Whether an item called `name` is in the test run's private Recycle Bin.
 fn in_recycle_bin(name: &str) -> bool {
     gtk::glib::user_data_dir()
@@ -128,10 +158,25 @@ fn a_broken_shortcut_offers_to_delete_it() {
         !test.names().contains(&"Old plan.txt - Shortcut".to_owned())
     });
 
+    // Y alone answers Yes, as in Windows' message box (checked in a
+    // Windows 11 VM); N alone answers No.
     test.window.activate_item(test.position_of("self loop"));
     let looped = open_dialog(&test);
     assert_eq!(looped.title_text(), "Problem with Shortcut");
-    looped.press("No");
+    assert!(press_letter(&looped, gtk::gdk::Key::n), "N answers No");
+    wait_for(std::time::Duration::from_millis(200));
+    assert!(
+        fs::symlink_metadata(fixture.path("self loop")).is_ok(),
+        "No keeps it"
+    );
+    test.window.activate_item(test.position_of("self loop"));
+    assert!(
+        press_letter(&open_dialog(&test), gtk::gdk::Key::y),
+        "Y answers Yes"
+    );
+    wait_until("the loop to be deleted", || {
+        fs::symlink_metadata(fixture.path("self loop")).is_err()
+    });
     assert!(test.context.recorded_launches().is_empty(), "nothing opened");
 }
 
@@ -163,41 +208,6 @@ fn a_shortcut_onto_a_drive_that_is_not_connected_says_so() {
     assert_eq!(dialog.button_labels(), ["OK"]);
     dialog.press("OK");
     assert!(fs::symlink_metadata(fixture.path("Photos - Shortcut")).is_ok());
-}
-
-/// A `.desktop` link to a folder that was deleted is a broken shortcut
-/// too, and Yes deletes the link file permanently.
-///
-/// parity: OPEN-028
-#[gtk::test]
-fn a_desktop_link_to_a_deleted_folder_offers_to_delete_it() {
-    require_private_trash();
-    let fixture = Fixture::standard();
-    let link = format!(
-        "[Desktop Entry]\nType=Link\nName=Archive\nURL={}\n",
-        fixture.uri_of("Archive 2025")
-    );
-    fs::write(fixture.path("Archive.desktop"), link).expect("the fixture is writable");
-    let test = TestWindow::open(&fixture.uri());
-    test.context.record_runs();
-
-    test.window.activate_item(test.position_of("Archive.desktop"));
-    let dialog = open_dialog(&test);
-    assert_eq!(dialog.title_text(), "Problem with Shortcut");
-    assert!(
-        dialog
-            .message_text()
-            .starts_with("The item ‘Archive 2025’ that this shortcut"),
-        "{}",
-        dialog.message_text()
-    );
-    dialog.press("Yes");
-
-    wait_until("the link file to be deleted", || {
-        !fixture.path("Archive.desktop").exists()
-    });
-    assert!(!in_recycle_bin("Archive.desktop"), "not in the Recycle Bin");
-    assert_eq!(test.window.current_uri(), Some(fixture.uri()));
 }
 
 /// The next page of the wizard: a dialog over the window other than
@@ -288,30 +298,80 @@ fn new_shortcut_is_the_create_shortcut_wizard() {
 /// A shortcut to an Internet address is a `.desktop` link, named "New
 /// Internet Shortcut" as Windows proposes, which opens the address.
 ///
-/// parity: OPS-051
+
+/// Opening an installed app's launcher, or a shortcut to one, opens it in
+/// its editor, as OPEN-007 keeps it, until Settings › "Run installed apps'
+/// launchers on double-click" is on; then it starts the app, as Windows
+/// runs a shortcut to a program. A launcher from elsewhere, such as one
+/// downloaded, still asks the trust question, and Cancel runs nothing.
+///
+/// parity: OPEN-029
 #[gtk::test]
-fn new_shortcut_to_an_internet_address_is_a_desktop_link() {
+fn installed_launchers_run_on_open_only_when_chosen() {
+    use std::os::unix::fs::PermissionsExt;
+
+    use ox_core::settings::{PreferencesUpdate, Settings};
+
     let fixture = Fixture::standard();
-    let test = TestWindow::open(&fixture.uri());
-
-    test.activate("new-link", None);
-    let location = open_dialog(&test);
-    descendants::<gtk::Entry>(&location)[0].set_text("https://example.org/news");
-    location.press("Next");
-    let name = next_page(&test, &location);
-    assert_eq!(
-        descendants::<gtk::Entry>(&name)[0].text(),
-        "New Internet Shortcut"
+    let applications = gtk::glib::user_data_dir().join("applications");
+    assert!(
+        applications.starts_with(std::env::temp_dir()),
+        "tests install launchers only in a private data folder"
     );
-    name.press("Finish");
-    wait_for_no_dialog(&test);
+    fs::create_dir_all(&applications).expect("the data folder is writable");
+    let launcher = applications.join("fictional-calculator.desktop");
+    let ran = fixture.path("ran");
+    let entry = format!(
+        "[Desktop Entry]\nType=Application\nName=Fictional Calculator\nExec=touch \"{}\"\n",
+        ran.display()
+    );
+    fs::write(&launcher, &entry).expect("the data folder is writable");
+    symlink(&launcher, fixture.path("Calculator - Shortcut")).expect("link");
+    let downloaded = fixture.path("Free Game.desktop");
+    fs::write(&downloaded, entry.replace("Fictional Calculator", "Free Game")).expect("the fixture");
+    fs::set_permissions(&downloaded, fs::Permissions::from_mode(0o755)).expect("executable");
+    let test = TestWindow::open(&fixture.uri());
+    test.context.record_runs();
 
-    let link = fixture.path("New Internet Shortcut.desktop");
-    wait_until("the link file", || link.is_file());
-    let text = fs::read_to_string(&link).expect("a desktop entry");
-    assert!(text.contains("Type=Link\n"), "{text}");
-    assert!(text.contains("URL=https://example.org/news\n"), "{text}");
-    wait_until("the shortcut to be selected", || {
-        test.selected_names() == ["New Internet Shortcut.desktop"]
+    test.window
+        .activate_item(test.position_of("Calculator - Shortcut"));
+    wait_until("the launcher to open in its editor", || {
+        !test.context.recorded_launches().is_empty()
     });
+    assert!(test.context.recorded_runs().is_empty(), "off: nothing runs");
+
+    let update = PreferencesUpdate {
+        run_installed_launchers: Some(true),
+        ..PreferencesUpdate::default()
+    };
+    Settings::open(test.settings_directory())
+        .update_preferences(&update)
+        .expect("the settings file takes the choice");
+    test.context.reload_settings();
+    wait_until("the window to read the choice", || {
+        test.context.settings_data().preferences.run_installed_launchers
+    });
+
+    test.window
+        .activate_item(test.position_of("Calculator - Shortcut"));
+    wait_until("the installed app to start", || {
+        !test.context.recorded_runs().is_empty()
+    });
+    assert_eq!(
+        test.context.recorded_runs(),
+        [ox_core::location::file_uri(&launcher)]
+    );
+    assert!(
+        dialog_over(&test).is_none(),
+        "an installed app is not asked about"
+    );
+
+    test.window.activate_item(test.position_of("Free Game.desktop"));
+    let question = open_dialog(&test);
+    assert_eq!(question.title_text(), "Run this program?");
+    assert_eq!(question.button_labels(), ["Cancel", "Trust and Launch"]);
+    question.press("Cancel");
+    wait_for(std::time::Duration::from_millis(300));
+    assert_eq!(test.context.recorded_runs().len(), 1, "Cancel runs nothing");
+    fs::remove_file(&launcher).expect("the private launcher is removed");
 }

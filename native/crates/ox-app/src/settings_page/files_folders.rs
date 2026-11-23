@@ -95,6 +95,14 @@ const RECYCLE_REPLACED: RowText = RowText {
                replaced keep windows",
 };
 
+const RESTORE_OVER_ORIGINAL: RowText = RowText {
+    title: "Restore over the original (Windows)",
+    description: "Previous Versions' Restore copies the version back over the item, asking before \
+                  it replaces anything, as in Windows. Off: Restore asks where to put a copy, and \
+                  the item is never touched.",
+    keywords: "previous versions restore snapshot shadow copy overwrite original replace windows",
+};
+
 const DELETE_REMOVABLE_PERMANENTLY: RowText = RowText {
     title: "Delete files on removable drives permanently (like Windows)",
     description: "Delete on a USB stick or SD card asks, then deletes for good. Off: the items go to the \
@@ -337,7 +345,8 @@ fn details_group(page: &SettingsPage) -> SettingsGroup {
 
 /// What Replace does with the file it replaces in a copy, move, paste,
 /// drag or Recycle Bin restore. On by default, the owner's choice; off,
-/// the old file is overwritten, as in Windows 11.
+/// the old file is overwritten, as in Windows 11. Then whether Previous
+/// Versions' Restore copies back over the item, as Windows' does.
 fn replacing_group(page: &SettingsPage) -> SettingsGroup {
     let group = SettingsGroup::new(&ox_core::i18n::gettext("Copying and moving"));
     let row = SettingRow::new(RECYCLE_REPLACED);
@@ -345,6 +354,17 @@ fn replacing_group(page: &SettingsPage) -> SettingsGroup {
         read: |preferences| preferences.recycle_replaced_files,
         write: |on| PreferencesUpdate {
             recycle_replaced_files: Some(on),
+            ..PreferencesUpdate::default()
+        },
+    };
+    row.add_control(&page.preference_switch(binding), ControlName::RowTitle);
+    group.add_row(&row);
+    // Off by default, the owner's choice; on, Restore works as Windows'.
+    let row = SettingRow::new(RESTORE_OVER_ORIGINAL);
+    let binding = PreferenceBinding {
+        read: |preferences| preferences.restore_over_original,
+        write: |on| PreferencesUpdate {
+            restore_over_original: Some(on),
             ..PreferencesUpdate::default()
         },
     };
