@@ -250,6 +250,7 @@ impl BrowserWindow {
         self.follow_item_check_boxes_preference();
         self.follow_expand_arrows_preference();
         self.follow_column_header_style_preference();
+        self.follow_column_title_line_preference();
         self.render_title();
         self.render_tabs();
         self.update_details_pane();

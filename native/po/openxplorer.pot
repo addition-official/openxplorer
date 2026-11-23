@@ -772,6 +772,10 @@ msgid "Date modified:"
 msgstr ""
 
 #: crates/ox-app/src/folder_view/cells.rs
+msgid "Dimensions:"
+msgstr ""
+
+#: crates/ox-app/src/folder_view/cells.rs
 msgid "Folder contents — type a filename prefix to select"
 msgstr ""
 
@@ -781,6 +785,10 @@ msgstr ""
 
 #: crates/ox-app/src/folder_view/cells.rs
 msgid "Size:"
+msgstr ""
+
+#: crates/ox-app/src/folder_view/cells.rs
+msgid "Type:"
 msgstr ""
 
 #: crates/ox-app/src/folder_view/cells/expander.rs crates/ox-app/src/window/sidebar/menu.rs
@@ -3167,6 +3175,10 @@ msgid "Icons from Windows icon files"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "In the details view, a thin line separates the column titles from the list. Windows 11 draws none."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "Language"
 msgstr ""
 
@@ -3224,6 +3236,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
 msgid "Shift+F10 opens the classic menu"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "Show a line under column titles"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
@@ -3317,6 +3333,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
 msgid "appearance dark light system colour color mode"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "column header title line border separator underline divider details view windows"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
