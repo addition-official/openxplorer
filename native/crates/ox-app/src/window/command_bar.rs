@@ -321,6 +321,12 @@ impl CommandBar {
             "new-command",
             new_menu(Vec::new()),
         );
+        // Windows 11 opens New's menu with its left edge 1 pixel left of
+        // the button's (measured on its capture); the shared menus open
+        // 1 pixel right of it, so New's moves 2 pixels left.
+        if let Some(popover) = new_button.popover() {
+            popover.set_offset(NEW_MENU_SHIFT, popover.offset().1);
+        }
         group.append(&new_button);
         imp.new_button
             .set(new_button)
@@ -1084,6 +1090,9 @@ fn text_menu_content(label: &str, glyph: Icon) -> gtk::Box {
 
 /// A command with a label that opens `entries`; `css_class` names it for
 /// the stylesheet and the tests.
+/// How far New's menu opens left of where the shared menus open.
+const NEW_MENU_SHIFT: i32 = -2;
+
 fn text_menu_button(label: &str, glyph: Icon, css_class: &str, entries: Vec<MenuEntry>) -> gtk::MenuButton {
     let button = gtk::MenuButton::builder()
         .child(&text_menu_content(label, glyph))
