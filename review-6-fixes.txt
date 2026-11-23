@@ -1,7 +1,7 @@
 STATUS: DONE
-HEAD: claude/review-6-fixes ec04d87f (on origin/test-combined-51 ca458a05)
+HEAD: claude/review-6-fixes 86a562eb (round 2 on origin/test-combined-53 8ea787de, which already held round 1)
 QUESTION: none (U2's one-line change in folder_view/details/column_text.rs was approved and made; only the closure's type changed)
-NOTE: Every report item is fixed, waiting on a VM check, or skipped with the reason below. U1 now matches Windows (Hidden writes the folder's .hidden list; no rename); I found no recorded owner decision for the old dot-rename, so no setting was added (a possible "like Windows" switch is listed under SETTINGS). Testing followed the updated rule from the coordinating session: build, run the tests of the touched modules, check each fix in the real app with real input, one regression test for D1. No claude/windows-mode-switch branch exists.
+NOTE: Round 2 (five comparisons with reference/) is done: see ROUND 2. Round 1: every report item is fixed, waiting on a VM check, or skipped with the reason below. U1 now matches Windows (Hidden writes the folder's .hidden list; no rename); I found no recorded owner decision for the old dot-rename, so no setting was added (a possible "like Windows" switch is listed under SETTINGS). Testing followed the updated rule from the coordinating session: build, run the tests of the touched modules, check each fix in the real app with real input, one regression test for D1. No claude/windows-mode-switch branch exists.
 
 ITEMS
 | Item | Result | Commit(s) | How it was checked |
@@ -29,6 +29,21 @@ ITEMS
 | L6 tar + None level slider; no Zstandard | level: already fixed on this base; Zstandard: skipped | none | additional_options_lay_out_the_create_archive_dialog asserts the slider is grayed for a plain TAR (passes). Zstandard is not offered because the linked library has no streaming encoder (ARC-023 note); VM CHECK 4 |
 | L7 Alt+D reaches the address bar behind a dialog | fixed | 8e717234 | Real app: Create archive dialog open, Alt+D leaves the address bar as breadcrumbs (before: selected edit field) |
 | L8 Gallery year scale skips years | fixed | 452274c9 | Real app: photos 2019 to 2025 plus 40 from today; scale shows 2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019 (before the fix: 2026, 2025, 2023, 2020) |
+
+ROUND 2 (measured by script at 1920x1080, 1x, dark, the RefTest items; Windows = reference/, ours = my captures after the change)
+| Item | Result | Commit | Windows | Ours before | Ours after |
+|---|---|---|---|---|---|
+| 1 Details pane on a .jpg: preview | fixed | f473cf22 | full pane width, square, 0 px side margins, 187 px tall in a 299 px pane | 22 px margins each side | 0 px margins (pane 1655-1915 inside the window frame), square, 163 px tall in a 261 px pane (3840x2400 picture) |
+| 1 name and icon | fixed | f473cf22 | name about 20.4 px line pitch, starts 62 px in; icon 21x28 px drawn (32 px slot), centered on the name | 16 px pitch, 13 px text, 14x14 icon at the top | about 21 px pitch (15 px semibold), 32 px icon centered |
+| 1 Details rows | fixed | f473cf22 | 22 px apart, values right-aligned at the pane's edge | 24 px apart, values in a left column | 22 px apart, values right-aligned. Note: Windows' rows are tighter than ours were, not wider |
+| 1 Share under the name | not a code issue | none | shown | missing in ours-53 | shown in my captures whenever the desktop has an Email portal; ours-53 was captured without one (its command bar has no Share either) |
+| 2 Set as background, Rotate left/right for a picture | fixed | 0fdc8b18 | shown after View for a selected .jpg | shown only in Gallery; Set as background a grayed placeholder | shown for any selection of pictures, in Windows' order. Set as background calls org.freedesktop.portal.Wallpaper.SetWallpaperFile with a read-only fd (set-on background, show-preview); grayed where the desktop has no Wallpaper backend (GTK's backend has none; checked enabled with the xapp backend, whose request reached it: in this container it then failed to run xfce4-set-wallpaper, which is not installed, and answered without an error). Rotate right on the .jpg wrote EXIF orientation 6, pixels untouched |
+| 3 Share and "Share with >" in the file menu | not a code issue | none | Share in the top row; Share with between Open with and Add to Favorites | missing in ours-53 | both present in exactly those places in my captures with an Email portal; ours-53 lacks the portal |
+| 3 menu row height | fixed | 9a0d3eea | rows 31-32 px apart, 41 px across a separator | 33 and 36 | 32 and 41 (sequence 32,32,32,32,34,30,41,41 vs Windows 31,31,32,34,32,31,41,41) |
+| 4 New menu position | fixed | 5878ea12 | panel starts 1 px LEFT of the button (button 8, panel 7) | 1 px right (button 19, panel 20) | 1 px left (button 19, panel 18). Note: Windows is not indented right; ours was |
+| 5 View menu dot | fixed | 86a562eb | dot 19 px from the panel edge, icon 21 px after the dot | 21 and 18 | 19 and 21. Note: ours was farther from the border, not closer |
+- Tests (touched modules only): details_pane, gallery, command_bar, share, photo 259/259; menu, context_menu, command_bar, fonts 285 passed, 2 failed: settings the_menu_watch_and_interval_rows_save_the_python_keys (needs the Python app sources) and menu_sweep every_page_menu_runs_actions_the_window_has (Network page right-click; fails the same way without these changes). ox-core integration::wallpaper_portal and email_portal pass. i18n check, parity/check.py, rustfmt pass. Clippy -D warnings: one finding, settings/preferences.rs:938 function length, which comes with test-combined-53 (not touched here).
+- New tools: measure_pane / measure_rows / measure_dropdown / measure_dot (scripts kept outside the repo).
 
 SETTINGS for the "Behave like Windows Explorer" switch
 - None added. If the old Hidden behavior (rename to a dot-name) was wanted on purpose, a setting "Hide items by renaming them with a leading dot" (off = like Windows) would bring it back.
