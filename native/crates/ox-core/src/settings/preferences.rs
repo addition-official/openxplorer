@@ -440,9 +440,10 @@ pub struct Preferences {
     /// on.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub extension_word_starts: bool,
-    /// A search of a folder nobody indexed shows every match, as Windows
-    /// 11's search does, instead of the first 500. Off by default, the
-    /// owner's limit. Stored as `showAllSearchMatches`, only when on.
+    /// A search shows every match, as Windows 11's search does, instead of
+    /// the first 500: a walked folder's and the search cache's alike.
+    /// Off by default, the owner's limit. Stored as
+    /// `showAllSearchMatches`, only when on.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub show_all_search_matches: bool,
     /// Hover and selection in the file list and the navigation pane keep

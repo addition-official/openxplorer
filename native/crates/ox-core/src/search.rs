@@ -128,6 +128,7 @@ pub use pattern::{extension_words, is_wildcard, set_extension_words, ExtensionWo
 pub use pins::PinIndexing;
 pub use query::{
     SearchHit, SearchQuery, SearchResults, DEFAULT_RESULT_LIMIT, MAX_QUERY_CHARS, MAX_RESULT_LIMIT,
+    UNLIMITED_RESULTS,
 };
 pub use reader::{FolderReader, GioFolderReader};
 pub use root::{

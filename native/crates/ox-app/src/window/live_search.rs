@@ -51,9 +51,9 @@ fn searched_entries(store: &gio::ListStore, shows_hidden: bool) -> impl Iterator
 }
 
 impl BrowserWindow {
-    /// How many matches a search of a folder nobody indexed shows: the
-    /// first [`RESULT_LIMIT`], or every one while Settings' "Show all
-    /// search matches (like Windows)" is on, as Windows 11 shows them.
+    /// How many matches a search shows: the first [`RESULT_LIMIT`], or
+    /// every one while Settings' "Show all search matches (like Windows)"
+    /// is on, as Windows 11 shows them.
     pub(super) fn live_search_limit(&self) -> usize {
         if self.context().settings_data().preferences.show_all_search_matches {
             usize::MAX

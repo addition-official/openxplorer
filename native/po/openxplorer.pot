@@ -4939,7 +4939,7 @@ msgid "5 minutes"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/indexing.rs
-msgid "A search of a folder that is not in the search cache shows every match, as in Windows. Off, it shows the first 500 and asks you to narrow your search."
+msgid "A search shows every match, as in Windows, adding them while you keep working. Off, it shows the first 500 and asks you to narrow your search."
 msgstr ""
 
 #: crates/ox-app/src/settings_page/indexing.rs

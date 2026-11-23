@@ -99,8 +99,8 @@ const EXTENSION_WORD_STARTS: RowText = RowText {
 
 const SHOW_ALL_SEARCH_MATCHES: RowText = RowText {
     title: "Show all search matches (like Windows)",
-    description: "A search of a folder that is not in the search cache shows every match, as in \
-                  Windows. Off, it shows the first 500 and asks you to narrow your search.",
+    description: "A search shows every match, as in Windows, adding them while you keep working. \
+                  Off, it shows the first 500 and asks you to narrow your search.",
     keywords: "search results matches all limit 500 first more cap live folder windows",
 };
 
@@ -184,7 +184,8 @@ fn search_results_group(page: &SettingsPage) -> SettingsGroup {
     };
     row.add_control(&page.preference_switch(extension_starts), ControlName::RowTitle);
     group.add_row(&row);
-    // Off by default, the owner's limit of 500; on, every match (#116).
+    // Off by default, the owner's limit of 500; on, every match, from the
+    // cache too (#116).
     let row = SettingRow::new(SHOW_ALL_SEARCH_MATCHES);
     let show_all = PreferenceBinding {
         read: |preferences| preferences.show_all_search_matches,
