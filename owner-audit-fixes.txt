@@ -1,5 +1,5 @@
 STATUS: DONE
-HEAD: claude/owner-audit-fixes de695b5d
+HEAD: claude/owner-audit-fixes aa0c80ed
 QUESTION: none
 NOTE:
 - 14 commits on upstream 5d21fd3e, one per fix: GTK_A11Y=none crash; #229
@@ -9,7 +9,23 @@ NOTE:
   Browse...; #216 drive label; #164 search dot; #327 remotePreviews; #164 search setting "Match words at the start of file
   extensions (like Windows)", off by default (VM results).
   Skipped as asked: rows marked None, #133, #231, #232, #387, #374.
-- PASS: native/parity/check.py (exit 0).
+- MERGED origin/test-combined-51 (ca458a05) as aa0c80ed. Resolved:
+  announcement.rs keeps pass-19's helper plus both sides' tests; the drive
+  label box now uses pass-18's rename path (one implementation; this
+  branch's own set_drive_label/LabelError dropped); unions in Settings
+  rows, redesign list, file_drag, menu_popover, features.toml; template
+  and docs Markdown regenerated. Clippy fixes from the merge: semicolons,
+  Ok(()) pattern, #[expect(too_many_lines)] on 3 functions both sides grew
+  (preferences from_json, general_tab, open_item_properties).
+- PASS on aa0c80ed (as tester, Rust 1.92.0): rustfmt --check; clippy
+  --workspace --all-targets -D warnings; parity check; i18n template
+  check; ox-app tests of the touched areas with check.py isolation (510
+  passed, 1 ignored child test run by its parent); ox-core settings,
+  enumerate, drive_format, search (335 passed).
+- NOT RUN on aa0c80ed, by the new rule: full ox_app runs and 3x runs.
+- claude/windows-mode-switch does not exist yet, so the #164 setting is
+  not registered with a master switch.
+- PASS (before the merge): native/parity/check.py (exit 0).
 - PASS: check.py stages before the tests: inventories, driver tests, icon
   guard, rustfmt, clippy -D warnings, i18n template check.
 - PASS: ox-app test program in full; 4,971 tests passed over all 88 test
