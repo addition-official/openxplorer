@@ -4473,7 +4473,7 @@ msgid "Local changes update the index after a short debounce. Watching uses up t
 msgstr ""
 
 #: crates/ox-app/src/settings_page/indexed_folders.rs
-msgid "No folders are indexed yet. Add one below, or pin a folder to Quick access."
+msgid "No folders are indexed. Add one below. Folders pinned to Quick access are indexed while “Index pinned folders automatically” is on."
 msgstr ""
 
 #: crates/ox-app/src/settings_page/indexed_folders.rs
