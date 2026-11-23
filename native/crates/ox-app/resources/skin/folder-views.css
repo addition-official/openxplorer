@@ -83,22 +83,26 @@ columnview.files > header > button.custom-sort {
 }
 /* Settings > Appearance > "Column header style" set to Windows puts this
    class on the window (src/window/column_header_style.rs), and the sorted
-   title is drawn as in Windows 11 File Explorer instead: only a small gray
-   chevron, 7 by 4 pixels at 100% scale (11px of the 16px glyph), centered
-   over the column on the title's top edge, up while ascending and down
-   while descending. The title keeps the others' color and weight, with no
-   accent and no line, GTK's indicator stays hidden, and hover and press
-   are Windows' subtle grays. The chevron is the title's background,
-   centered on the content box, whose padding is even once the 14px ends
-   are left out, so it stands over the column's middle. */
+   title is drawn as in Windows 11 File Explorer instead: only a thin gray
+   chevron, about 9 by 5 pixels at 100% scale (14px of the 16px glyph),
+   1px under the title's top edge and centered over the column, up while
+   ascending and down while descending. Every title's text sits 6px lower
+   than in the app's own style, the title keeping its height, so the
+   chevron stands clear of the text in a column of any width. The title
+   keeps the others' color and weight, with no accent and no line, GTK's
+   indicator stays hidden, and hover and press are Windows' subtle grays.
+   The chevron is the title's background, centered on the content box,
+   whose padding is even once the 14px ends are left out, so it stands
+   over the column's middle. */
+.windows-column-headers columnview.files > header > button > box { margin-top: 6px; }
 .windows-column-headers columnview.files > header > button.sort-ascending,
 .windows-column-headers columnview.files > header > button.sort-descending {
   color: @ox_muted;
   box-shadow: none;
   background-repeat: no-repeat;
   background-origin: content-box;
-  background-position: center -2px;
-  background-size: 11px 11px;
+  background-position: center -3px;
+  background-size: 14px 14px;
 }
 .windows-column-headers columnview.files > header > button.sort-ascending { background-image: -gtk-icontheme("ox-chevron-up-16-symbolic"); }
 .windows-column-headers columnview.files > header > button.sort-descending { background-image: -gtk-icontheme("ox-chevron-down-16-symbolic"); }
@@ -117,8 +121,8 @@ columnview.files > header > button.custom-sort {
 .windows-column-headers columnview.files > header:hover > button:last-child.sort-descending {
   background-repeat: no-repeat, no-repeat;
   background-origin: content-box, padding-box;
-  background-position: center -2px, left top;
-  background-size: 11px 11px, auto;
+  background-position: center -3px, left top;
+  background-size: 14px 14px, auto;
 }
 .windows-column-headers columnview.files > header:hover > button:last-child.sort-ascending {
   background-image: -gtk-icontheme("ox-chevron-up-16-symbolic"),
