@@ -111,8 +111,8 @@ impl BrowserWindow {
             plain_action(WindowAction::RotateLeft, |window| window.rotate_selection(false)),
             plain_action(WindowAction::RotateRight, |window| window.rotate_selection(true)),
             // Through the desktop's Wallpaper portal, which shows its own
-            // preview and asks before anything changes; grayed where the
-            // desktop has none.
+            // preview and asks before anything changes; where the desktop
+            // has none, a click says so.
             plain_action(
                 WindowAction::SetAsBackground,
                 BrowserWindow::set_selection_as_background,
@@ -204,7 +204,9 @@ impl BrowserWindow {
         bar.show_photo_commands(photos);
         self.set_action_enabled(WindowAction::RotateLeft, rotatable);
         self.set_action_enabled(WindowAction::RotateRight, rotatable);
-        let background = pictures.len() == 1 && self.wallpaper_portal().is_some();
+        // Enabled as in Windows 11 for one picture, also where the desktop
+        // cannot set a background: a click then says why.
+        let background = pictures.len() == 1 && !self.is_picking();
         self.set_action_enabled(WindowAction::SetAsBackground, background);
     }
 
@@ -236,7 +238,16 @@ impl BrowserWindow {
     /// failure says why.
     fn set_selection_as_background(&self) {
         let pictures = self.selected_pictures();
-        let (Some(portal), [path]) = (self.wallpaper_portal(), pictures.as_slice()) else {
+        let [path] = pictures.as_slice() else {
+            return;
+        };
+        let Some(portal) = self.wallpaper_portal() else {
+            self.show_result_dialog(
+                &ox_core::i18n::gettext("Set as background"),
+                &ox_core::i18n::gettext(
+                    "This desktop has no way for apps to set its background: its desktop portal has no wallpaper service. Set the background in the desktop's own settings.",
+                ),
+            );
             return;
         };
         let path = path.clone();

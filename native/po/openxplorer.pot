@@ -7415,6 +7415,10 @@ msgstr ""
 msgid "Show all"
 msgstr ""
 
+#: crates/ox-app/src/window/gallery.rs
+msgid "This desktop has no way for apps to set its background: its desktop portal has no wallpaper service. Set the background in the desktop's own settings."
+msgstr ""
+
 #: crates/ox-app/src/window/gallery_locations.rs
 msgid "Add a folder to Gallery"
 msgstr ""
@@ -8048,6 +8052,10 @@ msgstr ""
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/share.rs
 msgid "Share can attach up to {count} files to one email."
+msgstr ""
+
+#: crates/ox-app/src/window/share.rs
+msgid "This desktop has no way to send files by email: no email app is set up, or its desktop portal has no email service. Set up an email app, then share again."
 msgstr ""
 
 #: crates/ox-app/src/window/shortcuts_window.rs

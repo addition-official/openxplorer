@@ -211,12 +211,20 @@ impl BrowserWindow {
     /// selection of files it can attach. It reads only addresses, never
     /// the disk, as it follows every selection change.
     pub(super) fn update_share_command(&self) {
-        let offered = self.share_portal().is_some();
+        // Offered wherever Windows 11 offers it, also where the desktop
+        // cannot share by email: a click then says why ([`Self::share`]).
+        // Only an Open or Save dialog has no Share.
+        let offered = self.share_offered();
         self.command_bar().offer_share(offered);
         let enabled = offered && self.selected_sources().is_some();
         self.set_action_enabled(WindowAction::Share, enabled);
         // The pane shows Share only for what it can share.
         self.details_pane().offer_share(enabled);
+    }
+
+    /// Whether Share is offered: everywhere but in an Open or Save dialog.
+    pub(super) fn share_offered(&self) -> bool {
+        !self.is_picking()
     }
 
     /// The addresses of the files Share attaches for the selection
@@ -244,10 +252,18 @@ impl BrowserWindow {
     /// Opens a new email in the desktop's email app with the selected
     /// files attached; a failure shows in the toast.
     pub(super) fn share(&self) {
-        let Some(portal) = self.share_portal() else {
+        let Some(sources) = self.selected_sources() else {
             return;
         };
-        let Some(sources) = self.selected_sources() else {
+        let Some(portal) = self.share_portal() else {
+            // Offered all the same, as in Windows: the click says why
+            // nothing opens.
+            self.show_result_dialog(
+                &ox_core::i18n::gettext("Share"),
+                &ox_core::i18n::gettext(
+                    "This desktop has no way to send files by email: no email app is set up, or its desktop portal has no email service. Set up an email app, then share again.",
+                ),
+            );
             return;
         };
         if sources.len() > MAX_ATTACHMENTS {
