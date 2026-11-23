@@ -561,6 +561,7 @@ fn escape_leaves_the_search_and_shows_every_row_again() {
             "Right-click menu",
             "Buttons in the right-click menu",
             "Shift+F10 opens the classic menu",
+            "F6 moves like Windows",
             "Sidebar and column widths"
         ]
     );
@@ -823,6 +824,31 @@ fn the_shift_f10_switch_is_off_and_saves_the_choice() {
     switch.set_active(false);
     wait_until("the choice to be saved off", || {
         !settings.saved_preferences().shift_f10_classic
+    });
+}
+
+/// "F6 moves like Windows" sits with the keyboard's Shift+F10 row, is off
+/// by default, as F6's own cycle (ACC-015) was designed, and saves the
+/// choice, which the open window then takes up.
+///
+/// parity: ACC-015
+#[gtk::test]
+fn the_f6_like_windows_switch_is_off_and_saves_the_choice() {
+    let settings = SettingsTest::open();
+    let row = settings.row("F6 moves like Windows");
+    let switch = switch_of(&row);
+    assert!(!switch.is_active(), "off by default");
+
+    switch.set_active(true);
+    wait_until("the choice to be saved", || {
+        settings.saved_preferences().f6_like_windows
+    });
+    wait_until("the window to follow", || {
+        settings.test.context.settings_data().preferences.f6_like_windows
+    });
+    switch.set_active(false);
+    wait_until("the choice to be saved off", || {
+        !settings.saved_preferences().f6_like_windows
     });
 }
 

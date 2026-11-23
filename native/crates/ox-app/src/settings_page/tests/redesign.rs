@@ -254,6 +254,8 @@ fn every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages() {
         // The owner's opt-in for Windows' permanent delete on removable
         // drives (OPS-018).
         "Delete files on removable drives permanently (like Windows)",
+        // The choice of Windows 11's F6 order (ACC-015).
+        "F6 moves like Windows",
     ];
     for title in added_since {
         settings.row(title);
