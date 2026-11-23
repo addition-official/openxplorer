@@ -1,6 +1,41 @@
 STATUS: DONE
-HEAD: user-icon-files 31929ba8 (0613fcfb grows icons with the app's text size; 3a42a312 and 31929ba8 keep it merging onto the combined branches)
+HEAD: user-icon-files ebe2dbd9 (c1ac5b82 merges origin/test-combined-53; c1496e0b keeps 0-pixel margins at 0; ebe2dbd9 merges c59ec8e4 "Drop redundant tests", pushed to this branch by another session meanwhile)
 QUESTION: none.
+NOTE: Round 10, from the PC manager workflow: deb 53 skipped 31929ba8 (icons grow with text size) because it conflicted with Pass 7's 3b6ef52d (Windows-measured spacing). origin/test-combined-53 (8ea787de) is merged into this branch with a merge commit, no rebase or force-push.
+NOTE: Resolution in folder_view/icon_size.rs and theme/fonts.rs: Pass 7's spacing kept as it is at 100%: icon column pitch (Extra large 291, Large 109, Medium 75), the row height (icon + two name lines + 2 px above and below; 289 in Extra large), Tiles 254 apart, Content rows 48, compact Tiles 57, which already grow with larger text as Windows' scaling grows them. On top: the icon in each cell grows with the text (rendered at that size), the row height uses the grown icon, and Tiles', Content's and compact Tiles' minimum heights and the tiles' minimum widths use it.
+NOTE: The text-size stylesheet's sort chevrons follow Pass 7's skin, which changed them: the 12-pixel sort indicator, and in Windows' header style the 13-pixel chevron with the indicator hidden (otherwise the text-size layer, which outranks the skin, would have shown the indicator and drawn the Windows chevron at 10 px).
+NOTE: Found by the script and fixed (c1496e0b): the icon scale kept every measure at least a pixel, so a 0-pixel margin became 1 and the archive folder's zipper badge rose a pixel at 100%; 0 stays 0 now.
+NOTE: Tests: Pass 7's spacing test gains the icon's growth at 150%; the font override test takes the 12- and 13-pixel sort squares. The Windows icon files' tests test-combined-53 had dropped were kept in the merge, with the badge helper they use, but c59ec8e4 (pushed to this branch meanwhile) drops them again, and its removals are kept; the settings tests keep test-combined-53's launcher test without the orphaned documentation of the removed symbol font test.
+NOTE: Not fixed, from test-combined-53 unchanged: cargo clippy -D warnings still fails on properties/general_tab.rs (too_many_lines 103/100), window/tests/shortcuts.rs:300 (empty line after a doc comment) and ox-core settings/preferences.rs apply (too_many_lines 101/100). These files are identical to test-combined-53's; my own changes lint clean (clippy --no-deps on ox-app shows only these).
+NOTE: Merge check: `git merge-tree --write-tree origin/test-combined-53 ebe2dbd9` exits 0.
+
+CHECK BY SCRIPT, merged build (c1496e0b) vs test-combined-53 (8ea787de), 1920x1032, 1x, dark, built-in icons, RefTest folder; folder icons found by their yellow, ink in px
+At 100%: Extra large, Large, Medium and Tiles: 0 differing content pixels; Content and Details: only the "Date modified" minutes differ (files made at capture time). So Pass 7's spacing and sizes are unchanged at 100%.
+view        | step | icon w x h merged (53)        | column pitch merged (53) | first row top merged (53)
+Extra large | 100% | 224x208 (224x208)             | 291 (291) | 176 (176)
+Extra large | 125% | 280x260 (224x208)             | 364 (364) | 189 (181)
+Extra large | 150% | 336x312 (224x208)             | 437 (437) | 210 (194)
+Large       | 100% | 84x78 (84x78)                 | 109 (109) | 156 (156)
+Large       | 125% | 104x97 (84x78)                | 137 (137) | 164 (161)
+Large       | 150% | 126x117 (84x78)               | 164 (164) | 180 (174)
+Medium      | 100% | 42x39 (42x39)                 | 75 (75)   | 150 (150)
+Medium      | 125% | 52x48 (42x39)                 | 94 (94)   | 157 (155)
+Medium      | 150% | 62x58 (42x39)                 | 113 (113) | 171 (168)
+Tiles       | 100% | 42x39 (42x39)                 | 254 (254) | 161 (161)
+Tiles       | 125% | 52x48 (42x39)                 | 317 (317) | 169 (173)
+Tiles       | 150% | 62x58 (42x39)                 | 381 (381) | 183 (192)
+Content     | 100% | 28x26 (28x26)                 | -         | 153 (153)
+Content     | 125% | 34x32 (28x26)                 | -         | 161 (164)
+Content     | 150% | 42x39 (28x26)                 | -         | 177 (183)
+Details     | 100% | 14x13 (14x13)                 | -         | 184 (184)
+Details     | 125% | 18x15 (14x13)                 | -         | 197 (198)
+Details     | 150% | 20x19 (14x13)                 | -         | 217 (220)
+Icons grow by the text's factor (Large 84 -> 104 -> 126, Windows' 85 x 1.25 = 106 and x 1.5 = 127.5) while Pass 7's pitch is kept at every step.
+
+PASS round 10 on ebe2dbd9 (fmt; build): ox-app icons:: 52/52, folder_view:: 115/115, theme:: 50/50, windows_icon_files 3/3, settings_page:: 126/126; ox-core windows_ 38/38. Before c59ec8e4 was merged, on c1496e0b: icons:: 66/66, menu_popover 21/21, text_size 26/26.
+NOT RUN round 10: the full suite, 3x runs (by the user's rule).
+
+ROUND 9
 NOTE: Round 9, from the PC manager workflow's answer: icons, row glyphs, menu glyphs and the row and tile boxes grow with the app's text size (Ctrl+plus/minus, 80% to 200%), as at a Windows display scale. Windows' own Ctrl+plus/minus in Details is left to the "Behave like Windows Explorer" switch, as that session said.
 NOTE: How: one icon scale follows the drawn text size (theme draw_text). set_icon and art images keep each icon's 100% size and draw it at that size times the scale, rounded to whole pixels: vector icons rendered at that size, Windows icon files' pictures resampled to it (f9990748), the symbol font's glyphs at the em they have in their 100% square. Every icon shown is drawn again when the text size changes (a registry of weak references; file cells re-size their custom-icon and folder-picture places). Tiles, Tiles' and Content's rows, menu slots and the skin's chevrons (sort arrows, address dividers, tree expanders) grow with it. Details rows already grew with the text.
 NOTE: For the merge into test-combined-52: its new thumbnail lookup (custom_icon.rs start_preview) asks for previews at the cell's 100% size. On the combined branch it should ask for crate::icons::scaled(icon_size) device pixels, or thumbnails above 100% are upscaled; this branch left that line alone so it merges cleanly.
