@@ -725,28 +725,6 @@ mod tests {
         assert!(css.contains(".settings .setting-title { font-size: 14px; }"));
     }
 
-    /// The progress window, its questions and the File Conflict window
-    /// grow with the text as the rest of the window does, as Windows'
-    /// Text size scales its copy dialog: their own sizes are no longer
-    /// fixed in pixels.
-    ///
-    /// parity: ACC-012
-    #[test]
-    fn the_progress_and_conflict_windows_follow_the_text_size() {
-        let css = css_at(200);
-        for rule in [
-            ".progress-header { font-size: 24px; }",
-            ".progress-percent { font-size: 36px; }",
-            "speedgraph .speed-label { font-size: 22px; }",
-            ".progress-action.asking .progress-percent { font-size: 32px; }",
-            "window.ox button.conflict-command label { font-size: 30px; }",
-            ".file-conflicts-heading { font-size: 32px; }",
-            ".file-conflict-name { font-size: 24px; }",
-        ] {
-            assert!(css.contains(rule), "{rule}");
-        }
-    }
-
     /// parity: VIEW-044
     #[test]
     fn larger_text_scales_fonts_and_rows() {

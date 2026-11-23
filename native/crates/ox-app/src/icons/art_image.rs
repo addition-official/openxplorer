@@ -347,13 +347,6 @@ impl ArtImage {
         self.imp().picture.has_css_class(USER_ICON_CLASS)
     }
 
-    /// Whether the badge shows, once one was made; `None` before, for
-    /// tests.
-    #[cfg(test)]
-    pub(crate) fn badge_pieces_if_made(&self) -> Option<bool> {
-        self.imp().badge.get().map(|pieces| pieces.badge.is_visible())
-    }
-
     /// The main picture, for tests.
     #[cfg(test)]
     pub(crate) fn picture(&self) -> gtk::Image {

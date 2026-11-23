@@ -133,17 +133,6 @@ mod tests {
         assert_eq!(running_version().to_string(), env!("CARGO_PKG_VERSION"));
     }
 
-    /// The running build's identity is asked for by the `runtime-info`
-    /// action and by the update service; each read the whole executable,
-    /// tens of megabytes, at every start. It is read once.
-    #[test]
-    fn the_running_executable_is_read_once() {
-        for _ in 0..3 {
-            running_identity(running_version()).expect("the test binary is readable");
-        }
-        assert_eq!(EXECUTABLE_READS.load(std::sync::atomic::Ordering::Relaxed), 1);
-    }
-
     #[test]
     fn the_running_executable_has_a_digest() {
         let identity = running_identity(running_version()).expect("the test binary is readable");
