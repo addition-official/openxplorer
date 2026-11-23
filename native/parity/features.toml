@@ -12786,7 +12786,7 @@ python_tests = []
 bridge = ["activateItem"]
 dolphin = "openItemAsFolderUrl (application/x-desktop Link)"
 native = "done"
-native_note = "Opening a Type=Link desktop entry goes to its URL: a file:// or smb:// location in the tab, an http(s) or mailto address in the desktop's handler (gtk::UriLauncher); any other address is refused, and application entries open as files and are never run (native/crates/ox-app/src/window/desktop_link.rs, activation.rs). Tests: native/crates/ox-app/src/window/desktop_link.rs (a_link_entry_names_a_location_or_a_web_page_and_nothing_else_is_followed), native/crates/ox-app/src/window/tests/opening.rs (a_desktop_link_to_a_folder_opens_the_folder)."
+native_note = "Opening a Type=Link desktop entry goes to its URL: a file:// or smb:// location in the tab, an http(s) or mailto address in the desktop's handler (gtk::UriLauncher); any other address is refused, and application entries open as files and are never run (native/crates/ox-app/src/window/desktop_link.rs, activation.rs). Tests: native/crates/ox-app/src/window/desktop_link.rs (a_link_entry_names_a_location_or_a_web_page_and_nothing_else_is_followed), native/crates/ox-app/src/window/tests/opening.rs (a_desktop_link_to_a_folder_opens_the_folder). A local .desktop link is read on a worker thread while the main loop runs on, for at most 400 ms, then opened as the file it is (#29; native/crates/ox-app/src/bounded_io.rs look_for; window/activation.rs a_link_on_a_stalled_mount_never_holds_the_main_loop)."
 
 [[feature]]
 id = "OPEN-010"
