@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! Previews of a folder's contents on its icon (VIEW-058), as Windows 11
-//! draws a folder at Medium icons and larger and in Tiles: the thumbnails
-//! of its first pictures or videos by name peek out of the folder, between
-//! its back and its front; a folder without any shows
-//! the icon of its first file as a page; an empty folder, or one holding
-//! only folders, stays plain.
+//! draws a folder at Medium icons and larger and in Tiles: the thumbnail
+//! of its first picture or video by name peeks out of the folder, straight,
+//! between its back and its front; a folder without any shows the icon of
+//! its first file as a page; an empty folder, or one holding only folders,
+//! stays plain, as in Windows.
 //!
 //! What a folder holds is read off the main thread, a few folders at a
 //! time, after the folder's own icon is drawn, and kept by the folder's
 //! modification time, which changes whenever an item is added, removed or
-//! renamed in it; the pictures' thumbnails come from the shared cache
+//! renamed in it; the picture's thumbnail comes from the shared cache
 //! through [`super::preview`], so a folder visited again draws its
 //! previews on the frame its tile is bound ([`kept_folder_art`]).
 //!
@@ -30,9 +30,7 @@ use ox_core::entry::Entry;
 use super::{OnScreen, PreviewPolicy, PreviewRequest, Slots};
 use crate::folder_view::sorting::{compare_names, SortKey, SortName};
 
-/// How many of a folder's pictures peek out of it.
-pub(crate) const MOST_PICTURES: usize = 2;
-/// The most items of a folder looked at for its first pictures: a folder
+/// The most items of a folder looked at for its first picture: a folder
 /// of more shows the first of those.
 const MOST_READ: usize = 20_000;
 /// The most folders whose contents are kept.
@@ -55,21 +53,20 @@ pub(crate) struct Peeking {
     pub size: Option<u64>,
 }
 
-/// The items of a folder that may peek out of it: its first pictures and
-/// its first videos by name, and its first file of any kind.
+/// The items of a folder that may peek out of it: its first picture and
+/// its first video by name, and its first file of any kind.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct Contents {
-    pictures: Vec<Peeking>,
-    videos: Vec<Peeking>,
+    picture: Option<Peeking>,
+    video: Option<Peeking>,
     first_file: Option<Peeking>,
 }
 
 /// What a folder's icon shows of its contents.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct Shown {
-    /// The pictures or videos whose thumbnails peek out, first by name
-    /// first.
-    pub pictures: Vec<Peeking>,
+    /// The picture or video whose thumbnail peeks out.
+    pub picture: Option<Peeking>,
     /// With no picture to show, the file whose icon peeks out as a page.
     pub page: Option<Peeking>,
 }
@@ -77,25 +74,21 @@ pub(crate) struct Shown {
 impl Contents {
     /// What the folder's icon shows of these contents when pictures' and
     /// videos' previews are on as `pictures` and `videos` say: its first
-    /// pictures and videos by name, else its first file.
+    /// picture or video by name, else its first file.
     pub(crate) fn shown(&self, pictures: bool, videos: bool) -> Shown {
-        let mut media: Vec<&Peeking> = self
-            .pictures
+        let picture = self
+            .picture
             .iter()
             .filter(|_| pictures)
-            .chain(self.videos.iter().filter(|_| videos))
-            .collect();
-        media.sort_by_cached_key(|item| NameOrder::of(&item.name));
-        media.truncate(MOST_PICTURES);
-        let page = if media.is_empty() {
+            .chain(self.video.iter().filter(|_| videos))
+            .min_by_key(|item| NameOrder::of(&item.name))
+            .cloned();
+        let page = if picture.is_none() {
             self.first_file.clone()
         } else {
             None
         };
-        Shown {
-            pictures: media.into_iter().cloned().collect(),
-            page,
-        }
+        Shown { picture, page }
     }
 }
 
@@ -130,41 +123,29 @@ impl Ord for NameOrder {
     }
 }
 
-/// The first few names offered, by name, with their content types.
-#[derive(Debug)]
-struct FirstNames {
-    most: usize,
-    names: Vec<(NameOrder, String)>,
-}
+/// The first name offered, by name, with its content type.
+#[derive(Debug, Default)]
+struct FirstName(Option<(NameOrder, String)>);
 
-impl FirstNames {
-    fn new(most: usize) -> Self {
-        Self {
-            most,
-            names: Vec::with_capacity(most + 1),
-        }
-    }
-
-    /// Keeps `name` if it is among the first so far.
+impl FirstName {
+    /// Keeps `name` if it comes before the one kept so far.
     fn offer(&mut self, name: &NameOrder, content_type: &str) {
-        let at = self.names.partition_point(|(held, _)| held < name);
-        if at < self.most {
-            self.names.insert(at, (name.clone(), content_type.to_owned()));
-            self.names.truncate(self.most);
+        if self.0.as_ref().is_none_or(|(kept, _)| name < kept) {
+            self.0 = Some((name.clone(), content_type.to_owned()));
         }
     }
 }
 
 /// Reads which of the items of the local `folder` may peek out of it: its
-/// first pictures and videos by name and its first file, leaving out
+/// first picture and video by name and its first file, leaving out
 /// hidden items and folders. Blocks; an unreadable folder holds nothing.
 pub(crate) fn read_contents(folder: &Path) -> Contents {
     let Ok(items) = std::fs::read_dir(folder) else {
         return Contents::default();
     };
-    let mut pictures = FirstNames::new(MOST_PICTURES);
-    let mut videos = FirstNames::new(MOST_PICTURES);
-    let mut files = FirstNames::new(1);
+    let mut picture = FirstName::default();
+    let mut video = FirstName::default();
+    let mut file = FirstName::default();
     for item in items.take(MOST_READ).flatten() {
         let name = item.file_name();
         let Some(name) = name.to_str() else {
@@ -183,24 +164,21 @@ pub(crate) fn read_contents(folder: &Path) -> Contents {
         }
         let order = NameOrder::of(name);
         let (content_type, _) = gio::content_type_guess(Some(name), None);
-        files.offer(&order, &content_type);
+        file.offer(&order, &content_type);
         match content_type.split_once('/').map(|(kind, _)| kind) {
-            Some("image") => pictures.offer(&order, &content_type),
-            Some("video") => videos.offer(&order, &content_type),
+            Some("image") => picture.offer(&order, &content_type),
+            Some("video") => video.offer(&order, &content_type),
             _ => {}
         }
     }
-    let peeking = |names: FirstNames| -> Vec<Peeking> {
-        names
-            .names
-            .into_iter()
-            .filter_map(|(NameOrder(_, name), content_type)| peeking_at(folder, name, content_type))
-            .collect()
+    let peeking = |first: FirstName| {
+        let (NameOrder(_, name), content_type) = first.0?;
+        peeking_at(folder, name, content_type)
     };
     Contents {
-        pictures: peeking(pictures),
-        videos: peeking(videos),
-        first_file: peeking(files).into_iter().next(),
+        picture: peeking(picture),
+        video: peeking(video),
+        first_file: peeking(file),
     }
 }
 
@@ -226,19 +204,14 @@ fn peeking_at(folder: &Path, name: String, content_type: String) -> Option<Peeki
 /// The items `known` names, each with its time and size read again, as a
 /// picture may change without its folder changing.
 fn read_again(folder: &Path, known: &Contents) -> Contents {
-    let again = |items: &[Peeking]| -> Vec<Peeking> {
-        items
-            .iter()
-            .filter_map(|item| peeking_at(folder, item.name.clone(), item.content_type.clone()))
-            .collect()
+    let again = |item: &Option<Peeking>| {
+        let item = item.as_ref()?;
+        peeking_at(folder, item.name.clone(), item.content_type.clone())
     };
     Contents {
-        pictures: again(&known.pictures),
-        videos: again(&known.videos),
-        first_file: known
-            .first_file
-            .as_ref()
-            .and_then(|item| peeking_at(folder, item.name.clone(), item.content_type.clone())),
+        picture: again(&known.picture),
+        video: again(&known.video),
+        first_file: again(&known.first_file),
     }
 }
 
@@ -260,8 +233,8 @@ pub(crate) struct FolderRequest {
 /// What a folder's icon draws of its contents.
 #[derive(Debug, Clone)]
 pub(crate) struct FolderArt {
-    /// The thumbnails that peek out, first by name first.
-    pub pictures: Vec<gdk::Texture>,
+    /// The thumbnail that peeks out.
+    pub picture: Option<gdk::Texture>,
     /// The file whose icon peeks out as a page, with no thumbnail shown.
     pub page: Option<Peeking>,
 }
@@ -342,24 +315,23 @@ fn picture_request(request: &FolderRequest, item: &Peeking) -> PreviewRequest {
 pub(crate) fn kept_folder_art(request: &FolderRequest) -> Option<KnownArt> {
     let contents = known(request)?;
     let shown = contents.shown(request.policy.pictures, request.policy.videos);
-    if shown.pictures.is_empty() {
+    let Some(item) = shown.picture else {
         return Some(shown.page.map_or(KnownArt::Plain, |page| {
             KnownArt::Drawn(FolderArt {
-                pictures: Vec::new(),
+                picture: None,
                 page: Some(page),
             })
         }));
-    }
-    let pictures = shown
-        .pictures
-        .iter()
-        .map(|item| super::kept_preview(&picture_request(request, item)))
-        .collect::<Option<Vec<_>>>()?;
-    Some(KnownArt::Drawn(FolderArt { pictures, page: None }))
+    };
+    let picture = super::kept_preview(&picture_request(request, &item))?;
+    Some(KnownArt::Drawn(FolderArt {
+        picture: Some(picture),
+        page: None,
+    }))
 }
 
 /// What the icon of `request`'s folder draws of its contents: the
-/// thumbnails of its first pictures, else its first file as a page, else
+/// thumbnail of its first picture, else its first file as a page, else
 /// nothing. The folder is read off the main thread, after the tiles on
 /// the screen; its contents are kept by its time.
 pub(crate) async fn folder_art(request: FolderRequest) -> Option<FolderArt> {
@@ -372,7 +344,7 @@ pub(crate) async fn folder_art(request: FolderRequest) -> Option<FolderArt> {
     let on_screen = request.on_screen.clone();
     let contents = reading
         .blocking_in_turn(&move || on_screen.get(), move |_| match known {
-            // The pictures' times are read again: one may have changed
+            // The picture's time is read again: it may have changed
             // without its folder changing.
             Some(known) => (true, read_again(&folder, &known)),
             None => (false, read_contents(&folder)),
@@ -383,19 +355,18 @@ pub(crate) async fn folder_art(request: FolderRequest) -> Option<FolderArt> {
         (false, contents) => keep(&request, contents),
     };
     let shown = contents.shown(request.policy.pictures, request.policy.videos);
-    let mut pictures = Vec::new();
-    for item in &shown.pictures {
-        if let Some(texture) = super::preview(picture_request(&request, item)).await {
-            pictures.push(texture);
+    if let Some(item) = &shown.picture {
+        if let Some(picture) = super::preview(picture_request(&request, item)).await {
+            return Some(FolderArt {
+                picture: Some(picture),
+                page: None,
+            });
         }
     }
-    if !pictures.is_empty() {
-        return Some(FolderArt { pictures, page: None });
-    }
-    // Pictures without a thumbnail leave the first file's page.
+    // A picture without a thumbnail leaves the first file's page.
     let page = shown.page.or_else(|| contents.shown(false, false).page)?;
     Some(FolderArt {
-        pictures: Vec::new(),
+        picture: None,
         page: Some(page),
     })
 }
@@ -436,12 +407,10 @@ impl Rect {
 pub(crate) struct Layout {
     /// The folder, back and front together.
     pub folder: Rect,
-    /// The top of the back's body, right of its tab.
-    pub body_top: f32,
     /// The sheet inside the back that the contents lie on, from its top
     /// down to the folder's bottom; the front hides its lower part.
     pub sheet: Rect,
-    /// The part of the sheet the front leaves, which the pictures cover.
+    /// The part of the sheet the front leaves, which the picture covers.
     pub window: Rect,
     /// The front's top: lower on the left, up to `step_start`, then up a
     /// slope to `step_end` (under the back's tab's slope) and level to the
@@ -450,10 +419,6 @@ pub(crate) struct Layout {
     pub front_right_top: f32,
     pub step_start: f32,
     pub step_end: f32,
-    /// How far a second picture behind the first is turned, in degrees,
-    /// and how far the first is lowered to show it.
-    pub slant: f32,
-    pub lowered: f32,
     /// The square the page's icon is drawn in.
     pub page: Rect,
 }
@@ -466,8 +431,6 @@ mod measured {
     /// The folder's width and height, as fractions of the icon's edge.
     pub(super) const FOLDER_WIDTH: f32 = 0.875;
     pub(super) const FOLDER_HEIGHT: f32 = 0.6875;
-    /// The top of the back's body, right of its tab.
-    pub(super) const BODY_TOP_Y: f32 = 0.136;
     /// The sheet's sides and top.
     pub(super) const SHEET_LEFT_X: f32 = 0.03;
     pub(super) const SHEET_RIGHT_X: f32 = 0.96;
@@ -491,17 +454,11 @@ const BUILT_IN_FOLDER: (f32, f32, f32, f32) = (2.0, 4.0, 30.0, 30.0);
 /// sides and top, which the page's place is found from (the 48-unit
 /// document's paper spans x 8 to 40 from y 4).
 const PAGE_PAPER: (f32, f32, f32) = (16.0 / 3.0, 80.0 / 3.0, 8.0 / 3.0);
-/// How far a second picture is turned, in degrees ("slanted slightly").
-const SLANT_DEGREES: f32 = 6.0;
-/// How far the first picture is lowered to show a second behind it, as a
-/// fraction of the folder's height.
-const LOWERED_Y: f32 = 0.06;
-
 /// Where the pieces of a folder with contents go on an icon `edge` pixels
 /// square drawn with `pieces`.
 pub(crate) fn layout(edge: f32, pieces: Pieces) -> Layout {
     use measured::{
-        BODY_TOP_Y, FOLDER_HEIGHT, FOLDER_WIDTH, FRONT_LEFT_TOP_Y, FRONT_RIGHT_TOP_Y, PAGE_LEFT_X, PAGE_RIGHT_X,
+        FOLDER_HEIGHT, FOLDER_WIDTH, FRONT_LEFT_TOP_Y, FRONT_RIGHT_TOP_Y, PAGE_LEFT_X, PAGE_RIGHT_X,
         PAGE_TOP_Y, SHEET_LEFT_X, SHEET_RIGHT_X, SHEET_TOP_Y, STEP_END_X, STEP_START_X,
     };
     let unit = edge / 32.0;
@@ -533,7 +490,7 @@ pub(crate) fn layout(edge: f32, pieces: Pieces) -> Layout {
         width: x(SHEET_RIGHT_X) - x(SHEET_LEFT_X),
         height: folder.bottom() - y(SHEET_TOP_Y),
     };
-    // Down to the front's lower, left part, so the pictures reach it all
+    // Down to the front's lower, left part, so the picture reaches it all
     // along.
     let window = Rect {
         height: y(FRONT_LEFT_TOP_Y) - sheet.y,
@@ -550,15 +507,12 @@ pub(crate) fn layout(edge: f32, pieces: Pieces) -> Layout {
     };
     Layout {
         folder,
-        body_top: y(BODY_TOP_Y),
         sheet,
         window,
         front_left_top: y(FRONT_LEFT_TOP_Y),
         front_right_top: y(FRONT_RIGHT_TOP_Y),
         step_start: x(STEP_START_X),
         step_end: x(STEP_END_X),
-        slant: SLANT_DEGREES,
-        lowered: folder.height * LOWERED_Y,
         page,
     }
 }
@@ -582,22 +536,22 @@ mod tests {
         path
     }
 
-    fn names(items: &[Peeking]) -> Vec<&str> {
-        items.iter().map(|item| item.name.as_str()).collect()
+    fn name(item: Option<&Peeking>) -> Option<&str> {
+        item.map(|item| item.name.as_str())
     }
 
     fn policy() -> PreviewPolicy {
         PreviewPolicy::for_folder(&ViewOptions::default(), false)
     }
 
-    /// A folder's first two pictures or videos by name peek out of it, in
+    /// A folder's first picture or video by name peeks out of it, in
     /// Windows' natural order (Harbor 2 before Harbor 10), leaving out
     /// hidden files, other files and folders; with video previews off,
     /// videos do not.
     ///
     /// parity: VIEW-058
     #[gtk::test]
-    fn a_folders_first_pictures_by_name_peek_out() {
+    fn a_folders_first_picture_by_name_peeks_out() {
         let folder = tempfile::tempdir().expect("a temporary folder");
         for name in ["Harbor 10.png", "Harbor 2.png", ".Cover.png", "Zoo.png"] {
             picture_at(folder.path(), name, 0x3366_99ff);
@@ -609,11 +563,11 @@ mod tests {
         let contents = read_contents(folder.path());
 
         let shown = contents.shown(true, true);
-        assert_eq!(names(&shown.pictures), ["Arrival.mp4", "Harbor 2.png"]);
-        assert_eq!(shown.page, None, "no page with pictures shown");
+        assert_eq!(name(shown.picture.as_ref()), Some("Arrival.mp4"));
+        assert_eq!(shown.page, None, "no page with a picture shown");
         let without_videos = contents.shown(true, false);
-        assert_eq!(names(&without_videos.pictures), ["Harbor 2.png", "Harbor 10.png"]);
-        let picture = &without_videos.pictures[0];
+        assert_eq!(name(without_videos.picture.as_ref()), Some("Harbor 2.png"));
+        let picture = without_videos.picture.expect("a picture");
         assert!(picture.uri.starts_with("file:///") && picture.uri.ends_with("Harbor%202.png"));
         assert_eq!(picture.content_type, "image/png");
         assert!(picture.modified.is_some() && picture.size.is_some_and(|size| size > 0));
@@ -635,7 +589,7 @@ mod tests {
         std::fs::write(folder.path().join("Meeting notes.txt"), "x").expect("a file");
         let shown = read_contents(folder.path()).shown(true, true);
 
-        assert!(shown.pictures.is_empty());
+        assert!(shown.picture.is_none());
         assert_eq!(shown.page.map(|page| page.name).as_deref(), Some("Meeting notes.txt"));
         // With picture previews off, a folder of pictures shows a page.
         picture_at(folder.path(), "Beach.png", 0xff00_00ff);
@@ -726,12 +680,12 @@ mod tests {
 
         let art = context.block_on(folder_art(request.clone())).expect("the folder's art");
 
-        assert_eq!(art.pictures.len(), 1);
+        assert!(art.picture.is_some());
         assert!(art.page.is_none());
         let Some(KnownArt::Drawn(kept)) = kept_folder_art(&request) else {
             panic!("the folder's art is kept");
         };
-        assert_eq!(kept.pictures.len(), 1, "drawn at once on a revisit");
+        assert!(kept.picture.is_some(), "drawn at once on a revisit");
         let changed = FolderRequest {
             modified: Some(1_700_000_001),
             ..request.clone()
@@ -783,7 +737,7 @@ mod tests {
         contents.set_halign(gtk::Align::Start);
         contents.set_valign(gtk::Align::Start);
         contents.show_art(Some(&FolderArt {
-            pictures: vec![gdk::Texture::for_pixbuf(&picture)],
+            picture: Some(gdk::Texture::for_pixbuf(&picture)),
             page: None,
         }));
         let window = gtk::Window::new();
@@ -819,6 +773,75 @@ mod tests {
         assert_eq!(color_at(&drawn, at.folder.right() - 3.0, at.folder.y + 1.0)[3], 0, "nothing right of the tab");
     }
 
+    /// With Windows icon files on, a folder with a picture is drawn with
+    /// their back (imageres group 5) and front (6), and one with files but
+    /// no picture as their folder with a page sticking out (162); files
+    /// without those groups, or the files off, leave the app's own folder.
+    /// The files are synthetic test patterns, never Windows icons.
+    ///
+    /// parity: VIEW-058, LOOK-030
+    #[gtk::test]
+    fn windows_icon_files_draw_the_folders_back_front_and_page() {
+        use crate::folder_view::cells::FolderContents;
+        use crate::icons::user_icons::{follow_preferences, wait_until_read};
+        use ox_core::settings::Preferences;
+        use ox_core::windows_icons::synthetic::SyntheticIconFile;
+
+        /// Turns the icon files off again when the test ends.
+        struct Reset;
+        impl Drop for Reset {
+            fn drop(&mut self) {
+                follow_preferences(&Preferences::default());
+            }
+        }
+        let _reset = Reset;
+        let page = Peeking {
+            name: "Meeting notes.txt".to_owned(),
+            uri: "file:///home/demo/Projects/Meeting%20notes.txt".to_owned(),
+            content_type: "text/plain".to_owned(),
+            modified: Some(1),
+            size: Some(7),
+        };
+        let picture = Pixbuf::new(Colorspace::Rgb, false, 8, 60, 40).expect("a picture");
+        let with_picture = FolderArt {
+            picture: Some(gdk::Texture::for_pixbuf(&picture)),
+            page: None,
+        };
+        let with_page = FolderArt {
+            picture: None,
+            page: Some(page),
+        };
+        let drawn_with = |art: &FolderArt| {
+            let contents = FolderContents::default();
+            contents.set_edge(96);
+            contents.show_art(Some(art));
+            contents.uses_windows_pieces()
+        };
+        let choose = |groups: &[u16]| {
+            let folder = tempfile::tempdir().expect("a temporary folder");
+            let path = folder.path().join("imageres.dll.mun");
+            std::fs::write(&path, SyntheticIconFile::with_groups(groups).build()).expect("written");
+            follow_preferences(&Preferences {
+                use_icon_files: true,
+                icon_files: vec![path.display().to_string()],
+                ..Preferences::default()
+            });
+            wait_until_read();
+            folder
+        };
+
+        let _files = choose(&[3, 5, 6, 162]);
+        assert_eq!(drawn_with(&with_picture), (true, false), "back and front");
+        assert_eq!(drawn_with(&with_page), (true, true), "the folder with a page");
+
+        let _files = choose(&[3]);
+        assert_eq!(drawn_with(&with_picture), (false, false), "the folder cut instead");
+        assert_eq!(drawn_with(&with_page), (false, false));
+
+        follow_preferences(&Preferences::default());
+        assert_eq!(drawn_with(&with_page), (false, false), "files off");
+    }
+
     /// Medium icons and larger and Tiles show a folder's contents, as
     /// Windows does; Details, List, Small icons and Content keep the plain
     /// folder, and so does every view with "Always show icons, never
@@ -852,7 +875,7 @@ mod tests {
         for (layout, size) in [(CellLayout::IconTile, 96), (CellLayout::IconTile, 48), (CellLayout::Tile, 48)] {
             let cell = FileCell::new(layout, size);
             cell.look_up_picture(&item, policy());
-            wait_until("the folder's contents", || cell.shown_folder_contents() == Some((1, false)));
+            wait_until("the folder's contents", || cell.shown_folder_contents() == Some((true, false)));
             let plain = FileCell::new(layout, size);
             plain.look_up_picture(&item, icons_only);
             wait_for(std::time::Duration::from_millis(100));

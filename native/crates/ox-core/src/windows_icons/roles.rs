@@ -105,6 +105,9 @@ pub enum IconRole {
     /// The front of a folder whose contents peek out of it, drawn over
     /// the previews of its pictures.
     FolderFront,
+    /// A folder with a white page sticking out: a folder that holds files
+    /// but no picture, in the larger icon views.
+    FolderWithFiles,
 }
 
 /// Where a role's group number comes from.
@@ -119,7 +122,7 @@ pub enum Provenance {
 
 impl IconRole {
     /// Every role, in the order of [`IconRole`].
-    pub const ALL: [IconRole; 32] = [
+    pub const ALL: [IconRole; 33] = [
         IconRole::Folder,
         IconRole::Desktop,
         IconRole::Downloads,
@@ -152,6 +155,7 @@ impl IconRole {
         IconRole::Settings,
         IconRole::FolderBack,
         IconRole::FolderFront,
+        IconRole::FolderWithFiles,
     ];
 
     /// The file and icon group that draw this role, and where the number
@@ -192,10 +196,12 @@ impl IconRole {
             IconRole::Script => (Imageres, 68, BestMatch),
             IconRole::GenericFile => (Imageres, 2, Verified),
             IconRole::Settings => (Shell32, 16826, BestMatch),
-            // The back and front Windows 7 composes a folder with
-            // contents from; not confirmed in Windows 11.
-            IconRole::FolderBack => (Imageres, 5, BestMatch),
-            IconRole::FolderFront => (Imageres, 6, BestMatch),
+            // The full back and the flat front flap a folder with a
+            // picture is composed of, and the folder with a page sticking
+            // out, checked on Windows 11's imageres icon sheet.
+            IconRole::FolderBack => (Imageres, 5, Verified),
+            IconRole::FolderFront => (Imageres, 6, Verified),
+            IconRole::FolderWithFiles => (Imageres, 162, Verified),
         }
     }
 
@@ -234,6 +240,7 @@ impl IconRole {
             IconRole::Settings => "settings",
             IconRole::FolderBack => "folder-back",
             IconRole::FolderFront => "folder-front",
+            IconRole::FolderWithFiles => "folder-with-files",
         }
     }
 

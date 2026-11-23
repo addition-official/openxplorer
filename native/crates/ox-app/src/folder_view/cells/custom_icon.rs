@@ -360,11 +360,11 @@ impl FileCell {
         self.imp().folder_picture.shows_picture()
     }
 
-    /// How many pictures of its contents peek out of the folder the cell
+    /// Whether a picture of its contents peeks out of the folder the cell
     /// shows, and whether a page does; `None` while it shows none, for
     /// tests.
     #[cfg(test)]
-    pub(crate) fn shown_folder_contents(&self) -> Option<(usize, bool)> {
+    pub(crate) fn shown_folder_contents(&self) -> Option<(bool, bool)> {
         self.imp().folder_contents.shown()
     }
 
