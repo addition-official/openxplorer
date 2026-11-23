@@ -319,6 +319,40 @@ fn zip_opening_is_the_folder_until_the_window_is_chosen() {
     assert!(!file.contains("zipOpening"), "the folder is not stored");
 }
 
+/// The Details view's column titles keep the app's own style until the
+/// user chooses Windows', which is then stored; an unknown value changes
+/// nothing, and the app's own style is not stored.
+///
+/// parity: VIEW-014
+#[test]
+fn the_column_header_style_is_the_apps_own_until_windows_is_chosen() {
+    let root = temporary_folder();
+    let mut store = Settings::open(root.path());
+    assert_eq!(
+        store.snapshot().preferences.column_header_style,
+        ColumnHeaderStyle::OpenXplorer
+    );
+    save_preferences(&mut store, &json!({"columnHeaderStyle": "windows"}));
+    save_preferences(&mut store, &json!({"columnHeaderStyle": "macos"}));
+    let reopened = Settings::open(root.path()).snapshot().preferences;
+    assert_eq!(reopened.column_header_style, ColumnHeaderStyle::Windows);
+    let file = std::fs::read_to_string(root.path().join("settings.json")).expect("saved");
+    assert!(file.contains("\"columnHeaderStyle\": \"windows\""), "{file}");
+    save_preferences(&mut store, &json!({"columnHeaderStyle": "openxplorer"}));
+    let file = std::fs::read_to_string(root.path().join("settings.json")).expect("saved");
+    assert!(
+        !file.contains("columnHeaderStyle"),
+        "the app's own style is not stored"
+    );
+    assert_eq!(
+        Settings::open(root.path())
+            .snapshot()
+            .preferences
+            .column_header_style,
+        ColumnHeaderStyle::OpenXplorer
+    );
+}
+
 /// The compact menu's strip sits on the pointer's side until the user
 /// chooses the top or the bottom, which is then stored; an unknown value
 /// changes nothing, and the pointer's side is not stored.
