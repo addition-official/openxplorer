@@ -446,7 +446,10 @@ gridview.files.content > child:selected:hover, gridview.files.content > child:fo
   box-shadow: none;
 }
 gridview.files.tiles > child > .item-cell:not(.group-slot) {
-  padding: 8px 12px 8px 8px;
+  /* The icon starts 4px into the tile and the text runs to 4px before
+     its right edge, as in Windows 11 (measured on its reference capture:
+     folder ink 7px in, a long name's "..." 5px before the edge). */
+  padding: 8px 4px;
   margin: 3px 4px;
   border-radius: 4px;
   transition: background-color 83ms linear;
@@ -489,6 +492,9 @@ gridview.files.content.keyboard-in > child:focus:not(:focus-visible):not(.file-d
    the icon have none. */
 gridview.files.tiles > child box, gridview.files.content > child box { margin: 0; }
 gridview.files > child .item-lines { border-spacing: 1px; }
+/* A name on two lines is a pixel taller than two lines of the pitch;
+   taking it back keeps the tile as tall as one of three single lines. */
+gridview.files.tiles > child .item-lines label.wrapped-name { margin-bottom: -1px; }
 gridview.files > child .item-properties { border-spacing: 1px; margin: 0 8px 0 24px; }
 /* Content's columns have no side margins: cells/content_columns.rs starts
    each where Windows 11 does. */

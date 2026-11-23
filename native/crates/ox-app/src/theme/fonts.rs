@@ -402,7 +402,7 @@ fn compact_density_rules(scale: f64, text_size: TextSize) -> Vec<String> {
         ),
         format!(
             "window.compact-density gridview.files.tiles > child > .item-cell:not(.group-slot) \
-             {{ min-height: {tile}px; padding-top: 4px; padding-bottom: 4px; margin: 0 4px 1px 4px; }}"
+             {{ min-height: {tile}px; padding-top: 2px; padding-bottom: 2px; margin: 0 4px 5px 4px; }}"
         ),
         // The tiles' lines 16 pixels apart, each as tall whatever the
         // font's own line height.
@@ -580,7 +580,7 @@ mod tests {
             "window.compact-density columnview.files.grouped > listview { padding-top: 4px; }",
             "window.compact-density .sidebar list.places > row { min-height: 23px; }",
             "window.compact-density gridview.files.tiles > child > .item-cell:not(.group-slot) \
-             { min-height: 48px; padding-top: 4px; padding-bottom: 4px; margin: 0 4px 1px 4px; }",
+             { min-height: 48px; padding-top: 2px; padding-bottom: 2px; margin: 0 4px 5px 4px; }",
             "window.compact-density gridview.files.tiles > child > .item-cell.group-slot.heading-row \
              { min-height: 17px; margin-top: 0; margin-bottom: 1px; padding: 4px 0; }",
             "window.compact-density gridview.files.content > child > .item-cell.group-slot.heading-row \

@@ -326,11 +326,11 @@ pub(crate) fn compact_density_details_row(text_size: TextSize) -> i32 {
     windows_scaled(21.0, scale)
 }
 
-/// Pixels of a Tiles cell beside its content in Compact view: 4 pixels of
-/// padding above and below the icon and lines, and a 1-pixel gap below,
-/// so rows of tiles are 57 pixels apart at 100%, as in Windows 11's
-/// Compact view (VIEW-067).
-pub(crate) const COMPACT_TILES_CHROME: i32 = 4 + 4 + 1;
+/// Pixels of a Tiles cell beside its content in Compact view: 2 pixels of
+/// padding above and below the icon and lines, and a 5-pixel gap below,
+/// so a tile is 52 pixels tall and rows are 57 pixels apart at 100%, as
+/// in Windows 11's Compact view (VIEW-067, measured on its capture).
+pub(crate) const COMPACT_TILES_CHROME: i32 = 2 + 2 + 5;
 
 /// The height of a line of Tiles' and Content's text in Compact view at
 /// `text_size`: 16 pixels at 100%, Windows 11's pitch of the tiles' lines,
