@@ -1,7 +1,22 @@
-STATUS: BLOCKED
-HEAD: test-combined-55 26de5e7b; captures made here, not pushed.
-QUESTION: The user has to allow pushing the captures (PNGs) to the status branch in this session, for example with a permission rule for that push; a peer session cannot grant it. I did not push them to a new "captures" branch either: that would route around the same refusal, and this session pushes only to branches the user approved.
-NOTE: 34 captures from test-combined-55 (the 31 reproducible reference screens, 01b Details at 125%, and Details and Large icons with stand-in symbol font and icon files) are committed locally on a checkout of the status branch (049f440a, ours-55/ with this file). The public-data audit over them reported no issues. ref-03 and ref-31 are not reproducible with the snapshot hook; ref-28 only partly (no history list).
-NOTE: The push (`git push origin HEAD:status`, on its own) was refused twice by this session's permission check with this text:
-"Permission for this action was denied by the Claude Code auto mode classifier. Reason: [Destructive or Unwanted Actions]. If you have other tasks that don't depend on this action, continue working on those. IMPORTANT: You *may* attempt to accomplish this action using other tools that might naturally be used to accomplish this goal, e.g. using head instead of cat. But you *should not* attempt to work around this denial in malicious ways, e.g. do not use your ability to run tests to execute non-test actions. You should only try to work around this restriction in reasonable ways that do not attempt to bypass the intent behind this denial. If you believe this capability is essential to complete the user's request, first try a safer method. Get as much of the rest of the task done as you can, then STOP and explain to the user what you were trying to do and why you need this permission. Let the user decide how to proceed. To allow this type of action in the future, the user can add a permission rule for Bash to their settings."
-NOTE: No further attempts will be made until the user allows it.
+STATUS: DONE
+HEAD: test-combined-55 26de5e7b, built here and captured with its own snapshot hook.
+QUESTION: none.
+NOTE: Our side of reference/ (ref-01 to ref-33) for deb 55: ours-55/ours-NN-<name>.png, named as the references, plus ours-01b-details-125.png and two user-setup captures. 1x, dark, default settings, built-in icons, unless noted. Window 1920x1032: the reference's 1920x1080 screen less its taskbar, so y = 0 is the top of the window in both.
+NOTE: 01b: the RefTest Details view after Ctrl+plus pressed twice from 100% (100 -> 110 -> 125%), by the snapshot hook's key step.
+NOTE: User setup (ours-01-details-folder-user-setup.png, ours-12-view-large-user-setup.png): Windows icon files and the symbol font on, with stand-ins built for the capture, never Microsoft's files: a synthetic SegoeIcons.ttf whose every glyph is a square frame, and synthetic imageres.dll.mun and shell32.dll.mun whose groups are colored tiles numbered with their group (so the ZIP shows 174, the text file 102). They show where each glyph and picture lands and at what size, not what Windows' artwork looks like.
+NOTE: test-combined-55 contains user-icon-files through da81802a (the real font's ems, the corrected drive and network groups, ZIP 174).
+NOTE: Test data, all fictional: Documents/RefTest under the fictional home /home/demo with the reference's names (Music, Photos, Projects, Archive.zip, Budget 2026.xlsx, the 111-character .jpg name, Invoice 1042.pdf, Meeting notes.txt, Report final.docx); the .jpg is a generated 3840x2400 gray gradient. The rest of the home is tools/native_capture.py's fictional demo tree (its Launch planning pin shows in the navigation pane). Sizes and dates differ from the reference's.
+NOTE: Properties (22, 23) and the Shift+Delete question (33) are captured as their own window, as the snapshot hook saves them.
+NOTE: Audit: python3 tools/audit-public-data.py over ours-55 reported no issues; the pictures were also reviewed.
+NOTE: ours-54 was skipped, as asked.
+NOTE: The push of these PNGs was refused twice by this session's permission check until the user allowed it.
+
+CAPTURED (34)
+01-details-folder, 01b-details-125, 01-details-folder-user-setup, 02-details-selected, 04-menu-file, 05-menu-file-classic, 06-menu-blank, 07-menu-new, 08-menu-sort, 09-menu-view, 10-menu-seemore, 11-view-xlarge, 12-view-large, 12-view-large-user-setup, 13-view-medium, 14-view-small, 15-view-list, 16-view-tiles, 17-view-content, 18-pane-details-jpg, 19-pane-details-txt, 20-pane-preview-txt, 21-pane-preview-jpg, 22-properties-file, 23-properties-folder, 24-home, 25-this-pc, 26-recycle-bin, 27-network, 28-address-edit, 29-search-results, 30-menu-tab, 32-rename-inline, 33-confirm-permanent-delete.
+
+PARTLY REPRODUCED
+28-address-edit: edit mode with the path selected; the history list does not open from the snapshot hook.
+
+NOT REPRODUCED, SKIPPED
+03-details-hover: the snapshot hook's hover step rests only on menu rows.
+31-menu-navpane: no snapshot step opens the navigation pane's menu for a place.
