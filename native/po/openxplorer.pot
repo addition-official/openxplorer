@@ -595,20 +595,24 @@ msgstr ""
 msgid "Not provided"
 msgstr ""
 
-#: crates/ox-app/resources/ui/network-sign-in.ui crates/ox-app/src/dialog/window.rs crates/ox-app/src/dialogs/network_sign_in.rs crates/ox-app/src/properties/attribute_confirm.rs crates/ox-app/src/properties/window.rs crates/ox-app/src/window/about.rs crates/ox-app/src/window/activation.rs crates/ox-app/src/window/activation/broken_shortcut.rs crates/ox-app/src/window/activation/outcome.rs crates/ox-app/src/window/archive_password.rs crates/ox-app/src/window/choose_details.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/file_ops/journal.rs crates/ox-app/src/window/gallery_locations.rs crates/ox-app/src/window/item_dialogs.rs crates/ox-app/src/window/loading/denied_folder.rs
+#: crates/ox-app/resources/ui/network-sign-in.ui crates/ox-app/src/dialog/window.rs crates/ox-app/src/dialogs/format_drive.rs crates/ox-app/src/dialogs/network_sign_in.rs crates/ox-app/src/properties/attribute_confirm.rs crates/ox-app/src/properties/window.rs crates/ox-app/src/window/about.rs crates/ox-app/src/window/activation.rs crates/ox-app/src/window/activation/broken_shortcut.rs crates/ox-app/src/window/activation/outcome.rs crates/ox-app/src/window/archive_password.rs crates/ox-app/src/window/choose_details.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/file_ops/journal.rs crates/ox-app/src/window/gallery_locations.rs crates/ox-app/src/window/item_dialogs.rs crates/ox-app/src/window/loading/denied_folder.rs
 msgid "OK"
+msgstr ""
+
+#: crates/ox-app/src/dialogs/format_drive.rs
+msgid "Allocation unit size"
 msgstr ""
 
 #: crates/ox-app/src/dialogs/format_drive.rs crates/ox-app/src/properties/drive_tab.rs
 msgid "Capacity"
 msgstr ""
 
-#: crates/ox-app/src/dialogs/format_drive.rs crates/ox-app/src/properties/drive_tab.rs crates/ox-app/src/window/details_pane/content.rs
-msgid "File system"
+#: crates/ox-app/src/dialogs/format_drive.rs
+msgid "Default allocation size"
 msgstr ""
 
-#: crates/ox-app/src/dialogs/format_drive.rs
-msgid "Format"
+#: crates/ox-app/src/dialogs/format_drive.rs crates/ox-app/src/properties/drive_tab.rs crates/ox-app/src/window/details_pane/content.rs
+msgid "File system"
 msgstr ""
 
 #: crates/ox-app/src/dialogs/format_drive.rs
@@ -618,10 +622,6 @@ msgstr ""
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/dialogs/format_drive.rs
 msgid "Format {drive}"
-msgstr ""
-
-#: crates/ox-app/src/dialogs/format_drive.rs
-msgid "Formatting erases all data on this drive. Copy anything you want to keep to another drive first."
 msgstr ""
 
 #: crates/ox-app/src/dialogs/format_drive.rs
@@ -638,11 +638,29 @@ msgid "Rename {drive}"
 msgstr ""
 
 #: crates/ox-app/src/dialogs/format_drive.rs
+msgid "Restore device defaults"
+msgstr ""
+
+#: crates/ox-app/src/dialogs/format_drive.rs
 msgid "Start"
 msgstr ""
 
 #: crates/ox-app/src/dialogs/format_drive.rs crates/ox-app/src/properties/drive_tab.rs
 msgid "Volume label"
+msgstr ""
+
+#: crates/ox-app/src/dialogs/format_drive.rs
+msgid "WARNING: Formatting will erase ALL data on this disk.\nTo format the disk, click OK. To quit, click CANCEL."
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/dialogs/format_drive.rs
+msgid "{size} bytes"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/dialogs/format_drive.rs
+msgid "{size} kilobytes"
 msgstr ""
 
 #: crates/ox-app/src/dialogs/network_map.rs
