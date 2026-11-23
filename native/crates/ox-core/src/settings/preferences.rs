@@ -371,6 +371,13 @@ pub struct Preferences {
     /// its application (Dolphin's "Always ask"); off, it only ever opens.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub ask_to_run_programs: bool,
+    /// Opening an installed application's launcher (one in an
+    /// applications folder, or a link to one) starts the application, as
+    /// Windows runs a shortcut to a program; a launcher that is neither
+    /// installed nor marked trusted asks first. Off, as OPEN-007 keeps it:
+    /// a launcher opens in its editor.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub run_installed_launchers: bool,
     /// The progress window shows "More details": the speed graph, the
     /// name, the time and the items remaining. Windows keeps it as it
     /// was last left, across sessions; stored only when on.
@@ -687,6 +694,7 @@ impl Default for Preferences {
             delete_removable_permanently: false,
             confirm_close_tabs: false,
             ask_to_run_programs: false,
+            run_installed_launchers: false,
             progress_details: false,
             recycle_replaced_files: true,
             enabled_service_actions: Vec::new(),
@@ -799,6 +807,7 @@ impl Preferences {
         replace_if_some(&mut self.recycle_replaced_files, update.recycle_replaced_files);
         replace_if_some(&mut self.confirm_close_tabs, update.confirm_close_tabs);
         replace_if_some(&mut self.ask_to_run_programs, update.ask_to_run_programs);
+        replace_if_some(&mut self.run_installed_launchers, update.run_installed_launchers);
     }
 
     /// The sidebar sections and places hidden: up to 16 short ASCII keys
@@ -1163,6 +1172,8 @@ pub struct PreferencesUpdate {
     pub confirm_close_tabs: Option<bool>,
     /// Ask whether to run a program or script that is opened.
     pub ask_to_run_programs: Option<bool>,
+    /// See [`Preferences::run_installed_launchers`].
+    pub run_installed_launchers: Option<bool>,
     /// Show the progress window's details.
     pub progress_details: Option<bool>,
     /// Replaces the allowlist of installed service actions.
@@ -1327,6 +1338,7 @@ impl PreferencesUpdate {
             recycle_replaced_files: flag("recycleReplacedFiles"),
             confirm_close_tabs: flag("confirmCloseTabs"),
             ask_to_run_programs: flag("askToRunPrograms"),
+            run_installed_launchers: flag("runInstalledLaunchers"),
             progress_details: flag("progressDetails"),
             enabled_service_actions: values.get("enabledServiceActions").and_then(read_keys),
             desktop_font: flag("desktopFont"),

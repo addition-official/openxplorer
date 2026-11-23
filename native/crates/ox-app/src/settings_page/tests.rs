@@ -1771,3 +1771,19 @@ fn the_windows_symbol_font_row_saves_the_path_and_counts_the_glyphs() {
         !settings.saved_preferences().use_icon_files
     });
 }
+
+/// "Run installed apps' launchers on double-click" is off, as opening never
+/// runs anything by default (OPEN-007), and saves the choice.
+///
+/// parity: OPEN-029
+#[gtk::test]
+fn the_run_installed_launchers_switch_is_off_and_saves_the_choice() {
+    let settings = SettingsTest::open();
+    let switch = switch_of(&settings.row("Run installed apps' launchers on double-click"));
+    assert!(!switch.is_active(), "off by default");
+
+    switch.set_active(true);
+    wait_until("the choice to be saved", || {
+        settings.saved_preferences().run_installed_launchers
+    });
+}

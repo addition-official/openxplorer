@@ -260,6 +260,8 @@ fn every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages() {
         // The owner's opt-in for Windows' permanent delete on removable
         // drives (OPS-018).
         "Delete files on removable drives permanently (like Windows)",
+        // Opening installed apps' launchers (OPEN-029).
+        "Run installed apps' launchers on double-click",
     ];
     for title in added_since {
         settings.row(title);
