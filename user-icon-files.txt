@@ -1,6 +1,48 @@
 STATUS: DONE
-HEAD: user-icon-files f9990748 (resamples Windows icon files' pictures to the exact size shown; 97a1e3cd and 873181e6 kept, not reverted)
-QUESTION: Ctrl+plus and Ctrl+minus are this app's text size (80% to 200%), and icons stay at their 1x size while text grows, as they always have (before 873181e6 too: same boxes, measured). Windows' own text-size setting leaves icons alone as well. Should icons, rows' glyphs and menus' glyphs grow with the app's text size? That is a design change across the app, so I have not made it without a yes.
+HEAD: user-icon-files 31929ba8 (0613fcfb grows icons with the app's text size; 3a42a312 and 31929ba8 keep it merging onto the combined branches)
+QUESTION: none.
+NOTE: Round 9, from the PC manager workflow's answer: icons, row glyphs, menu glyphs and the row and tile boxes grow with the app's text size (Ctrl+plus/minus, 80% to 200%), as at a Windows display scale. Windows' own Ctrl+plus/minus in Details is left to the "Behave like Windows Explorer" switch, as that session said.
+NOTE: How: one icon scale follows the drawn text size (theme draw_text). set_icon and art images keep each icon's 100% size and draw it at that size times the scale, rounded to whole pixels: vector icons rendered at that size, Windows icon files' pictures resampled to it (f9990748), the symbol font's glyphs at the em they have in their 100% square. Every icon shown is drawn again when the text size changes (a registry of weak references; file cells re-size their custom-icon and folder-picture places). Tiles, Tiles' and Content's rows, menu slots and the skin's chevrons (sort arrows, address dividers, tree expanders) grow with it. Details rows already grew with the text.
+NOTE: For the merge into test-combined-52: its new thumbnail lookup (custom_icon.rs start_preview) asks for previews at the cell's 100% size. On the combined branch it should ask for crate::icons::scaled(icon_size) device pixels, or thumbnails above 100% are upscaled; this branch left that line alone so it merges cleanly.
+NOTE: Merge checks: `git merge-tree --write-tree origin/test-combined-51 31929ba8` exits 0 (tree 75899a28); onto origin/test-combined-52 exits 0 (tree 7f1ab16f).
+
+TEXT SIZE STEPS, ink w x h measured by script at 1x, dark, Details of the RefTest folder; Windows = the 1x reference's ink x the step's factor.
+step | place          | Windows x factor | ours built-in | ours font (em)
+ 80% | file folder     | 12.8 | (not found by the script at 80%) | -
+ 80% | command New     | 12.0 | 10x10 | 12x12
+ 80% | New caret       |  4.8 | 6x3   | 6x6
+ 80% | caption close   |  8.0 | 8x8   | 9x9
+ 90% | command New     | 13.5 | 12x12 | 14x14
+ 90% | caption close   |  9.0 | 8x8   | 9x9
+100% | file folder     | 16.0 | 14x13 | 14x13 (picture)
+100% | command New     | 15.0 | 14x14 | 16x16
+100% | New caret       |  6.0 | 6x3   | 8x8
+100% | caption close   | 10.0 | 9x9   | 10x10
+110% | file folder     | 17.6 | 16x15 | 16x15
+110% | command New     | 16.5 | 14x14 | 18x18
+110% | caption close   | 11.0 | 11x11 | 12x12
+125% | file folder     | 20.0 | 18x15 | 18x15
+125% | command New     | 18.8 | 17x17 | 21x21
+125% | New caret       |  7.5 | 9x4   | 11x11
+125% | caption close   | 12.5 | 11x11 | 13x13
+150% | file folder     | 24.0 | 22x18 | 22x18
+150% | command New     | 22.5 | 21x21 | 25x25
+150% | caption close   | 15.0 | 13x13 | 16x16
+150% | Large icons folder | 127.5 (85 x 1.5) | 126 wide | -
+175% | file folder     | 28.0 | 26x23 | 26x23
+175% | command New     | 26.2 | 24x24 | 28x28 (by eye check of the crop; the script's box caught the bar's border)
+175% | caption close   | 17.5 | 16x16 | 18x18
+200% | file folder     | 32.0 | 28x25 | 28x25
+200% | command New     | 30.0 | 28x28 | 32x32
+200% | New caret       | 12.0 | 14x8  | 16x16
+200% | caption close   | 20.0 | 18x18 | 20x20
+nav pane icons (height, the width ran into the label): built-in 12, 14, 15, 19, 21, 24 and font 16, 18, 20, 24, 28, 32 at 100, 110, 125, 150, 175, 200%.
+Before this round every row above stayed at its 100% numbers at every step (built-in at 200%: nav 12-14, files 14x13, command bar 14-16, carets 6x3).
+
+PASS round 9 on 31929ba8: cargo fmt; cargo clippy -p ox-app --all-targets -D warnings; python3 native/parity/check.py; ox-app icons:: 67/67 (one test of the removed icon_named helper dropped with it), theme:: 48/48, folder_view:: 108/108 (the 150% web cell's expectation now includes the icon's growth), menu_popover 20/20, text_size 25/25, windows_icon_files 3/3, settings_page:: 117/117, sidebar 71/71, command_bar 57/57, status_bar 16/16, caption_buttons 3/3. No new tests.
+NOT RUN round 9: the full suite, 3x runs; a GPU renderer.
+
+ROUND 8
 NOTE: Round 8, deb 52 report on Ctrl+plus/minus. Measured by script, not by eye, on 1920x1032, 1x, dark captures of the RefTest folder: every text size (80, 90, 100, 110, 125, 150, 175, 200%) in Details, a menu at 80, 150 and 200%, every named view (Extra large, Large, Medium, Small, List, Tiles, Content) with built-in icons and with the synthetic font, and the zoom steps between (32, 80, 128, 256) with synthetic Windows icon files on.
 NOTE: Found: (1) Text size: no icon changes size with text, before or after my commits; 873181e6 and 97a1e3cd changed only the 1x boxes (built-in at 200%: nav 12-14, files 14x13, command bar 14-16, carets 6x3; font: 16 and 8), so they did not cause the report and are kept, as the PC manager workflow asked. (2) Views: each view's icon is Windows' size and sharp (vector art drawn at its size). (3) With Windows icon files on, the zoom steps between the named views took the next larger bitmap (256 for 80 or 128, 48 for 40) and left the renderer to scale it; the GPU renderers' linear filter shrinks it jagged and soft (Xvfb's software renderer filters better, so the captures understate it). FIXED in f9990748: each picture is resampled once with gdk-pixbuf's area filter to exactly its device pixels and kept per size. Measured on the 80 px step: mean difference from an area-filtered resample of the source 4.47 -> 1.36 (lanczos 3.97 -> 1.43), drawn pixel for pixel.
 NOTE: Merge checks: `git merge-tree --write-tree origin/test-combined-51 f9990748` exits 0 (tree d471cdcd); against origin/test-combined-52 also exits 0 (tree b783f813).
