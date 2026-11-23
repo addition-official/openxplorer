@@ -36,6 +36,7 @@ Overnight pass 7 (views) checked every layout against Windows 11 with real xdoto
 - **Content's columns.** A picture shows its type and dimensions in a middle column, as Windows 11 does. Each column starts where Windows starts it, measured in a 775 and a 1745 pixel row: Type 368 to 374 pixels from the row's left, Date modified 357 pixels plus 18% of the row. A name is cut 16 pixels before the next column.
 - **Column widths at larger text.** A saved column width is now a width at 100% text and grows with Ctrl+plus, as Windows' scaling grows it. Before, at 150% and up a saved Date modified width cut every date to "11/22/20...".
 - **"Show a line under column titles".** A new setting in Appearance > Layout, on by default (the owner's look); off draws no line, as Windows 11. For the "Behave like Windows Explorer" registry (`claude/windows-mode-switch`, not merged here), its line is: `like_windows!("columnTitleLine", column_title_line, false, "Show a line under column titles"),`
+- **Column title dividers.** Windows 11 draws a faint divider after each column title all the time, not only on hover (its reference capture: #636363 on #191919). Ours now does too.
 - **User guide.** It said item check boxes are on by default, as in Windows 11. The owner decision (SEL-014) has them off, and with them on a box shows on hover only while Ctrl is held. The guide now says both.
 
 No new dependency. `native/po/*.po` untouched; no new strings, so the `.pot` is unchanged.
