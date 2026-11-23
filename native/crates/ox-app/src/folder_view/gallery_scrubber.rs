@@ -289,13 +289,11 @@ impl GalleryScrubber {
 
     /// Shows `timeline` (fractions of the scroll, each with the date of
     /// the photo there) with the view at `position`.
-    pub(crate) fn show_timeline(&self, timeline: &[(f64, Option<u64>)], position: f64) {
+    pub(crate) fn show_timeline(&self, timeline: &[(f64, Option<i64>)], position: f64) {
         let marks: Vec<Mark> = timeline
             .iter()
             .map(|(fraction, date)| {
-                let local = date
-                    .and_then(|seconds| i64::try_from(seconds).ok())
-                    .and_then(|seconds| glib::DateTime::from_unix_local(seconds).ok());
+                let local = date.and_then(|seconds| glib::DateTime::from_unix_local(seconds).ok());
                 #[expect(
                     clippy::cast_possible_truncation,
                     clippy::cast_sign_loss,
