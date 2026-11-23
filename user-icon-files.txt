@@ -1,6 +1,61 @@
 STATUS: DONE
-HEAD: user-icon-files 8f070e7e (3ee41e44 draws chevrons at WinUI's 8 px em and the menus' X as Cancel; 8f070e7e is a Clippy-only follow-up: identical match arms merged, `WinUI` quoted in docs)
-QUESTION: The PR text still has no "CLA: I agree" line. Agreeing to a CLA is a legal statement in the user's name and the request reached me through another session, so the user should add it or confirm it to me directly.
+HEAD: user-icon-files 873181e6 (draws the font's glyphs on whole pixels at the ems measured on Windows 11; 8f070e7e and 3ee41e44 were round 5)
+QUESTION: (1) The measured built-in icons are 1 to 4 px smaller than Windows' in many places (table below). They are the app's default look for every user and the owner's bundled set, and this feature is opt-in, so I have not resized them on this branch. Should they change, here or in a separate job? (2) The PR text still has no "CLA: I agree" line; please add it or confirm it to me directly, since it is a legal statement in your name.
+NOTE: Round 6, measured with a script against the Windows 11 references on this branch (reference/, 1920x1080, 1x, dark). Ours were captured the same way: 1920x1032 window (the reference's screen minus its taskbar), 1x, dark, a RefTest folder with the reference's file names (Music, Photos, Projects, Archive.zip, Budget 2026.xlsx, a 108-character .jpg, Invoice 1042.pdf, Meeting notes.txt, Report final.docx), once with built-in icons and once with a synthetic symbol font. The test font's glyph for every codepoint is a solid square filling the em, so its ink is exactly the em the app drew; nothing from a Microsoft font. Captures are chat only.
+NOTE: Method: ink = pixels differing from the region's most common color by more than 48 on any channel, grouped by gaps (3 px across, 4 px in menus), bounding boxes in px (w x h). Windows draws Segoe Fluent glyphs, whose ink is smaller than their em, so for each Windows glyph the table gives the em its ink implies, worked out from the same glyph or the same glyph family elsewhere on the same screen (for example the 5x10 submenu chevron and the 6x4 New caret are one chevron at 12 and 8). A font row matches when our em equals that em.
+NOTE: Scope: icon and glyph sizes are fixed here. Row heights, text positions and menu widths are measured and listed but belong to the other UI jobs, so they are not changed on this branch.
+NOTE: Merge check: `git merge-tree --write-tree origin/test-combined-51 873181e6` exits 0 (tree 5228813c).
+
+FOUND AND FIXED THIS ROUND (font on)
+1. Half-pixel blur: a glyph in an odd-sized square was centered on half a pixel, so the command bar's 16 px glyphs in their 17 px squares inked 17 px and its 8 px carets 9 px, blurred. The em now starts on a whole pixel: 16 and 8, as Windows.
+2. Caption buttons: em 12 -> 10 (Windows ChromeMinimize 10 px wide, ChromeMaximize 10x10, ChromeClose 10x10).
+3. Caption and dialog close: Cancel -> ChromeClose again. Round 5 had changed it with the menus' X by mistake; the menus' Close tab keeps Cancel (Windows 11x11 at em 16).
+4. New tab +: em 14 -> 12 (Windows 11x11).
+5. Search magnifier: em 15 -> 12 (Windows 11x11).
+6. Breadcrumb separators: em 8 -> 10 (Windows 5x8, the chevron whose 12 px em inks 5x10).
+7. Submenu chevrons: em 8 -> 12 (Windows 5x10 in every menu: compact, blank-space, navigation pane). Heading and tree expanders in 16 px squares follow.
+8. Nav expanders (9 px), pins (11 px) and the search magnifier (15 px) now have their own squares, rather than a 16 px icon scaled down.
+
+WINDOW (ref-01-details-folder): Windows ink | Windows em | ours built-in ink | ours font em before -> now | result
+tab place icon      | 16x13 (picture) | -   | 14x13       | picture, not a glyph   | picture
+tab close X         | 9x9   | 12 | 8x8   | 12 -> 12          | ok
+new tab +           | 11x11 | 12 | 10x10 | 14 -> 12          | FIXED
+caption minimize    | 10x1  | 10 | 8x2   | 12 -> 10          | FIXED (built-in 2 px narrower)
+caption maximize    | 10x10 | 10 | 8x8   | 12 -> 10          | FIXED (built-in 2 px smaller)
+caption close       | 10x10 | 10 | 8x8   | 12 (Cancel) -> 10 (ChromeClose) | FIXED (built-in 2 px smaller)
+Back/Forward/Up/Refresh | 12x12 | 16 | 12x12 | 16 -> 16      | ok
+address place icon  | 16x15 (picture) | - | 14x13 | picture         | picture
+breadcrumb separator| 5x8   | 10 | 4x8   | 8 -> 10           | FIXED
+search magnifier    | 11x11 | 12 | 11x11 | 15 -> 12          | FIXED
+command New/Cut/Copy/Paste/Rename/Share/Delete/Sort/View | 14-16 | 16 | 13-15 | 16 (blurred to 17) -> 16 | FIXED (blur)
+command New/Sort/View carets | 6x4 | 8 | 9x5 | 8 (blurred to 9) -> 8 | FIXED (blur); built-in 3 px wider
+See more ...        | 16x3  | 16 | 10x2  | 16 -> 16          | ok (built-in 6 px narrower)
+Details button      | 16x12 | 16 | 15x12 | 16 (blurred to 17) -> 16 | FIXED (blur)
+column sort arrow   | 7x5   | 8  | 6x3   | 8 -> 8            | ok
+nav pane icons      | 12-16 (pictures) | 16 | 10-14 | 16 -> 16   | ok (Windows shows color pictures here; the icon files give ours)
+nav pane pins       | 10x10 | ~11-12 | 8x8 | 11 -> 11         | ok within the measurement (built-in 2 px smaller)
+file list icons     | 12-16 (pictures) | - | 10-14 | pictures    | pictures
+status bar view buttons | 16x16 | 16 | 14x11, 14x14 | 16 -> 16 | ok (built-in 2 px smaller)
+
+MENUS (icon ink w x h; chevron ink; row pitch; text start from the menu's left edge; menu width)
+compact menu on a file (ref-04): Windows icons 12-16 (em 16), chevrons 5x10 (em 12), pitch 32, text 42 px in, width 327 | ours built-in icons 13-14x12-14, chevrons 5x10, pitch 33, text 40, width 274 | font icons 16, chevrons 8 -> 12 FIXED
+classic Show more options (ref-05): Windows icons 12-15 (em 16), chevrons 5x7, pitch 24, text 36 px in, width 277 | built-in 11-14, chevron 5x10, pitch 32, text 40, width 262 | font icons 16, chevron 12
+blank-space menu (ref-06): Windows icons 14-16, chevrons 5x10, pitch 31-33, text 42, width 266 | built-in 12-14, chevrons 5x10, pitch 33, text 40, width 274 | font 16, chevrons 12
+New (ref-07): Windows icons 12-16, pitch 32, text 40, width 232 | built-in 10-14, pitch 32, text 40, width 262 | font 16
+Sort (ref-08): Windows radio dot 6x6, chevrons 5x10, pitch 31-36, text 43, width 152 | built-in dot 6x6, chevrons 5x10, pitch 31-34, text 40, width 262 | font chevrons 12
+View (ref-09): Windows dot 6x6 + icons 10-16, chevron 5x8, pitch 31-33, text 71, width 187 | built-in dot 6x6 + icons 12-14, chevron 5x10, pitch 31-33, text 65, width 262 | font 16, chevron 12
+See more (ref-10): Windows icons 14-16, pitch 32 and 41 across separators, text 38, width 169 | built-in 12-14, same pitch, text 40, width 262 | font 16
+tab menu (ref-30): Windows Close tab X 11x11 (Cancel at 16), Duplicate 14x14, pitch 32-37, text 43, width 221 | built-in 10-14, pitch 32, text 40, width 262 | font 16 (Cancel)
+navigation pane menu (ref-31): Windows icons 14-16, chevrons 5x10 (em 12) | not captured: the snapshot hook has no step that opens it; it uses the same menu rows as the others.
+
+NOT CHANGED, OVER 1 PX (listed for the owner and the other UI jobs)
+- Built-in icons: menus 12-14 vs 14-16; status bar 14 vs 16; caption 8 vs 10; carets 9x5 vs 6x4; pins 8 vs 10. See QUESTION (1).
+- Layout, not icons: classic menu row pitch 32 vs Windows 24; menu widths fixed at 262-274 vs Windows' fit-to-content 152-327; text start 40 vs 42-43 (compact), 36 (classic), 71 (View). Window chrome offsets differ as well (title bar row at y 9-22 vs ours 18-31); none of these are icon sizes.
+
+PASS round 6 on 873181e6: cargo fmt; cargo clippy -p ox-app -p ox-core --all-targets -D warnings; python3 native/parity/check.py; ox-core windows_ 45/45; ox-app icons:: 67/67 (chevron test updated to the measured ems, no new tests), windows_icon_files 3/3, settings_page:: 117/117.
+NOT RUN round 6: the full suite, 3x runs (both stopped by the user's rule).
+
+ROUND 5
 NOTE: Round 5, deb 51 "only some of the icons are normal sized". Size audit of every glyph and icon at 1x, built-in and with the font, in the table below. Per the new rule: no full run, no 3x runs, no new per-icon tests; only the touched modules' tests and the captures (chat only, not on this branch).
 NOTE: Merge check: `git merge-tree --write-tree origin/test-combined-51 8f070e7e` exits 0 (tree 1c72b10e), so the branch merges cleanly onto test-combined-51. The branch stays icon-scoped; it does not carry test-combined-51's other commits.
 
