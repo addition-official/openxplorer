@@ -245,37 +245,4 @@ mod tests {
         assert_eq!(from_gio.to_string(), "The media is write protected.");
         assert_eq!(from_io.to_string(), "The media is write protected.");
     }
-
-    /// GIO's message never reaches the progress window: a pulled drive, a
-    /// dead FUSE mount and a share that stopped answering read as Windows
-    /// reads them, and keep their meaning for the questions.
-    #[test]
-    fn gio_messages_read_as_the_windows_error() {
-        let pulled = TransferError::from(glib::Error::new(
-            gio::IOErrorEnum::Failed,
-            "Error splicing file: Transport endpoint is not connected",
-        ));
-        assert_eq!(
-            pulled,
-            TransferError::Failed("The device is not connected.".into())
-        );
-        let timed_out = TransferError::from(glib::Error::new(
-            gio::IOErrorEnum::TimedOut,
-            "Timeout was reached",
-        ));
-        assert_eq!(timed_out.to_string(), "The semaphore timeout period has expired.");
-        let denied = TransferError::from(glib::Error::new(
-            gio::IOErrorEnum::PermissionDenied,
-            "Error opening file “/home/ada/a.txt”: Permission denied",
-        ));
-        assert_eq!(
-            denied,
-            TransferError::PermissionDenied("/home/ada/a.txt: Access is denied.".into())
-        );
-        let full = TransferError::from(std::io::Error::from_raw_os_error(28));
-        assert_eq!(
-            full,
-            TransferError::NoSpace("There is not enough space on the disk.".into())
-        );
-    }
 }

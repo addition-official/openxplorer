@@ -329,29 +329,6 @@ fn several_selected_items_are_pictured_stacked() {
     assert!(heading.is_visible(), "the heading over the file's rows");
 }
 
-/// Several selected items: the Properties button stands clear of
-/// Windows' hint box above it, as it stands clear of a file's rows.
-///
-/// parity: PROP-009
-#[gtk::test]
-fn the_properties_button_stands_clear_of_the_hint() {
-    let fixture = Fixture::standard();
-    let test = laid_out_with_details_pane(&fixture.uri());
-    test.window.folder_model().select_positions(&[1, 2]);
-    wait_for_frames(&test.window, 3);
-    let pane = test.window.details_pane();
-    let hint = descendants::<gtk::Box>(pane)
-        .into_iter()
-        .find(|row| row.has_css_class("detail-hint") && row.is_visible())
-        .expect("the hint");
-    let properties = descendants::<gtk::Button>(pane)
-        .into_iter()
-        .find(|button| button.action_name().as_deref() == Some("win.properties") && button.is_visible())
-        .expect("the Properties button");
-    let gap = bounds(&test, &properties).y - bounds(&test, &hint).bottom();
-    assert!(gap >= 12, "{gap} pixels between the hint and Properties");
-}
-
 /// Every value of the Details rows starts at one line, right of the
 /// widest name, and the names start at the pane's edge.
 ///

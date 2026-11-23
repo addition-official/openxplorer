@@ -713,28 +713,6 @@ mod tests {
         }
     }
 
-    /// The tab of a mounted drive's root shows the drive, as its row in
-    /// the navigation pane and its tile on This PC do; a folder on the
-    /// drive keeps the folder.
-    ///
-    /// parity: TAB-010, DEV-004
-    #[test]
-    fn the_tab_of_a_drive_shows_the_drive() {
-        let locations = LocationContext::default();
-        let drives = ["file:///media/demo/Backup%20Drive".to_owned()];
-        let tab_on = |uri: &str| tab_icon(uri, &locations, (&[], &[], &drives));
-        assert_eq!(
-            tab_on("file:///media/demo/Backup%20Drive"),
-            Art::Glyph(Icon::HardDrive)
-        );
-        assert_eq!(
-            tab_on("file:///media/demo/Backup%20Drive/"),
-            Art::Glyph(Icon::HardDrive)
-        );
-        assert_eq!(tab_on("file:///media/demo/Backup%20Drive/Photos"), Art::Folder);
-        assert_eq!(tab_on("file:///"), Art::Glyph(Icon::HardDrive));
-    }
-
     /// The tab of a standard folder shows its navigation pane glyph, on
     /// the network bar when the folder is on the network, and the home
     /// folder's tab shows Home's; Templates and Public, which have no

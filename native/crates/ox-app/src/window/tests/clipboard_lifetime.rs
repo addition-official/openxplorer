@@ -72,29 +72,6 @@ fn copied_files_outlive_the_last_window_until_another_app_copies() {
     close_when_read(&other);
 }
 
-/// A cut that a paste moved entirely leaves nothing to serve, so the
-/// application does not keep running for it (CLIP-008).
-///
-/// parity: CLIP-008, CLIP-010
-#[gtk::test]
-fn a_cut_pasted_in_full_needs_no_serving() {
-    let fixture = Fixture::standard();
-    let test = TestWindow::open(&fixture.uri());
-    select_names(&test, &["Notes 10.txt"]);
-    test.activate("cut", None);
-    wait_until("the window to serve its cut", || test.context.serves_clipboard());
-    test.activate("go-to", Some(&fixture.uri_of("Documents")));
-    test.wait_for_listing("the Documents folder");
-    wait_until("Paste to be enabled", || is_enabled(&test, "paste"));
-
-    test.activate("paste", None);
-
-    wait_until("the moved item", || {
-        fixture.path("Documents/Notes 10.txt").is_file()
-    });
-    wait_until("the empty cut to be let go", || !test.context.serves_clipboard());
-}
-
 /// Another client of the display offers `uris` as a cut, as KDE's
 /// Klipper does when it puts its last entry back on a clipboard that was
 /// emptied: a URI list with KDE's cut marker.

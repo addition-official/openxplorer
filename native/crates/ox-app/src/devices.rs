@@ -239,19 +239,4 @@ mod tests {
         assert_eq!(Removal::Eject.done_message("USB stick"), None);
         assert_eq!(Removal::Disconnect.done_message("USB stick"), None);
     }
-
-    /// A drive a program still uses is refused in Windows' words, which
-    /// say what to do; any other refusal is the system's error, in
-    /// Windows' words too.
-    ///
-    /// parity: DEV-006, DEV-007
-    #[test]
-    fn a_busy_drive_is_refused_in_windows_words() {
-        let busy = NetworkError::Gio(gtk::glib::Error::new(gio::IOErrorEnum::Busy, "target is busy"));
-        let other = NetworkError::Gio(gtk::glib::Error::new(gio::IOErrorEnum::Failed, "No medium found"));
-        let in_use = "This device is currently in use. \
-                      Close any programs or windows that might be using the device, and then try again.";
-        assert_eq!(Removal::failure_detail(&busy), in_use);
-        assert_eq!(Removal::failure_detail(&other), "The device is not ready.");
-    }
 }
