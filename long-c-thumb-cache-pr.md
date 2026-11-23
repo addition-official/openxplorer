@@ -8,16 +8,16 @@ Model: claude-opus-5-5
 
 CLA: I agree
 
-## Folder content previews (78583801)
+## Folder content previews (78583801, 1538cd20)
 
 At Medium icons and larger and in Tiles, a folder shows its contents in its icon, as Windows 11 does:
 
-- **Pictures:** the thumbnails of its first two pictures or videos by name peek out between the folder's back and a lower front, the second slanted behind the first.
+- **Pictures:** the thumbnail of its first picture or video by name peeks out, straight, between the folder's back and a lower front.
 - **Files:** with no picture, the icon of its first file peeks out as a page.
-- **Plain:** an empty folder stays plain, and so does every folder in Details, List, Small icons and Content, or with "Always show icons, never thumbnails" on.
+- **Plain:** an empty folder, or one with only folders, stays plain, and so does every folder in Details, List, Small icons and Content, or with "Always show icons, never thumbnails" on.
 - **Speed:** the folder is read off the main thread after its own icon, and its contents are kept by its modification time. The thumbnails come through the shared cache, so a folder seen again draws its contents on the frame it is bound.
 - **Placement:** fractions measured on the Windows reference screenshots by `native/tools/measure-folder-previews.py`, within a pixel of Windows at Large icons.
-- **No new art:** the app's own folder icon is drawn whole behind the contents and again, cut along the front's edge, in front of them. With Windows icon files on, imageres groups 5 and 6 are used as the back and front when the files hold them.
+- **No new art:** the app's own folder icon is drawn whole behind the contents and again, cut along the front's edge, in front of them. With Windows icon files on, imageres groups 5 and 6 are the back and front of a folder with a picture, and group 162, Windows' folder with a page sticking out, draws a folder with files but no picture.
 
 ## Merge with test-combined-51 (486bb16c, c7bf3def)
 
