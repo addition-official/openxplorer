@@ -131,6 +131,7 @@ const DRAGGING_NOTE: &str = crate::i18n::message_id(
 pub(super) fn build(page: &SettingsPage) -> SettingsSection {
     let category = Category::General;
     let general = SettingsSection::new(category.title(), category.lead(), PageKind::Category);
+    general.append_group(&super::windows_mode::group(page));
     general.append_group(&startup_group(page));
     general.append_group(&windows_group(page));
     general.append_group(&address_group(page));

@@ -3241,6 +3241,14 @@ msgstr ""
 msgid "Ctrl + and Ctrl − change it anywhere; Ctrl 0 resets. Desktop scaling is unchanged."
 msgstr ""
 
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "Ctrl+plus and Ctrl+minus change text size"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "Ctrl+plus and Ctrl+minus on the main keyboard make text larger and smaller. Off: they do nothing, as in Windows; Ctrl+plus on the number pad still sizes the Details columns to fit, and Text size still changes it."
+msgstr ""
+
 #: crates/ox-app/src/settings_page/appearance.rs crates/ox-app/src/theme/appearance_button.rs
 msgid "Dark"
 msgstr ""
@@ -3461,6 +3469,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
 msgid "context menu style windows 10 11 classic compact"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "ctrl plus minus equal keyboard shortcut keys text size larger smaller number pad numpad keypad columns fit windows"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
@@ -5059,6 +5071,37 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/troubleshooting.rs
 msgid "Zorin + Brave setup and troubleshooting"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/windows_mode.rs
+msgid "Behave like Windows Explorer"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/windows_mode.rs
+msgid "Custom"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/settings_page/windows_mode.rs
+msgid "Custom: {count} setting was changed since this was turned on."
+msgid_plural "Custom: {count} settings were changed since this was turned on."
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/ox-app/src/settings_page/windows_mode.rs
+msgid "Sets every setting that has a Windows 11 File Explorer behavior to it, all at once. Each setting still has its own switch. Turning this off puts back the settings you had before you turned it on."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/windows_mode.rs
+msgid "Uses Windows 11 File Explorer's behavior wherever OpenXplorer offers a choice."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/windows_mode.rs
+msgid "Windows Explorer"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/windows_mode.rs
+msgid "windows explorer mode like windows behave all settings at once master switch file explorer 11 defaults compatibility"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.

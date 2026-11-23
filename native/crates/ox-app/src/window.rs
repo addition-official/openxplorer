@@ -220,6 +220,7 @@ use tab_strip::TabStrip;
 pub(crate) use crate::dialog::Dialog;
 pub(crate) use actions::follow_text_size_keys;
 pub(crate) use actions::install_accelerators;
+pub(crate) use actions::set_text_size_keys;
 pub(crate) use button_style::ButtonStyle;
 #[cfg(feature = "fuzzing")]
 pub(crate) use caller_window::fuzz_parent;

@@ -9,7 +9,7 @@
 use std::ops::RangeInclusive;
 
 use serde::Serialize;
-use serde_json::Value;
+use serde_json::{Map, Value};
 
 use super::choices::{ColumnHeaderStyle, ContextMenu, StripPosition, Theme, View, ZipOpening};
 use super::file_icons::{canonical_file_icons, read_file_icons, FileIcons};
@@ -17,6 +17,8 @@ use super::pane_options::DetailsPaneOptions;
 use super::tree_options::FolderTreeOptions;
 use super::view_options::ViewOptions;
 use super::view_properties::{read_folder_views, FolderView, ViewProperties};
+use super::windows_mode;
+use super::windows_mode::{read_before as read_windows_mode, STORED_KEY as WINDOWS_MODE_KEY};
 use super::SettingsError;
 use crate::grouping::GroupBy;
 use crate::location;
@@ -627,6 +629,19 @@ pub struct Preferences {
     /// Copy as path.
     #[serde(skip_serializing_if = "is_true")]
     pub copy_paths_as_text: bool,
+    /// Ctrl+plus and Ctrl+minus on the main keyboard change the text size
+    /// (VIEW-043). On by default, the owner's choice; off, they do
+    /// nothing, as in Windows 11 File Explorer, where only Ctrl+plus on
+    /// the number pad does something (it sizes the Details columns to
+    /// fit, VIEW-072). Stored as `ctrlPlusMinusTextSize`, only when off.
+    #[serde(rename = "ctrlPlusMinusTextSize", skip_serializing_if = "is_true")]
+    pub ctrl_plus_minus_text_size: bool,
+    /// Settings > General > "Behave like Windows Explorer" is on
+    /// ([`windows_mode`]): what each of its settings was before it was
+    /// turned on, by key, which turning it off puts back. Off by default,
+    /// so stored as `behaveLikeWindows` only when on.
+    #[serde(rename = "behaveLikeWindows", skip_serializing_if = "Option::is_none")]
+    pub windows_mode_before: Option<Map<String, Value>>,
     /// The display style of every folder without its own, once the user
     /// changed it.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -781,6 +796,8 @@ impl Default for Preferences {
             search_contents: false,
             paste_pictures_as_files: true,
             copy_paths_as_text: true,
+            ctrl_plus_minus_text_size: true,
+            windows_mode_before: None,
             view_defaults: None,
             folder_views: Vec::new(),
             downloads_group_by: None,
@@ -835,9 +852,23 @@ impl Preferences {
     /// The clipboard's extras beyond Windows, which can be turned off: a
     /// picture pasted as a file (CLIP-015) and the paths copied as text
     /// (CLIP-004).
+    /// Also whether Ctrl+plus and Ctrl+minus change the text size, and
+    /// "Behave like Windows Explorer"'s earlier values, which set these
+    /// among others.
     fn apply_clipboard_options(&mut self, update: &PreferencesUpdate) {
         replace_if_some(&mut self.paste_pictures_as_files, update.paste_pictures_as_files);
         replace_if_some(&mut self.copy_paths_as_text, update.copy_paths_as_text);
+        replace_if_some(
+            &mut self.ctrl_plus_minus_text_size,
+            update.ctrl_plus_minus_text_size,
+        );
+        match &update.windows_mode {
+            Some(windows_mode::WindowsModeChange::On(before)) => {
+                self.windows_mode_before = Some(before.clone());
+            }
+            Some(windows_mode::WindowsModeChange::Off) => self.windows_mode_before = None,
+            None => {}
+        }
     }
 
     fn apply_confirmations(&mut self, update: &PreferencesUpdate) {
@@ -1329,6 +1360,11 @@ pub struct PreferencesUpdate {
     pub paste_pictures_as_files: Option<bool>,
     /// See [`Preferences::copy_paths_as_text`].
     pub copy_paths_as_text: Option<bool>,
+    /// See [`Preferences::ctrl_plus_minus_text_size`].
+    pub ctrl_plus_minus_text_size: Option<bool>,
+    /// Turns "Behave like Windows Explorer" on with the earlier values, or
+    /// off; see [`Preferences::windows_mode_before`].
+    pub windows_mode: Option<windows_mode::WindowsModeChange>,
     /// Replaces the shared display style.
     pub view_defaults: Option<ViewProperties>,
     /// Replaces the folders' own styles; read from the file only, as
@@ -1456,6 +1492,8 @@ impl PreferencesUpdate {
             search_contents: flag("searchContents"),
             paste_pictures_as_files: flag("pastePicturesAsFiles"),
             copy_paths_as_text: flag("copyPathsAsText"),
+            ctrl_plus_minus_text_size: flag("ctrlPlusMinusTextSize"),
+            windows_mode: values.get(WINDOWS_MODE_KEY).and_then(read_windows_mode),
             view_defaults: values.get("viewDefaults").and_then(ViewProperties::from_json),
             folder_views: values.get("folderViews").and_then(read_folder_views),
             downloads_group_by: values
