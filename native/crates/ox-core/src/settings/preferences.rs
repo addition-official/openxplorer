@@ -11,7 +11,7 @@ use std::ops::RangeInclusive;
 use serde::Serialize;
 use serde_json::Value;
 
-use super::choices::{ContextMenu, StripPosition, Theme, View, ZipOpening};
+use super::choices::{ColumnHeaderStyle, ContextMenu, StripPosition, Theme, View, ZipOpening};
 use super::file_icons::{canonical_file_icons, read_file_icons, FileIcons};
 use super::pane_options::DetailsPaneOptions;
 use super::tree_options::FolderTreeOptions;
@@ -262,6 +262,13 @@ pub struct Preferences {
         skip_serializing_if = "StripPosition::is_pointer"
     )]
     pub strip_position: StripPosition,
+    /// How the Details view draws the sorted column's title; stored only
+    /// when it is not the app's own style.
+    #[serde(
+        rename = "columnHeaderStyle",
+        skip_serializing_if = "ColumnHeaderStyle::is_openxplorer"
+    )]
+    pub column_header_style: ColumnHeaderStyle,
     /// Shift+F10 opens the classic (Windows 10) menu instead of the
     /// right-click menu's style, which Windows 11 opens on Shift+F10.
     /// Stored only when on.
@@ -354,6 +361,15 @@ pub struct Preferences {
     /// Ask before emptying the Recycle Bin.
     #[serde(skip_serializing_if = "is_true")]
     pub confirm_empty_trash: bool,
+    /// Delete on a removable drive (a USB stick, an SD card) deletes the
+    /// items permanently, after Windows' "Are you sure you want to
+    /// permanently delete this file?", as Windows 11 does, instead of
+    /// moving them to the drive's own Trash (OPS-018), where they keep
+    /// using its space until the Recycle Bin is emptied. Off by default,
+    /// the owner's choice, so stored as `deleteRemovablePermanently` only
+    /// when on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub delete_removable_permanently: bool,
     /// Ask before closing a window with several tabs (Dolphin's
     /// `ConfirmClosingMultipleTabs`); off, as Explorer never asks.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
@@ -456,6 +472,21 @@ pub struct Preferences {
     /// Stored only when there is one.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub gallery_folders: Vec<String>,
+    /// Draw folder, drive and place icons from the Windows icon files in
+    /// [`Self::icon_files`] (LOOK-030). Off by default; stored only when on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub use_icon_files: bool,
+    /// The Windows icon files the user chose (`.dll`, `.mun` or `.exe`),
+    /// as absolute paths, in the order chosen; only the paths are stored,
+    /// never the icons. Stored only when there is one.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub icon_files: Vec<String>,
+    /// The Windows symbol font the user chose (`SegoeIcons.ttf` or
+    /// `segmdl2.ttf`), as an absolute path, whose glyphs the app draws
+    /// while [`Self::use_icon_files`] is on (LOOK-031); only the path is
+    /// stored, never the font. Stored only when chosen.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub symbol_font: Option<String>,
     /// The icon each kind of item shows, where the user chose one
     /// (LOOK-029); see [`super::file_icons`]. Stored only when there is
     /// one.
@@ -653,6 +684,7 @@ impl Default for Preferences {
             auto_index: true,
             context_menu: ContextMenu::default(),
             strip_position: StripPosition::Pointer,
+            column_header_style: ColumnHeaderStyle::OpenXplorer,
             shift_f10_classic: false,
             classic_menu_chosen: false,
             item_counts_chosen: false,
@@ -674,6 +706,7 @@ impl Default for Preferences {
             confirm_trash: false,
             confirm_delete: true,
             confirm_empty_trash: true,
+            delete_removable_permanently: false,
             confirm_close_tabs: false,
             ask_to_run_programs: false,
             progress_details: false,
@@ -694,6 +727,9 @@ impl Default for Preferences {
             favorites: Vec::new(),
             home_folded: Vec::new(),
             gallery_folders: Vec::new(),
+            use_icon_files: false,
+            icon_files: Vec::new(),
+            symbol_font: None,
             file_icons: FileIcons::new(),
             restore_session: false,
             startup_folder: None,
@@ -780,6 +816,10 @@ impl Preferences {
         replace_if_some(&mut self.confirm_trash, update.confirm_trash);
         replace_if_some(&mut self.confirm_delete, update.confirm_delete);
         replace_if_some(&mut self.confirm_empty_trash, update.confirm_empty_trash);
+        replace_if_some(
+            &mut self.delete_removable_permanently,
+            update.delete_removable_permanently,
+        );
         replace_if_some(&mut self.recycle_replaced_files, update.recycle_replaced_files);
         replace_if_some(&mut self.restore_over_original, update.restore_over_original);
         replace_if_some(&mut self.extension_word_starts, update.extension_word_starts);
@@ -826,6 +866,17 @@ impl Preferences {
         }
         if let Some(folders) = &update.gallery_folders {
             self.gallery_folders = canonical_gallery_folders(folders);
+        }
+        replace_if_some(&mut self.use_icon_files, update.use_icon_files);
+        if let Some(files) = &update.icon_files {
+            self.icon_files = canonical_icon_files(files);
+        }
+        if let Some(font) = &update.symbol_font {
+            if font.is_empty() {
+                self.symbol_font = None;
+            } else if is_symbol_font_path(font) {
+                self.symbol_font = Some(font.clone());
+            }
         }
         if let Some(icons) = &update.file_icons {
             self.file_icons = canonical_file_icons(icons);
@@ -931,6 +982,7 @@ impl Preferences {
         replace_if_some(&mut self.browse_archives, update.browse_archives);
         replace_if_some(&mut self.zip_opening, update.zip_opening);
         replace_if_some(&mut self.strip_position, update.strip_position);
+        replace_if_some(&mut self.column_header_style, update.column_header_style);
         if let Some(options) = &update.details_pane_options {
             self.details_pane_options = options.clone();
         }
@@ -1005,7 +1057,14 @@ impl Preferences {
     /// chooses another Group by there (VIEW-022). That choice is kept in
     /// Downloads' own style when each folder keeps one, else apart from
     /// the shared style.
+    ///
+    /// Network keeps a style of its own whether or not each folder does:
+    /// Tiles grouped by type ("Computer"), as Windows 11 shows devices,
+    /// until the user chooses another view there ([`Self::network_style`]).
     pub fn view_in(&self, uri: &str, downloads: Option<&str>) -> ViewProperties {
+        if location::same_location(uri, location::NETWORK_URI) {
+            return self.network_style();
+        }
         let mut style = self.view_for(uri);
         let in_downloads = downloads.is_some_and(|downloads| location::same_location(downloads, uri));
         let own_style = self.per_folder_views
@@ -1014,6 +1073,27 @@ impl Preferences {
             style.set_grouping(self.downloads_group_by.unwrap_or(GroupBy::Modified));
         }
         style
+    }
+
+    /// The style of Network: the one saved for it, else Tiles grouped by
+    /// type, with the shared columns and widths.
+    pub fn network_style(&self) -> ViewProperties {
+        let mut style = self.view_for(location::NETWORK_URI);
+        let Some((saved, _)) =
+            super::view_properties::saved_style_for(&self.folder_views, location::NETWORK_URI)
+        else {
+            NETWORK_MODE.clone_into(&mut style.mode);
+            style.set_grouping(GroupBy::Type);
+            return style;
+        };
+        let mut own = saved.clone();
+        if own.details_columns.is_none() {
+            own.details_columns = style.details_columns.take();
+        }
+        if own.column_widths.is_none() {
+            own.column_widths = style.column_widths.take();
+        }
+        own
     }
 
     /// The display style `uri` is shown in: its own when each folder
@@ -1043,6 +1123,9 @@ impl Preferences {
     }
 }
 
+/// The view Network starts in: Windows 11's Tiles.
+const NETWORK_MODE: &str = "tiles";
+
 /// A partial preferences change; `None` leaves a preference unchanged and
 /// out-of-range numbers are ignored when applied.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -1067,6 +1150,8 @@ pub struct PreferencesUpdate {
     pub context_menu: Option<ContextMenu>,
     /// Where the compact menu's strip sits.
     pub strip_position: Option<StripPosition>,
+    /// How the Details view draws the sorted column's title.
+    pub column_header_style: Option<ColumnHeaderStyle>,
     /// Whether Shift+F10 opens the classic menu.
     pub shift_f10_classic: Option<bool>,
     /// New network refresh interval in seconds.
@@ -1097,6 +1182,8 @@ pub struct PreferencesUpdate {
     pub confirm_delete: Option<bool>,
     /// Ask before emptying the Recycle Bin.
     pub confirm_empty_trash: Option<bool>,
+    /// See [`Preferences::delete_removable_permanently`].
+    pub delete_removable_permanently: Option<bool>,
     /// See [`Preferences::recycle_replaced_files`].
     pub recycle_replaced_files: Option<bool>,
     /// See [`Preferences::restore_over_original`].
@@ -1142,6 +1229,14 @@ pub struct PreferencesUpdate {
     /// Replaces the folders added to Gallery; local folders only, up to
     /// 64, each once.
     pub gallery_folders: Option<Vec<String>>,
+    /// Turn icons from Windows icon files on or off.
+    pub use_icon_files: Option<bool>,
+    /// Replaces the chosen Windows icon files; see
+    /// [`Preferences::icon_files`].
+    pub icon_files: Option<Vec<String>>,
+    /// The Windows symbol font to read glyphs from; empty forgets it. A
+    /// path that is not an absolute `.ttf` or `.otf` path is ignored.
+    pub symbol_font: Option<String>,
     /// Replaces the chosen file icons; kinds and icons the app does not
     /// know are dropped.
     pub file_icons: Option<FileIcons>,
@@ -1222,6 +1317,10 @@ impl PreferencesUpdate {
     /// # Errors
     ///
     /// [`SettingsError::Invalid`] if `value` is not an object.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one line per stored preference, which reads best as one list"
+    )]
     pub fn from_json(value: &Value) -> Result<Self, SettingsError> {
         let Some(values) = value.as_object() else {
             return Err(SettingsError::invalid(crate::i18n::gettext(
@@ -1241,6 +1340,7 @@ impl PreferencesUpdate {
             column_widths: values.get("columnWidths").and_then(read_column_widths),
             context_menu: text("contextMenu").and_then(ContextMenu::from_key),
             strip_position: text("menuStripPosition").and_then(StripPosition::from_key),
+            column_header_style: text("columnHeaderStyle").and_then(ColumnHeaderStyle::from_key),
             shift_f10_classic: flag("shiftF10Classic"),
             network_interval: values.get("networkInterval").and_then(read_network_interval),
             window_size: values.get("windowSize").and_then(WindowSize::from_json),
@@ -1258,6 +1358,7 @@ impl PreferencesUpdate {
             confirm_trash: flag("confirmTrash"),
             confirm_delete: flag("confirmDelete"),
             confirm_empty_trash: flag("confirmEmptyTrash"),
+            delete_removable_permanently: flag("deleteRemovablePermanently"),
             recycle_replaced_files: flag("recycleReplacedFiles"),
             restore_over_original: flag("restoreOverOriginal"),
             extension_word_starts: flag("extensionWordStarts"),
@@ -1281,6 +1382,9 @@ impl PreferencesUpdate {
             favorites: values.get("favorites").and_then(read_keys),
             home_folded: values.get("homeFolded").and_then(read_keys),
             gallery_folders: values.get("galleryFolders").and_then(read_keys),
+            use_icon_files: flag("useIconFiles"),
+            icon_files: values.get("iconFiles").and_then(read_keys),
+            symbol_font: text("symbolFont").map(str::to_owned),
             file_icons: values.get("fileIcons").and_then(read_file_icons),
             restore_session: flag("restoreSession"),
             startup_folder: text("startupFolder").map(str::to_owned),
@@ -1369,6 +1473,50 @@ fn canonical_gallery_folders(folders: &[String]) -> Vec<String> {
         }
     }
     kept
+}
+
+/// The kinds of file icons are read from, by extension.
+const ICON_FILE_EXTENSIONS: [&str; 3] = ["dll", "mun", "exe"];
+
+/// The icon files of `files` that may be read: absolute paths of at most
+/// 4096 bytes without control characters, ending in `.dll`, `.mun` or
+/// `.exe` in any letter case, each once, at most
+/// [`crate::windows_icons::MAX_FILES`]. The file may have been
+/// edited by hand, and the app opens each one.
+fn canonical_icon_files(files: &[String]) -> Vec<String> {
+    let mut kept: Vec<String> = Vec::new();
+    for path in files {
+        let extension = std::path::Path::new(path)
+            .extension()
+            .and_then(std::ffi::OsStr::to_str)
+            .map(str::to_ascii_lowercase);
+        let usable = path.starts_with('/')
+            && path.len() <= MAX_PLACE_LOCATION
+            && !path.contains(char::is_control)
+            && extension.is_some_and(|extension| ICON_FILE_EXTENSIONS.contains(&extension.as_str()));
+        if usable && !kept.contains(path) {
+            kept.push(path.clone());
+        }
+        if kept.len() == crate::windows_icons::MAX_FILES {
+            break;
+        }
+    }
+    kept
+}
+
+/// Whether `path` may name the symbol font: an absolute path of at most
+/// 4096 bytes without control characters, ending in `.ttf` or `.otf` in
+/// any letter case. The file may have been edited by hand, and the app
+/// reads the font it names.
+fn is_symbol_font_path(path: &str) -> bool {
+    let extension = std::path::Path::new(path)
+        .extension()
+        .and_then(std::ffi::OsStr::to_str)
+        .map(str::to_ascii_lowercase);
+    path.starts_with('/')
+        && path.len() <= MAX_PLACE_LOCATION
+        && !path.contains(char::is_control)
+        && matches!(extension.as_deref(), Some("ttf" | "otf"))
 }
 
 /// The form Gallery's collection keeps the folder `uri` in: a local
@@ -1497,6 +1645,121 @@ mod tests {
             ["file:///home/demo/Camera%20imports"]
         );
         assert_eq!(gallery_folder_key("smb://nas/photos"), None);
+    }
+
+    /// Icons from Windows icon files are off and no file is chosen by
+    /// default, and neither is stored until the user chooses (LOOK-030).
+    ///
+    /// parity: LOOK-030
+    #[test]
+    fn icon_files_are_off_by_default_and_stored_only_when_chosen() {
+        let preferences = Preferences::default();
+        assert!(!preferences.use_icon_files);
+        assert!(preferences.icon_files.is_empty());
+        let stored = serde_json::to_value(&preferences).expect("serializable");
+        assert!(stored.get("useIconFiles").is_none());
+        assert!(stored.get("iconFiles").is_none());
+
+        let mut chosen = Preferences::default();
+        chosen.apply(&PreferencesUpdate {
+            use_icon_files: Some(true),
+            icon_files: Some(vec![
+                "/mnt/windows/Windows/SystemResources/imageres.dll.mun".to_owned()
+            ]),
+            ..PreferencesUpdate::default()
+        });
+        let stored = serde_json::to_value(&chosen).expect("serializable");
+        assert_eq!(stored["useIconFiles"], json!(true));
+        assert_eq!(
+            stored["iconFiles"],
+            json!(["/mnt/windows/Windows/SystemResources/imageres.dll.mun"])
+        );
+        let read = PreferencesUpdate::from_json(&stored).expect("an update");
+        assert_eq!(read.use_icon_files, Some(true));
+    }
+
+    /// The Windows symbol font is unset by default and not stored until
+    /// chosen; only an absolute `.ttf` or `.otf` path is taken, and an
+    /// empty one forgets it (LOOK-031).
+    ///
+    /// parity: LOOK-031
+    #[test]
+    fn the_symbol_font_is_unset_by_default_and_takes_only_font_paths() {
+        let mut preferences = Preferences::default();
+        assert_eq!(preferences.symbol_font, None);
+        let stored = serde_json::to_value(&preferences).expect("serializable");
+        assert!(stored.get("symbolFont").is_none(), "not stored until chosen");
+        let choose = |path: &str| PreferencesUpdate {
+            symbol_font: Some(path.to_owned()),
+            ..PreferencesUpdate::default()
+        };
+        preferences.apply(&choose("/mnt/windows/Windows/Fonts/SegoeIcons.ttf"));
+        assert_eq!(
+            preferences.symbol_font.as_deref(),
+            Some("/mnt/windows/Windows/Fonts/SegoeIcons.ttf")
+        );
+        let stored = serde_json::to_value(&preferences).expect("serializable");
+        let read = PreferencesUpdate::from_json(&stored).expect("an update");
+        assert_eq!(
+            read.symbol_font.as_deref(),
+            Some("/mnt/windows/Windows/Fonts/SegoeIcons.ttf")
+        );
+        for refused in [
+            "fonts/segmdl2.ttf",
+            "/srv/fonts/notes.txt",
+            "/srv/fonts/new\nline.ttf",
+        ] {
+            preferences.apply(&choose(refused));
+            assert_eq!(
+                preferences.symbol_font.as_deref(),
+                Some("/mnt/windows/Windows/Fonts/SegoeIcons.ttf"),
+                "{refused}"
+            );
+        }
+        preferences.apply(&choose("/srv/fonts/SEGMDL2.TTF"));
+        assert_eq!(preferences.symbol_font.as_deref(), Some("/srv/fonts/SEGMDL2.TTF"));
+        preferences.apply(&choose(""));
+        assert_eq!(preferences.symbol_font, None, "empty forgets it");
+    }
+
+    /// Only absolute paths of `.dll`, `.mun` and `.exe` files are kept,
+    /// each once and at most 16, from a hand-edited file.
+    ///
+    /// parity: LOOK-030
+    #[test]
+    fn icon_files_keep_only_absolute_icon_file_paths() {
+        let update = PreferencesUpdate::from_json(&json!({
+            "useIconFiles": "yes",
+            "iconFiles": [
+                "/mnt/windows/Windows/SystemResources/imageres.dll.mun",
+                "/mnt/windows/Windows/SystemResources/imageres.dll.mun",
+                "/mnt/windows/Windows/SystemResources/SHELL32.DLL.MUN",
+                "/srv/icons/explorer.exe",
+                "icons/imageres.dll",
+                "/srv/icons/notes.txt",
+                "/srv/icons/line\\nbreak.dll",
+                "/srv/icons/new\nline.dll",
+            ],
+        }))
+        .expect("an update");
+        assert_eq!(update.use_icon_files, None, "not a boolean");
+        let mut preferences = Preferences::default();
+        preferences.apply(&update);
+        assert_eq!(
+            preferences.icon_files,
+            [
+                "/mnt/windows/Windows/SystemResources/imageres.dll.mun",
+                "/mnt/windows/Windows/SystemResources/SHELL32.DLL.MUN",
+                "/srv/icons/explorer.exe",
+                "/srv/icons/line\\nbreak.dll",
+            ]
+        );
+        let many: Vec<String> = (0..40).map(|index| format!("/srv/icons/{index}.dll")).collect();
+        preferences.apply(&PreferencesUpdate {
+            icon_files: Some(many),
+            ..PreferencesUpdate::default()
+        });
+        assert_eq!(preferences.icon_files.len(), 16);
     }
 
     /// Favorites from a damaged or hand-edited file keep only locations
@@ -1809,6 +2072,34 @@ mod tests {
         assert_eq!(stored["confirmTrash"], json!(true));
         assert_eq!(stored["confirmCloseTabs"], json!(true));
         assert!(stored.get("confirmDelete").is_none() && stored.get("fullPathInTitle").is_none());
+    }
+
+    /// Delete on a removable drive uses the drive's own Trash by default
+    /// (OPS-018); deleting there permanently, as Windows does, is a choice
+    /// stored only when made.
+    ///
+    /// parity: OPS-018
+    #[test]
+    fn deleting_on_removable_drives_permanently_is_opt_in() {
+        let mut preferences = Preferences::default();
+        assert!(
+            !preferences.delete_removable_permanently,
+            "the drive's Trash by default"
+        );
+        assert!(serde_json::to_value(&preferences)
+            .unwrap()
+            .get("deleteRemovablePermanently")
+            .is_none());
+
+        preferences
+            .apply(&PreferencesUpdate::from_json(&json!({"deleteRemovablePermanently": true})).unwrap());
+
+        assert!(preferences.delete_removable_permanently);
+        let stored = serde_json::to_value(&preferences).unwrap();
+        assert_eq!(stored["deleteRemovablePermanently"], json!(true));
+        let mut read = Preferences::default();
+        read.apply(&PreferencesUpdate::from_json(&stored).unwrap());
+        assert!(read.delete_removable_permanently, "read back");
     }
 
     /// The progress window's "More details" stays as it was last left,

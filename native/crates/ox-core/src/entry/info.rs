@@ -60,6 +60,7 @@ pub(super) fn build_entry(
     let is_dir = classification.is_dir();
     // A folder's own size is not the size of its contents, so none is shown.
     let size = if is_dir { None } else { reported_size(info) };
+    let is_hidden = info.boolean("standard::is-hidden") || is_administrative_share(&classification, &name);
     Entry {
         uri: uri.to_owned(),
         name,
@@ -72,7 +73,7 @@ pub(super) fn build_entry(
         type_label,
         content_type,
         modified: time_attribute(info, "time::modified"),
-        is_hidden: info.boolean("standard::is-hidden"),
+        is_hidden,
         is_symlink,
         trash_orig_path: path_attribute(info, "trash::orig-path"),
         trash_deletion_date: deletion_date(info),
@@ -83,9 +84,19 @@ pub(super) fn build_entry(
         serialized_icon: serialized_icon(info),
         meta: Box::new(EntryMeta {
             recent_target: recent_target(uri, info),
+            trash_file: trash_file(uri, info),
             ..EntryMeta::from_info(info)
         }),
     }
+}
+
+/// Whether the item is a share whose name ends in `$` in an SMB server's
+/// listing, which Windows hides: "Shared resource names that end in a $
+/// character do not appear when you browse the local computer from a
+/// remote computer." Such shares are hidden items, so "Show hidden files"
+/// shows them, and typing `\\server\share$` still opens one.
+fn is_administrative_share(classification: &Classification, name: &str) -> bool {
+    classification.folder_type == Some(FolderType::NetworkShare) && name.ends_with('$')
 }
 
 /// The type of a file of a server or a device whose backend reported no
@@ -132,6 +143,17 @@ fn recent_target(uri: &str, info: &gio::FileInfo) -> Option<String> {
     }
     let target = normalise(&target).ok()?;
     (!is_virtual_location(&target)).then_some(target)
+}
+
+/// For an item in the Recycle Bin, the local file that holds it in the
+/// trash folder, which `GVfs` names in `standard::target-uri`; only a
+/// `file:` address with a local path is kept.
+fn trash_file(uri: &str, info: &gio::FileInfo) -> Option<String> {
+    if scheme(uri).as_deref() != Some("trash") {
+        return None;
+    }
+    let target = string_attribute(info, "standard::target-uri")?;
+    (scheme(&target).as_deref() == Some("file") && is_local_file_uri(&target)).then_some(target)
 }
 
 /// Whether `target` is a `file:` address with no host that GIO maps to a
@@ -450,6 +472,22 @@ mod tests {
         assert_eq!(share.serialized_icon, None);
     }
 
+    /// A share whose name ends in `$` is a hidden item in a server's
+    /// listing, as Windows hides it; a folder named so on a share is not.
+    ///
+    /// parity: NET-037
+    #[test]
+    fn a_share_ending_in_a_dollar_sign_is_hidden() {
+        let backup = file_info(gio::FileType::Mountable, "Backup$", Some(FOLDER_MIME_TYPE));
+        let hidden = entry_for_uri("smb://nas/Backup%24", &backup);
+        assert_eq!(hidden.name, "Backup$");
+        assert!(hidden.is_hidden);
+        assert!(!entry_for_uri("smb://nas/work", &smb_share_info()).is_hidden);
+
+        let folder = file_info(gio::FileType::Directory, "Cash$", Some(FOLDER_MIME_TYPE));
+        assert!(!entry_for_uri("smb://nas/work/Cash%24", &folder).is_hidden);
+    }
+
     /// parity: NET-003
     #[test]
     fn share_without_any_metadata_is_still_a_share() {
@@ -583,6 +621,22 @@ mod tests {
             .expect("valid ISO 8601 date")
             .to_unix();
         assert_eq!(item.trash_deletion_date, u64::try_from(expected).ok());
+    }
+
+    /// A recycled item keeps the file that holds it in the trash, which
+    /// `GVfs` names in `standard::target-uri`; no other item does.
+    #[test]
+    fn a_recycled_item_keeps_its_file_in_the_trash() {
+        let bin_file = "file:///home/demo/.local/share/Trash/files/notes.txt";
+        let info = file_info(gio::FileType::Regular, "notes.txt", Some("text/plain"));
+        let item = entry_for_uri("trash:///notes.txt", &with_target(info, bin_file));
+        assert_eq!(item.meta.trash_file.as_deref(), Some(bin_file));
+        let info = file_info(gio::FileType::Regular, "notes.txt", Some("text/plain"));
+        let remote = entry_for_uri("trash:///notes.txt", &with_target(info, "smb://nas/notes.txt"));
+        assert_eq!(remote.meta.trash_file, None, "only a local file");
+        let info = file_info(gio::FileType::Regular, "notes.txt", Some("text/plain"));
+        let plain = entry_for_uri("file:///srv/notes.txt", &with_target(info, bin_file));
+        assert_eq!(plain.meta.trash_file, None, "only a recycled item");
     }
 
     #[test]

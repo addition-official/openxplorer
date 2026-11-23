@@ -60,6 +60,10 @@ const DRIVE_XML: &str = r#"<node>
 
 /// What the fake answers.
 #[derive(Default)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is one independent answer of the fake, not a state"
+)]
 struct Answers {
     /// The device `ResolveDevice` knows, `/dev/sdb1` by default.
     unknown_device: bool,
@@ -77,7 +81,11 @@ struct Answers {
     /// The UDisks error `Mount` answers.
     mount_error: Option<&'static str>,
     /// The UDisks error `SetLabel` answers.
-    label_error: Option<&'static str>,
+    set_label_error: Option<&'static str>,
+    /// The drive is write-protected.
+    read_only: bool,
+    /// The file system's type, `vfat` by default.
+    id_type: Option<&'static str>,
     /// Another drive is at `/dev/sdb1` once the first was read.
     replaced: bool,
 }
@@ -149,7 +157,7 @@ impl FakeUdisks {
                         "Unmount" => answering.unmount_error,
                         "Format" => answering.format_error,
                         "Mount" => answering.mount_error,
-                        "SetLabel" => answering.label_error,
+                        "SetLabel" => answering.set_label_error,
                         _ => None,
                     };
                     match (error, method) {
@@ -164,10 +172,13 @@ impl FakeUdisks {
                 })
                 .property(move |_, _, _, _, property| {
                     let swapped = swapping.replaced && reads.get() > 0;
+                    if property == "ReadOnly" {
+                        return swapping.read_only.to_variant();
+                    }
                     match property {
                         "Size" => 16_000_000_000_u64.to_variant(),
                         "IdLabel" => "OLD".to_variant(),
-                        "IdType" => "vfat".to_variant(),
+                        "IdType" => swapping.id_type.unwrap_or("vfat").to_variant(),
                         "Drive" => glib::variant::ObjectPath::try_from(STICK.to_owned())
                             .expect("a path")
                             .to_variant(),
@@ -577,11 +588,13 @@ fn a_busy_drive_or_a_dismissed_prompt_stops_the_format() {
     );
     assert_eq!(
         refused.map_err(|error| error.to_string()),
-        Err("Could not format the drive: refused".to_owned())
+        Err("OpenXplorer was unable to complete the format.".to_owned())
     );
     assert_eq!(
         unmountable.map_err(|error| error.to_string()),
-        Err("Could not format the drive: refused (It could not be mounted again: refused)".to_owned()),
+        Err(
+            "OpenXplorer was unable to complete the format. The drive could not be mounted again.".to_owned()
+        ),
         "a drive left unmounted says so"
     );
 }
@@ -643,56 +656,122 @@ fn a_removed_or_write_protected_drive_is_not_formatted() {
     assert!(calls.is_empty(), "{calls:?}");
 }
 
-/// A drive's label is written through UDisks' `SetLabel` on its file
-/// system, without unmounting or formatting it, and a refusal, a dismissed
-/// prompt or a removed drive is told in the label's words.
+/// Renaming a drive sets the label of its file system through UDisks,
+/// fitted to what the file system keeps (FAT32: 11 capitals), on the
+/// drive read again first, without unmounting it.
 ///
-/// parity: PROP-004
+/// parity: DEV-012
 #[test]
-fn a_drive_label_is_set_through_udisks() {
-    let calls = with_udisks(Answers::default(), |connection, fake| async move {
-        let name = fake.name();
-        set_drive_label(&connection, &name, "/dev/sdb1", "Holiday 2026")
+fn a_drive_is_renamed_with_a_label_its_file_system_keeps() {
+    let (renamed, calls) = with_udisks(Answers::default(), |connection, fake| async move {
+        let facts = drive_facts(&connection, &fake.name(), "/dev/sdb1")
             .await
-            .expect("the label is set");
-        fake.drive_calls()
+            .expect("the drive");
+        let renamed = set_drive_label(&connection, &fake.name(), &facts, "Holiday: photos 2026").await;
+        (renamed, fake.drive_calls())
     });
-    assert_eq!(calls, ["Filesystem.SetLabel ('Holiday 2026', @a{sv} {})"]);
 
-    let cases = [
-        (
-            Answers {
-                label_error: Some("NotAuthorizedDismissed"),
-                ..Answers::default()
-            },
-            "Renaming the drive was cancelled.",
-        ),
-        (
-            Answers {
-                label_error: Some("NotAuthorized"),
-                ..Answers::default()
-            },
-            "You are not allowed to rename this drive.",
-        ),
-        (
-            Answers {
-                label_error: Some("Failed"),
-                ..Answers::default()
-            },
-            "Could not rename the drive: refused",
-        ),
-        (
-            Answers {
-                unknown_device: true,
-                ..Answers::default()
-            },
-            "The drive is no longer connected.",
-        ),
-    ];
-    for (answers, message) in cases {
-        let refused = with_udisks(answers, |connection, fake| async move {
-            set_drive_label(&connection, &fake.name(), "/dev/sdb1", "Holiday").await
+    assert_eq!(
+        renamed.expect("renamed"),
+        Relabelled {
+            label: "HOLIDAY PHO".to_owned(),
+            remounted: None,
+        }
+    );
+    assert_eq!(calls, ["Filesystem.SetLabel ('HOLIDAY PHO', @a{sv} {})"]);
+}
+
+/// exFAT and NTFS labels can't be changed while the drive is mounted
+/// (exfatlabel finds the device busy, ntfslabel refuses a mounted one):
+/// the drive is unmounted, renamed and mounted again, at the folder its
+/// new label gives it; a drive in use is not renamed.
+///
+/// parity: DEV-012
+#[test]
+fn an_exfat_or_ntfs_drive_is_renamed_unmounted_and_mounted_again() {
+    for (id_type, label) in [("exfat", "Trip 2026 p"), ("ntfs", "Trip: 2026 photos")] {
+        let answers = Answers {
+            id_type: Some(id_type),
+            ..Answers::default()
+        };
+        let (renamed, calls) = with_udisks(answers, |connection, fake| async move {
+            let facts = drive_facts(&connection, &fake.name(), "/dev/sdb1")
+                .await
+                .expect("the drive");
+            let renamed = set_drive_label(&connection, &fake.name(), &facts, "Trip: 2026 photos").await;
+            (renamed, fake.drive_calls())
         });
-        assert_eq!(refused.expect_err("refused").to_string(), message);
+
+        assert_eq!(
+            renamed.expect("renamed"),
+            Relabelled {
+                label: label.to_owned(),
+                remounted: Some(Ok("/media/demo/USB".to_owned())),
+            },
+            "{id_type}"
+        );
+        assert_eq!(calls.len(), 3, "{calls:?}");
+        assert!(calls[0].starts_with("Filesystem.Unmount"), "{calls:?}");
+        assert_eq!(
+            calls[1],
+            format!("Filesystem.SetLabel ('{label}', @a{{sv}} {{}})")
+        );
+        assert!(calls[2].starts_with("Filesystem.Mount"), "{calls:?}");
     }
+
+    let in_use = Answers {
+        id_type: Some("exfat"),
+        unmount_error: Some("DeviceBusy"),
+        ..Answers::default()
+    };
+    let (busy, calls) = with_udisks(in_use, |connection, fake| async move {
+        let facts = drive_facts(&connection, &fake.name(), "/dev/sdb1")
+            .await
+            .expect("the drive");
+        let renamed = set_drive_label(&connection, &fake.name(), &facts, "photos").await;
+        (renamed, fake.drive_calls())
+    });
+    assert!(matches!(busy, Err(FormatError::Busy)), "{busy:?}");
+    assert_eq!(calls.len(), 1, "only the Unmount: {calls:?}");
+}
+
+/// A drive removed or swapped meanwhile, a write-protected one and one
+/// UDisks refuses (in use, or a password dismissed) are not renamed, and
+/// say why.
+///
+/// parity: DEV-012
+#[test]
+fn a_gone_protected_or_refused_drive_is_not_renamed() {
+    let rename = |answers: Answers| {
+        with_udisks(answers, |connection, fake| async move {
+            let facts = drive_facts(&connection, &fake.name(), "/dev/sdb1")
+                .await
+                .expect("the drive");
+            let renamed = set_drive_label(&connection, &fake.name(), &facts, "photos").await;
+            (renamed, fake.drive_calls())
+        })
+    };
+
+    let (swapped, calls) = rename(Answers {
+        replaced: true,
+        ..Answers::default()
+    });
+    assert!(matches!(swapped, Err(FormatError::NotFound)), "{swapped:?}");
+    assert!(calls.is_empty(), "{calls:?}");
+    let (protected, calls) = rename(Answers {
+        read_only: true,
+        ..Answers::default()
+    });
+    assert!(matches!(protected, Err(FormatError::ReadOnly)), "{protected:?}");
+    assert!(calls.is_empty(), "{calls:?}");
+    let (busy, _) = rename(Answers {
+        set_label_error: Some("DeviceBusy"),
+        ..Answers::default()
+    });
+    assert!(matches!(busy, Err(FormatError::Busy)), "{busy:?}");
+    let (dismissed, _) = rename(Answers {
+        set_label_error: Some("NotAuthorizedDismissed"),
+        ..Answers::default()
+    });
+    assert!(matches!(dismissed, Err(FormatError::Cancelled)), "{dismissed:?}");
 }

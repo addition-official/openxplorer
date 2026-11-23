@@ -49,9 +49,15 @@ const MERGE_WINDOW: Duration = Duration::from_millis(250);
 ///
 /// The GIO failure, sorted by [`EntryError`]. When it is
 /// [`EntryError::NotMounted`], mount the location and list it again.
-pub async fn enumerate_folder(uri: &str, on_batch: impl FnMut(Vec<Entry>)) -> Result<(), EntryError> {
+pub async fn enumerate_folder(uri: &str, mut on_batch: impl FnMut(Vec<Entry>)) -> Result<(), EntryError> {
     let reader = Reader::start(uri)?;
-    let mut batches = BatchCoalescer::new(on_batch);
+    let folder = uri.to_owned();
+    let mut batches = BatchCoalescer::new(move |mut rows: Vec<Entry>| {
+        for row in &mut rows {
+            keep_folder_spelling(row, &folder);
+        }
+        on_batch(rows);
+    });
     loop {
         match reader.next().await {
             Read::Rows(rows) => {
@@ -72,6 +78,35 @@ pub async fn enumerate_folder(uri: &str, on_batch: impl FnMut(Vec<Entry>)) -> Re
             }
             Read::Failed(error) => return Err(error),
         }
+    }
+}
+
+/// Gives `row`, read in the SMB folder `folder`, the folder's spelling.
+///
+/// SMB names ignore case, and `GVfs` names everything inside a mounted
+/// share as the share was first mounted (`smb://nas/projects/Plans` after
+/// `projects` was typed once), whatever spelling the folder was opened
+/// with. A row whose location starts with the folder's in another case
+/// takes the folder's, so the address bar, the tab and Recent locations
+/// keep the spelling the share was opened with, the server's own when it
+/// was opened from the server's list.
+fn keep_folder_spelling(row: &mut Entry, folder: &str) {
+    if !crate::location::is_smb_location(folder) {
+        return;
+    }
+    let folder = folder.trim_end_matches('/');
+    let respell = |uri: &mut String| {
+        let Some(head) = uri.get(..folder.len()) else {
+            return;
+        };
+        let rest_starts_a_name = uri[folder.len()..].starts_with('/');
+        if head != folder && head.eq_ignore_ascii_case(folder) && rest_starts_a_name {
+            uri.replace_range(..folder.len(), folder);
+        }
+    };
+    respell(&mut row.uri);
+    if let Some(target) = row.target_uri.as_mut() {
+        respell(target);
     }
 }
 
@@ -170,6 +205,27 @@ fn send(mailbox: &Mutex<Mailbox>, read: Read) -> bool {
     true
 }
 
+/// Gives a shortcut's row ([`Entry::is_shortcut`]) its own size and time
+/// of change, as Windows shows a `.lnk`'s, where the listing followed the
+/// link to its target's. Read with `lstat` on the listing's worker
+/// thread; a link that cannot be read keeps what the listing found. A
+/// shortcut to a folder still opens as one.
+fn list_shortcuts_own_facts(row: &mut Entry, child: &gio::File) {
+    if !row.is_shortcut() {
+        return;
+    }
+    let Some(metadata) = child.path().and_then(|path| std::fs::symlink_metadata(path).ok()) else {
+        return;
+    };
+    row.size = Some(metadata.len());
+    let seconds = metadata
+        .modified()
+        .ok()
+        .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|since| since.as_secs());
+    row.modified = seconds.filter(|&seconds| seconds > 0).or(row.modified);
+}
+
 /// Reads the folder at `uri` into `mailbox`, the first
 /// [`FIRST_BATCH_SIZE`] rows on their own, then [`LATER_BATCH_SIZE`] at a
 /// time, until the end, a failure or the listing is dropped.
@@ -188,7 +244,10 @@ fn read_folder(uri: &str, cancellable: &gio::Cancellable, mailbox: &Mutex<Mailbo
     let outcome = loop {
         match enumerator.next_file(Some(cancellable)) {
             Ok(Some(info)) => {
-                rows.push(entry_from_info(&enumerator.child(&info), &info));
+                let child = enumerator.child(&info);
+                let mut row = entry_from_info(&child, &info);
+                list_shortcuts_own_facts(&mut row, &child);
+                rows.push(row);
                 if rows.len() == batch_size {
                     batch_size = LATER_BATCH_SIZE;
                     let full = std::mem::replace(&mut rows, Vec::with_capacity(batch_size));
@@ -272,6 +331,81 @@ mod tests {
 
     use super::*;
     use crate::entry::test_support::entry_for_uri;
+
+    /// A row `GVfs` names under the share's mounted spelling takes the
+    /// spelling the folder was opened with; other rows are left alone.
+    ///
+    /// parity: NET-041
+    #[test]
+    fn rows_of_a_share_keep_the_folders_spelling() {
+        let info = gio::FileInfo::new();
+        info.set_file_type(gio::FileType::Directory);
+        info.set_display_name("Plans");
+        let mut row = entry_for_uri("smb://harbornas.local/projects/Plans", &info);
+        keep_folder_spelling(&mut row, "smb://harbornas.local/Projects/");
+        assert_eq!(row.uri, "smb://harbornas.local/Projects/Plans");
+
+        let mut elsewhere = entry_for_uri("smb://harbornas.local/projectsold/Plans", &info);
+        keep_folder_spelling(&mut elsewhere, "smb://harbornas.local/Projects");
+        assert_eq!(elsewhere.uri, "smb://harbornas.local/projectsold/Plans");
+
+        let mut local = entry_for_uri("file:///tmp/a/B", &info);
+        keep_folder_spelling(&mut local, "file:///tmp/A");
+        assert_eq!(local.uri, "file:///tmp/a/B");
+    }
+
+    /// A shortcut's Size and Date modified are its own, as Windows shows a
+    /// `.lnk`'s (checked in a Windows 11 VM): a link to a large, old file
+    /// or to a folder lists the link's few bytes and its own time. A link
+    /// named for a type keeps its target's facts, as a file does.
+    ///
+    /// parity: VIEW-074
+    #[test]
+    fn a_shortcut_lists_its_own_size_and_date() {
+        let folder = tempfile::tempdir().expect("temporary folder");
+        let video = folder.path().join("Harbor Clip.mp4");
+        fs::write(&video, vec![0_u8; 300_000]).expect("fixture file");
+        let old = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000_000);
+        fs::File::options()
+            .write(true)
+            .open(&video)
+            .and_then(|file| file.set_modified(old))
+            .expect("an old time");
+        fs::create_dir(folder.path().join("Projects")).expect("fixture folder");
+        std::os::unix::fs::symlink(&video, folder.path().join("Harbor Clip - Shortcut")).expect("link");
+        std::os::unix::fs::symlink(
+            folder.path().join("Projects"),
+            folder.path().join("Projects - Shortcut"),
+        )
+        .expect("link");
+        std::os::unix::fs::symlink(&video, folder.path().join("clip.mp4")).expect("link");
+
+        let rows = std::cell::RefCell::new(Vec::new());
+        glib::MainContext::new()
+            .block_on(enumerate_folder(&folder_uri(&folder), |batch| {
+                rows.borrow_mut().extend(batch);
+            }))
+            .expect("listed");
+        let rows = rows.into_inner();
+        let row = |name: &str| rows.iter().find(|row| row.name == name).expect("listed").clone();
+
+        let link_size = |name: &str| {
+            fs::symlink_metadata(folder.path().join(name))
+                .expect("a link")
+                .len()
+        };
+        let video_link = row("Harbor Clip - Shortcut");
+        assert_eq!(video_link.size, Some(link_size("Harbor Clip - Shortcut")));
+        assert!(video_link.modified > Some(1_000_000_000), "the link's own time");
+        let folder_link = row("Projects - Shortcut");
+        assert!(folder_link.is_dir, "it still opens as a folder");
+        assert_eq!(folder_link.size, Some(link_size("Projects - Shortcut")));
+        assert_eq!(
+            row("clip.mp4").size,
+            Some(300_000),
+            "a link named for a type is a file"
+        );
+    }
 
     /// [`FIRST_BATCH_SIZE`] as a row count.
     fn first_batch_len() -> usize {

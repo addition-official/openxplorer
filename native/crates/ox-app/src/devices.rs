@@ -96,6 +96,29 @@ impl Removal {
         }
     }
 
+    /// What the message says when the removal of the drive `label`
+    /// failed with `error`: a drive still in use is refused in the words
+    /// of Windows 11's box, which say what to do; anything else in the
+    /// system's words.
+    pub(crate) fn failure_detail(error: &NetworkError, label: &str) -> String {
+        let is_busy = matches!(
+            error,
+            NetworkError::Gio(error) if error.matches(gio::IOErrorEnum::Busy)
+        );
+        if is_busy {
+            [
+                ox_core::i18n::format_message("'{drive}' is currently in use.", &[("drive", label)]),
+                ox_core::i18n::gettext(
+                    "Save any open files on this disc, and then close the files or programs using the files \
+                     before trying again.",
+                ),
+            ]
+            .join("\n\n")
+        } else {
+            error.to_string()
+        }
+    }
+
     /// Whether the user already heard about `error`: they cancelled, or
     /// GTK's dialog showed why (`G_IO_ERROR_FAILED_HANDLED`, which GIO asks
     /// never to report again).
@@ -154,6 +177,7 @@ mod tests {
             can_stop: true,
             can_open_in_disks: false,
             can_format: false,
+            is_optical: false,
         };
         let sd_card = MountControls {
             can_stop: false,
@@ -219,5 +243,23 @@ mod tests {
         );
         assert_eq!(Removal::Eject.done_message("USB stick"), None);
         assert_eq!(Removal::Disconnect.done_message("USB stick"), None);
+    }
+
+    /// A drive a program still uses is refused in the words of Windows
+    /// 11's box (checked in the VM on 2026-11-22), which say what to do;
+    /// any other refusal is the system's error, in Windows' words too.
+    ///
+    /// parity: DEV-006, DEV-007
+    #[test]
+    fn a_busy_drive_is_refused_in_windows_words() {
+        let busy = NetworkError::Gio(gtk::glib::Error::new(gio::IOErrorEnum::Busy, "target is busy"));
+        let other = NetworkError::Gio(gtk::glib::Error::new(gio::IOErrorEnum::Failed, "No medium found"));
+        let in_use = "'STICK' is currently in use.\n\nSave any open files on this disc, and then close the \
+                      files or programs using the files before trying again.";
+        assert_eq!(Removal::failure_detail(&busy, "STICK"), in_use);
+        assert_eq!(
+            Removal::failure_detail(&other, "STICK"),
+            "The device is not ready."
+        );
     }
 }

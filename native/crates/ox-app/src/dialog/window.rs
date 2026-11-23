@@ -215,6 +215,23 @@ impl Dialog {
         dialog
     }
 
+    /// A dialog window like [`Self::with_title_bar`], `caption` in its
+    /// title bar, with `heading` over `message`, as Windows' "Network
+    /// Error" is laid out.
+    pub(crate) fn with_caption(
+        parent: &impl IsA<gtk::Window>,
+        caption: &str,
+        heading: &str,
+        message: &str,
+    ) -> Self {
+        let dialog = Self::with_title_bar(parent, caption, message);
+        // Windows draws this heading, its main instruction, in blue.
+        dialog.add_css_class("main-instruction");
+        dialog.imp().frame.title_label().set_text(heading);
+        dialog.imp().frame.title_label().set_visible(true);
+        dialog
+    }
+
     /// A Windows message box over `parent`: `title` in its caption, the
     /// warning icon beside `message`, and the buttons added next, as
     /// Windows 11 asks "Rename" before an extension changes
@@ -465,6 +482,15 @@ impl Dialog {
         self.present();
         if let Some(button) = first_button {
             button.grab_focus();
+        }
+    }
+
+    /// Shows the dialog with its primary (accent) button focused, so Enter
+    /// presses it, for a question whose answer is that button.
+    pub(crate) fn open_on_primary_button(&self) {
+        match self.default_widget() {
+            Some(primary) => self.open_focusing(&primary),
+            None => self.open(),
         }
     }
 

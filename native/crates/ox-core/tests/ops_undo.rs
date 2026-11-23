@@ -10,6 +10,7 @@ mod private_trash;
 
 use std::fs;
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -17,9 +18,10 @@ use ox_core::location::ItemKind;
 use ox_core::ops::{
     changed_copies, create_item, create_links, duplicate_items, list_recycle_bin, removed_by_undo,
     rename_batch, rename_numbered_items, reverse, reverse_deleting, run_transfer, undo, BatchItem,
-    BatchRename, LinkRequest, NumberedRename, OperationContext, TransferRequest, UndoJournal, UndoRecord,
+    BatchRename, FailureAsker, LinkRequest, NumberedRename, OperationContext, TransferRequest, UndoJournal,
+    UndoRecord,
 };
-use ox_core::transfer::{Cancellation, ConflictPolicy, TransferMode};
+use ox_core::transfer::{Cancellation, ConflictPolicy, FailedItem, FailureAnswer, TransferMode};
 
 use ops_support::{block_on, file_uri};
 use private_trash::require_private_trash;
@@ -252,6 +254,36 @@ fn an_edit_inside_a_copied_folder_counts_as_a_change() {
     assert_eq!(block_on(changed_copies(&record, since)), ["project"]);
 }
 
+/// A context whose question about failed items gives `answers` in turn,
+/// running `before_answer` first, and keeps every question it was asked.
+fn answering_context(
+    answers: Vec<FailureAnswer>,
+    before_answer: impl Fn() + Send + Sync + 'static,
+) -> (OperationContext, Arc<Mutex<Vec<FailedItem>>>) {
+    let asked = Arc::new(Mutex::new(Vec::new()));
+    let log = Arc::clone(&asked);
+    let answers = Mutex::new(answers.into_iter());
+    let context = OperationContext {
+        item_failure: Some(FailureAsker::new(move |item: &FailedItem| {
+            log.lock().expect("question log").push(item.clone());
+            before_answer();
+            answers
+                .lock()
+                .expect("answers")
+                .next()
+                .unwrap_or(FailureAnswer::Cancel)
+        })),
+        ..OperationContext::default()
+    };
+    (context, asked)
+}
+
+/// Undo of a move never overwrites a new item under an old name, and it
+/// says so: as Windows asks before a name in the way, the item that stays
+/// where the move took it is named in a question, never left there in
+/// silence.
+///
+/// parity: OPS-029
 #[test]
 fn undoing_a_move_puts_items_back_but_never_over_a_new_item() {
     let temp = tempfile::tempdir().unwrap();
@@ -264,15 +296,54 @@ fn undoing_a_move_puts_items_back_but_never_over_a_new_item() {
     let items: Vec<&Path> = items.iter().map(std::path::PathBuf::as_path).collect();
     let record = undo_record_of(&request(TransferMode::Move, &items, Some(&destination)));
     fs::write(source.join("b.txt"), b"newer b").unwrap();
+    let (context, asked) = answering_context(vec![FailureAnswer::Skip], || {});
 
-    let result = block_on(undo(&record, &OperationContext::default(), |_| {})).unwrap();
+    let result = block_on(undo(&record, &context, |_| {})).unwrap();
 
     assert_eq!(record.undo_label(), "Undo Move");
     assert_eq!(result.done, [file_uri(&destination.join("a.txt"))]);
-    assert_eq!(result.skipped, [file_uri(&destination.join("b.txt"))]);
+    let asked = asked.lock().unwrap();
+    assert_eq!(asked.len(), 1, "{asked:?}");
+    assert_eq!(asked[0].name, "b.txt");
+    assert_eq!(asked[0].uri, file_uri(&destination.join("b.txt")));
+    assert!(asked[0].error.contains("already"), "{}", asked[0].error);
+    assert!(!asked[0].more_items, "one item in the way: nothing to do for all");
+    assert_eq!(result.errors.len(), 1, "{:?}", result.errors);
     assert_eq!(fs::read(source.join("a.txt")).unwrap(), b"a");
     assert_eq!(fs::read(source.join("b.txt")).unwrap(), b"newer b");
     assert_eq!(fs::read(destination.join("b.txt")).unwrap(), b"b");
+}
+
+/// Try Again, once the name in the way is free, moves the item back.
+///
+/// parity: OPS-029
+#[test]
+fn try_again_moves_an_item_back_once_its_old_name_is_free() {
+    let temp = tempfile::tempdir().unwrap();
+    let (source, destination) = (temp.path().join("src"), temp.path().join("dst"));
+    fs::create_dir(&source).unwrap();
+    fs::create_dir(&destination).unwrap();
+    fs::write(source.join("Clip.mp4"), b"clip").unwrap();
+    let item = source.join("Clip.mp4");
+    let record = undo_record_of(&request(TransferMode::Move, &[&item], Some(&destination)));
+    fs::write(&item, b"in the way").unwrap();
+    let blocker = item.clone();
+    let moved_aside = temp.path().join("aside.mp4");
+    let aside = moved_aside.clone();
+    let (context, asked) = answering_context(vec![FailureAnswer::Retry], move || {
+        if blocker.exists() {
+            fs::rename(&blocker, &aside).unwrap();
+        }
+    });
+
+    let result = block_on(undo(&record, &context, |_| {})).unwrap();
+
+    assert_eq!(asked.lock().unwrap().len(), 1);
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    assert_eq!(result.done, [file_uri(&destination.join("Clip.mp4"))]);
+    assert_eq!(fs::read(&item).unwrap(), b"clip");
+    assert_eq!(fs::read(&moved_aside).unwrap(), b"in the way");
+    assert!(!destination.join("Clip.mp4").exists());
 }
 
 /// A move answered with Keep both lands under a new name; Undo brings
@@ -498,6 +569,7 @@ fn undoing_links_moves_only_the_links_to_the_trash() {
     let request = LinkRequest {
         uris: vec![file_uri(&items.join("a.txt"))],
         destination_folder: file_uri(&links),
+        names: ox_core::ops::ShortcutNames::WholeName,
     };
 
     let outcome = block_on(create_links(&request, &OperationContext::default())).expect("a local folder");

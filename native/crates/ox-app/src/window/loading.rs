@@ -35,6 +35,7 @@ mod denied_folder;
 mod disconnected;
 pub(super) use disconnected::disconnected_message;
 mod mount_retry;
+mod network_error;
 mod removed_folder;
 
 use std::cell::RefCell;
@@ -58,6 +59,7 @@ use crate::locations::Page;
 use super::listing_state::{ListingEnd, ListingState, ReloadTiming};
 use super::session::TabId;
 use super::BrowserWindow;
+pub(super) use mount_retry::at_remote_home;
 use mount_retry::MountRetry;
 
 /// Whether a change to the folder of a tab waits until the tab is shown:
@@ -358,7 +360,30 @@ impl BrowserWindow {
                 glib::clone!(
                     #[weak(rename_to = window)]
                     self,
-                    move |problem| window.finish_network_listing(&run, problem)
+                    move |computers| window.context().remember_computers(computers)
+                ),
+                glib::clone!(
+                    #[weak(rename_to = window)]
+                    self,
+                    move |problem: Option<crate::network::DiscoveryProblem>| {
+                        window.finish_network_listing(&run, problem.map(|problem| problem.reason()));
+                    }
+                ),
+            );
+        }
+        // A computer Network found lists its shares and its other services.
+        if let Some(computer) = self.context().network().computer_at(&start.uri) {
+            return loader::list_computer(
+                computer,
+                glib::clone!(
+                    #[weak(rename_to = window)]
+                    self,
+                    move |entries| window.receive_batch(&batch_run, entries)
+                ),
+                glib::clone!(
+                    #[weak(rename_to = window)]
+                    self,
+                    move |result| window.finish_load(&run, result)
                 ),
             );
         }
@@ -494,11 +519,16 @@ impl BrowserWindow {
         }
         self.apply_measured_folder_sizes(id);
         if self.imp().session.borrow().is_active(id) {
+            crate::startup_trace::window_listed(self);
             self.restore_selection(id);
             self.update_content();
             self.update_details_pane();
             self.focus_new_file_list();
+            if run.mode == LoadMode::Navigate {
+                self.focus_first_item_if_asked(id);
+            }
             self.restore_scroll_after_listing(id);
+            self.folder_pane().move_keyboard_onto_an_item_once_drawn();
             self.restore_expanded_after_listing(id);
             self.reveal_located_item(id);
             if is_listed {
@@ -600,9 +630,107 @@ impl BrowserWindow {
             (true, [first, ..]) => self.folder_pane().reveal(*first),
             _ => {}
         }
-        if renames && !positions.is_empty() {
-            self.continue_renaming();
+        if let Some(&first) = positions.first().filter(|_| reveals || renames) {
+            self.finish_revealing(first, renames);
         }
+    }
+
+    /// Scrolls the item at `position`, just revealed, whole into view once
+    /// the list has laid its rows out, then renames it in place when
+    /// `renames`. A row just added at the end of a long list is past the
+    /// end the list measured before it, so the first scroll stops a row
+    /// short and its name field would take no keys (OPS-001, OPS-002).
+    /// Any input meanwhile drops the rename, as the user moved on.
+    fn finish_revealing(&self, position: u32, renames: bool) {
+        /// Frames to wait for the row to show whole before renaming anyway.
+        const MOST_FRAMES: u32 = 10;
+        let pane = self.folder_pane();
+        let view = pane.view_widget();
+        if pane.shows_whole_item(position) || !view.is_mapped() {
+            if renames {
+                self.continue_renaming();
+            }
+            return;
+        }
+        let Some(clock) = self.frame_clock() else {
+            if renames {
+                self.continue_renaming();
+            }
+            return;
+        };
+        let generation = self.imp().input_generation.get();
+        let frames = Rc::new(std::cell::Cell::new(0));
+        let handler: Rc<std::cell::Cell<Option<glib::SignalHandlerId>>> = Rc::default();
+        // After each frame is painted, so the rows are laid out: no motion,
+        // only a look at where the row ended up, as `keep_top` does.
+        let watch = Rc::clone(&handler);
+        let painted = clock.connect_after_paint(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            move |clock| {
+                let stop = || {
+                    if let Some(id) = watch.take() {
+                        clock.disconnect(id);
+                    }
+                };
+                frames.set(frames.get() + 1);
+                let pane = window.folder_pane();
+                let selected = pane.model().first_selected();
+                let Some(selected) = selected.filter(|_| window.imp().input_generation.get() == generation)
+                else {
+                    stop();
+                    return;
+                };
+                if !pane.shows_whole_item(selected) && frames.get() < MOST_FRAMES {
+                    pane.scroll_into_view(selected);
+                    clock.request_phase(gtk::gdk::FrameClockPhase::PAINT);
+                    return;
+                }
+                stop();
+                if renames {
+                    window.continue_renaming();
+                }
+            }
+        ));
+        handler.set(Some(painted));
+        clock.request_phase(gtk::gdk::FrameClockPhase::PAINT);
+    }
+
+    /// Asks the next listing of the active tab's location to put the
+    /// keyboard on its first item, unselected: another application opened
+    /// the folder, or it was typed into the address bar and opened with
+    /// Enter. Windows 11 File Explorer then rings the first item, so the
+    /// first Down selects the second (SEL-020).
+    pub(super) fn focus_first_item_when_listed(&self) {
+        if let Some(tab) = self.imp().session.borrow_mut().active_mut() {
+            tab.focuses_first_item = true;
+        }
+    }
+
+    /// Gives the first item of tab `id`, just listed, the keyboard without
+    /// selecting it, with the focus ring shown, when its location was
+    /// opened as [`Self::focus_first_item_when_listed`] asks and nothing
+    /// is selected there; the next Up or Down moves on from it
+    /// ([`Self::step_from_ringed_item`]). A text field that has the
+    /// keyboard keeps it.
+    fn focus_first_item_if_asked(&self, id: TabId) {
+        let asked = self
+            .imp()
+            .session
+            .borrow_mut()
+            .tab_mut(id)
+            .is_some_and(|tab| std::mem::take(&mut tab.focuses_first_item));
+        let pane = self.folder_pane();
+        if !asked || self.focus_is_in_text_field() || !pane.lists_items() || pane.model().n_items() == 0 {
+            return;
+        }
+        if !pane.model().selected_positions().is_empty() {
+            return;
+        }
+        pane.focus_view();
+        pane.focus_item(0);
+        self.set_focus_visible(true);
+        self.imp().ringed_item.set(Some(0));
     }
 
     /// Puts the view back where a moved tab (TAB-039) or Back and Forward

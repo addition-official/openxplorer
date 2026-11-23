@@ -19,8 +19,8 @@ use std::path::{Path, PathBuf};
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib};
 use ox_core::integration::{
-    available_file_systems, drive_facts, format_drive, DiskTool, DriveFacts, ExecutableSearch, FileSystem,
-    FormatError, FormatRequest, Formatted, Sandbox, UDISKS_NAME,
+    available_file_systems, drive_facts, format_drive, set_drive_label, DiskTool, DriveFacts,
+    ExecutableSearch, FileSystem, FormatError, FormatRequest, Formatted, Sandbox, UDISKS_NAME,
 };
 use ox_core::location::normalise;
 use ox_core::network::WriteActivity;
@@ -30,7 +30,7 @@ use super::actions::text_action;
 use super::menu_popover::{MenuEntry, MenuItem, MenuPopover};
 use super::window_action::WindowAction;
 use super::BrowserWindow;
-use crate::dialogs::{confirm_erase, format_drive_dialog};
+use crate::dialogs::{confirm_erase, format_drive_dialog, rename_drive_dialog};
 use crate::icons::Icon;
 use crate::window::Dialog;
 
@@ -54,6 +54,12 @@ const FORMATTING_ANOTHER: &str =
 
 /// Start's label while the drive is formatted.
 const FORMATTING: &str = crate::i18n::message_id("Formatting…");
+
+/// Shown when a drive has no block device whose label could be changed.
+const NOT_RENAMABLE: &str = crate::i18n::message_id("This drive cannot be renamed.");
+
+/// Rename's label while the drive's label is changed.
+const RENAMING: &str = crate::i18n::message_id("Renaming…");
 
 /// Shown for a location without a local path.
 const NO_LOCAL_PATH: &str = crate::i18n::message_id("This tool needs a location on this computer.");
@@ -131,6 +137,7 @@ impl BrowserWindow {
                 window.open_drive_in_disks(uri, DiskTool::OpenInDisks);
             }),
             text_action(WindowAction::FormatDrive, BrowserWindow::open_format_dialog),
+            text_action(WindowAction::RenameDrive, BrowserWindow::open_rename_drive_dialog),
             text_action(WindowAction::MountDiskImage, |window, uri| {
                 window.run_disk_tool_at(DiskTool::MountImage, uri);
             }),
@@ -158,14 +165,12 @@ impl BrowserWindow {
         if entries.is_empty() {
             return None;
         }
-        let popover = MenuPopover::new(entries);
-        popover.set_parent(self.status_bar());
+        // The status bar keeps its menu and shows it again each time
+        // ([`MenuPopover::kept_by`]).
+        let popover = MenuPopover::kept_by(self.status_bar(), "status-bar-menu");
+        popover.set_entries(entries);
         #[expect(clippy::cast_possible_truncation, reason = "pointer positions are small")]
         popover.set_pointing_to(Some(&gdk::Rectangle::new(x as i32, y as i32, 1, 1)));
-        popover.connect_closed(|popover| {
-            let closed = popover.clone();
-            glib::idle_add_local_once(move || closed.unparent());
-        });
         popover.popup();
         Some(popover)
     }
@@ -338,6 +343,105 @@ impl BrowserWindow {
         });
     }
 
+    /// Rename for the drive mounted at `uri`: asks UDisks about it, then
+    /// shows the Rename dialog, which changes its volume label. Refused
+    /// while a drive is formatted, which may be this one.
+    fn open_rename_drive_dialog(&self, uri: &str) {
+        let window = self.downgrade();
+        let root = uri.to_owned();
+        glib::spawn_future_local(async move {
+            let Some(target) = window.upgrade() else {
+                return;
+            };
+            let found = target.rename_target(&root).await;
+            match found {
+                Ok((name, connection, facts)) => {
+                    target.show_rename_drive_dialog(&name, &root, connection, facts);
+                }
+                Err(message) => target.show_message(&message),
+            }
+        });
+    }
+
+    /// What renaming the drive mounted at `uri` needs: its name, the bus
+    /// UDisks answers on and what UDisks says of the drive, read again now;
+    /// or the message that says why it cannot be renamed, as while a drive
+    /// is formatted, which may be this one.
+    async fn rename_target(&self, uri: &str) -> Result<(String, gio::DBusConnection, DriveFacts), String> {
+        if self.context().formats_a_drive() {
+            return Err(ox_core::i18n::gettext(FORMATTING_ANOTHER));
+        }
+        let mounts = self.volume_monitor().mounts();
+        let (Some(mount), Some(device)) = (mount_at(&mounts, uri), block_device_of(&mounts, uri)) else {
+            return Err(ox_core::i18n::gettext(NOT_RENAMABLE));
+        };
+        let name = mount.name().to_string();
+        let (mount, uuid) = (mount.clone(), mount.volume().and_then(|volume| volume.uuid()));
+        let target = async {
+            let connection = gio::bus_get_future(udisks_bus())
+                .await
+                .map_err(FormatError::Unavailable)?;
+            let facts = drive_facts(&connection, UDISKS_NAME, &device).await?;
+            Ok::<_, FormatError>((connection, facts))
+        }
+        .await;
+        let mounted = self.volume_monitor().mounts().contains(&mount);
+        match target {
+            Ok((connection, facts)) if is_chosen_drive(mounted, uuid.as_deref(), &facts) => {
+                Ok((name, connection, facts))
+            }
+            Ok(_) => Err(rename_error_text(&FormatError::NotFound)),
+            Err(error) => Err(rename_error_text(&error)),
+        }
+    }
+
+    /// Gives the drive mounted at `uri` the volume label `label`, as
+    /// Rename does, for the label box on the drive's General tab
+    /// (Properties). The error is the message to show; an empty one means
+    /// the password prompt was dismissed, which says nothing.
+    pub(crate) async fn rename_drive_at(&self, uri: &str, label: &str) -> Result<(), String> {
+        let (_, connection, facts) = self.rename_target(uri).await?;
+        match relabel(&self.downgrade(), &connection, &facts, uri, label).await {
+            Ok(()) => Ok(()),
+            Err(FormatError::Cancelled) => Err(String::new()),
+            Err(error) => Err(rename_error_text(&error)),
+        }
+    }
+
+    /// Shows the Rename dialog for the drive `name` mounted at `root`
+    /// that `facts` describes; Rename sets the label through UDisks on
+    /// `connection` and closes the dialog, or says in it why the label was
+    /// not changed. A drive mounted again to be renamed, at a folder named
+    /// after its new label, takes the tabs that showed it there.
+    fn show_rename_drive_dialog(
+        &self,
+        name: &str,
+        root: &str,
+        connection: gio::DBusConnection,
+        facts: DriveFacts,
+    ) {
+        let shown = facts.clone();
+        let (window, root) = (self.downgrade(), root.to_owned());
+        let dialog = rename_drive_dialog(self, name, &shown, move |dialog, label| {
+            let (connection, facts) = (connection.clone(), facts.clone());
+            let (form, window, root) = (dialog.downgrade(), window.clone(), root.clone());
+            dialog.run(ox_core::i18n::gettext_static(RENAMING), async move {
+                let renamed = relabel(&window, &connection, &facts, &root, &label).await;
+                let Some(dialog) = form.upgrade() else {
+                    return;
+                };
+                match renamed {
+                    Ok(()) => dialog.finish(),
+                    // A dismissed password prompt says nothing; Rename can
+                    // be pressed again.
+                    Err(FormatError::Cancelled) => dialog.show_error(""),
+                    Err(error) => dialog.show_error(&rename_error_text(&error)),
+                }
+            });
+        });
+        dialog.open();
+    }
+
     /// Opens Disks for the drive mounted at `uri`.
     fn open_drive_in_disks(&self, uri: &str, tool: DiskTool) {
         match block_device_of(&self.volume_monitor().mounts(), uri) {
@@ -405,6 +509,57 @@ pub(in crate::window) fn report_format_result(
     }
 }
 
+/// Why a drive's label was not changed, in words about renaming where
+/// the format error's own are about formatting.
+/// Gives the drive mounted at `root`, which `facts` describe, the volume
+/// label `label` through UDisks on `connection`: Rename's and the General
+/// tab's one way to rename a drive. A drive mounted again to be renamed, at
+/// a folder named after its new label, takes the tabs of `window` that
+/// showed it there; one that could not be mounted again says so.
+async fn relabel(
+    window: &glib::WeakRef<BrowserWindow>,
+    connection: &gio::DBusConnection,
+    facts: &DriveFacts,
+    root: &str,
+    label: &str,
+) -> Result<(), FormatError> {
+    let on_purpose = super::mounting::unmount_on_purpose(root);
+    let renamed = set_drive_label(connection, UDISKS_NAME, facts, label).await;
+    if let (Ok(relabelled), Some(window)) = (&renamed, window.upgrade()) {
+        match &relabelled.remounted {
+            Some(Ok(path)) => {
+                let new_root = ox_core::location::file_uri(std::path::Path::new(path));
+                window.move_tabs_to_new_root(root, &new_root);
+            }
+            Some(Err(reason)) => window.show_message(&ox_core::i18n::format_message(
+                "The drive was renamed, but it could not be mounted again: {reason}",
+                &[("reason", reason.as_str())],
+            )),
+            None => {}
+        }
+    }
+    drop(on_purpose);
+    renamed.map(drop)
+}
+
+fn rename_error_text(error: &FormatError) -> String {
+    match error {
+        FormatError::Unavailable(_) => {
+            ox_core::i18n::gettext("Renaming a drive needs the UDisks service, which is not available.")
+        }
+        FormatError::NotAuthorized => ox_core::i18n::gettext("You are not allowed to rename this drive."),
+        FormatError::Cancelled => ox_core::i18n::gettext("The drive was not renamed."),
+        FormatError::Failed(reason) => ox_core::i18n::format_message(
+            "Could not rename the drive: {error}",
+            &[("error", reason.as_str())],
+        ),
+        FormatError::NotFound
+        | FormatError::ReadOnly
+        | FormatError::Busy
+        | FormatError::NotMountedAgain { .. } => error.to_string(),
+    }
+}
+
 /// The status bar's menu for the folder at `folder`: Analyse disk usage
 /// when an analyser is installed and the folder is on this computer.
 fn status_bar_entries(folder: &str, has_analyser: bool) -> Vec<MenuEntry> {
@@ -431,8 +586,14 @@ fn start(tool: DiskTool, target: &Path) -> Result<(), String> {
         ox_core::i18n::format_message(
             "Could not start {display}: {error}",
             &[
-                ("display", &program.display().to_string()),
-                ("error", &error.to_string()),
+                (
+                    "display",
+                    &program.file_name().map_or_else(
+                        || program.display().to_string(),
+                        |name| name.to_string_lossy().into_owned(),
+                    ),
+                ),
+                ("error", &ox_core::system_error::describe_io(&error)),
             ],
         )
     })
@@ -443,10 +604,13 @@ fn start(tool: DiskTool, target: &Path) -> Result<(), String> {
 fn formatted_message(name: &str, formatted: &Formatted) -> String {
     match formatted {
         Formatted::Mounted => ox_core::i18n::format_message("{drive} is formatted.", &[("drive", name)]),
-        Formatted::NotMounted(error) => ox_core::i18n::format_message(
-            "{drive} is formatted, but could not be mounted again: {error}",
-            &[("drive", name), ("error", error)],
-        ),
+        Formatted::NotMounted(error) => {
+            glib::g_debug!(ox_core::LOG_DOMAIN, "{name} was not mounted again: {error}");
+            ox_core::i18n::format_message(
+                "{drive} is formatted, but could not be mounted again.",
+                &[("drive", name)],
+            )
+        }
     }
 }
 
@@ -484,7 +648,7 @@ mod tests {
         );
         assert_eq!(
             formatted_message("USB Drive", &Formatted::NotMounted("Not permitted".to_owned())),
-            "USB Drive is formatted, but could not be mounted again: Not permitted"
+            "USB Drive is formatted, but could not be mounted again."
         );
     }
 

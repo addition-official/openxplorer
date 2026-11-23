@@ -110,6 +110,10 @@ fn add_location_tab(window: &PropertiesWindow, folder: KnownFolder, context: &Pr
 
 /// Opens the Properties window of `target` on `initial` (General when the
 /// item has no such tab), from `opener`.
+#[expect(
+    clippy::too_many_lines,
+    reason = "the window's tabs in the order Windows lays them out, one after another"
+)]
 pub(crate) fn open_item_properties(
     opener: &BrowserWindow,
     target: PropertiesTarget,
@@ -183,6 +187,15 @@ pub(crate) fn open_item_properties(
         );
         customize
     });
+    // A shortcut's Properties open on its Shortcut tab, as Windows 11
+    // opens a shortcut's.
+    let opens_on_shortcut =
+        initial == PropertiesTab::General && opens_on_shortcut_tab(&target, shortcut.is_some());
+    let initial = if opens_on_shortcut {
+        PropertiesTab::Shortcut
+    } else {
+        initial
+    };
     follow_shown_tabs(&window, &versions, details.as_ref(), initial);
     let closing = versions.clone();
     window.connect_closed_once(move || closing.cancel());
@@ -219,6 +232,19 @@ pub(crate) fn open_item_properties(
         kept.take();
     });
     window
+}
+
+/// Whether Properties of `target`, which `has_shortcut_tab`, open on that
+/// tab: a launcher's, and a link's named as a shortcut, with no known
+/// type's extension ([`ox_core::entry::Entry::is_shortcut`]); a symbolic
+/// link named for a type opens on General, as a file does.
+fn opens_on_shortcut_tab(target: &PropertiesTarget, has_shortcut_tab: bool) -> bool {
+    let name = gtk::gio::File::for_uri(&target.uri)
+        .basename()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let is_launcher = name.to_ascii_lowercase().ends_with(".desktop");
+    has_shortcut_tab && (is_launcher || ox_core::entry::known_extension(&name).is_none())
 }
 
 /// A link's or a launcher's Shortcut tab, after General as a shortcut has
@@ -537,6 +563,10 @@ fn follow_default_app(window: &PropertiesWindow, opens_with: &gtk::Label, conten
         };
         if let Some(app) = gtk::gio::AppInfo::default_for_type(&content_type, false) {
             label.set_text(&app.display_name());
+            if let Some(icon) = label.prev_sibling().and_downcast::<gtk::Image>() {
+                let shown = ox_core::integration::ApplicationInfo::icon(&app);
+                super::general_tab::show_app_icon(&icon, true, shown.as_deref());
+            }
         }
     });
 }

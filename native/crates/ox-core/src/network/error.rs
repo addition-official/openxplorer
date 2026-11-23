@@ -3,7 +3,8 @@
 //! ejecting, signing out or discovering servers.
 //!
 //! The messages are the Python app's (`v2.0.0:desktop/winspace.py` and
-//! `v2.0.0:desktop/gio_backend.py`); GIO's own errors keep GIO's message.
+//! `v2.0.0:desktop/gio_backend.py`); GIO's own errors are said in Windows'
+//! words ([`SystemError`](crate::system_error::SystemError)).
 
 use super::keyring::KeyringError;
 use crate::location::LocationError;
@@ -15,8 +16,8 @@ pub enum NetworkError {
     #[error(transparent)]
     Location(#[from] LocationError),
     /// GIO or `GVfs` refused, for example a wrong password or an offline
-    /// server; the message is GIO's.
-    #[error(transparent)]
+    /// server; the message is Windows' for the same failure.
+    #[error("{}", crate::system_error::SystemError::from_network(.0).message())]
     Gio(#[from] glib::Error),
     /// The operation was cancelled or timed out; not an error to show.
     #[error("{}", crate::i18n::gettext("Operation cancelled."))]
@@ -142,7 +143,53 @@ mod tests {
         assert!(cancelled.is_cancelled());
         assert!(NetworkError::Cancelled.is_cancelled());
         assert!(!refused.is_cancelled());
-        assert_eq!(refused.to_string(), "Access denied");
+        assert_eq!(refused.to_string(), "Access is denied.");
+    }
+
+    /// A share that cannot be reached says so in Windows' words, not in
+    /// GIO's or Samba's: a server that does not answer, or a share it does
+    /// not have, is "The network name cannot be found." (0x80070043), as
+    /// Windows 11 said it for an address with nothing on it (checked on a
+    /// VM); a name that does not resolve is "The network path was not
+    /// found." (0x80070035).
+    #[test]
+    fn unreachable_servers_read_as_the_windows_error() {
+        let cases = [
+            (
+                gio::IOErrorEnum::Failed,
+                "Failed to mount Windows share: Connection timed out",
+                "The network name cannot be found.",
+            ),
+            (
+                gio::IOErrorEnum::Failed,
+                "Failed to mount Windows share: No route to host",
+                "The network name cannot be found.",
+            ),
+            (
+                gio::IOErrorEnum::Failed,
+                "Failed to mount Windows share: Connection refused",
+                "The network name cannot be found.",
+            ),
+            (
+                gio::IOErrorEnum::HostNotFound,
+                "Error resolving “nas”: Name or service not known",
+                "The network path was not found.",
+            ),
+            (
+                gio::IOErrorEnum::NotFound,
+                "Failed to mount Windows share: No such file or directory",
+                "The network name cannot be found.",
+            ),
+            (
+                gio::IOErrorEnum::Failed,
+                "Software caused connection abort",
+                "The specified network name is no longer available.",
+            ),
+        ];
+        for (kind, gio_message, expected) in cases {
+            let error = NetworkError::from(glib::Error::new(kind, gio_message));
+            assert_eq!(error.to_string(), expected, "{gio_message}");
+        }
     }
 
     /// parity: NET-021

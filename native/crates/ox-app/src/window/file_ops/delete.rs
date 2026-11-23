@@ -27,7 +27,6 @@ use std::time::Duration;
 
 use gtk::gio::prelude::*;
 use gtk::prelude::*;
-#[cfg(test)]
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
 use ox_core::entry::{entry_from_info, Entry, EntryKind, ATTRIBUTES};
@@ -41,6 +40,7 @@ use ox_core::transfer::{Cancellation, ConflictPolicy, TransferMode};
 use super::FileCommand;
 use crate::dialog::Dialog;
 use crate::icons::{Art, ArtImage};
+use crate::volumes::{VolumeKind, VolumeState};
 use crate::window::BrowserWindow;
 use crate::window::ButtonStyle;
 
@@ -144,6 +144,9 @@ fn detail_lines(entry: &Entry) -> Vec<String> {
     ]
 }
 
+/// The longest name a confirmation shows on one line, unwrapped.
+const SHORT_NAME_CHARS: usize = 40;
+
 /// The one item a confirmation asks about, under its question: its picture
 /// and name, then [`detail_lines`], as Windows shows them; only the name
 /// when the item could not be read.
@@ -160,11 +163,15 @@ fn item_details(item: &DeleteItem, entry: Option<&Entry>) -> gtk::Box {
     }
     let lines = gtk::Box::new(gtk::Orientation::Vertical, 2);
     let details = entry.map(detail_lines).unwrap_or_default();
-    for text in std::iter::once(&item.name).chain(&details) {
+    for (index, text) in std::iter::once(&item.name).chain(&details).enumerate() {
+        // A short name keeps its own line, also with no detail beside it
+        // to widen the dialog (a new folder on a share), so it never
+        // breaks inside a word; a long one wraps.
+        let is_short_name = index == 0 && text.chars().count() <= SHORT_NAME_CHARS;
         let line = gtk::Label::builder()
             .label(text)
             .xalign(0.0)
-            .wrap(true)
+            .wrap(!is_short_name)
             .wrap_mode(gtk::pango::WrapMode::WordChar)
             .max_width_chars(50)
             .build();
@@ -229,6 +236,11 @@ impl BrowserWindow {
         if !self.allows(FileCommand::Delete) {
             return;
         }
+        // A row selected on Home stands for its file (HOME-036).
+        if let Some(uri) = self.selected_home_file() {
+            self.trash_dropped(vec![uri]).await;
+            return;
+        }
         if self.shows_recycle_bin() {
             self.delete_from_recycle_bin().await;
             return;
@@ -241,6 +253,17 @@ impl BrowserWindow {
     /// moved to the Trash with Delete's confirmation (OPS-045, SIDE-028).
     pub(crate) async fn trash_dropped(&self, uris: Vec<String>) {
         self.trash_items(&named_items(uris), None).await;
+    }
+
+    /// Yes in "Problem with Shortcut": the broken shortcut at `uri`, a link
+    /// to nothing or a `.desktop` link, is deleted permanently, as Windows
+    /// 11 deletes it, without asking again: the question was the
+    /// confirmation (OPEN-028). Only the shortcut itself goes; the
+    /// operation never follows a link, and checks the folder's write
+    /// protection, as any deletion does.
+    pub(crate) async fn delete_shortcut(&self, uri: String) {
+        self.run_deletion(&removal(TransferMode::Delete, vec![uri]), None)
+            .await;
     }
 
     /// Deletes the folder tree's folder at `uri` permanently, after
@@ -262,6 +285,13 @@ impl BrowserWindow {
             return;
         };
         let preferences = self.context().settings_data().preferences;
+        // OPS-018: on a removable drive, the drive's own Trash unless the
+        // settings say to delete there permanently, as Windows does.
+        let plan = if preferences.delete_removable_permanently {
+            plan.deleting_permanently_inside(&self.removable_drive_roots())
+        } else {
+            plan
+        };
         let asks = (!plan.to_trash.is_empty() && preferences.confirm_trash)
             || (!plan.to_delete.is_empty() && preferences.confirm_delete);
         if asks
@@ -281,10 +311,33 @@ impl BrowserWindow {
         }
     }
 
+    /// The roots of the mounted removable drives (a USB stick, an SD
+    /// card), as Send to and Format tell them: a drive that can be ejected
+    /// or powered off.
+    fn removable_drive_roots(&self) -> Vec<String> {
+        self.imp()
+            .volumes
+            .borrow()
+            .iter()
+            .filter_map(|row| match &row.state {
+                VolumeState::Mounted { uri, controls }
+                    if row.kind == VolumeKind::Drive && (controls.can_eject || controls.can_stop) =>
+                {
+                    Some(uri.clone())
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
     /// Shift+Delete: asks, then deletes the selection permanently, even
     /// where a Trash exists (OPS-016).
     pub(crate) async fn delete_selection_permanently(&self) {
         if !self.allows(FileCommand::DeletePermanently) {
+            return;
+        }
+        if let Some(uri) = self.selected_home_file() {
+            self.delete_permanently_at(&uri).await;
             return;
         }
         if self.shows_recycle_bin() {
@@ -343,5 +396,42 @@ impl BrowserWindow {
     /// True while the tab shows the Recycle Bin itself.
     pub(crate) fn shows_recycle_bin(&self) -> bool {
         self.command_facts().folder.is_recycle_bin
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The name line of `details`, the first line beside the picture.
+    fn name_line(details: &gtk::Box) -> gtk::Label {
+        let lines = details.last_child().expect("the lines");
+        lines
+            .first_child()
+            .and_downcast::<gtk::Label>()
+            .expect("the name")
+    }
+
+    /// A short name with nothing under it, as a new folder on a share
+    /// that Undo deletes, stays on one line, as Windows shows it, instead
+    /// of breaking inside its words ("New / fold- / er"); a long one
+    /// still wraps.
+    #[gtk::test]
+    fn a_short_name_alone_stays_on_one_line() {
+        for (name, whole) in [
+            ("New folder", true),
+            (&*"Quarterly garden report ".repeat(6), false),
+        ] {
+            let item = DeleteItem {
+                uri: format!("smb://server/share/{name}"),
+                name: name.to_owned(),
+                can_trash: Some(false),
+            };
+            let label = name_line(&item_details(&item, None));
+
+            let (least, natural, _, _) = label.measure(gtk::Orientation::Horizontal, -1);
+
+            assert_eq!(least >= natural, whole, "{name}: {least} of {natural} pixels");
+        }
     }
 }

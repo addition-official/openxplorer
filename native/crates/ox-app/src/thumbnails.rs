@@ -39,11 +39,14 @@ use std::sync::Arc;
 use gtk::gdk_pixbuf::{Pixbuf, PixbufFormat};
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib};
-use ox_core::entry::{cached_thumbnail, CachedThumbnail, Entry, ThumbnailFlavor, THUMBNAIL_ATTRIBUTES};
+use ox_core::entry::{cached_thumbnail_for, CachedThumbnail, Entry, ThumbnailFlavor, THUMBNAIL_ATTRIBUTES};
 use ox_core::settings::{ViewOptions, PREVIEW_SIZE_LIMIT};
 
 pub(crate) use network_fs::is_on_network_filesystem;
 pub(crate) use slots::Slots;
+pub(crate) use thumbnailers::documents;
+#[cfg(feature = "fuzzing")]
+pub(crate) use thumbnailers::fuzz_thumbnailer;
 pub(crate) use thumbnailers::{decoder_sandbox, pdf_pages};
 
 use crate::picture_guard::{self, Limits};
@@ -60,6 +63,16 @@ const MAKING_AT_ONCE: usize = 2;
 const NETWORK_MAKING_AT_ONCE: usize = 2;
 /// How many decoded previews are kept.
 const MAX_KEPT: usize = 512;
+/// How many bytes of decoded previews are kept: 512 previews of Large
+/// icons on a 100 % screen take about 12 MB, but of Extra large icons on a
+/// 200 % screen up to 512 MB.
+const MAX_KEPT_BYTES: usize = 64 * 1024 * 1024;
+/// The smallest edge, in device pixels, at which an office document shows
+/// its thumbnail: Medium icons and larger. A row of Details, List or
+/// Small icons keeps the document's type icon, as Windows draws it there,
+/// even when the cache has its thumbnail: a page 16 pixels tall shows
+/// nothing of it, and would cost a run of `LibreOffice` to make.
+const SMALLEST_DOCUMENT_THUMBNAIL: i32 = 40;
 
 /// Which items of the folder shown get previews.
 #[expect(
@@ -220,8 +233,13 @@ thread_local! {
     static DECODING: Rc<Slots> = Rc::new(Slots::new(DECODING_AT_ONCE));
     static MAKING: Rc<Slots> = Rc::new(Slots::new(MAKING_AT_ONCE));
     static NETWORK_MAKING: Rc<Slots> = Rc::new(Slots::new(NETWORK_MAKING_AT_ONCE));
+    /// Office documents' thumbnails, made one at a time by `LibreOffice`
+    /// ([`documents`]): the others wait here without holding a worker.
+    static DOCUMENT_MAKING: Rc<Slots> = Rc::new(Slots::new(1));
     /// Decoded previews by item, version and size.
     static KEPT: RefCell<HashMap<PreviewKey, gdk::Texture>> = RefCell::new(HashMap::new());
+    /// The bytes of the pixels [`KEPT`] holds.
+    static KEPT_BYTES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     /// Sharp pictures decoded at a tile's size (Gallery), by item, version
     /// and edge; only the last few, as they are large.
     static SHARP_KEPT: RefCell<Vec<(PreviewKey, gdk::Texture)>> = const { RefCell::new(Vec::new()) };
@@ -266,6 +284,9 @@ fn making(request: &PreviewRequest) -> Rc<Slots> {
 
 /// The preview `request` asks for, or `None` when the item keeps its icon.
 pub(crate) async fn preview(request: PreviewRequest) -> Option<gdk::Texture> {
+    if keeps_type_icon(&request) {
+        return None;
+    }
     let key = request.key();
     // A file of this computer's tree may be on a share mounted there (a
     // kernel share, sshfs, GVfs's FUSE folder): it keeps its icon with
@@ -274,6 +295,7 @@ pub(crate) async fn preview(request: PreviewRequest) -> Option<gdk::Texture> {
     if request.local_only && on_network {
         return None;
     }
+    note_kept_previews_used();
     if let Some(texture) = KEPT.with_borrow(|kept| kept.get(&key).cloned()) {
         return Some(texture);
     }
@@ -289,13 +311,87 @@ pub(crate) async fn preview(request: PreviewRequest) -> Option<gdk::Texture> {
         .await
         .flatten();
     let texture = texture?;
-    KEPT.with_borrow_mut(|kept| {
-        if kept.len() >= MAX_KEPT {
-            kept.clear();
-        }
-        kept.insert(key, texture.clone());
-    });
+    keep_preview(key, &texture);
+    note_kept_previews_used();
     Some(texture)
+}
+
+/// The bytes `texture`'s pixels take, four to a pixel.
+fn texture_bytes(texture: &gdk::Texture) -> usize {
+    let pixels = i64::from(texture.width()) * i64::from(texture.height());
+    usize::try_from(pixels.saturating_mul(4)).unwrap_or(usize::MAX)
+}
+
+/// Keeps `texture` as the preview of `key`, for a row scrolled back into
+/// view; when [`MAX_KEPT`] previews or [`MAX_KEPT_BYTES`] are kept
+/// already, the others are let go first.
+fn keep_preview(key: PreviewKey, texture: &gdk::Texture) {
+    let bytes = texture_bytes(texture);
+    KEPT.with_borrow_mut(|kept| {
+        let kept_bytes = KEPT_BYTES.get();
+        if kept.len() >= MAX_KEPT || kept_bytes.saturating_add(bytes) > MAX_KEPT_BYTES {
+            kept.clear();
+            KEPT_BYTES.set(0);
+        }
+        if let Some(replaced) = kept.insert(key, texture.clone()) {
+            KEPT_BYTES.set(KEPT_BYTES.get().saturating_sub(texture_bytes(&replaced)));
+        }
+        KEPT_BYTES.set(KEPT_BYTES.get().saturating_add(bytes));
+    });
+}
+
+thread_local! {
+    /// When a view last asked for a preview.
+    static LAST_PREVIEW_ASKED: std::cell::Cell<Option<std::time::Instant>> = const { std::cell::Cell::new(None) };
+    /// Set while a check for unused previews is due.
+    static FORGETTING_PREVIEWS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Notes that a view asked for a preview now. The previews kept for rows
+/// and tiles scrolled back into view are dropped once no view asked for
+/// one for [`picture_guard::unused_limit`]: the rows shown hold their own,
+/// and the photos of a folder left long ago, up to 512 previews and 48
+/// tile-sized pictures, are otherwise held for as long as the app runs.
+fn note_kept_previews_used() {
+    LAST_PREVIEW_ASKED.set(Some(std::time::Instant::now()));
+    if !FORGETTING_PREVIEWS.replace(true) {
+        forget_kept_previews_after(picture_guard::unused_limit());
+    }
+}
+
+/// Drops the kept previews after `delay`, unless a view asked for one
+/// since, which puts it off.
+fn forget_kept_previews_after(delay: std::time::Duration) {
+    glib::timeout_add_local_once(delay, || {
+        let limit = picture_guard::unused_limit();
+        let unused = LAST_PREVIEW_ASKED.get().map_or(limit, |asked| asked.elapsed());
+        if unused < limit {
+            forget_kept_previews_after(limit.saturating_sub(unused));
+            return;
+        }
+        FORGETTING_PREVIEWS.set(false);
+        forget_kept_previews();
+    });
+}
+
+/// Lets the next preview start a check for unused previews with the
+/// limit as it is now, for tests that shorten it.
+#[cfg(test)]
+pub(crate) fn restart_unused_check() {
+    FORGETTING_PREVIEWS.set(false);
+}
+
+/// Lets go of every kept preview and sharp picture.
+fn forget_kept_previews() {
+    KEPT.with_borrow_mut(HashMap::clear);
+    KEPT_BYTES.set(0);
+    SHARP_KEPT.with_borrow_mut(Vec::clear);
+}
+
+/// How many previews and sharp pictures are kept now, for tests.
+#[cfg(test)]
+pub(crate) fn kept_preview_count() -> usize {
+    KEPT.with_borrow(HashMap::len) + SHARP_KEPT.with_borrow(Vec::len)
 }
 
 /// How many sharp pictures are kept for a tile scrolled back into view.
@@ -325,6 +421,7 @@ pub(crate) async fn sharp_picture(request: PreviewRequest, width: i32, height: i
             .find(|(seen, _)| *seen == key)
             .map(|(_, texture)| texture.clone())
     });
+    note_kept_previews_used();
     if let Some(texture) = kept {
         return Some(texture);
     }
@@ -358,6 +455,7 @@ pub(crate) async fn sharp_picture(request: PreviewRequest, width: i32, height: i
         }
         kept.push((key, texture.clone()));
     });
+    note_kept_previews_used();
     Some(texture)
 }
 
@@ -422,10 +520,16 @@ async fn thumbnail_of(request: &PreviewRequest) -> Option<PathBuf> {
         )
         .await
         .ok();
-    match info.as_ref().map(cached_thumbnail) {
+    // A thumbnail smaller than the one asked for is made again larger, as
+    // GIO reports whichever size it found.
+    let wanted = ThumbnailFlavor::for_pixels(request.pixels);
+    match info.as_ref().map(|info| cached_thumbnail_for(info, wanted)) {
         Some(CachedThumbnail::Valid(path)) => return Some(path),
-        Some(CachedThumbnail::Failed) => return None,
-        Some(CachedThumbnail::Missing) | None => {}
+        // GNOME's thumbnailer marks a document it could not draw, as an
+        // Office file without a picture of its own; `LibreOffice` may draw
+        // it all the same.
+        Some(CachedThumbnail::Failed) if !is_document(request) => return None,
+        Some(CachedThumbnail::Failed | CachedThumbnail::Missing) | None => {}
     }
     let version = (request.uri.clone(), request.modified);
     if FAILED.with_borrow(|failed| failed.contains(&version)) {
@@ -482,11 +586,18 @@ async fn make_thumbnail(request: &PreviewRequest) -> Result<PathBuf, Missing> {
         return Ok(path);
     }
     if let Some(service) = service::service().await {
-        if service.supports(&request.uri, &request.content_type) {
+        if service.supports(&request.uri, &request.content_type) && service.makes(flavor) {
             let _slot = making(request).take().await;
             let made = service.make(&request.uri, &request.content_type, flavor).await;
             let path = ox_core::entry::thumbnail_file(&cache_dir, &request.uri, flavor);
-            return made.then_some(path).ok_or(Missing::Failed);
+            // The service draws few documents (an OpenDocument's own
+            // thumbnail at best): one it could not draw is LibreOffice's.
+            if made || !is_document(request) {
+                return made.then_some(path).ok_or(Missing::Failed);
+            }
+            if keeps_type_icon(request) {
+                return Err(Missing::Later);
+            }
         }
     }
     // Test safety: tests write thumbnails only into a private cache.
@@ -533,7 +644,64 @@ async fn make_thumbnail_with(
             }
         }
     }
-    by_thumbnailer(request, cache_dir, modified, flavor, catalogue, false).await
+    match by_thumbnailer(request, cache_dir, modified, flavor, catalogue, false).await {
+        // No program of the desktop's drew the document, and it is on
+        // this computer: LibreOffice may draw it.
+        Err(Missing::Failed) if is_document(request) && !request.on_network => {
+            if keeps_type_icon(request) {
+                // Asked again at a size it is drawn for.
+                return Err(Missing::Later);
+            }
+            by_document(request, cache_dir, modified, flavor).await
+        }
+        outcome => outcome,
+    }
+}
+
+/// Whether `request`'s item keeps its type icon at its size: an office
+/// document in a row smaller than [`SMALLEST_DOCUMENT_THUMBNAIL`].
+fn keeps_type_icon(request: &PreviewRequest) -> bool {
+    request.pixels < SMALLEST_DOCUMENT_THUMBNAIL && is_document(request)
+}
+
+/// Whether `request` is for an office document ([`documents::is_document`]).
+fn is_document(request: &PreviewRequest) -> bool {
+    let name = request.uri.rsplit('/').next().unwrap_or_default();
+    let name = glib::Uri::unescape_string(name, None::<&str>).map_or_else(|| name.to_owned(), Into::into);
+    documents::is_document(&request.content_type, &name)
+}
+
+/// The thumbnail of the office document `request` asks for, its first
+/// page drawn from `LibreOffice`'s PDF ([`documents::write_thumbnail`]),
+/// one document at a time; a request dropped, or turned away while too
+/// many wait, is asked again the next time the item is shown.
+async fn by_document(
+    request: &PreviewRequest,
+    cache_dir: &Path,
+    modified: u64,
+    flavor: ThumbnailFlavor,
+) -> Result<PathBuf, Missing> {
+    let job = thumbnailers::Job {
+        cache_dir: cache_dir.to_path_buf(),
+        uri: request.uri.clone(),
+        content_type: request.content_type.clone(),
+        modified,
+        flavor,
+    };
+    let made = DOCUMENT_MAKING
+        .with(Rc::clone)
+        .blocking(move |cancel| documents::write_thumbnail(&job, cancel))
+        .await;
+    match made {
+        Some(Ok(path)) => Ok(path),
+        None | Some(Err(documents::Failure::Cancelled)) => Err(Missing::Later),
+        Some(Err(
+            documents::Failure::Unavailable
+            | documents::Failure::Refused
+            | documents::Failure::Failed
+            | documents::Failure::TimedOut,
+        )) => Err(Missing::Failed),
+    }
 }
 
 /// The thumbnail of `request` decoded in the app, or why there is none:
@@ -621,6 +789,41 @@ mod tests {
     use ox_core::entry::thumbnail_file;
 
     use super::*;
+
+    /// Scrolling through thousands of photos at Extra large icons on a
+    /// 200 % screen kept up to 512 previews of up to 512 × 512 pixels,
+    /// a megabyte each; the kept previews now stay within a budget in
+    /// bytes as well as in number.
+    ///
+    /// parity: VIEW-057
+    #[gtk::test]
+    fn the_kept_previews_stay_within_their_budget() {
+        let picture = |edge: i32| {
+            let stride = usize::try_from(edge * 4).expect("an edge");
+            let bytes =
+                glib::Bytes::from_owned(vec![0x80_u8; stride * usize::try_from(edge).expect("an edge")]);
+            gdk::MemoryTexture::new(edge, edge, gdk::MemoryFormat::R8g8b8a8, &bytes, stride)
+                .upcast::<gdk::Texture>()
+        };
+        forget_kept_previews();
+        for number in 0..120 {
+            keep_preview(
+                (format!("file:///Photos/Harbor%20{number}.jpg"), Some(1), 512),
+                &picture(512),
+            );
+            let bytes: usize = KEPT.with_borrow(|kept| kept.values().map(texture_bytes).sum());
+            assert!(
+                bytes <= MAX_KEPT_BYTES,
+                "{bytes} bytes kept after {number} previews"
+            );
+        }
+        assert!(KEPT.with_borrow(HashMap::len) > 0, "previews are still kept");
+        assert_eq!(
+            KEPT_BYTES.get(),
+            KEPT.with_borrow(|kept| kept.values().map(texture_bytes).sum::<usize>())
+        );
+        forget_kept_previews();
+    }
 
     /// A picture whose type no loader declares is still decoded, and a
     /// file that is no picture never reaches gdk-pixbuf.
@@ -787,6 +990,160 @@ mod tests {
             target_uri: None,
             on_network: false,
         }
+    }
+
+    /// A picture shown in Details first gets a 128-pixel thumbnail; shown
+    /// at Extra large icons next (256 pixels), or at Large icons on a
+    /// screen at 200 %, it gets one made at that size, never the small one
+    /// stretched and blurred, which GIO reports as the item's thumbnail.
+    ///
+    /// parity: VIEW-057
+    #[gtk::test]
+    fn a_larger_view_does_not_stretch_a_smaller_thumbnail() {
+        let folder = tempfile::tempdir().expect("a temporary folder");
+        let item = folder.path().join("photo.png");
+        let picture = Pixbuf::new(Colorspace::Rgb, false, 8, 1200, 900).expect("a picture");
+        picture.fill(0x3366_99ff);
+        picture.savev(&item, "png", &[]).expect("the picture");
+        let modified = fs::metadata(&item)
+            .and_then(|metadata| metadata.modified())
+            .expect("its time")
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("after 1970")
+            .as_secs();
+        let request = |pixels| PreviewRequest {
+            modified: Some(modified),
+            pixels,
+            ..request_of(&item, "image/png")
+        };
+        let context = glib::MainContext::default();
+        let cache = glib::user_cache_dir();
+        let details = context
+            .block_on(thumbnail_of(&request(16)))
+            .expect("a thumbnail for Details");
+        assert_eq!(
+            details,
+            thumbnail_file(&cache, &request(16).uri, ThumbnailFlavor::Normal)
+        );
+        for (pixels, flavor) in [(256, ThumbnailFlavor::Large), (512, ThumbnailFlavor::XLarge)] {
+            let shown = context
+                .block_on(thumbnail_of(&request(pixels)))
+                .expect("a larger thumbnail");
+            assert_eq!(
+                shown,
+                thumbnail_file(&cache, &request(pixels).uri, flavor),
+                "{pixels} pixels"
+            );
+            let texture = context
+                .block_on(preview(request(pixels)))
+                .expect("the larger preview");
+            assert_eq!(texture.width(), pixels, "drawn from a {pixels}-pixel thumbnail");
+        }
+    }
+
+    /// An office document keeps its type icon in rows of Details, List
+    /// and Small icons, as in Windows, and shows its thumbnail from Medium
+    /// icons up; a picture shows its thumbnail at every size.
+    ///
+    /// parity: VIEW-057
+    #[gtk::test]
+    fn a_document_keeps_its_type_icon_in_small_rows() {
+        let at = |name: &str, content_type: &str, pixels: i32| PreviewRequest {
+            pixels,
+            ..request_of(Path::new(&format!("/tmp/Examples/{name}")), content_type)
+        };
+        let docx = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        assert!(keeps_type_icon(&at("Plan.docx", docx, 16)));
+        assert!(keeps_type_icon(&at("Plan.docx", docx, 32)));
+        assert!(keeps_type_icon(&at("Budget.ods", "application/zip", 16)));
+        assert!(!keeps_type_icon(&at("Plan.docx", docx, 48)));
+        assert!(!keeps_type_icon(&at("Plan.docx", docx, 96)));
+        assert!(!keeps_type_icon(&at("Harbor.png", "image/png", 16)));
+        assert!(!keeps_type_icon(&at("Report.pdf", "application/pdf", 16)));
+        assert!(
+            glib::MainContext::default()
+                .block_on(preview(at("Plan.docx", docx, 16)))
+                .is_none(),
+            "no thumbnail is even looked up for a row"
+        );
+    }
+
+    /// An office document's thumbnail is its first page, framed in light
+    /// gray, drawn from
+    /// `LibreOffice`'s PDF and written into the cache with the keys that
+    /// keep it valid; a row too small to show a page starts no
+    /// `LibreOffice` and is asked again later, and without `LibreOffice` the
+    /// document keeps its icon. Drawing runs where `LibreOffice`, `pdftoppm`
+    /// and a working bubblewrap are installed.
+    ///
+    /// parity: VIEW-057
+    #[gtk::test]
+    fn a_documents_thumbnail_is_its_first_page() {
+        use crate::test_support::office_documents::{self, Kind};
+
+        let folder = tempfile::tempdir().expect("a temporary folder");
+        let cache = folder.path().join("cache");
+        let item = folder.path().join("Budget.ods");
+        office_documents::write(&item, Kind::Ods, "Budget");
+        let request = request_of(&item, Kind::Ods.content_type());
+        let make = |request: &PreviewRequest, flavor| {
+            glib::MainContext::default().block_on(make_thumbnail_with(
+                request,
+                &cache,
+                Some(Arc::new(Catalogue::for_test(Vec::new()))),
+                flavor,
+                1_700_000_000,
+            ))
+        };
+        documents::use_converter(None);
+        assert_eq!(make(&request, ThumbnailFlavor::Normal), Err(Missing::Failed));
+        let Some(converter) = documents::test_office(&folder.path().join("pdfs")) else {
+            return;
+        };
+        documents::use_converter(Some(converter));
+        let small = PreviewRequest {
+            pixels: 16,
+            ..request.clone()
+        };
+        assert_eq!(make(&small, ThumbnailFlavor::Normal), Err(Missing::Later));
+        assert!(
+            !folder.path().join("pdfs").exists(),
+            "no LibreOffice ran for a row"
+        );
+
+        let written = make(&request, ThumbnailFlavor::Large);
+
+        documents::use_converter(None);
+        let written = written.expect("a thumbnail");
+        assert_eq!(
+            written,
+            thumbnail_file(&cache, &request.uri, ThumbnailFlavor::Large)
+        );
+        let thumbnail = Pixbuf::from_file(&written).expect("a PNG");
+        assert_eq!(
+            thumbnail.option("tEXt::Thumb::URI").as_deref(),
+            Some(request.uri.as_str())
+        );
+        assert_eq!(
+            thumbnail.option("tEXt::Thumb::MTime").as_deref(),
+            Some("1700000000")
+        );
+        assert_eq!(thumbnail.width().max(thumbnail.height()), 256);
+        let corner = thumbnail.read_pixel_bytes();
+        assert_eq!(
+            &corner[..3],
+            &[0xc8, 0xc8, 0xc8],
+            "a light gray frame around the page"
+        );
+        let names: Vec<_> = fs::read_dir(folder.path())
+            .expect("listing")
+            .map(|entry| entry.expect("entry").file_name())
+            .collect();
+        assert_eq!(
+            names.len(),
+            3,
+            "nothing beside the document but the caches: {names:?}"
+        );
     }
 
     /// A share that does not answer holds only the network's own slots:

@@ -19,12 +19,11 @@ use crate::window::window_action::WindowAction;
 
 /// The fields the menu can turn off, in the order the pane shows them:
 /// each one's key (as the settings keep it), its name and its glyph.
-pub(super) const FIELDS: [(&str, &str, Icon); 7] = [
+pub(super) const FIELDS: [(&str, &str, Icon); 6] = [
     (keys::TYPE, message_id("Type"), Icon::Document),
     (keys::SIZE, message_id("Size"), Icon::HardDrive),
     (keys::LOCATION, message_id("File location"), Icon::Folder),
     (keys::MODIFIED, message_id("Date modified"), Icon::Clock),
-    (keys::CREATED, message_id("Date created"), Icon::Clock),
     (keys::DIMENSIONS, message_id("Dimensions"), Icon::Image),
     (keys::LENGTH, message_id("Length"), Icon::Video),
 ];
@@ -112,14 +111,12 @@ impl DetailsPane {
 
     /// The menu as a popover at (`x`, `y`).
     pub(in crate::window) fn show_options_menu(&self, x: f64, y: f64) -> MenuPopover {
-        let popover = MenuPopover::new(entries(&self.options()));
-        popover.set_parent(self);
+        // The pane keeps one menu and shows it again each time
+        // ([`MenuPopover::kept_by`]).
+        let popover = MenuPopover::kept_by(self, "details-options-menu");
+        popover.set_entries(entries(&self.options()));
         #[expect(clippy::cast_possible_truncation, reason = "a pointer position fits in i32")]
         popover.set_pointing_to(Some(&gdk::Rectangle::new(x as i32, y as i32, 1, 1)));
-        popover.connect_closed(|popover| {
-            let popover = popover.clone();
-            glib::idle_add_local_once(move || popover.unparent());
-        });
         popover.popup();
         popover
     }

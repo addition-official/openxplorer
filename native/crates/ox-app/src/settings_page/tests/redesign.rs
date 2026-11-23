@@ -234,8 +234,12 @@ fn every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages() {
     );
     let rows = every_row(&settings);
     // "Open Quick access on Home" came later, and so did the rows of the
-    // folder options Windows users look for in settings.
+    // folder options Windows users look for in settings, and icons from
+    // Windows icon files (LOOK-030).
     let added_since = [
+        "Icons from Windows icon files",
+        "Windows icon files",
+        "Windows symbol font",
         "Open Quick access on Home",
         "Show hidden files, folders, and drives",
         "Hide extensions for known file types",
@@ -255,6 +259,11 @@ fn every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages() {
         "Restore over the original (Windows)",
         // Search words from an extension's start, as Windows', off by default.
         "Match words at the start of file extensions (like Windows)",
+        // The Details view's sort arrow (VIEW-014).
+        "Column header style",
+        // The owner's opt-in for Windows' permanent delete on removable
+        // drives (OPS-018).
+        "Delete files on removable drives permanently (like Windows)",
     ];
     for title in added_since {
         settings.row(title);
@@ -622,7 +631,7 @@ fn choosing_a_page_with_a_click_opens_no_bubble() {
 
 /// The search finds settings by the words people use for them, not only
 /// by the words the settings use, and those words find only what they
-/// mean: "dark mode" finds Theme alone, the arrow words only the two
+/// mean: "dark mode" finds Theme alone, the arrow words only the three
 /// settings with arrows.
 ///
 /// parity: SET-004
@@ -630,6 +639,7 @@ fn choosing_a_page_with_a_click_opens_no_bubble() {
 fn the_search_finds_settings_by_the_words_people_use() {
     let settings = SettingsTest::open();
     let arrows = [
+        "Column header style",
         "Hide expand arrows in the sidebar",
         "Expandable folders in Details",
     ];
@@ -647,9 +657,12 @@ fn the_search_finds_settings_by_the_words_people_use() {
         (
             "wastebasket",
             &[
+                // It can draw the Recycle Bin with a Windows file's icon.
+                "Icons from Windows icon files",
                 // It brings the Recycle Bin back to the navigation pane.
                 "Show more items in the navigation pane",
                 "When replacing a file, move the old one to the Recycle Bin",
+                "Delete files on removable drives permanently (like Windows)",
                 "Moving items to the Recycle Bin",
                 "Emptying the Recycle Bin",
             ],
@@ -668,8 +681,11 @@ fn the_search_finds_settings_by_the_words_people_use() {
         settings.page.search(typed);
         assert_eq!(settings.shown_rows(), expected, "{typed:?}");
     }
-    // "tree" finds the arrow settings among others that say it.
+    // "tree" finds the tree's arrow settings among others that say it.
     settings.page.search("tree");
     let found = settings.shown_rows();
-    assert!(arrows.iter().all(|row| found.contains(row)), "tree: {found:?}");
+    assert!(
+        arrows[1..].iter().all(|row| found.contains(row)),
+        "tree: {found:?}"
+    );
 }

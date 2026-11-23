@@ -105,7 +105,9 @@ fn this_pc_opens_with_the_first_tile_focused_and_nothing_selected() {
     assert_eq!(selected, 0, "nothing is selected");
     let status = test.window.status_bar().texts();
     assert_eq!(status.1, "", "no selection in the status bar: {status:?}");
-    assert!(!test.window.status_bar().shows_selection_divider());
+    // "N items |", as Windows 11 ends the count (checked 2026-11-22).
+    assert!(test.window.status_bar().shows_selection_divider());
+    assert!(!test.window.status_bar().shows_trailing_divider());
 }
 
 /// Opening This PC, and switching the Details pane there, draws its
@@ -161,11 +163,15 @@ fn the_status_bar_counts_this_pc_and_a_folder() {
     wait_until("This PC's tiles counted", || {
         status_bar.texts() == (items.clone(), String::new())
     });
-    assert!(!status_bar.shows_selection_divider());
+    // Windows 11 ends the count with a divider even with nothing
+    // selected: "3 items |" (checked on Windows 11, 2026-11-22).
+    assert!(status_bar.shows_selection_divider());
+    assert!(!status_bar.shows_trailing_divider());
     test.window.navigate(&fixture.uri()).expect("the fixture folder");
     test.wait_for_listing("the fixture folder");
     assert_eq!(status_bar.texts(), ("4 items".to_owned(), String::new()));
-    assert!(!status_bar.shows_selection_divider(), "nothing is selected");
+    assert!(status_bar.shows_selection_divider(), "\"4 items |\"");
+    assert!(!status_bar.shows_trailing_divider(), "nothing is selected");
     let model = test.window.folder_model();
     assert_eq!(model.name_at(1).as_deref(), Some("Notes 2.txt"));
     model.select_only(1);
@@ -174,11 +180,18 @@ fn the_status_bar_counts_this_pc_and_a_folder() {
         ("4 items".to_owned(), "1 item selected  20\u{a0}bytes".to_owned())
     );
     assert!(status_bar.shows_selection_divider());
+    // Windows ends the selection with a divider too: "15 items | 1 item
+    // selected 4 bytes |".
+    assert!(status_bar.shows_trailing_divider());
     model.select_only(0);
     assert_eq!(
         status_bar.texts().1,
         "1 item selected",
         "a folder has no size here"
+    );
+    assert!(
+        status_bar.shows_selection_divider() && status_bar.shows_trailing_divider(),
+        "\"4 items | 1 item selected |\""
     );
     model.select_all();
     assert_eq!(

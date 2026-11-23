@@ -117,6 +117,17 @@ impl BrowserWindow {
     /// selected; `None` for several items or a landing page. A row of
     /// Recent files is the file it stands for.
     fn command_subject(&self) -> Option<CommandSubject> {
+        // A row selected on Home stands for its file (HOME-036), which may
+        // have gone since Home listed it.
+        if let Some(uri) = self.selected_home_file() {
+            let name = self.imp().locations.borrow().base_name(&uri);
+            return Some(CommandSubject {
+                uri,
+                name,
+                is_folder: false,
+                is_recent_file: true,
+            });
+        }
         let items = self.folder_pane().model().selected_items();
         match items.as_slice() {
             [] => self.folder_subject(),
@@ -205,28 +216,36 @@ impl BrowserWindow {
         self.present_open_with(subject);
     }
 
-    /// Change app…: opens the Open with dialog for the file at `uri`
-    /// over this window.
+    /// Change app…: the chooser for the file at `uri` over this window,
+    /// which changes the default of its type ([`Self::change_app_over`]).
     fn change_app(&self, uri: &str) {
-        self.change_app_over(self.upcast_ref(), uri);
+        self.change_app_over(self.upcast_ref(), uri, |_| {});
     }
 
-    /// Change... in Properties: opens the Open with dialog for the file at
-    /// `uri` as a dialog of `parent`, the Properties window, which stays
-    /// open behind it wherever this window is.
-    pub(crate) fn change_app_over(&self, parent: &gtk::Window, uri: &str) {
+    /// Change... in Properties: opens the chooser for the file at `uri` as
+    /// a dialog of `parent`, the Properties window, which stays open
+    /// behind it wherever this window is. As in Windows it changes which
+    /// application opens the file's type and opens nothing; `changed` is
+    /// told the new default's name.
+    pub(crate) fn change_app_over(&self, parent: &gtk::Window, uri: &str, changed: impl Fn(&str) + 'static) {
         let name = self.imp().locations.borrow().base_name(uri);
         let subject = OpenWithSubject {
             uri: uri.to_owned(),
             name,
             is_folder: false,
         };
-        self.present_open_with_over(parent, subject);
+        let parent = parent.downgrade();
+        self.after_mounting(uri, move |window| {
+            let Some(parent) = parent.upgrade() else {
+                return;
+            };
+            OpenWithDialog::present_to_change_default(&parent, subject, window.reporter(), changed);
+        });
     }
 
     /// Shows the Open with dialog for `subject`, once its share is
     /// mounted (NET-004).
-    fn present_open_with(&self, subject: OpenWithSubject) {
+    pub(super) fn present_open_with(&self, subject: OpenWithSubject) {
         self.present_open_with_over(self.upcast_ref(), subject);
     }
 
@@ -306,7 +325,7 @@ impl BrowserWindow {
             return;
         };
         if let Err(error) = self.context().launch_application(&app, self.upcast_ref()) {
-            self.show_message(&error.to_string());
+            self.show_message(&ox_core::system_error::message_of(&error));
         }
     }
 
@@ -317,7 +336,7 @@ impl BrowserWindow {
             return;
         };
         if let Err(error) = self.context().launch_tool(&app, uris, self.upcast_ref()) {
-            self.show_message(&error.to_string());
+            self.show_message(&ox_core::system_error::message_of(&error));
         }
     }
 
@@ -426,10 +445,17 @@ impl BrowserWindow {
             self,
             async move {
                 let editors = integration.editor_shortcuts().await;
+                // The text editor of "Edit in" is no code editor: its name
+                // is the installed application's.
                 let name = editors
                     .iter()
                     .find(|editor| editor.id == editor_id)
-                    .map_or_else(|| editor_id.clone(), |editor| editor.name.clone());
+                    .map(|editor| editor.name.clone())
+                    .or_else(|| {
+                        integration::installed_application(&editor_id)
+                            .map(|app| app.display_name().to_string())
+                    })
+                    .unwrap_or_else(|| editor_id.clone());
                 let prepared = integration::prepare_launch(subject.uri, editor_id.clone()).await;
                 let launched = prepared
                     .and_then(|prepared| launcher(&editor_id, &prepared, integration::DefaultChoice::Keep));

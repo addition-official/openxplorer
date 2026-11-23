@@ -351,6 +351,45 @@ impl BrowserWindow {
         view.add_controller(keyboard_marker(view));
     }
 
+    /// A plain Up or Down, the first key after a folder opened from
+    /// outside or typed into the address bar rang its first item without
+    /// selecting it: the Details list moves on from that item and selects
+    /// the one after (or before) it, as Windows 11 File Explorer does, where
+    /// GTK would select the ringed item itself. `None` lets the key go on:
+    /// another key, a selection or focus that changed meanwhile, or
+    /// another view.
+    fn step_from_ringed_item(
+        &self,
+        key: gdk::Key,
+        modifiers: gdk::ModifierType,
+    ) -> Option<glib::Propagation> {
+        let ringed = self.imp().ringed_item.take()?;
+        let held = gdk::ModifierType::SHIFT_MASK
+            | gdk::ModifierType::CONTROL_MASK
+            | gdk::ModifierType::ALT_MASK
+            | gdk::ModifierType::SUPER_MASK;
+        let forward = match key {
+            gdk::Key::Down | gdk::Key::KP_Down => true,
+            gdk::Key::Up | gdk::Key::KP_Up => false,
+            _ => return None,
+        };
+        let pane = self.folder_pane();
+        let unchanged = pane.view() == super::folder_pane::FolderView::Details
+            && pane.model().selected_positions().is_empty()
+            && pane.focused_position() == Some(ringed);
+        if modifiers.intersects(held) || !unchanged {
+            return None;
+        }
+        let last = pane.model().n_items().checked_sub(1)?;
+        let target = if forward {
+            (ringed + 1).min(last)
+        } else {
+            ringed.saturating_sub(1)
+        };
+        pane.select_and_reveal(target);
+        Some(glib::Propagation::Stop)
+    }
+
     /// Gives the empty page's whole area in `pane` what an empty folder takes in
     /// Windows Explorer: the folder's keys, focus on a click (but not on
     /// the selectable message or Try again), the folder's
@@ -415,6 +454,11 @@ impl BrowserWindow {
         area.add_controller(press);
         self.attach_context_menu(area);
         self.attach_file_drop_zone(area, DropZone::FolderView);
+        // A landing page's blank space (Home, This PC) has the page's menu,
+        // as Windows 11's; its tiles and rows claim their own right-clicks.
+        if let Some(scroll) = pane.landing().ancestor(gtk::ScrolledWindow::static_type()) {
+            self.attach_context_menu(&scroll);
+        }
     }
 
     /// The input method that turns key presses in `view` into text for
@@ -486,10 +530,16 @@ impl BrowserWindow {
             return glib::Propagation::Proceed;
         }
         self.imp().view_modifiers.set(Some(modifiers));
+        if let Some(handled) = self.step_from_ringed_item(key, modifiers) {
+            return handled;
+        }
         if is_plain_tab(key, modifiers) && self.tab_to_other_pane() {
             return glib::Propagation::Stop;
         }
         if let Some(handled) = self.group_heading_key(key, modifiers) {
+            return handled;
+        }
+        if let Some(handled) = self.grouped_details_end_key(key, modifiers) {
             return handled;
         }
         self.select_heading_after_key(key, modifiers);

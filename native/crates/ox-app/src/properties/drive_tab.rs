@@ -11,10 +11,10 @@
 //! where a disk usage analyser is installed, Details, which opens it on
 //! the drive as Windows' Details opens Storage settings. Nothing on the
 //! drive is counted. The label box renames the volume on OK or Apply, as
-//! Windows' does, through UDisks (`Filesystem.SetLabel`), which may ask
-//! for a password; a file system UDisks cannot relabel while mounted says
-//! so then. A share's or a disc's label cannot be changed, so its box is
-//! read-only.
+//! Windows' does, the same way the drive's Rename does
+//! ([`BrowserWindow::rename_drive_at`]): through UDisks, which may ask for a
+//! password, unmounting and mounting again a file system that must be. A
+//! share's or a disc's label cannot be changed, so its box is read-only.
 //!
 //! Where it is mounted and what is mounted there, Linux facts Windows
 //! has no rows for, are on the Hardware tab, as Windows keeps the disk's
@@ -23,19 +23,19 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use gtk::gio;
+use gtk::glib;
 use gtk::prelude::*;
 use ox_core::format;
-use ox_core::integration::{set_drive_label, DiskTool, LabelError, UDISKS_NAME};
+use ox_core::integration::DiskTool;
 use ox_core::location::LocationContext;
 
 use super::drive_facts::DriveType;
 use super::general_tab::HEADER_ART_SIZE;
 use super::metadata::MountFacts;
 use super::space_ring::SpaceRing;
-use super::window::{divider, page, push_button, ApplyFuture, Pending, PropertiesWindow, Rows, CANCELLED};
+use super::window::{divider, page, push_button, ApplyFuture, Pending, PropertiesWindow, Rows};
 use crate::icons::{Art, ArtImage, Icon};
-use crate::window::WindowAction;
+use crate::window::{BrowserWindow, WindowAction};
 
 /// The drive's picture, as This PC's drive cards draw it.
 pub(super) const DRIVE_ART: Art = Art::Glyph(Icon::HardDrive);
@@ -49,7 +49,7 @@ pub(super) fn drive_general_tab(
     window: Option<&PropertiesWindow>,
 ) -> gtk::Box {
     let page = page();
-    page.append(&header(mount, window));
+    page.append(&header(uri, mount, window));
     page.append(&divider());
 
     let kind = Rows::new();
@@ -88,7 +88,7 @@ fn append_space(page: &gtk::Box, free: u64, total: u64) {
 
 /// The drive's picture and its volume label, which renames the drive on
 /// `window`'s OK or Apply where it can be renamed.
-fn header(mount: &MountFacts, window: Option<&PropertiesWindow>) -> gtk::Box {
+fn header(uri: &str, mount: &MountFacts, window: Option<&PropertiesWindow>) -> gtk::Box {
     let header = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
         .css_classes(["properties-header"])
@@ -108,7 +108,7 @@ fn header(mount: &MountFacts, window: Option<&PropertiesWindow>) -> gtk::Box {
     ))]);
     header.append(&label);
     if let Some(window) = renames {
-        DriveLabel::follow(window, &label, mount);
+        DriveLabel::follow(window, &label, uri, mount);
     }
     header
 }
@@ -120,21 +120,13 @@ fn can_rename(mount: &MountFacts) -> bool {
         && mount.mounted_from.starts_with("/dev/")
 }
 
-/// The bus UDisks is on: the system bus, and in tests the private session
-/// bus they run on, where no UDisks answers.
-fn udisks_bus() -> gio::BusType {
-    if cfg!(test) {
-        gio::BusType::Session
-    } else {
-        gio::BusType::System
-    }
-}
-
 /// A new volume label typed in the box, which OK or Apply gives the drive.
 struct DriveLabel {
     entry: gtk::Entry,
-    /// The block device, such as `/dev/sdb1`.
-    device: String,
+    /// Where the drive is mounted.
+    root: String,
+    /// The Properties window, whose opener renames the drive.
+    window: glib::WeakRef<PropertiesWindow>,
     /// The label the drive has.
     label: RefCell<String>,
 }
@@ -142,10 +134,11 @@ struct DriveLabel {
 impl DriveLabel {
     /// Lets `entry`, the label box of `mount`, rename the drive on
     /// `window`'s OK or Apply.
-    fn follow(window: &PropertiesWindow, entry: &gtk::Entry, mount: &MountFacts) {
+    fn follow(window: &PropertiesWindow, entry: &gtk::Entry, root: &str, mount: &MountFacts) {
         let label = Rc::new(Self {
             entry: entry.clone(),
-            device: mount.mounted_from.clone(),
+            root: root.to_owned(),
+            window: window.downgrade(),
             label: RefCell::new(mount.label.clone()),
         });
         let watched = window.downgrade();
@@ -159,18 +152,17 @@ impl DriveLabel {
 
     async fn rename(self: Rc<Self>) -> Result<(), String> {
         let wanted = self.entry.text().trim().to_owned();
-        let connection = gio::bus_get_future(udisks_bus())
-            .await
-            .map_err(|error| LabelError::Unavailable(error).to_string())?;
-        match set_drive_label(&connection, UDISKS_NAME, &self.device, &wanted).await {
-            Ok(()) => {
-                self.label.replace(wanted);
-                Ok(())
-            }
-            // A dismissed password prompt changes nothing and says nothing.
-            Err(LabelError::Cancelled) => Err(CANCELLED.to_owned()),
-            Err(error) => Err(error.to_string()),
-        }
+        let opener: Option<BrowserWindow> = self.window.upgrade().and_then(|window| window.opener());
+        let Some(opener) = opener else {
+            return Err(ox_core::i18n::gettext(
+                "The window that opened these properties is closed.",
+            ));
+        };
+        // A dismissed password prompt answers the empty message, which
+        // the window takes as CANCELLED: nothing is said.
+        opener.rename_drive_at(&self.root, &wanted).await?;
+        self.label.replace(wanted);
+        Ok(())
     }
 }
 
@@ -268,7 +260,7 @@ impl SpaceRows {
                 .selectable(true)
                 .css_classes(["property-value"])
                 .build();
-            value.update_relation(&[gtk::accessible::Relation::LabelledBy(&[label.upcast_ref()])]);
+            crate::accessible_names::name_value_label(&value, &label);
             self.grid.attach(&value, column, line, 1, 1);
         }
         self.line.set(line + 1);

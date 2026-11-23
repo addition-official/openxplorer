@@ -5,7 +5,8 @@
 //! in `v2.0.0:desktop/ui/app.js`, laid out as Windows 11 File Explorer's
 //! status bar: the item count ("6 items"), a thin divider and the
 //! selection ("1 item selected  19.0\u{a0}KB", the size only when every
-//! selected item is a file), the type-to-select hint, then at the right
+//! selected item is a file) with a divider after it, as Windows ends it,
+//! the type-to-select hint, then at the right
 //! "Check for updates" while a check found a newer release or a restart
 //! to finish one (the build it names is hidden, as Windows 11 Explorer's
 //! status bar has none), and the Details and Large icons view buttons, the
@@ -133,6 +134,9 @@ mod imp {
         /// The selection (`#status-selected`).
         #[template_child]
         pub(super) selection: TemplateChild<gtk::Label>,
+        /// The thin line after the selection, as Windows ends it.
+        #[template_child]
+        pub(super) selection_end_divider: TemplateChild<gtk::Separator>,
         /// The type-to-select hint.
         #[template_child]
         pub(super) typeahead_hint: TemplateChild<gtk::Label>,
@@ -270,7 +274,9 @@ impl StatusBar {
         check_updates.tooltip_text().unwrap_or_default().to_string()
     }
 
-    /// Shows the item count and, after the divider, the selection.
+    /// Shows the item count, a divider, and the selection followed by
+    /// another, as Windows writes "15 items | 1 item selected 4 bytes |";
+    /// with nothing selected, "15 items |".
     pub(super) fn set_counts(&self, subject: StatusSubject, selected: SelectionSummary) {
         let imp = self.imp();
         imp.count.set_text(&count_text(subject));
@@ -278,7 +284,12 @@ impl StatusBar {
             StatusSubject::Page => String::new(),
             StatusSubject::Folder { .. } | StatusSubject::Search(_) => selection_text(selected),
         };
-        imp.selection_divider.set_visible(!selection.is_empty());
+        // Windows 11 ends the count with a divider whether or not
+        // something is selected ("3 items |"), and the selection with
+        // another ("3 items | 1 item selected |"; checked on Windows 11,
+        // 2026-11-22).
+        imp.selection_divider.set_visible(subject != StatusSubject::Page);
+        imp.selection_end_divider.set_visible(!selection.is_empty());
         imp.selection.set_visible(!selection.is_empty());
         imp.selection.set_text(&selection);
     }
@@ -326,6 +337,12 @@ impl StatusBar {
             } else {
                 button.remove_css_class("active");
             }
+            let pressed = if active {
+                gtk::AccessibleTristate::True
+            } else {
+                gtk::AccessibleTristate::False
+            };
+            button.update_state(&[gtk::accessible::State::Pressed(pressed)]);
         }
     }
 
@@ -340,6 +357,15 @@ impl StatusBar {
     #[cfg(test)]
     pub(super) fn shows_selection_divider(&self) -> bool {
         self.imp().selection_divider.is_visible()
+    }
+
+    /// Whether the divider after the selection shows, right after the
+    /// selection's text, for tests.
+    #[cfg(test)]
+    pub(super) fn shows_trailing_divider(&self) -> bool {
+        let imp = self.imp();
+        let divider = imp.selection_end_divider.upcast_ref::<gtk::Widget>();
+        imp.selection.next_sibling().as_ref() == Some(divider) && divider.is_visible()
     }
 
     /// The type-to-select hint's label, for tests.

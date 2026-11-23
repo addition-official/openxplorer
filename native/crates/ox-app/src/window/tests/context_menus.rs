@@ -103,16 +103,26 @@ fn right_clicking_a_file_selects_it_and_opens_the_classic_menu() {
     assert!(menu.is_visible());
     assert_eq!(menu.style(), MenuStyle::Classic);
     assert!(menu.strip_labels().is_empty());
-    // "Open with <app>" rows name whatever the machine has installed.
+    // Open with is a submenu of the apps the machine has for text, or
+    // "Open with…" alone without one; "Edit in <text editor>" names
+    // whatever the machine has installed.
     let rows: Vec<String> = menu
         .row_labels()
         .into_iter()
-        .filter(|label| !label.starts_with("Open with "))
+        .filter(|label| !label.starts_with("Edit in "))
+        .map(|label| {
+            if label == "Open with" {
+                "Open with…".to_owned()
+            } else {
+                label
+            }
+        })
         .collect();
     assert_eq!(
         rows,
         [
             "Open",
+            "Add to Favorites",
             "Open containing folder in Terminal",
             "Open with…",
             "-",
@@ -124,21 +134,25 @@ fn right_clicking_a_file_selects_it_and_opens_the_classic_menu() {
             "Cut",
             "Copy",
             "-",
-            "Duplicate",
+            "Create shortcut",
             "Delete",
             "Rename",
+            "Duplicate",
             "-",
             "Compress to…",
             "-",
-            "Properties",
             "Configure service actions…",
+            "-",
+            "Properties",
         ]
     );
     assert!(menu.row("Rename").is_sensitive());
-    assert!(
-        menu.row("Open with…").is_sensitive(),
-        "Open with works for one item"
-    );
+    let open_with = if menu.row_labels().iter().any(|label| label == "Open with") {
+        "Open with"
+    } else {
+        "Open with…"
+    };
+    assert!(menu.row(open_with).is_sensitive(), "Open with works for one item");
 }
 
 /// The classic menu is drawn as Windows 11 draws "Show more options":
@@ -217,6 +231,94 @@ fn right_clicking_opens_the_compact_menu_with_show_more_options_last() {
     );
 }
 
+/// Removes the desktop entries a test added when it ends.
+struct TestEntries(Vec<std::path::PathBuf>);
+
+impl Drop for TestEntries {
+    fn drop(&mut self) {
+        for path in &self.0 {
+            let _ = fs::remove_file(path);
+        }
+    }
+}
+
+/// A text file whose default application is a word processor still
+/// offers "Edit in <text editor>" with the editor's icon, in its own group
+/// between Properties and Show more options, as Windows 11 offers "Edit in
+/// Notepad" for a .txt that opens in Word; choosing it opens the file in
+/// the editor. Before, the row named only Visual Studio Code and its kin.
+///
+/// parity: OPEN-015, CMD-010
+#[gtk::test]
+fn a_text_file_that_opens_in_a_word_processor_offers_edit_in_the_text_editor() {
+    let data = glib::user_data_dir();
+    assert!(
+        data.starts_with(std::env::temp_dir()),
+        "tests add applications only to a private data folder"
+    );
+    let folder = data.join("applications");
+    fs::create_dir_all(&folder).expect("the data folder is writable");
+    let entries = [
+        (
+            "ox-test-writer.desktop",
+            "Name=Fictional Writer\nCategories=Office;WordProcessor;",
+        ),
+        (
+            "ox-test-text-editor.desktop",
+            "Name=Fictional Editor\nIcon=accessories-text-editor\nCategories=Utility;TextEditor;",
+        ),
+    ];
+    let _cleanup = TestEntries(entries.iter().map(|(id, _)| folder.join(id)).collect());
+    for (id, fields) in entries {
+        let entry =
+            format!("[Desktop Entry]\nType=Application\n{fields}\nExec=true %U\nMimeType=text/plain;\n");
+        fs::write(folder.join(id), entry).expect("the data folder is writable");
+    }
+    wait_until("GIO to list both", || {
+        entries
+            .iter()
+            .all(|(id, _)| crate::integration::installed_application(id).is_some())
+    });
+    let app = |id: &str| crate::integration::installed_application(id).expect("installed");
+    app("ox-test-writer.desktop")
+        .set_as_default_for_type("text/plain")
+        .expect("the private mimeapps.list takes the default");
+    app("ox-test-text-editor.desktop")
+        .set_as_last_used_for_type("text/plain")
+        .expect("the private mimeapps.list takes the editor");
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+
+    test.window.right_click(Some(position_of(&test, "Notes 2.txt")));
+    let menu = test.window.context_menu();
+    let rows = menu.row_labels();
+    let properties = rows
+        .iter()
+        .position(|row| row == "Properties")
+        .expect("Properties");
+    assert_eq!(
+        rows[properties..],
+        [
+            "Properties",
+            "-",
+            "Edit in Fictional Editor",
+            "-",
+            "Show more options"
+        ],
+        "{rows:?}"
+    );
+    let edit = menu
+        .items()
+        .into_iter()
+        .find(|item| item.label == "Edit in Fictional Editor")
+        .expect("the row");
+    assert_eq!(edit.application_icon.as_deref(), Some("accessories-text-editor"));
+    menu.row("Edit in Fictional Editor").emit_activate();
+    wait_until("the editor to get the file", || {
+        test.window.shown_message_text() == "Opened with Fictional Editor"
+    });
+}
+
 /// The keyboard starts on the first enabled item, Up and Down wrap
 /// around, and closing the menu gives the keyboard back to the file pane.
 ///
@@ -286,6 +388,7 @@ fn with_several_items_selected_the_one_item_commands_are_disabled() {
         "Rename",
         "Rename items…",
         "Delete",
+        "Create shortcut",
         "Duplicate",
         "Copy as path",
         "Properties",
@@ -450,9 +553,7 @@ fn right_clicking_blank_space_opens_the_folder_menu_and_new_opens_beside_it() {
         [
             "Folder",
             "Shortcut",
-            "-",
             "Bitmap image",
-            "Rich Text Document",
             "Text Document",
             "Compressed (zipped) Folder",
         ]
@@ -568,7 +669,9 @@ fn a_folder_without_write_permission_keeps_new_and_paste_and_shows_the_error() {
         test.window.shown_message() != before.as_str()
     });
     assert!(
-        test.window.shown_message().contains("Permission denied"),
+        test.window
+            .shown_message()
+            .ends_with("Locked/New folder: Access is denied."),
         "the system's error: {}",
         test.window.shown_message()
     );
@@ -630,7 +733,7 @@ fn the_compact_folder_menu_opens_its_submenus_beside_it() {
     test.window.right_click(None);
     let menu = test.window.context_menu();
     assert_eq!(menu.style(), MenuStyle::Compact);
-    assert_eq!(menu.row_labels()[..4], ["View", "Sort by", "Group by", "Refresh"]);
+    assert_eq!(menu.row_labels()[..3], ["View", "Sort by", "Group by"]);
     assert_eq!(
         menu.row_labels().last().map(String::as_str),
         Some("Show more options")
@@ -1228,9 +1331,11 @@ fn a_pinned_folder_menu_is_windows_11_and_keeps_its_strip_nearest_the_pointer() 
         test.activate("theme", Some(theme));
         for position in StripPosition::ALL {
             choose_strip_position(&test, position);
-            // Alpha, high in the pane, opens its menu downward; Downloads,
-            // below the user's pins, opens it upward.
-            for (label, slide, direction) in [("Alpha", Slide::Down, "down"), ("Downloads", Slide::Up, "up")]
+            // Downloads, high in the pane, opens its menu downward;
+            // Juliett, low among the user's pins, which follow the
+            // standard folders, opens it upward.
+            for (label, slide, direction) in
+                [("Downloads", Slide::Down, "down"), ("Juliett", Slide::Up, "up")]
             {
                 let menu = open_menu(label);
                 wait_until("the menu placed", || menu.slide() == Some(slide));
@@ -1368,4 +1473,111 @@ fn new_in_a_pinned_folder_ends_a_search_first() {
     });
     assert_eq!(test.window.current_uri().as_deref(), Some(pinned.as_str()));
     test.window.search_strip().set_keeps_search(false);
+}
+
+/// The folder menu grays Open in Terminal where no terminal can open, as
+/// the navigation pane's menus do: on Gallery's blank space, which is no
+/// folder on a drive or share; Network's menu leaves it out, as Windows
+/// 11's; a folder keeps it.
+///
+/// parity: CMD-011, OPEN-017
+#[gtk::test]
+fn the_folder_menu_grays_open_in_terminal_where_no_terminal_opens() {
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    for style in [ContextMenu::Win11, ContextMenu::Win10] {
+        choose_menu_style(&test, style);
+        for (place, uri, opens) in [
+            ("a folder", fixture.uri(), true),
+            ("Network", ox_core::location::NETWORK_URI.to_owned(), false),
+            ("Gallery", ox_core::location::GALLERY_URI.to_owned(), false),
+        ] {
+            test.activate("go-to", Some(&uri));
+            wait_until(&format!("{place} to show"), || {
+                test.window.current_uri().as_deref() == Some(uri.as_str())
+            });
+            test.window.right_click(None);
+            let menu = test.window.context_menu();
+            let rows = menu.row_labels();
+            // Network's menus have no Open in Terminal at all, as
+            // Windows 11's (page_menus.rs).
+            if rows.contains(&"Open in Terminal".to_owned()) {
+                assert_eq!(
+                    menu.row("Open in Terminal").is_sensitive(),
+                    opens,
+                    "{style:?} {place}: {rows:?}"
+                );
+            } else {
+                assert_eq!(place, "Network", "{style:?}: {rows:?}");
+            }
+            menu.popdown();
+        }
+    }
+}
+
+/// Windows 11's menu on a folder's blank space (VM check 2026-11-22):
+/// View, Sort by and Group by; Undo of the last step, New and Properties;
+/// Open in Terminal; Show more options; with Paste alone in the icon row.
+/// There is no Refresh, and Undo shows only while there is a step to
+/// undo. The app's own Open as administrator… may follow Open in
+/// Terminal.
+///
+/// parity: CMD-011, CMD-010
+#[gtk::test]
+fn the_compact_folder_menu_has_windows_11s_rows_and_paste_in_its_icon_row() {
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    // Without the app's own extra, which depends on the folder's owner.
+    let windows_rows = |menu: &crate::window::menu_popover::MenuPopover| -> Vec<String> {
+        let mut rows = menu.row_labels();
+        if let Some(at) = rows.iter().position(|row| row == "Open as administrator…") {
+            rows.remove(at);
+            rows.remove(at - 1);
+        }
+        rows
+    };
+
+    test.window.right_click(None);
+    let menu = test.window.context_menu();
+    assert_eq!(
+        windows_rows(&menu),
+        [
+            "View",
+            "Sort by",
+            "Group by",
+            "-",
+            "New",
+            "Properties",
+            "-",
+            "Open in Terminal",
+            "-",
+            "Show more options"
+        ],
+        "nothing to undo yet"
+    );
+    assert_eq!(menu.strip_labels(), ["Paste"]);
+    menu.popdown();
+    settle();
+
+    test.activate("new-folder", None);
+    let field = super::file_ops_support::name_editor(&test);
+    super::new_folder::press_in(&field, gtk::gdk::Key::Escape);
+    wait_until("the rename to end", || {
+        !super::file_ops_support::is_renaming_in_place(&test)
+    });
+    test.window.right_click(None);
+    let menu = test.window.context_menu();
+    assert_eq!(
+        windows_rows(&menu)[..7],
+        [
+            "View",
+            "Sort by",
+            "Group by",
+            "-",
+            "Undo New",
+            "New",
+            "Properties"
+        ]
+    );
+    assert_eq!(menu.strip_labels(), ["Paste"]);
 }

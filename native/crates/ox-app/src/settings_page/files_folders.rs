@@ -103,6 +103,14 @@ const RESTORE_OVER_ORIGINAL: RowText = RowText {
     keywords: "previous versions restore snapshot shadow copy overwrite original replace windows",
 };
 
+const DELETE_REMOVABLE_PERMANENTLY: RowText = RowText {
+    title: "Delete files on removable drives permanently (like Windows)",
+    description: "Delete on a USB stick or SD card asks, then deletes for good. Off: the items go to the \
+                  drive's own Recycle Bin and keep using its space until it is emptied.",
+    keywords: "delete permanently removable drive usb stick sd card memory card recycle bin trash space \
+               windows erase",
+};
+
 const SHOW_PREVIEWS: RowText = RowText {
     title: "Show previews",
     description: "Pictures, videos and documents show their contents instead of an icon.",
@@ -204,6 +212,7 @@ pub(super) fn build(page: &SettingsPage) -> SettingsSection {
     files.append_group(&folder_views_group(page));
     files.append_group(&details_group(page));
     files.append_group(&replacing_group(page));
+    files.append_group(&deleting_group(page));
     files.append_group(&clipboard_group(page));
     files.append_group(&previews_group(page));
     files
@@ -356,6 +365,24 @@ fn replacing_group(page: &SettingsPage) -> SettingsGroup {
         read: |preferences| preferences.restore_over_original,
         write: |on| PreferencesUpdate {
             restore_over_original: Some(on),
+            ..PreferencesUpdate::default()
+        },
+    };
+    row.add_control(&page.preference_switch(binding), ControlName::RowTitle);
+    group.add_row(&row);
+    group
+}
+
+/// What Delete does on a removable drive: the drive's own Recycle Bin by
+/// default (OPS-018), or a permanent delete after Windows' question, as
+/// Windows 11 does.
+fn deleting_group(page: &SettingsPage) -> SettingsGroup {
+    let group = SettingsGroup::new(&ox_core::i18n::gettext("Deleting"));
+    let row = SettingRow::new(DELETE_REMOVABLE_PERMANENTLY);
+    let binding = PreferenceBinding {
+        read: |preferences| preferences.delete_removable_permanently,
+        write: |on| PreferencesUpdate {
+            delete_removable_permanently: Some(on),
             ..PreferencesUpdate::default()
         },
     };
