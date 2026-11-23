@@ -90,7 +90,9 @@ impl FileCell {
         let uri = entry.uri.clone();
         let started = self.start_preview(entry, previews);
         let kind_picture = crate::icons::file_icons::picture_for(entry);
-        let contents = self.start_folder_contents(entry, previews).filter(|_| kind_picture.is_none());
+        let contents = self
+            .start_folder_contents(entry, previews)
+            .filter(|_| kind_picture.is_none());
         if !uri.starts_with("file:") && !started.wanted && kind_picture.is_none() {
             return;
         }
@@ -129,7 +131,10 @@ impl FileCell {
             }
             // After the folder's own pictures, its contents, unless they
             // were drawn at once.
-            if let Some(request) = contents.filter(|_| texture.is_none()).and_then(FolderContentsStart::wanted) {
+            if let Some(request) = contents
+                .filter(|_| texture.is_none())
+                .and_then(FolderContentsStart::wanted)
+            {
                 let art = folder_art(request).await;
                 if let Some(cell) = cell.upgrade() {
                     if let Some(art) = art {
@@ -245,7 +250,11 @@ impl FileCell {
     /// this very frame when they are known, or else to be read once the
     /// folder's own pictures are looked up. `None` for an item that shows
     /// no contents.
-    fn start_folder_contents(&self, entry: &ox_core::entry::Entry, previews: PreviewPolicy) -> Option<FolderContentsStart> {
+    fn start_folder_contents(
+        &self,
+        entry: &ox_core::entry::Entry,
+        previews: PreviewPolicy,
+    ) -> Option<FolderContentsStart> {
         let imp = self.imp();
         let large_enough = (imp.is_tile.get() && imp.icon_size.get() >= SMALLEST_PICTURE_ICON)
             || (imp.shows_item_lines.get() && !imp.is_content_row.get());

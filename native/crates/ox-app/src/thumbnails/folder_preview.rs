@@ -501,8 +501,8 @@ const LOWERED_Y: f32 = 0.06;
 /// square drawn with `pieces`.
 pub(crate) fn layout(edge: f32, pieces: Pieces) -> Layout {
     use measured::{
-        BODY_TOP_Y, FOLDER_HEIGHT, FOLDER_WIDTH, FRONT_LEFT_TOP_Y, FRONT_RIGHT_TOP_Y, PAGE_LEFT_X, PAGE_RIGHT_X,
-        PAGE_TOP_Y, SHEET_LEFT_X, SHEET_RIGHT_X, SHEET_TOP_Y, STEP_END_X, STEP_START_X,
+        BODY_TOP_Y, FOLDER_HEIGHT, FOLDER_WIDTH, FRONT_LEFT_TOP_Y, FRONT_RIGHT_TOP_Y, PAGE_LEFT_X,
+        PAGE_RIGHT_X, PAGE_TOP_Y, SHEET_LEFT_X, SHEET_RIGHT_X, SHEET_TOP_Y, STEP_END_X, STEP_START_X,
     };
     let unit = edge / 32.0;
     let folder = match pieces {
@@ -636,7 +636,10 @@ mod tests {
         let shown = read_contents(folder.path()).shown(true, true);
 
         assert!(shown.pictures.is_empty());
-        assert_eq!(shown.page.map(|page| page.name).as_deref(), Some("Meeting notes.txt"));
+        assert_eq!(
+            shown.page.map(|page| page.name).as_deref(),
+            Some("Meeting notes.txt")
+        );
         // With picture previews off, a folder of pictures shows a page.
         picture_at(folder.path(), "Beach.png", 0xff00_00ff);
         let shown = read_contents(folder.path()).shown(false, false);
@@ -665,7 +668,10 @@ mod tests {
             .folder_request(&folder, 96)
             .is_none());
         let file = crate::test_support::file_entry("Photos.png");
-        assert!(policy().folder_request(&file, 96).is_none(), "a file is no folder");
+        assert!(
+            policy().folder_request(&file, 96).is_none(),
+            "a file is no folder"
+        );
         let mut share = folder.clone();
         share.uri = "smb://studio-nas/photos".to_owned();
         assert!(policy().folder_request(&share, 96).is_none());
@@ -724,7 +730,9 @@ mod tests {
         let context = gtk::glib::MainContext::default();
         assert!(kept_folder_art(&request).is_none(), "not read yet");
 
-        let art = context.block_on(folder_art(request.clone())).expect("the folder's art");
+        let art = context
+            .block_on(folder_art(request.clone()))
+            .expect("the folder's art");
 
         assert_eq!(art.pictures.len(), 1);
         assert!(art.page.is_none());
@@ -752,7 +760,11 @@ mod tests {
         let mut downloader = gdk::TextureDownloader::new(texture);
         downloader.set_format(gdk::MemoryFormat::R8g8b8a8);
         let (bytes, stride) = downloader.download_bytes();
-        #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss, reason = "inside the icon")]
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "inside the icon"
+        )]
         let at = y as usize * stride + x as usize * 4;
         [bytes[at], bytes[at + 1], bytes[at + 2], bytes[at + 3]]
     }
@@ -806,17 +818,36 @@ mod tests {
         let blue = [0x20, 0x40, 0xe0, 0xff];
         let checks = [
             ("the picture", middle, at.sheet.y + 2.0, blue),
-            ("down to the front", at.sheet.x + 2.0, at.front_left_top - 2.0, blue),
+            (
+                "down to the front",
+                at.sheet.x + 2.0,
+                at.front_left_top - 2.0,
+                blue,
+            ),
             ("the front", middle, at.front_right_top + 4.0, [252, 213, 63, 255]),
-            ("the front on the left", at.folder.x + 4.0, at.front_left_top + 4.0, [252, 213, 63, 255]),
-            ("the tab", at.folder.x + 6.0, at.folder.y + 2.0, [255, 176, 46, 255]),
+            (
+                "the front on the left",
+                at.folder.x + 4.0,
+                at.front_left_top + 4.0,
+                [252, 213, 63, 255],
+            ),
+            (
+                "the tab",
+                at.folder.x + 6.0,
+                at.folder.y + 2.0,
+                [255, 176, 46, 255],
+            ),
         ];
         for (what, x, y, expected) in checks {
             let found = color_at(&drawn, x, y);
             assert!(near(found, expected), "{what} at {x}, {y}: {found:?}");
         }
         assert_eq!(color_at(&drawn, 1.0, 1.0)[3], 0, "nothing outside the folder");
-        assert_eq!(color_at(&drawn, at.folder.right() - 3.0, at.folder.y + 1.0)[3], 0, "nothing right of the tab");
+        assert_eq!(
+            color_at(&drawn, at.folder.right() - 3.0, at.folder.y + 1.0)[3],
+            0,
+            "nothing right of the tab"
+        );
     }
 
     /// Medium icons and larger and Tiles show a folder's contents, as
@@ -849,10 +880,16 @@ mod tests {
             false,
         );
 
-        for (layout, size) in [(CellLayout::IconTile, 96), (CellLayout::IconTile, 48), (CellLayout::Tile, 48)] {
+        for (layout, size) in [
+            (CellLayout::IconTile, 96),
+            (CellLayout::IconTile, 48),
+            (CellLayout::Tile, 48),
+        ] {
             let cell = FileCell::new(layout, size);
             cell.look_up_picture(&item, policy());
-            wait_until("the folder's contents", || cell.shown_folder_contents() == Some((1, false)));
+            wait_until("the folder's contents", || {
+                cell.shown_folder_contents() == Some((1, false))
+            });
             let plain = FileCell::new(layout, size);
             plain.look_up_picture(&item, icons_only);
             wait_for(std::time::Duration::from_millis(100));

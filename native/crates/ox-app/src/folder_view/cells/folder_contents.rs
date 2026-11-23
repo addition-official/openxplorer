@@ -220,7 +220,9 @@ impl FolderContents {
             None
         };
         match (&windows, &folder) {
-            (Some((back, _)), _) => snapshot.append_scaled_texture(back, gsk::ScalingFilter::Trilinear, &whole),
+            (Some((back, _)), _) => {
+                snapshot.append_scaled_texture(back, gsk::ScalingFilter::Trilinear, &whole)
+            }
             (None, Some(folder)) => snapshot.append_node(folder),
             (None, None) => {}
         }
@@ -248,7 +250,9 @@ impl FolderContents {
             self.snapshot_child(page, snapshot);
         }
         match (&windows, &folder) {
-            (Some((_, front)), _) => snapshot.append_scaled_texture(front, gsk::ScalingFilter::Trilinear, &whole),
+            (Some((_, front)), _) => {
+                snapshot.append_scaled_texture(front, gsk::ScalingFilter::Trilinear, &whole)
+            }
             (None, Some(folder)) => draw_front(snapshot, folder, &at),
             (None, None) => {}
         }
@@ -271,7 +275,10 @@ fn draw_front(snapshot: &gtk::Snapshot, folder: &gsk::RenderNode, at: &Layout) {
         right - at.step_end + CLIP_OVERLAP,
     );
     // The slope: between its ends, below the line that joins them.
-    let (run, rise) = (at.step_end - at.step_start, at.front_right_top - at.front_left_top);
+    let (run, rise) = (
+        at.step_end - at.step_start,
+        at.front_right_top - at.front_left_top,
+    );
     let degrees = rise.atan2(run).to_degrees();
     let length = run.hypot(rise);
     snapshot.push_clip(&graphene::Rect::new(
@@ -284,7 +291,12 @@ fn draw_front(snapshot: &gtk::Snapshot, folder: &gsk::RenderNode, at: &Layout) {
     let corner = graphene::Point::new(at.step_start, at.front_left_top);
     snapshot.translate(&corner);
     snapshot.rotate(degrees);
-    snapshot.push_clip(&graphene::Rect::new(-length, 0.0, 3.0 * length, 2.0 * at.folder.height));
+    snapshot.push_clip(&graphene::Rect::new(
+        -length,
+        0.0,
+        3.0 * length,
+        2.0 * at.folder.height,
+    ));
     snapshot.rotate(-degrees);
     snapshot.translate(&graphene::Point::new(-corner.x(), -corner.y()));
     snapshot.append_node(folder);
