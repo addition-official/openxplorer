@@ -1,0 +1,569 @@
+# Fork only: builds the test .deb of a test-combined-NN branch, the way the
+# Debian leg of checks.yml builds the release package, and publishes it as
+# the single commit of claude/test-combined-NN-deb. It lives under its own
+# name, so it never collides with upstream's workflows, and it runs only in
+# the addition-official fork.
+#
+# A push to test-combined-NN builds that commit. "Run workflow" (on the
+# default branch, which workflow_dispatch needs) builds the tip of the
+# branch named in "ref"; such a run also refreshes the main-branch cache
+# that the push builds of new branches start from.
+name: Fork test deb
+on:
+  push:
+    branches:
+      - 'test-combined-*'
+      - '!test-combined-*-deb'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: The branch to build, for example test-combined-51
+        required: true
+        type: string
+permissions: {}
+concurrency:
+  # A newer push to the same branch replaces the build in progress.
+  group: fork-test-deb-${{ inputs.ref || github.ref_name }}
+  cancel-in-progress: true
+env:
+  OX_UPSTREAM: https://github.com/AKolenda/openxplorer
+  OX_APP_ID: io.winspace.Development
+  OX_IDENTITY_NAME: addition-official
+  OX_IDENTITY_EMAIL: 239187859+addition-official@users.noreply.github.com
+  # The branch to build; a value, never pasted into a script.
+  OX_BRANCH: ${{ inputs.ref || github.ref_name }}
+
+jobs:
+  build:
+    if: github.repository_owner == 'addition-official'
+    name: Build and check the test deb
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    # The release's Debian leg (checks.yml): Ubuntu 24.04, the oldest
+    # supported base, so dpkg-shlibdeps records the same library versions.
+    container:
+      image: ubuntu:24.04
+    permissions:
+      contents: read
+    outputs:
+      head: ${{ steps.names.outputs.head }}
+      deb: ${{ steps.repack.outputs.deb }}
+      deb_version: ${{ steps.repack.outputs.deb_version }}
+      sha256: ${{ steps.repack.outputs.sha256 }}
+    env:
+      CARGO_TERM_COLOR: always
+    defaults:
+      run:
+        # Each run step's output is also kept in /tmp/ox-logs/<step id>.log,
+        # so a failure can be reported with its last lines.
+        shell: bash /tmp/ox-step {0}
+    steps:
+      - name: Install Git and the step logger
+        id: setup
+        shell: bash {0}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/ox-logs
+          exec > >(tee /tmp/ox-logs/setup.log) 2>&1
+          cat > /tmp/ox-step <<'EOF'
+          set -o pipefail
+          mkdir -p /tmp/ox-logs
+          bash -eo pipefail "$1" 2>&1 | tee "/tmp/ox-logs/$GITHUB_ACTION.log"
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ] && [ ! -e /tmp/ox-logs/failed ]; then
+              printf '%s\n' "$GITHUB_ACTION" > /tmp/ox-logs/failed
+          fi
+          exit "$status"
+          EOF
+          # As in checks.yml, plus zstd, which the cache action compresses with.
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y git ca-certificates zstd
+          # The checkout is owned by "builder" after prepare-container.sh,
+          # and some of the steps below run Git as root.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Check out the branch
+        id: checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # A push builds the pushed commit; a dispatch the branch's tip.
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/heads/{0}', inputs.ref) || github.sha }}
+          persist-credentials: false
+
+      - name: Name the package after the branch
+        id: names
+        run: |
+          case "$OX_BRANCH" in
+              *-deb) echo "::error::$OX_BRANCH is a deb branch, not a test branch."; exit 1 ;;
+              test-combined-?*) ;;
+              *) echo "::error::$OX_BRANCH is not a test-combined-NN branch."; exit 1 ;;
+          esac
+          nn=${OX_BRANCH#test-combined-}
+          if ! printf '%s' "$nn" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9.-]*$'; then
+              echo "::error::The branch suffix $nn has characters a Debian version cannot hold."
+              exit 1
+          fi
+          head=$(git rev-parse HEAD)
+          # build-package.sh reads the version from the same place.
+          version=$(sed -n '/^\[workspace\.package\]/,/^\[/s/^version = "\(.*\)"$/\1/p' native/Cargo.toml)
+          test -n "$version"
+          # "test-combined-50" gives 2.0.23+test50; a hyphen becomes a dot.
+          deb_version="$version+test$(printf '%s' "$nn" | tr '-' '.')"
+          {
+              echo "nn=$nn"
+              echo "head=$head"
+              echo "version=$version"
+              echo "deb_version=$deb_version"
+          } | tee -a "$GITHUB_OUTPUT"
+          # verify_deb.py checks the package against the 1.1.x updater, which
+          # it reads from tag v2.0.0; the fork has no tags, upstream has it.
+          git fetch --no-tags --depth=1 "$OX_UPSTREAM" '+refs/tags/v2.0.0:refs/tags/v2.0.0'
+
+      - name: Check that only addition-official and AKolenda authored commits on top of upstream main
+        id: authors
+        env:
+          OX_HEAD: ${{ steps.names.outputs.head }}
+        run: |
+          # Commits only, in a separate repository, so the checkout stays as
+          # it is. Offending commits are named by hash alone, never by their
+          # author's name or address.
+          scratch=$(mktemp -d)
+          git -C "$scratch" init -q
+          git -C "$scratch" remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          git -C "$scratch" remote add upstream "$OX_UPSTREAM"
+          git -C "$scratch" fetch -q --no-tags --filter=tree:0 origin "$OX_HEAD"
+          git -C "$scratch" fetch -q --no-tags --filter=tree:0 upstream '+refs/heads/main:refs/remotes/upstream/main'
+          git -C "$scratch" log --format='%H%x09%an%x09%ae' "refs/remotes/upstream/main..$OX_HEAD" > "$scratch/authors"
+          echo "$(wc -l < "$scratch/authors") commits on top of upstream main $(git -C "$scratch" rev-parse refs/remotes/upstream/main)."
+          bad=$(awk -F '\t' -v name="$OX_IDENTITY_NAME" -v email="$OX_IDENTITY_EMAIL" \
+              '!(($2 == name && $3 == email) || $2 == "AKolenda") { print $1 }' "$scratch/authors")
+          if [ -n "$bad" ]; then
+              echo "Commits with an author other than addition-official or AKolenda:"
+              printf '%s\n' "$bad"
+              exit 1
+          fi
+          echo "Every author is addition-official or AKolenda."
+
+      - name: Install the build and packaging tools (prepare-container.sh debian)
+        id: prepare
+        # Also adds the unprivileged user "builder" and gives it the checkout.
+        run: sh native/packaging/ci/prepare-container.sh debian
+
+      - name: Restore Cargo's registry and target folder
+        id: restore-cache
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: |
+            /home/builder/.cargo/registry/index
+            /home/builder/.cargo/registry/cache
+            /home/builder/.cargo/git/db
+            native/target
+          key: fork-test-deb-v1-${{ hashFiles('native/Cargo.lock') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            fork-test-deb-v1-${{ hashFiles('native/Cargo.lock') }}-
+            fork-test-deb-v1-
+
+      - name: Install Rust 1.92.0 with rustup
+        id: rust
+        # 1.92.0 is rust-version in native/Cargo.toml and the toolchain
+        # install-rust.sh makes the default; only the stable toolchain that
+        # the Arch package needs is left out.
+        run: |
+          mkdir -p /home/builder/.cargo native/target
+          chown -R builder: /home/builder native/target
+          # shellcheck disable=SC2016 # $HOME is builder's, so it expands in that shell.
+          runuser -u builder -- sh -euc '
+              if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
+                  curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs \
+                      | sh -s -- -y --profile minimal --default-toolchain none --no-modify-path
+              fi
+              "$HOME/.cargo/bin/rustup" toolchain install 1.92.0 --profile minimal
+              "$HOME/.cargo/bin/rustup" default 1.92.0
+              "$HOME/.cargo/bin/cargo" --version'
+
+      - name: Build and verify the stable deb (build-package.sh deb)
+        id: build-deb
+        # The same command as the Debian leg of checks.yml: build_deb.py
+        # (cargo build --release --locked, no cargo clean) and verify_deb.py.
+        run: runuser -u builder -- sh native/packaging/ci/build-package.sh deb "$OX_APP_ID"
+
+      - name: Leave the workspace crates out of the cache
+        id: prune-cache
+        if: ${{ !cancelled() && steps.restore-cache.outcome == 'success' && (steps.build-deb.outcome == 'success' || steps.build-deb.outcome == 'failure') }}
+        # A fresh checkout makes every workspace source newer than its build,
+        # so Cargo rebuilds ox-core and ox-app each time anyway; caching only
+        # the dependencies keeps the cache small.
+        run: |
+          release=native/target/release
+          if [ -d "$release" ]; then
+              rm -rf "$release"/.fingerprint/ox-* "$release"/build/ox-* \
+                  "$release"/deps/ox_* "$release"/deps/libox_* "$release"/deps/openxplorer* \
+                  "$release"/openxplorer-* "$release"/incremental
+          fi
+          du -sh native/target /home/builder/.cargo/registry 2>/dev/null || true
+
+      - name: Save Cargo's registry and target folder
+        id: save-cache
+        if: ${{ !cancelled() && steps.prune-cache.outcome == 'success' }}
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: |
+            /home/builder/.cargo/registry/index
+            /home/builder/.cargo/registry/cache
+            /home/builder/.cargo/git/db
+            native/target
+          key: fork-test-deb-v1-${{ hashFiles('native/Cargo.lock') }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Give the package the test version
+        id: repack
+        env:
+          OX_VERSION: ${{ steps.names.outputs.version }}
+          OX_DEB_VERSION: ${{ steps.names.outputs.deb_version }}
+        # Only the Version field changes, as in the earlier test debs; the
+        # files, their modes, times and DEBIAN/md5sums stay as built.
+        run: |
+          built="dist/native/openxplorer_${OX_VERSION}_all.deb"
+          deb="openxplorer_${OX_DEB_VERSION}_all.deb"
+          test -s "$built"
+          work=$(mktemp -d)
+          dpkg-deb -R "$built" "$work/root"
+          sed -i "s/^Version: .*/Version: $OX_DEB_VERSION/" "$work/root/DEBIAN/control"
+          mkdir -p out
+          rm -f "out/$deb"
+          SOURCE_DATE_EPOCH=$(git log -1 --format=%ct) dpkg-deb --root-owner-group \
+              --uniform-compression -Zxz --build "$work/root" "out/$deb" >&2
+          test "$(dpkg-deb -f "out/$deb" Version)" = "$OX_DEB_VERSION"
+          # The same files as the verified package, and the same control
+          # fields but Version.
+          cmp <(dpkg-deb --fsys-tarfile "$built" | tar -tv --full-time) \
+              <(dpkg-deb --fsys-tarfile "out/$deb" | tar -tv --full-time)
+          cmp <(dpkg-deb -f "$built" | grep -v '^Version:') \
+              <(dpkg-deb -f "out/$deb" | grep -v '^Version:')
+          sha256=$(sha256sum "out/$deb" | cut -d ' ' -f 1)
+          {
+              echo "deb=$deb"
+              echo "deb_version=$OX_DEB_VERSION"
+              echo "sha256=$sha256"
+          } | tee -a "$GITHUB_OUTPUT"
+
+      - name: Check the package's contents and postinst
+        id: checks
+        env:
+          OX_DEB: out/${{ steps.repack.outputs.deb }}
+        run: |
+          # No Windows icon, cursor, font or program files by name...
+          dpkg-deb -c "$OX_DEB" > /tmp/ox-listing
+          echo "$(wc -l < /tmp/ox-listing) entries."
+          if grep -Ei '\.(ttf|otf|ttc|fon|woff2?|ico|cur|exe|dll|mun|res)( ->.*)?$' /tmp/ox-listing; then
+              echo "::error::The package has the Windows or font files listed above."
+              exit 1
+          fi
+          # ...nor by header: PE (MZ), TrueType, OpenType, font collection, WOFF.
+          python3 - "$OX_DEB" <<'EOF'
+          import io, subprocess, sys, tarfile
+          magics = {b'MZ': 'PE', b'\x00\x01\x00\x00': 'TrueType', b'true': 'TrueType',
+                    b'typ1': 'TrueType', b'OTTO': 'OpenType', b'ttcf': 'font collection',
+                    b'wOFF': 'WOFF', b'wOF2': 'WOFF2'}
+          payload = subprocess.run(['dpkg-deb', '--fsys-tarfile', sys.argv[1]],
+                                   capture_output=True, check=True).stdout
+          found, files = [], 0
+          with tarfile.open(fileobj=io.BytesIO(payload)) as archive:
+              for member in archive:
+                  if not member.isfile():
+                      continue
+                  files += 1
+                  head = archive.extractfile(member).read(4)
+                  for magic, kind in magics.items():
+                      if head.startswith(magic):
+                          found.append(f'{member.name}: {kind} header')
+          print(f'{files} files read; {len(found)} with a PE or font header.')
+          for line in found:
+              print(line)
+          sys.exit(1 if found else 0)
+          EOF
+          # The postinst writes the polkit rule only inside the test that the
+          # record /var/lib/openxplorer/install-updates-without-password is
+          # not "off".
+          control=$(mktemp -d)
+          dpkg-deb -e "$OX_DEB" "$control"
+          postinst="$control/postinst"
+          # shellcheck disable=SC2016 # The postinst's literal text.
+          grep -q 'record="$DPKG_ROOT/var/lib/openxplorer/install-updates-without-password"' "$postinst"
+          # shellcheck disable=SC2016 # The postinst's literal text.
+          grep -q 'if \[ "$(cat "$record" 2>/dev/null || true)" != off \]; then' "$postinst"
+          awk '
+              /if \[ "\$\(cat "\$record" 2>\/dev\/null \|\| true\)" != off \]; then/ { guard = depth + 1 }
+              /^[[:space:]]*if / { depth++ }
+              /"\$rule(\.dpkg-new)?"/ && !/^[[:space:]]*rule=/ {
+                  writes++
+                  if (!(guard && depth >= guard)) { print "Unguarded: " $0; bad = 1 }
+              }
+              /^[[:space:]]*fi([[:space:]]|$)/ { if (depth == guard) guard = 0; depth-- }
+              END {
+                  if (!writes) { print "No write of the polkit rule found."; exit 1 }
+                  if (bad) exit 1
+                  printf "%d lines write the polkit rule, all after the \"off\" test.\n", writes
+              }' "$postinst"
+
+      - name: Upload the deb as an artifact
+        id: upload-deb
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-deb
+          path: out/${{ steps.repack.outputs.deb }}
+          if-no-files-found: error
+
+      - name: Keep the failing step's name and last log lines
+        if: failure()
+        shell: bash {0}
+        env:
+          OX_ACTION_FAILED: >-
+            ${{ (steps.checkout.outcome == 'failure' && 'checkout')
+            || (steps.restore-cache.outcome == 'failure' && 'restore-cache')
+            || (steps.save-cache.outcome == 'failure' && 'save-cache')
+            || (steps.upload-deb.outcome == 'failure' && 'upload-deb')
+            || '' }}
+        run: |
+          mkdir -p /tmp/ox-failure
+          id=$(cat /tmp/ox-logs/failed 2>/dev/null || true)
+          id=${id:-${OX_ACTION_FAILED:-setup}}
+          case "$id" in
+              setup) title='Install Git and the step logger' ;;
+              checkout) title='Check out the branch' ;;
+              names) title='Name the package after the branch' ;;
+              authors) title='Check the commit authors' ;;
+              prepare) title='Install the build and packaging tools' ;;
+              restore-cache) title="Restore Cargo's registry and target folder" ;;
+              rust) title='Install Rust 1.92.0' ;;
+              build-deb) title='Build and verify the stable deb (build-package.sh deb)' ;;
+              prune-cache) title='Leave the workspace crates out of the cache' ;;
+              save-cache) title="Save Cargo's registry and target folder" ;;
+              repack) title='Give the package the test version' ;;
+              checks) title="Check the package's contents and postinst" ;;
+              upload-deb) title='Upload the deb as an artifact' ;;
+              *) title=$id ;;
+          esac
+          {
+              printf 'build / %s (%s)\n' "$id" "$title"
+              if [ -s "/tmp/ox-logs/$id.log" ]; then
+                  sed -E 's/\x1b\[[0-9;?]*[ -\/]*[@-~]//g; s/\r//g' "/tmp/ox-logs/$id.log" | tail -n 30
+              else
+                  echo '(an action step: its log is in the run)'
+              fi
+          } > /tmp/ox-failure/build.txt
+          cat /tmp/ox-failure/build.txt
+
+      - name: Upload the failure report
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ox-failure-build
+          path: /tmp/ox-failure/build.txt
+
+  publish:
+    name: Publish claude/test-combined-NN-deb
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    outputs:
+      deb_commit: ${{ steps.push.outputs.deb_commit }}
+    env:
+      OX_DEB: ${{ needs.build.outputs.deb }}
+      OX_DEB_VERSION: ${{ needs.build.outputs.deb_version }}
+      OX_SHA256: ${{ needs.build.outputs.sha256 }}
+      OX_HEAD: ${{ needs.build.outputs.head }}
+    steps:
+      - name: Download the deb
+        id: download
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: test-deb
+          path: deb
+
+      - name: Force-push the deb as the branch's single commit
+        id: push
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/ox-logs
+          exec > >(tee /tmp/ox-logs/push.log) 2>&1
+          deb_branch="claude/$OX_BRANCH-deb"
+          (cd deb && printf '%s  %s\n' "$OX_SHA256" "$OX_DEB" | sha256sum -c -)
+          tree=$(mktemp -d)
+          git init -q "$tree"
+          cp "deb/$OX_DEB" "$tree/"
+          export GIT_AUTHOR_NAME="$OX_IDENTITY_NAME" GIT_AUTHOR_EMAIL="$OX_IDENTITY_EMAIL"
+          export GIT_COMMITTER_NAME="$OX_IDENTITY_NAME" GIT_COMMITTER_EMAIL="$OX_IDENTITY_EMAIL"
+          git -C "$tree" add -- "$OX_DEB"
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          git -C "$tree" commit -q -F - <<EOF
+          $OX_BRANCH deb $OX_DEB_VERSION ($OX_APP_ID) from $OX_BRANCH ${OX_HEAD:0:8}
+
+          SHA256: $OX_SHA256  $OX_DEB
+          Built by GitHub Actions from $OX_HEAD in $run_url
+          EOF
+          git -C "$tree" ls-tree -r --name-only HEAD
+          auth=$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w0)
+          echo "::add-mask::$auth"
+          pushed=
+          for attempt in 1 2 3 4; do
+              if git -C "$tree" -c "http.$GITHUB_SERVER_URL/.extraheader=AUTHORIZATION: basic $auth" \
+                  push --force "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" "HEAD:refs/heads/$deb_branch"; then
+                  pushed=1
+                  break
+              fi
+              sleep $((attempt * 5))
+          done
+          test -n "$pushed"
+          echo "deb_commit=$(git -C "$tree" rev-parse HEAD)" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Keep the failing step's name and last log lines
+        if: failure()
+        shell: bash
+        env:
+          OX_DOWNLOAD: ${{ steps.download.outcome }}
+        run: |
+          mkdir -p /tmp/ox-failure
+          {
+              if [ "$OX_DOWNLOAD" = failure ]; then
+                  echo 'publish / download (Download the deb)'
+                  echo '(an action step: its log is in the run)'
+              else
+                  echo 'publish / push (Force-push the deb as the branch'"'"'s single commit)'
+                  sed -E 's/\r//g' /tmp/ox-logs/push.log 2>/dev/null | tail -n 30
+              fi
+          } > /tmp/ox-failure/publish.txt
+          cat /tmp/ox-failure/publish.txt
+
+      - name: Upload the failure report
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ox-failure-publish
+          path: /tmp/ox-failure/publish.txt
+
+  status:
+    name: Write the status file
+    needs: [build, publish]
+    # Not for a build that a newer push cancelled, nor outside the fork.
+    if: ${{ !cancelled() && needs.build.result != 'skipped' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download the failure report
+        if: needs.build.result != 'success' || needs.publish.result != 'success'
+        continue-on-error: true
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: ox-failure-*
+          path: failure
+          merge-multiple: true
+
+      - name: Update the branch's file on the status branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OX_BUILD: ${{ needs.build.result }}
+          OX_PUBLISH: ${{ needs.publish.result }}
+          OX_HEAD: ${{ needs.build.outputs.head }}
+          OX_DEB: ${{ needs.build.outputs.deb }}
+          OX_SHA256: ${{ needs.build.outputs.sha256 }}
+          OX_DEB_COMMIT: ${{ needs.publish.outputs.deb_commit }}
+        run: |
+          set -euo pipefail
+          python3 - <<'EOF'
+          import base64, json, os, re, subprocess, sys, time
+          from pathlib import Path
+
+          env = os.environ
+          branch = env['OX_BRANCH']
+          if not re.fullmatch(r'test-combined-[A-Za-z0-9][A-Za-z0-9.-]*', branch) or branch.endswith('-deb'):
+              sys.exit(f'{branch} is not a test-combined-NN branch; no status file written.')
+          path = f'{branch}.txt'
+          repository = env['GITHUB_REPOSITORY']
+          run_url = f"{env['GITHUB_SERVER_URL']}/{repository}/actions/runs/{env['GITHUB_RUN_ID']}"
+          if env['GITHUB_RUN_ATTEMPT'] != '1':
+              run_url += f"/attempts/{env['GITHUB_RUN_ATTEMPT']}"
+          head = env['OX_HEAD'] or (env['GITHUB_SHA'] if env['GITHUB_EVENT_NAME'] == 'push' else 'unknown')
+
+          if env['OX_BUILD'] == 'success' and env['OX_PUBLISH'] == 'success':
+              header = [
+                  'STATUS: DONE (deb ready; built by GitHub Actions)',
+                  f'HEAD: {branch} {head}',
+                  f"DEB: claude/{branch}-deb {env['OX_DEB_COMMIT']}",
+                  f"  {env['OX_DEB']} ({env['OX_APP_ID']})",
+                  f"SHA256: {env['OX_SHA256']}",
+                  f'RUN: {run_url}',
+              ]
+              message = f'status: {branch} deb built by GitHub Actions'
+          else:
+              reports = sorted(Path('failure').glob('*.txt')) if Path('failure').is_dir() else []
+              if reports:
+                  lines = reports[0].read_text(errors='replace').splitlines()
+                  step, log = lines[0], lines[1:]
+              else:
+                  failed = 'build' if env['OX_BUILD'] != 'success' else 'publish'
+                  step, log = f'{failed} (no failure report; see the run)', []
+              header = [
+                  f'STATUS: FAILED (GitHub Actions deb build; step: {step})',
+                  f'HEAD: {branch} {head}',
+                  f'STEP: {step}',
+                  f'RUN: {run_url}',
+                  'LOG (last 30 lines of the failing step):',
+                  *(f'  {line}' for line in log[-30:]),
+              ]
+              message = f'status: {branch} deb build failed in GitHub Actions'
+
+          # The header this workflow writes replaces the leading block of
+          # these fields; everything a session wrote below it stays.
+          fields = re.compile(r'(STATUS|HEAD|DEB|SHA256|RUN|STEP|LOG)\b.*')
+
+          def updated(old):
+              lines = old.splitlines()
+              index = 0
+              while index < len(lines) and (fields.match(lines[index])
+                                            or (index and lines[index].startswith('  '))):
+                  index += 1
+              rest = lines[index:]
+              while rest and not rest[0].strip():
+                  rest.pop(0)
+              return '\n'.join(header + ([''] + rest if rest else [])) + '\n'
+
+          def api(method, endpoint, body=None):
+              command = ['gh', 'api', '-X', method, endpoint]
+              if body is not None:
+                  command += ['--input', '-']
+              return subprocess.run(command, input=json.dumps(body) if body is not None else None,
+                                    capture_output=True, text=True)
+
+          identity = {'name': env['OX_IDENTITY_NAME'], 'email': env['OX_IDENTITY_EMAIL']}
+          for attempt in range(1, 7):
+              current = api('GET', f'repos/{repository}/contents/{path}?ref=status')
+              body = {'message': message, 'branch': 'status', 'committer': identity, 'author': identity}
+              old = ''
+              if current.returncode == 0:
+                  data = json.loads(current.stdout)
+                  old = base64.b64decode(data['content']).decode('utf-8', errors='replace')
+                  body['sha'] = data['sha']
+              elif 'Not Found' not in current.stdout + current.stderr:
+                  print(current.stdout, current.stderr, file=sys.stderr)
+                  time.sleep(attempt * 5)
+                  continue
+              text = updated(old)
+              body['content'] = base64.b64encode(text.encode()).decode()
+              result = api('PUT', f'repos/{repository}/contents/{path}', body)
+              if result.returncode == 0:
+                  print(f'Wrote {path} on the status branch:\n')
+                  print('\n'.join(header))
+                  sys.exit(0)
+              # Another commit to the status branch came first; read it again.
+              print(result.stdout, result.stderr, file=sys.stderr)
+              time.sleep(attempt * 5)
+          sys.exit(f'Could not write {path} on the status branch.')
+          EOF
