@@ -255,6 +255,10 @@ fn every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages() {
         "Music icon",
         "Code icon",
         "File name endings",
+        // Previous Versions' Restore as Windows', off by default.
+        "Restore over the original (Windows)",
+        // Search words from an extension's start, as Windows', off by default.
+        "Match words at the start of file extensions (like Windows)",
         // The Details view's sort arrow (VIEW-014).
         "Column header style",
         // The owner's opt-in for Windows' permanent delete on removable

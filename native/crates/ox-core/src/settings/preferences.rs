@@ -287,6 +287,13 @@ pub struct Preferences {
     /// (`read.rs`). Stored only when set.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub item_counts_chosen: bool,
+    /// Thumbnails in network folders were turned on in this app since
+    /// 2.0.18, which stored `viewOptions.remotePreviews: true`, its short-
+    /// lived default, whenever any view option changed. Without this mark
+    /// that value gives way to icons in network folders, the default
+    /// again, once (`read.rs`). Stored only when set.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub remote_previews_chosen: bool,
     /// The classic menu was chosen in this app. Files the Python app or an
     /// older release wrote store `"win10"`, its default, whether chosen or
     /// not, so without this mark that value gives way to the compact menu
@@ -397,6 +404,20 @@ pub struct Preferences {
     /// `recycleReplacedFiles`, only when off.
     #[serde(skip_serializing_if = "is_true")]
     pub recycle_replaced_files: bool,
+    /// Previous Versions' Restore copies the version back over the item,
+    /// asking "Replace or Skip Files" as a paste does, as Windows 11's
+    /// Restore does. Off by default, the owner's choice: Restore then
+    /// asks for another folder and never touches the live item. Stored as
+    /// `restoreOverOriginal`, only when on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub restore_over_original: bool,
+    /// A search word also matches from the start of a name's extension,
+    /// as Windows 11's search does: `doc` finds `report.docx`. Off by
+    /// default, the owner's rule: a word reaches into an extension only
+    /// as the whole extension. Stored as `extensionWordStarts`, only when
+    /// on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub extension_word_starts: bool,
     /// Explicitly enabled installed service actions, keyed by definition digest.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub enabled_service_actions: Vec<String>,
@@ -681,6 +702,7 @@ impl Default for Preferences {
             f6_like_windows: false,
             classic_menu_chosen: false,
             item_counts_chosen: false,
+            remote_previews_chosen: false,
             network_interval: DEFAULT_NETWORK_INTERVAL,
             text_size: DEFAULT_TEXT_SIZE,
             sidebar_width: None,
@@ -704,6 +726,8 @@ impl Default for Preferences {
             run_installed_launchers: false,
             progress_details: false,
             recycle_replaced_files: true,
+            restore_over_original: false,
+            extension_word_starts: false,
             enabled_service_actions: Vec::new(),
             desktop_font: false,
             hide_sidebar: false,
@@ -812,6 +836,8 @@ impl Preferences {
             update.delete_removable_permanently,
         );
         replace_if_some(&mut self.recycle_replaced_files, update.recycle_replaced_files);
+        replace_if_some(&mut self.restore_over_original, update.restore_over_original);
+        replace_if_some(&mut self.extension_word_starts, update.extension_word_starts);
         replace_if_some(&mut self.confirm_close_tabs, update.confirm_close_tabs);
         replace_if_some(&mut self.ask_to_run_programs, update.ask_to_run_programs);
         replace_if_some(&mut self.run_installed_launchers, update.run_installed_launchers);
@@ -1024,6 +1050,7 @@ impl Preferences {
         let columns_changed = options.details_columns != self.view_options.details_columns;
         self.view_options = options.clone();
         self.item_counts_chosen = options.count_folder_items;
+        self.remote_previews_chosen = options.remote_previews;
         columns_changed
     }
 
@@ -1178,6 +1205,10 @@ pub struct PreferencesUpdate {
     pub delete_removable_permanently: Option<bool>,
     /// See [`Preferences::recycle_replaced_files`].
     pub recycle_replaced_files: Option<bool>,
+    /// See [`Preferences::restore_over_original`].
+    pub restore_over_original: Option<bool>,
+    /// See [`Preferences::extension_word_starts`].
+    pub extension_word_starts: Option<bool>,
     /// Ask before closing a window with several tabs.
     pub confirm_close_tabs: Option<bool>,
     /// Ask whether to run a program or script that is opened.
@@ -1307,6 +1338,10 @@ impl PreferencesUpdate {
     /// # Errors
     ///
     /// [`SettingsError::Invalid`] if `value` is not an object.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one line per stored preference, which reads best as one list"
+    )]
     pub fn from_json(value: &Value) -> Result<Self, SettingsError> {
         let Some(values) = value.as_object() else {
             return Err(SettingsError::invalid(crate::i18n::gettext(
@@ -1347,6 +1382,8 @@ impl PreferencesUpdate {
             confirm_empty_trash: flag("confirmEmptyTrash"),
             delete_removable_permanently: flag("deleteRemovablePermanently"),
             recycle_replaced_files: flag("recycleReplacedFiles"),
+            restore_over_original: flag("restoreOverOriginal"),
+            extension_word_starts: flag("extensionWordStarts"),
             confirm_close_tabs: flag("confirmCloseTabs"),
             ask_to_run_programs: flag("askToRunPrograms"),
             run_installed_launchers: flag("runInstalledLaunchers"),

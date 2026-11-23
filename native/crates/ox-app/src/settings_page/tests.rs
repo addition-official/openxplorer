@@ -992,6 +992,65 @@ fn the_replaced_files_switch_is_on_by_default_and_saves_only_its_turning_off() {
     );
 }
 
+/// "Restore over the original (Windows)" is in Files & folders, off by
+/// default (the owner's choice), and saves only its turning on, which
+/// Previous Versions' Restore follows.
+///
+/// parity: PROP-025
+#[gtk::test]
+fn the_restore_over_the_original_switch_is_off_by_default_and_saves_only_its_turning_on() {
+    let settings = SettingsTest::open();
+    let switch = switch_of(&settings.row("Restore over the original (Windows)"));
+    assert!(!switch.is_active(), "off by default");
+    assert!(!settings.test.window.restores_over_original());
+
+    switch.set_active(true);
+    wait_until("the choice to be saved", || {
+        settings.saved_preferences().restore_over_original
+    });
+    let stored = std::fs::read_to_string(settings.test.settings_directory().join("settings.json")).unwrap();
+    assert!(stored.contains("restoreOverOriginal"), "stored when on: {stored}");
+    wait_until("the window to follow", || {
+        settings.test.window.restores_over_original()
+    });
+
+    switch.set_active(false);
+    wait_until("the choice to be saved", || {
+        !settings.saved_preferences().restore_over_original
+    });
+    let stored = std::fs::read_to_string(settings.test.settings_directory().join("settings.json")).unwrap();
+    assert!(
+        !stored.contains("restoreOverOriginal"),
+        "stored only when on: {stored}"
+    );
+}
+
+/// Settings > Search > "Match words at the start of file extensions (like
+/// Windows)" is off by default, the owner's rule, and the searches started
+/// after it is turned on match words from an extension's start.
+///
+/// parity: SRCH-004
+#[gtk::test]
+fn the_extension_word_switch_is_off_by_default_and_reaches_the_searches() {
+    let settings = SettingsTest::open();
+    let title = "Match words at the start of file extensions (like Windows)";
+    let switch = switch_of(&settings.row_in(Category::Search, title));
+    assert!(!switch.is_active(), "off by default");
+    let finds_docx = || ox_core::search::NamePattern::new("doc").matches("report.docx");
+    assert!(!finds_docx());
+
+    switch.set_active(true);
+    wait_until("the choice to be saved", || {
+        settings.saved_preferences().extension_word_starts
+    });
+    wait_until("the searches to follow", finds_docx);
+    let stored = std::fs::read_to_string(settings.test.settings_directory().join("settings.json")).unwrap();
+    assert!(stored.contains("extensionWordStarts"), "stored when on: {stored}");
+
+    switch.set_active(false);
+    wait_until("the searches to follow", || !finds_docx());
+}
+
 /// "Show thumbnails in network folders" is off by default, as Windows 11
 /// File Explorer shows only icons in network folders, says so in its ⓘ,
 /// and is stored only once turned on: turning it off again leaves the
