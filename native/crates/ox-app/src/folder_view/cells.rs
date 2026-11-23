@@ -12,7 +12,9 @@
 
 mod cell_owners;
 mod content_columns;
+mod tile_lines;
 use content_columns::ContentColumns;
+use tile_lines::TileLines;
 mod custom_icon;
 mod expander;
 mod folder_picture;
@@ -78,12 +80,16 @@ const COMPACT_NAME_CHARS: i32 = 28;
 /// when it is wider.
 const SMALL_ICONS_NAME_CHARS: i32 = 1;
 
+/// A tile's name while it runs onto a second line (folder-views.css).
+const WRAPPED_NAME_CLASS: &str = "wrapped-name";
+
 /// Lines of name a tile shows (`.tile-name{max-height:33px}` at a 1.35
 /// line height).
 const TILE_NAME_LINES: i32 = 2;
 
-/// Gap between the icon and the text of Tiles (VIEW-071).
-const LINES_ICON_GAP: i32 = 10;
+/// Gap between a tile's icon and its text: Windows 11's text starts 58
+/// pixels into the tile, 6 after its 48-pixel icon (VIEW-071).
+const LINES_ICON_GAP: i32 = 6;
 
 /// Gap between Content's icon and its name: Windows 11 starts the name
 /// 11 pixels right of a folder icon's ink.
@@ -767,8 +773,23 @@ impl FileCell {
         }
         lines.append(&imp.kind);
         if !content {
-            self.append(lines);
+            // A tile's name runs onto a second line and is cut with "..."
+            // after it, as Windows 11's Tiles; the size then gives way, so
+            // a tile keeps three lines (measured on its capture).
+            label.set_single_line_mode(false);
+            label.set_wrap(true);
+            label.set_wrap_mode(pango::WrapMode::WordChar);
+            label.set_lines(TILE_NAME_LINES);
             lines.append(&imp.size);
+            let cell = self.downgrade();
+            let frame = TileLines::new(lines, move || {
+                if let Some(cell) = cell.upgrade() {
+                    cell.make_room_for_a_long_tile_name();
+                }
+            });
+            frame.set_hexpand(true);
+            frame.set_valign(gtk::Align::Center);
+            self.append(&frame);
             return;
         }
         let pictures = &imp.picture_column;
@@ -971,6 +992,29 @@ impl FileCell {
                 .is_some_and(|value| value.is_visible());
             line.set_visible(shows);
         }
+    }
+
+    /// Hides a tile's size while its name takes two lines, so the tile
+    /// keeps the three lines Windows 11's has: name, name, type. GTK has
+    /// just laid the name out ([`TileLines`]); the size changes after this
+    /// allocation.
+    fn make_room_for_a_long_tile_name(&self) {
+        let imp = self.imp();
+        let wraps = imp.label.layout().line_count() > 1;
+        let shows_size = !wraps && !imp.size.text().is_empty();
+        if imp.size.is_visible() == shows_size && imp.label.has_css_class(WRAPPED_NAME_CLASS) == wraps {
+            return;
+        }
+        let label = imp.label.downgrade();
+        let size = imp.size.downgrade();
+        glib::idle_add_local_once(move || {
+            if let Some(size) = size.upgrade() {
+                size.set_visible(shows_size);
+            }
+            if let Some(label) = label.upgrade() {
+                toggle_class(&label, WRAPPED_NAME_CLASS, wraps);
+            }
+        });
     }
 
     /// The type, size and date modified the cell shows beside the name,

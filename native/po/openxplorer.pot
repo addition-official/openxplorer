@@ -3275,6 +3275,10 @@ msgid "Icons from Windows icon files"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "In the details view, Name starts 256 pixels wide, so the rows and their selection end after the last column, as in Windows 11. Off: Name fills the room the other columns leave."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "In the details view, a thin line separates the column titles from the list. Windows 11 draws none."
 msgstr ""
 
@@ -3288,6 +3292,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs crates/ox-app/src/theme/appearance_button.rs
 msgid "Light"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "Name column starts at Windows' width (256 px)"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
@@ -3473,6 +3481,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
 msgid "language languages translation translations locale localization interface display chinese english region"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "name column width wide fill details view selection row windows 256"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs

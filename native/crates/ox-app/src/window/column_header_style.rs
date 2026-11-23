@@ -31,6 +31,19 @@ impl BrowserWindow {
         toggle_class(self, WINDOWS_CLASS, style == ColumnHeaderStyle::Windows);
     }
 
+    /// Starts the Name column at Windows' width or lets it fill the room,
+    /// in every pane, as the preferences say.
+    pub(super) fn follow_name_column_preference(&self) {
+        let on = self
+            .context()
+            .settings_data()
+            .preferences
+            .name_column_windows_width;
+        for pane in self.folder_panes() {
+            pane.details().set_name_starts_at_windows_width(on);
+        }
+    }
+
     /// Draws or leaves out the line under the column titles, as the
     /// preferences say, at start and whenever Settings changes it.
     pub(super) fn follow_column_title_line_preference(&self) {

@@ -65,6 +65,10 @@ const fn default_width(column: SortColumn) -> Option<u32> {
     }
 }
 
+/// The width Windows 11 gives the Name column at 100% text, when Settings
+/// asks for it ("Name column starts at Windows' width").
+pub(crate) const WINDOWS_NAME_WIDTH: u32 = 256;
+
 /// The text size, in percent, at which `column`'s default width was
 /// chosen: the dates' at 125%, which their default already fits, the
 /// others' at 100%.
