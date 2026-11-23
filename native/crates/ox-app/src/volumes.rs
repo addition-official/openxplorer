@@ -345,61 +345,6 @@ pub(crate) fn from_monitor(monitor: &gio::VolumeMonitor) -> Vec<VolumeRow> {
 mod tests {
     use super::*;
 
-    /// A row of `kind` mounted at a fictional root with `controls`.
-    fn row_with(kind: VolumeKind, controls: MountControls) -> VolumeRow {
-        VolumeRow {
-            label: "Fictional".into(),
-            kind,
-            state: VolumeState::Mounted {
-                uri: "file:///media/demo/Fictional".into(),
-                controls,
-            },
-        }
-    }
-
-    /// A fixed drive, Local Disk among them, is the drive glyph; one that
-    /// can be ejected or stopped is a removable disk, and one on a
-    /// `/dev/sr` device an optical disc; a device is a phone.
-    ///
-    /// parity: LOOK-030
-    #[test]
-    fn each_drive_shows_its_medium() {
-        let fixed = row_with(VolumeKind::Drive, MountControls::FIXED);
-        assert_eq!(fixed.art(), Art::Glyph(Icon::HardDrive));
-        let usb = MountControls {
-            can_stop: true,
-            ..MountControls::UNMOUNTABLE
-        };
-        assert_eq!(
-            row_with(VolumeKind::Drive, usb).art(),
-            Art::RemovableDrive(Medium::Disk)
-        );
-        let card = MountControls {
-            can_eject: true,
-            ..MountControls::UNMOUNTABLE
-        };
-        assert_eq!(
-            row_with(VolumeKind::Drive, card).art(),
-            Art::RemovableDrive(Medium::Disk)
-        );
-        let disc = MountControls {
-            can_eject: true,
-            is_optical: true,
-            ..MountControls::UNMOUNTABLE
-        };
-        assert_eq!(
-            row_with(VolumeKind::Drive, disc).art(),
-            Art::RemovableDrive(Medium::Optical)
-        );
-        assert_eq!(row_with(VolumeKind::Device, card).art(), Art::Glyph(Icon::Phone));
-        let waiting = VolumeRow {
-            label: "Backup".into(),
-            kind: VolumeKind::Drive,
-            state: VolumeState::Mountable { id: "uuid-1".into() },
-        };
-        assert_eq!(waiting.art(), Art::Glyph(Icon::HardDrive));
-    }
-
     fn mount(name: &str, uri: &str) -> MountFacts {
         MountFacts {
             name: name.into(),

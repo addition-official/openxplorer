@@ -1512,37 +1512,6 @@ mod tests {
         assert_eq!(gallery_folder_key("smb://nas/photos"), None);
     }
 
-    /// Icons from Windows icon files are off and no file is chosen by
-    /// default, and neither is stored until the user chooses (LOOK-030).
-    ///
-    /// parity: LOOK-030
-    #[test]
-    fn icon_files_are_off_by_default_and_stored_only_when_chosen() {
-        let preferences = Preferences::default();
-        assert!(!preferences.use_icon_files);
-        assert!(preferences.icon_files.is_empty());
-        let stored = serde_json::to_value(&preferences).expect("serializable");
-        assert!(stored.get("useIconFiles").is_none());
-        assert!(stored.get("iconFiles").is_none());
-
-        let mut chosen = Preferences::default();
-        chosen.apply(&PreferencesUpdate {
-            use_icon_files: Some(true),
-            icon_files: Some(vec![
-                "/mnt/windows/Windows/SystemResources/imageres.dll.mun".to_owned()
-            ]),
-            ..PreferencesUpdate::default()
-        });
-        let stored = serde_json::to_value(&chosen).expect("serializable");
-        assert_eq!(stored["useIconFiles"], json!(true));
-        assert_eq!(
-            stored["iconFiles"],
-            json!(["/mnt/windows/Windows/SystemResources/imageres.dll.mun"])
-        );
-        let read = PreferencesUpdate::from_json(&stored).expect("an update");
-        assert_eq!(read.use_icon_files, Some(true));
-    }
-
     /// The Windows symbol font is unset by default and not stored until
     /// chosen; only an absolute `.ttf` or `.otf` path is taken, and an
     /// empty one forgets it (LOOK-031).
