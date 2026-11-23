@@ -1,0 +1,54 @@
+STATUS: DONE
+HEAD: test-combined-51 ca458a05de (scope tree); branch commits listed below
+QUESTION: none
+NOTE: test-combined-51 adds 393 tests over upstream main 5d21fd3e: 213 KEEP, 180 CUT (inventory with a reason per test in trim-tests.md). Cuts are applied on 26 of the 27 listed branches (pass-1-copy-move has nothing to cut) and pushed without force; no branch skipped. Every test in 5d21fd3e is byte-identical on every branch (checked per file). A single run of the edited test binaries took 2021 s before and 2010 s after: cutting 180 tests saved about 11 s (0.5%), because the run time sits in the long GTK window tests, not in the small ones cut.
+
+TIMING (one run each, trimmed vs untrimmed test-combined-51, same machine, check.py isolation: xvfb-run + dbus-run-session, debuginfo off)
+  binary                 tests before -> after   time before -> after
+  ox_app (lib)            2897 -> 2776          2001.4 s -> 1994.7 s
+  ox_core (lib)           1413 -> 1357            18.2 s -> 14.1 s
+  integration_opening       33 -> 32               0.1 s -> 0.1 s
+  ops_rename                 9 -> 8                0.1 s -> 0.1 s
+  ops_undo                  14 -> 13               1.2 s -> 1.2 s
+  total                  4366 -> 4186        2021.1 s -> 2010.2 s
+  Both runs failed the same 21 tests (19 ox_app, 2 ox_core). They also fail with nothing cut. Most come from running as root in this container, where read-only folders and fstab stay writable, plus one Python clipboard check and the decoder sandbox (picture_guard::decoder::tests::a_decoder_that_died_while_idle_is_replaced_not_refused, a KEEP test).
+
+PER BRANCH  owned = tests whose adding commit is most specific to this branch (added / kept / cut); applied = cuts removed by this branch's commit, which also covers tests it carries from stacked branches
+  pass-1-copy-move           owned   5 /   5 /   0   applied   0   commits -
+  pass-2-undo-redo           owned   5 /   4 /   1   applied   1   commits d306a694
+  pass-3-rename              owned  16 /  11 /   5   applied   6   commits b519908e
+  pass-4-nav-pane            owned  10 /   6 /   4   applied   8   commits f7fe5215 a4bc4cbc
+  pass-5-address-bar         owned  17 /  10 /   7   applied  14   commits e3632f80
+  pass-6-context-menu        owned  28 /  12 /  16   applied  31   commits 8d0e52bc
+  pass-7-views               owned   1 /   0 /   1   applied 180   commits 91e0a561 69c4ff1c
+  pass-8-open-with           owned   8 /   5 /   3   applied  29   commits 422333ab
+  pass-9-scaling             owned  12 /   4 /   8   applied  43   commits 6788d27a 4170ab59
+  pass-10-home-recent        owned  13 /   8 /   5   applied  65   commits 28559ba0 617f52b4
+  pass-11-new-menu           owned  13 /   6 /   7   applied  72   commits 55f05298 092a31ea
+  pass-12-details-status     owned  13 /   8 /   5   applied  73   commits 3f7c1fe6
+  pass-13-startup            owned  10 /   5 /   5   applied  73   commits fe41e5ed
+  pass-14-tabs-windows       owned   9 /   6 /   3   applied  79   commits a362fb26
+  pass-15-errors             owned  23 /   5 /  18   applied 103   commits 3bae7d90
+  pass-16-clipboard          owned   9 /   4 /   5   applied 108   commits 5972db56
+  pass-17-shortcuts          owned  25 /  16 /   9   applied 117   commits 5e6ebe78
+  pass-18-drives             owned  28 /  19 /   9   applied 124   commits eb555c61
+  pass-19-a11y               owned   2 /   1 /   1   applied 135   commits 3935135c
+  network-like-windows       owned  27 /  15 /  12   applied  55   commits c31578a5
+  sort-header-windows        owned  16 /   7 /   9   applied  31   commits 2a6ceaf5
+  long-a-fuzz                owned   8 /   7 /   1   applied   1   commits 591b77b8
+  long-b-soak                owned  22 /  13 /   9   applied 123   commits 5092246f
+  long-c-thumb-cache         owned   0 /   0 /   0   applied 180   commits 6df77097
+  long-d-doc-previews        owned  26 /  17 /   9   applied   9   commits 992dc06b
+  user-icon-files            owned  47 /  19 /  28   applied  28   commits c59ec8e4
+  claude/owner-audit-fixes   owned   0 /   0 /   0   applied 180   commits ebdeac88
+
+SKIPPED: none
+
+CHECKS (each branch, before its commit): cargo check --workspace --all-targets with no new warnings (helpers and imports only the cut tests used were removed, all #[cfg(test)] or test-module code), cargo fmt --all --check, python3 native/parity/check.py (no done feature lost its last parity marker), main tests byte-identical. On the trimmed combined tree, the build passed and the five edited binaries ran once (above). Not run: clippy, since clippy 1.97 in this container fails on code this job did not touch (lints like Duration units); the full suite; native/tools/check.py end to end.
+
+DEVIATIONS:
+  - pass-7-views, pass-9-scaling, pass-10-home-recent: a second commit, "test: Drop the blank lines the trimmed tests left", fixes trailing blank lines at the end of files that failed cargo fmt --check after the first push.
+  - pass-4-nav-pane, pass-11-new-menu: a second commit, "test: Drop the helpers only the dropped tests used", removes helpers that became unused. The first check missed them because the worktrees shared one cargo target dir and cargo reused another worktree's build. Every later branch was checked after touching its sources, and pass-2/3/7/9/10 were re-checked clean that way.
+  - pass-7-views was rebuilt on top of test-combined-51 by another job, so its commit cuts all 180. user-icon-files and pass-7-views moved during the run, and their cuts were redone on the new tips before committing.
+  - Always KEEP: 19 added tests that rewrite a main test a branch deleted (cutting them would leave less coverage than main), and typed_addresses_go_to_the_top_once_and_the_oldest_drop_off, which main has in another file.
+  - native/parity/features.toml native_note prose still names some cut tests. The parity check does not check those names, and features.toml was left alone because it is not test code. Worth a docs pass.
