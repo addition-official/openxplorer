@@ -5449,7 +5449,7 @@ msgstr ""
 msgid "Settings (Ctrl+,)"
 msgstr ""
 
-#: crates/ox-app/resources/ui/details-pane.ui crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/context_menu/entries.rs
+#: crates/ox-app/resources/ui/details-pane.ui crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/share.rs
 msgid "Share"
 msgstr ""
 
@@ -7727,6 +7727,10 @@ msgstr ""
 msgid "This service action changed or no longer matches the selection. Configure it again."
 msgstr ""
 
+#: crates/ox-app/src/window/share.rs
+msgid "Opening your email app…"
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/share.rs
 msgid "Share can attach up to {count} files to one email."
@@ -9531,6 +9535,10 @@ msgstr ""
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-core/src/integration/drive_format.rs
 msgid "{error} The drive could not be mounted again."
+msgstr ""
+
+#: crates/ox-core/src/integration/email_portal.rs
+msgid "No email app is set up, so the email could not be written. Choose an email app in your desktop's settings, then share again."
 msgstr ""
 
 #: crates/ox-core/src/integration/email_portal.rs

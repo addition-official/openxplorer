@@ -239,11 +239,15 @@ impl BrowserWindow {
             ));
             return;
         }
+        // Said at once, so the click is seen to do something while the
+        // desktop starts the email app.
+        self.show_message(&ox_core::i18n::gettext("Opening your email app…"));
         let window = self.downgrade();
         glib::spawn_future_local(async move {
             let result = email_files(&portal, sources).await;
+            // A failure is a message to read, not a passing toast.
             if let (Err(error), Some(window)) = (result, window.upgrade()) {
-                window.show_message(&error.to_string());
+                window.show_result_dialog(&ox_core::i18n::gettext("Share"), &error.to_string());
             }
         });
     }
