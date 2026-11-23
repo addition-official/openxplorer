@@ -28,7 +28,7 @@ use gtk::{gio, glib};
 use ox_core::integration::{BluetoothSender, ExecutableSearch, Sandbox};
 use ox_core::location::same_location;
 use ox_core::network::local_path;
-use ox_core::ops::{LinkRequest, NamedShortcuts, ShortcutTarget};
+use ox_core::ops::LinkRequest;
 use ox_core::places::KnownFolder;
 use ox_core::transfer::TransferMode;
 
@@ -286,16 +286,18 @@ impl BrowserWindow {
         let request = LinkRequest {
             uris,
             destination_folder: desktop.uri,
+            names: self.shortcut_names(),
         };
         // A Recent row sends its file, but the row stays selected.
         self.run_shortcuts(&request, rows).await;
     }
 
     /// Create shortcut: a shortcut to each selected item beside it, named
-    /// as Windows names it and selected afterwards; where the folder takes
-    /// none, the Desktop, after asking as Windows asks (CMD-040).
+    /// as Windows names it, the items staying selected as in Windows 11;
+    /// where the folder takes none, the Desktop, after asking as Windows
+    /// asks (CMD-040).
     async fn create_shortcuts_here(&self) {
-        let (_, uris) = self.selected_rows_and_sources();
+        let (rows, uris) = self.selected_rows_and_sources();
         if uris.is_empty() {
             return;
         }
@@ -313,20 +315,19 @@ impl BrowserWindow {
             }
             return;
         };
-        let request = NamedShortcuts {
-            targets: uris
-                .into_iter()
-                .map(|uri| ShortcutTarget { uri, name: None })
-                .collect(),
+        let request = LinkRequest {
+            uris,
             destination_folder: folder,
+            names: self.shortcut_names(),
         };
-        self.run_named_shortcuts(&request).await;
+        self.run_shortcuts(&request, rows).await;
     }
 
     /// Asks, as Windows asks where it cannot make a shortcut, whether to
     /// place it on the Desktop instead.
     async fn places_shortcut_on_desktop(&self) -> bool {
-        let dialog = Dialog::new(
+        // A message box with the warning icon, as Windows asks it.
+        let dialog = Dialog::message_box(
             self,
             ox_core::i18n::gettext_static("Shortcut"),
             ox_core::i18n::gettext_static(

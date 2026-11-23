@@ -565,12 +565,52 @@ impl BrowserWindow {
         ))
     }
 
+    /// Windows' "Location is not available" about the destination folder
+    /// of `item`, whose drive went away after the user skipped an item
+    /// there, as Windows 11's copy says it then (checked in the VM on
+    /// 2026-11-22): a message box with the red error icon and OK alone,
+    /// over the progress window; OK ends the copy.
+    async fn tell_location_unavailable(&self, item: &FailedItem) -> FailureAnswer {
+        let folder = item.destination_folder.as_deref().unwrap_or(&item.uri);
+        let mut location = self.imp().locations.borrow().display_location(folder);
+        if !location.ends_with(['/', '\\']) {
+            location.push(if location.starts_with("\\\\") { '\\' } else { '/' });
+        }
+        let text = format_message(
+            "{location} is unavailable. If the location is on this PC, make sure the device or drive is \
+             connected or the disc is inserted, and then try again. If the location is on a network, make \
+             sure you're connected to the network or Internet, and then try again. If the location still \
+             can't be found, it might have been moved or deleted.",
+            &[("location", &location)],
+        );
+        let title = gettext("Location is not available");
+        let progress = self
+            .context()
+            .progress_window()
+            .filter(|progress| !progress.actions().is_empty());
+        let dialog = match &progress {
+            Some(progress) => {
+                progress.show_question();
+                let dialog = crate::dialog::Dialog::error_box(progress, &title, &text);
+                progress.group_for_questions().add_window(&dialog);
+                dialog
+            }
+            None => crate::dialog::Dialog::error_box(self, &title, &text),
+        };
+        dialog.add_button(&gettext("OK"), crate::window::ButtonStyle::Accent);
+        dialog.open();
+        dialog.next_response().await;
+        dialog.finish();
+        FailureAnswer::Cancel
+    }
+
     /// Asks about `item` in its operation's action; Cancel and closing the
     /// progress window cancel the operation.
     async fn ask_about_failure(&self, item: &FailedItem, cancel: &Cancellation) -> FailureAnswer {
         match item.cause {
             FailureCause::NoSpace => return self.ask_about_space(item, cancel).await,
             FailureCause::NeedsAttention => return self.tell_about_failure(item, cancel).await,
+            FailureCause::LocationUnavailable => return self.tell_location_unavailable(item).await,
             _ => {}
         }
         let (question, shown_uri) = self.question_about(item).await;
@@ -802,9 +842,10 @@ impl BrowserWindow {
             FailureCause::Other if is_write_protected(&item.error) => {
                 (Question::WriteProtected, item.uri.clone())
             }
-            FailureCause::NoSpace | FailureCause::Other | FailureCause::NeedsAttention => {
-                (Question::Unexpected, item.uri.clone())
-            }
+            FailureCause::NoSpace
+            | FailureCause::Other
+            | FailureCause::NeedsAttention
+            | FailureCause::LocationUnavailable => (Question::Unexpected, item.uri.clone()),
         }
     }
 

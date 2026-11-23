@@ -899,6 +899,33 @@ fn the_search_filter_bar_switch_is_off_by_default_and_saves_the_choice() {
     });
 }
 
+/// "Delete files on removable drives permanently (like Windows)" is off
+/// by default (the drive's own Recycle Bin, OPS-018) and saved only when
+/// on.
+///
+/// parity: OPS-018
+#[gtk::test]
+fn the_removable_drives_delete_switch_is_off_by_default_and_saved_when_on() {
+    let settings = SettingsTest::open();
+    let switch = switch_of(&settings.row("Delete files on removable drives permanently (like Windows)"));
+    assert!(!switch.is_active(), "off by default");
+
+    switch.set_active(true);
+    wait_until("the choice to be saved", || {
+        settings.saved_preferences().delete_removable_permanently
+    });
+    let stored = std::fs::read_to_string(settings.test.settings_directory().join("settings.json")).unwrap();
+    assert!(
+        stored.contains("deleteRemovablePermanently"),
+        "stored when on: {stored}"
+    );
+
+    switch.set_active(false);
+    wait_until("the choice to be saved", || {
+        !settings.saved_preferences().delete_removable_permanently
+    });
+}
+
 /// "When replacing a file, move the old one to the Recycle Bin" is in
 /// Files & folders, on by default (the owner's choice), and saves only
 /// its turning off, which the window's next Replace follows.

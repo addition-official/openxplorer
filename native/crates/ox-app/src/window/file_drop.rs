@@ -591,6 +591,7 @@ impl BrowserWindow {
                 self.spawn_links(LinkRequest {
                     uris,
                     destination_folder: folder,
+                    names: self.shortcut_names(),
                 });
                 return Ok(());
             }

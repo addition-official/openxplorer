@@ -16,7 +16,7 @@ use crate::window::tests::file_ops_support::{
 
 /// Opening a shortcut to a folder goes to the folder itself, as Windows
 /// does, not into the shortcut's own path: the address bar and Up then
-/// lead from where the folder really is.
+/// lead from where the folder really is, Up selecting the folder.
 ///
 /// parity: OPEN-027
 #[gtk::test]
@@ -35,6 +35,16 @@ fn a_folder_shortcut_opens_the_folder_at_its_own_address() {
 
     wait_until("the folder the shortcut points to", || {
         test.window.current_uri() == Some(fixture.uri_of("Documents")) && !test.window.is_loading()
+    });
+
+    // Up goes to the folder's own parent, with the folder selected, as in
+    // Windows 11 (checked in a Windows 11 VM).
+    test.activate("up", None);
+    wait_until("the folder's parent", || {
+        test.window.current_uri() == Some(fixture.uri()) && !test.window.is_loading()
+    });
+    wait_until("the folder to be selected", || {
+        test.selected_names() == ["Documents"]
     });
 }
 
@@ -58,9 +68,20 @@ fn a_file_shortcut_opens_the_file_itself() {
     assert_eq!(test.context.recorded_launches(), [fixture.uri_of("Notes 2.txt")]);
 }
 
+/// Whether an item called `name` is in the test run's private Recycle Bin.
+fn in_recycle_bin(name: &str) -> bool {
+    gtk::glib::user_data_dir()
+        .join("Trash/files")
+        .join(name)
+        .symlink_metadata()
+        .is_ok()
+}
+
 /// A shortcut whose item was deleted asks "Problem with Shortcut", in
-/// Windows' words, and offers to delete it: No keeps it, Yes moves it to
-/// the Recycle Bin. A loop of links is broken the same way.
+/// Windows' words, and offers to delete it: No keeps it; Yes, the default,
+/// deletes the shortcut, and only the shortcut, permanently, as Windows 11
+/// does (checked in a Windows 11 VM). A loop of links is broken the same
+/// way.
 ///
 /// parity: OPEN-028
 #[gtk::test]
@@ -95,10 +116,14 @@ fn a_broken_shortcut_offers_to_delete_it() {
 
     test.window
         .activate_item(test.position_of("Old plan.txt - Shortcut"));
-    open_dialog(&test).press("Yes");
-    wait_until("the shortcut to go to the Recycle Bin", || {
+    open_dialog(&test).press_primary();
+    wait_until("the shortcut to be deleted", || {
         fs::symlink_metadata(fixture.path("Old plan.txt - Shortcut")).is_err()
     });
+    assert!(
+        !in_recycle_bin("Old plan.txt - Shortcut"),
+        "deleted, not moved to the Recycle Bin"
+    );
     wait_until("the shortcut to leave the list", || {
         !test.names().contains(&"Old plan.txt - Shortcut".to_owned())
     });
@@ -141,7 +166,7 @@ fn a_shortcut_onto_a_drive_that_is_not_connected_says_so() {
 }
 
 /// A `.desktop` link to a folder that was deleted is a broken shortcut
-/// too, and Yes deletes the link file.
+/// too, and Yes deletes the link file permanently.
 ///
 /// parity: OPEN-028
 #[gtk::test]
@@ -168,9 +193,10 @@ fn a_desktop_link_to_a_deleted_folder_offers_to_delete_it() {
     );
     dialog.press("Yes");
 
-    wait_until("the link file to go to the Recycle Bin", || {
+    wait_until("the link file to be deleted", || {
         !fixture.path("Archive.desktop").exists()
     });
+    assert!(!in_recycle_bin("Archive.desktop"), "not in the Recycle Bin");
     assert_eq!(test.window.current_uri(), Some(fixture.uri()));
 }
 
