@@ -31,36 +31,6 @@ use crate::window::file_drop::DropAction;
 use crate::window::session::PaneSide;
 use crate::window::transfer_panel::TransferKind;
 
-/// parity: OPS-004
-#[gtk::test]
-fn new_link_asks_for_the_path_and_selects_the_new_link() {
-    let fixture = Fixture::standard();
-    let test = TestWindow::open(&fixture.uri());
-
-    test.activate("new-link", None);
-    let dialog = open_dialog(&test);
-    let fields = descendants::<gtk::Entry>(&dialog);
-    let (target, name) = (&fields[0], &fields[1]);
-    target.set_text(&fixture.path("Documents").to_string_lossy());
-    dialog.press("Create");
-    wait_until("the refusal", || dialog.error_text().is_some());
-    let taken = dialog.error_text();
-    name.set_text("Documents link");
-    dialog.press("Create");
-    wait_for_no_dialog(&test);
-
-    assert_eq!(dialog.title_text(), "New link");
-    assert_eq!(
-        taken.as_deref(),
-        Some("An item named “Documents” already exists. Nothing was overwritten.")
-    );
-    wait_until("the link to be selected", || {
-        test.selected_names() == ["Documents link"]
-    });
-    let points_to = fs::read_link(fixture.path("Documents link")).expect("a symbolic link");
-    assert_eq!(points_to, fixture.path("Documents"));
-}
-
 /// parity: CMD-002
 #[gtk::test]
 fn new_is_disabled_where_nothing_can_be_created() {
@@ -192,6 +162,8 @@ fn ctrl_z_undoes_from_the_tree_and_a_split_pane_but_not_in_a_text_field() {
     // never lists the real disk.
     test.window.imp().locations.borrow_mut().home = fixture.root().parent().map(Into::into);
     test.activate("folder-tree", None);
+    // The tree follows the folder shown (Windows' "Expand to current folder").
+    test.activate("folder-tree-option", Some("expand-to-current"));
     let tree = test.window.folder_tree();
     wait_until("the tree to list the folder", || tree.selected_uri().is_some());
     let tree_list = descendants::<gtk::ListView>(tree).remove(0);

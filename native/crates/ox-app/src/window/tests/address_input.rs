@@ -88,14 +88,18 @@ fn an_smb_path_has_server_share_and_folder_crumbs_with_the_uri_encoded() {
         .iter()
         .filter_map(|crumb| crumb.label().map(Into::into))
         .collect();
-    assert_eq!(labels[1..], ["Team files", "Q3 #1"]);
-    assert!(crumb_target(&crumbs[0]).starts_with("smb://nas:1445/"));
-    assert_eq!(crumb_target(&crumbs[2]), "smb://nas:1445/Team%20files/Q3%20%231");
+    // Network > server > share > folder, as Windows starts the address of
+    // a computer's share at Network.
+    assert_eq!(labels[0], "Network");
+    assert_eq!(labels[2..], ["Team files", "Q3 #1"]);
+    assert_eq!(crumb_target(&crumbs[0]), "network:///");
+    assert!(crumb_target(&crumbs[1]).starts_with("smb://nas:1445/"));
+    assert_eq!(crumb_target(&crumbs[3]), "smb://nas:1445/Team%20files/Q3%20%231");
     let dividers: Vec<gtk::Label> = descendants::<gtk::Label>(&crumb_box(&test))
         .into_iter()
         .filter(|label| label.has_css_class("crumb-divider"))
         .collect();
-    assert_eq!(dividers.len(), 2, "server › share › folder");
+    assert_eq!(dividers.len(), 3, "Network › server › share › folder");
     assert!(
         dividers.iter().all(|label| label.text().is_empty()),
         "dividers are drawn as Explorer's chevrons, not as the path's '\\'"
@@ -212,25 +216,44 @@ fn the_settings_tab_has_no_address_to_edit() {
     assert_eq!(test.window.address_bar().mode(), AddressMode::Crumbs);
 }
 
-/// parity: NAV-028
+/// Alt+D and Ctrl+L always select the address bar, as Explorer's
+/// "Alt+D: Select the address bar": pressing either again while editing
+/// keeps editing with the whole text selected, so the next keys still go
+/// to the address and never to the file list. F4 does not leave editing
+/// either.
+///
+/// parity: NAV-026
 #[gtk::test]
-fn a_second_ctrl_l_returns_to_the_crumbs_unless_something_was_typed() {
+fn ctrl_l_and_alt_d_again_keep_editing_with_everything_selected() {
     let fixture = Fixture::standard();
     let test = TestWindow::open(&fixture.uri());
     let address = test.window.address_bar();
+    let selects_all = |text: &str| {
+        let entry = address.entry();
+        assert_eq!(address.mode(), AddressMode::Entry, "still editing");
+        assert!(address.is_typing(), "the entry keeps the keyboard");
+        assert_eq!(entry.text().as_str(), text);
+        let length = i32::try_from(text.chars().count()).expect("a short text");
+        assert_eq!(entry.selection_bounds(), Some((0, length)), "everything selected");
+    };
+    let path = fixture.root().display().to_string();
     test.activate("location", None);
+    selects_all(&path);
 
     test.activate("location", None);
+    selects_all(&path);
 
-    assert_eq!(address.mode(), AddressMode::Crumbs);
-    test.activate("location", None);
     address.entry().set_text("/tm");
+    address.entry().set_position(-1);
     test.activate("location", None);
-    assert_eq!(
-        address.mode(),
-        AddressMode::Entry,
-        "after typing, editing goes on"
-    );
+    selects_all("/tm");
+
+    test.activate("address-history", None);
+    assert_eq!(address.mode(), AddressMode::Entry, "F4 keeps editing");
+    address.entry().set_text("Notes");
+    test.activate("address-history", None);
+    test.activate("location", None);
+    selects_all("Notes");
 }
 
 /// parity: NAV-043
@@ -401,7 +424,8 @@ fn choosing_a_folder_from_a_crumb_menu_goes_there() {
     });
     test.wait_for_listing("Letters");
     wait_for(std::time::Duration::from_millis(100));
-    assert!(descendants::<MenuPopover>(address).is_empty(), "the menu is gone");
+    // The bar keeps its menu, closed, to show it again.
+    assert!(!menu.is_visible(), "the menu is closed");
 }
 
 /// As in Windows Explorer, the wheel over a crumb never switches to the
@@ -514,13 +538,15 @@ fn the_recycle_bin_and_recent_open_from_the_typed_address() {
 #[gtk::test]
 fn a_typed_relative_name_or_tilde_opens_in_the_same_tab() {
     let fixture = Fixture::standard();
+    // Not a standard folder's name, which would open that folder.
+    std::fs::create_dir(fixture.path("Letters")).expect("fixture subfolder");
     let test = TestWindow::open(&fixture.uri());
     test.activate("location", None);
 
-    test.window.submit_address("Documents");
+    test.window.submit_address("Letters");
 
     wait_until("the typed folder", || {
-        test.window.current_uri() == Some(fixture.uri_of("Documents"))
+        test.window.current_uri() == Some(fixture.uri_of("Letters"))
     });
     assert_eq!(test.window.address_bar().mode(), AddressMode::Crumbs);
     test.window.submit_address("~");
@@ -702,7 +728,9 @@ fn a_middle_click_on_blank_address_space_opens_the_selected_text() {
     let test = TestWindow::open(&fixture.uri());
     let address = test.window.address_bar();
     let primary = WidgetExt::display(address).primary_clipboard();
-    primary.set_text("Documents");
+    // "Documents" alone names the standard folder; a relative path names
+    // the one here.
+    primary.set_text("./Documents");
 
     middle_click_at(address, (1.0, 1.0));
 

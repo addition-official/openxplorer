@@ -41,12 +41,20 @@ mod info_bubble;
 mod navigation;
 mod pages;
 mod parts;
+mod radio_cards;
 mod row;
 mod search;
+
+/// Reads `typed` as the Settings search box's words, for the fuzz targets.
+#[cfg(feature = "fuzzing")]
+pub(crate) fn fuzz_search(typed: &str) {
+    let _ = search::SearchQuery::parse(typed);
+}
 mod section;
 mod startup;
 mod status_card;
 mod troubleshooting;
+mod wrap_layout;
 
 #[cfg(test)]
 mod tests;

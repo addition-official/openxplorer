@@ -84,13 +84,17 @@ fn the_sort_menu_leaves_one_arrow_on_the_sorted_column() {
 }
 
 /// The sorted column shows the current app's chevron, up while
-/// ascending, and no other column shows an arrow (`renderColumns`).
+/// ascending, and no other column shows an arrow (`renderColumns`). A
+/// sort other than Name ascending is drawn in the accent, and both stay
+/// on the sorted column's own title when the column moves.
 /// parity: VIEW-014
 #[gtk::test]
 fn only_the_sorted_column_shows_the_apps_arrow() {
     let fixture = Fixture::standard();
     let test = TestWindow::open(&fixture.uri());
-    let details = test.window.folder_pane().details().column_view();
+    let pane = test.window.folder_pane();
+    let view = pane.details();
+    let details = view.column_view();
     assert_eq!(
         column_titles::shown_carets(details),
         [Some(SortDirection::Ascending), None, None, None]
@@ -100,6 +104,56 @@ fn only_the_sorted_column_shows_the_apps_arrow() {
     assert_eq!(
         column_titles::shown_carets(details),
         [None, None, None, Some(SortDirection::Descending)]
+    );
+
+    // Date modified, which the view moves behind the search and Recycle
+    // Bin columns as it is built, shows its chevron too.
+    test.activate("sort", Some("modified"));
+    test.activate("direction", Some("ascending"));
+    assert_eq!(
+        column_titles::shown_carets(details),
+        [None, Some(SortDirection::Ascending), None, None]
+    );
+    let titles = view.titles_by_column();
+    let title = |column| titles.title(column).expect("a title for every column");
+    assert!(column_titles::is_custom_sort(title(SortColumn::Modified)));
+
+    // Moved one place right, as a drag does, past Type.
+    let modified = view.column(SortColumn::Modified).expect("a Date modified column");
+    let place_of = |column| view.column_order().iter().position(|shown| *shown == column);
+    let type_place = place_of(SortColumn::Type).expect("a Type column");
+    details.insert_column(u32::try_from(type_place).expect("a small place"), &modified);
+    wait_until("Date modified to follow Type", || {
+        place_of(SortColumn::Modified) > place_of(SortColumn::Type)
+    });
+    assert_eq!(
+        column_titles::caret_of(title(SortColumn::Modified)),
+        Some(SortDirection::Ascending)
+    );
+    assert_eq!(column_titles::caret_of(title(SortColumn::Type)), None);
+    assert!(column_titles::is_custom_sort(title(SortColumn::Modified)));
+    assert!(!column_titles::is_custom_sort(title(SortColumn::Type)));
+    assert!(
+        column_titles::title_buttons(details).contains(title(SortColumn::Modified)),
+        "the moved column keeps its title in the header"
+    );
+    test.activate("direction", Some("descending"));
+    assert_eq!(
+        column_titles::caret_of(title(SortColumn::Modified)),
+        Some(SortDirection::Descending)
+    );
+
+    test.activate("sort", Some("name"));
+    test.activate("direction", Some("ascending"));
+    assert_eq!(
+        column_titles::caret_of(title(SortColumn::Name)),
+        Some(SortDirection::Ascending)
+    );
+    assert!(
+        SortColumn::ALL
+            .into_iter()
+            .all(|column| !column_titles::is_custom_sort(title(column))),
+        "Name ascending is drawn as the default"
     );
 }
 
@@ -540,27 +594,13 @@ fn closing_a_window_disconnects_it_from_the_shared_skin() {
     assert!(!shared.has_listeners(), "the last window left no handler");
 }
 
-/// Where the icon view's tiles are, relative to the view's scroller.
-fn tile_bounds(test: &TestWindow) -> (i32, Vec<Bounds>) {
-    let grid = test.window.folder_pane().icon_view().grid();
-    let scroll = grid.parent().expect("the icon view scrolls");
-    let cells = descendants::<FileCell>(grid);
-    let bounds = cells
-        .iter()
-        .filter_map(WidgetExt::parent)
-        .filter_map(|tile| tile.compute_bounds(&scroll))
-        .map(|rect| Bounds::from_rect(&rect))
-        .collect();
-    (scroll.width(), bounds)
-}
-
 /// A window that opened in the icon view used to keep one column, because
-/// GTK ignored the column count set while it allocated the view. Tiles sit
-/// where `renderRows` in app.js puts them: `floor(width / cell)` columns
-/// sharing the width less 20 pixels, the first 10 pixels in and 5 down,
-/// 4 pixels apart. Large icons' 96-pixel icons (Windows 11's, owner
-/// decision 2026-11-06) make the web's 135 × 130 cell 40 pixels wider and
-/// taller: 168 pixels tall on a 170-pixel pitch.
+/// GTK ignored the column count set while it allocated the view. Large
+/// icons stand as Windows 11's do (measured on its Large icons capture at
+/// 100%): columns 109 pixels apart, as many as fit, with the rest of the
+/// width free at the right; each item's box 101 pixels wide, 8 from the
+/// next; rows as tall as the icon, two lines of name and 2 pixels above
+/// and below (129); the name 4 pixels under the icon.
 ///
 /// parity: VIEW-005, LOOK-014
 #[gtk::test]
@@ -572,25 +612,36 @@ fn a_window_that_opens_in_the_icon_view_lays_tiles_out_as_render_rows() {
     test.window.show_view(FolderView::Icons(IconSize::LARGE));
     test.show(&fixture.uri());
     wait_for_frames(&test.window, 4);
-    let (width, tiles) = tile_bounds(&test);
-    let columns = width / 175;
+    let grid = test.window.folder_pane().icon_view().grid().clone();
+    let scroll = grid.parent().expect("the icon view scrolls");
+    let width = scroll.width();
+    let boxes: Vec<Bounds> = descendants::<FileCell>(&grid)
+        .iter()
+        .filter_map(|cell| cell.compute_bounds(&scroll))
+        .map(|rect| Bounds::from_rect(&rect))
+        .collect();
+    let columns = (width - 20) / 109;
     assert!(columns >= 2, "a {width}-pixel pane holds several columns");
-    let tile_width = (width - 20) / columns - 4;
-    assert_eq!(tiles[0], Bounds::new(10, 5, tile_width, 168), "the first tile");
-    let first_row: Vec<_> = tiles.iter().filter(|tile| tile.y == 5).collect();
+    let first = boxes
+        .iter()
+        .find(|tile| tile.x < 20 && tile.y < 20)
+        .expect("the first box");
+    assert_eq!((first.x, first.width), (12, 101), "the first box");
+    let first_row: Vec<_> = boxes.iter().filter(|tile| tile.y == first.y).collect();
     assert_eq!(first_row.len(), usize::try_from(columns).expect("a few columns"));
-    let next_row = tiles.iter().find(|tile| tile.y != 5).expect("a second row");
-    assert_eq!(next_row.y, 5 + 170, "rows are 170 pixels apart");
-    let first_cell = descendants::<FileCell>(test.window.folder_pane().icon_view().grid())
-        .into_iter()
-        .next()
-        .expect("a tile");
+    assert!(
+        first_row.iter().any(|tile| tile.x == first.x + 109),
+        "columns are 109 pixels apart"
+    );
+    let next_row = boxes.iter().find(|tile| tile.y != first.y).expect("a second row");
+    assert_eq!(next_row.y, first.y + 129, "rows are 129 pixels apart");
+    let first_cell = descendants::<FileCell>(&grid).into_iter().next().expect("a tile");
     let name = descendants::<gtk::Label>(&first_cell)
         .into_iter()
         .next()
         .expect("a name");
     let name_top = name.compute_bounds(&first_cell).map(|rect| pixels(rect.y()));
-    assert_eq!(name_top, Some(96 + 8), "the name starts 8 pixels under the icon");
+    assert_eq!(name_top, Some(96 + 4), "the name starts 4 pixels under the icon");
 }
 
 /// Choosing a view while the keyboard is on no item but the first, and
@@ -658,8 +709,8 @@ fn ctrl_h_shows_hidden_files_outside_text_fields() {
         owners.is_shown_hidden(test.position_of("Notes 2.txt")),
         Some(false)
     );
-    // A cut hidden item carries both classes; the stylesheet fades it
-    // further (`.hidden-item.cut`), so the cut still shows.
+    // A cut hidden item carries both classes; its icon fades further
+    // (`.cut .item-art` inside `.hidden-item`), so the cut still shows.
     let private = test.position_of(".private");
     test.window.folder_pane().model().select_only(private);
     test.activate("cut", None);

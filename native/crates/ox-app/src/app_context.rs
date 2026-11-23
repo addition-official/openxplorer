@@ -20,6 +20,7 @@
 //! being formatted and the quick writes, which wait for each other in
 //! every window ([`write_holds`]).
 
+mod clipboard_keeper;
 mod default_open;
 mod desktop_bookmarks;
 mod external_open;
@@ -30,6 +31,7 @@ mod previous_versions;
 mod recent_privacy;
 mod saved_searches;
 mod search_cache;
+mod star_prompt;
 mod write_holds;
 
 pub(crate) use default_open::add_to_desktop_history;
@@ -45,6 +47,7 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use ox_core::entry::Entry;
 use ox_core::folder_locations::FolderRelocation;
+use ox_core::network::SmbShadowCopies;
 use ox_core::places::FolderLocations;
 use ox_core::settings::{
     FolderTemplate, PreferencesUpdate, RecentEntry, Settings, SettingsData, SettingsError, ViewProperties,
@@ -138,6 +141,9 @@ mod imp {
         pub(super) folder_relocation: RefCell<Option<Arc<FolderRelocation>>>,
         /// The application's updates, made on first use.
         pub(super) updates: OnceCell<Updates>,
+        /// The GitHub star prompt is due this session and no window has
+        /// shown it yet.
+        pub(super) star_prompt_due: Cell<bool>,
         /// "Install updates without asking for a password", where this
         /// build has it, found on first use.
         pub(super) passwordless_updates: OnceCell<Option<ox_core::update::PasswordlessUpdates>>,
@@ -158,9 +164,20 @@ mod imp {
         /// The progress window of the running file operations, while one
         /// is open.
         pub(super) progress_window: RefCell<Option<crate::window::ProgressWindow>>,
+        /// Keeps the application running while it owns the desktop's
+        /// clipboard, so what Copy and Cut put there outlives the last
+        /// window (CLIP-010).
+        pub(super) clipboard_keeper: RefCell<Option<super::clipboard_keeper::Keeper>>,
+        /// The items pastes of the latest cut moved, and that cut's token:
+        /// a clipboard manager that puts the cut back offers no cut
+        /// (CLIP-008).
+        pub(super) moved_cut: RefCell<super::clipboard_keeper::MovedCut>,
         /// GNOME's privacy settings, which say what may be remembered of
         /// the files opened, when the desktop has them.
         pub(super) privacy: RefCell<Option<gtk::gio::Settings>>,
+        /// The addresses typed into every window's address bar, read from
+        /// the settings folder when first asked for (NAV-043).
+        pub(super) typed_addresses: RefCell<Option<ox_core::typed_addresses::TypedAddresses>>,
         /// In tests, the files that would have been opened.
         #[cfg(test)]
         pub(super) recorded_launches: RefCell<Option<Vec<String>>>,
@@ -220,7 +237,9 @@ impl AppContext {
         let context: Self = glib::Object::new();
         let imp = context.imp();
         imp.skin.set(skin).expect("a new AppContext has no skin yet");
-        let versions = PreviousVersions::new(settings.directory());
+        let shadow_copies = SmbShadowCopies::new(imp.network.credential_store());
+        let versions =
+            PreviousVersions::new(settings.directory()).with_shadow_copies(Arc::new(shadow_copies));
         imp.previous_versions
             .set(Arc::new(versions))
             .expect("a new AppContext has no previous-versions service yet");
@@ -230,6 +249,7 @@ impl AppContext {
             .set(SettingsStore::new(settings))
             .expect("a new AppContext has no settings yet");
         context.watch_known_folders(folder_locations);
+        context.follow_search_preferences();
         context.read_saved_searches();
         context.follow_recent_privacy();
         context.follow_icon_files();
@@ -566,8 +586,20 @@ impl AppContext {
 
     /// Tells every window to redraw its sidebar and landing page.
     fn notify_places_changed(&self) {
+        self.follow_search_preferences();
         self.export_pins();
         self.emit_by_name::<()>(PLACES_CHANGED, &[]);
+    }
+
+    /// Makes the searches started from now on match words in extensions as
+    /// Settings > Search says (`extension_word_starts`).
+    fn follow_search_preferences(&self) {
+        let mode = if self.settings_data().preferences.extension_word_starts {
+            ox_core::search::ExtensionWords::FromStart
+        } else {
+            ox_core::search::ExtensionWords::WholeOnly
+        };
+        ox_core::search::set_extension_words(mode);
     }
 
     /// Calls `callback` whenever the places may have changed.
@@ -576,6 +608,40 @@ impl AppContext {
             callback();
             None
         })
+    }
+
+    /// The addresses typed into the address bar of any window, most
+    /// recent first, as Windows keeps them for the user (NAV-043).
+    pub(crate) fn typed_addresses(&self) -> Vec<String> {
+        self.with_typed_addresses(|history| history.addresses().to_vec())
+    }
+
+    /// Puts `address`, typed and accepted in some window, at the top of
+    /// the typed addresses, and saves them. Saving is best effort: the
+    /// address already opened.
+    pub(crate) fn remember_typed_address(&self, address: &str) {
+        self.with_typed_addresses(|history| {
+            let _ = history.remember(address);
+        });
+    }
+
+    /// Forgets the typed addresses, on disk too (Clear history).
+    pub(crate) fn forget_typed_addresses(&self) {
+        self.with_typed_addresses(|history| {
+            let _ = history.clear();
+        });
+    }
+
+    /// Runs `use_history` on the typed addresses, reading them first.
+    fn with_typed_addresses<T>(
+        &self,
+        use_history: impl FnOnce(&mut ox_core::typed_addresses::TypedAddresses) -> T,
+    ) -> T {
+        let mut slot = self.imp().typed_addresses.borrow_mut();
+        let history = slot.get_or_insert_with(|| {
+            ox_core::typed_addresses::TypedAddresses::open(&self.settings_directory())
+        });
+        use_history(history)
     }
 
     /// Records `recent` at the top of the recently opened files.
@@ -631,7 +697,10 @@ pub(super) fn recent_entry(entry: &Entry) -> RecentEntry {
         is_dir: entry.is_dir,
         size: entry.size.unwrap_or(0),
         // `settings.json` keeps 0 for an unknown time, as core.py does.
-        modified: entry.modified.unwrap_or(0),
+        modified: entry
+            .modified
+            .and_then(|seconds| u64::try_from(seconds).ok())
+            .unwrap_or(0),
         opened: None,
     }
 }

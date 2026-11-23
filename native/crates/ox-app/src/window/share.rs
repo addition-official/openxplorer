@@ -11,9 +11,11 @@
 //! hidden, not disabled, when no portal backend of the desktop implements
 //! it (as on a desktop without KDE's or GTK's portal). An Open or Save
 //! dialog never shows it. Like Windows' Share it is offered only for what
-//! it can attach: files, on this computer or on a share, and Recent rows
-//! (by the file they stand for). A folder, an item of the Recycle Bin or
-//! one inside a ZIP, and a Recent row that names no file, disable it.
+//! it can attach: files, on this computer or on a share, Recent rows (by
+//! the file they stand for) and recycled files (by their file in the
+//! trash folder, as Windows 11 offers Share for a recycled file). A
+//! folder, an item inside a ZIP, and a Recent row or recycled item that
+//! names no file, disable it.
 //! Following the selection reads only addresses, never the disk: a share
 //! that is not mounted, or a Recent file that is gone, is found when
 //! Share opens the files on a worker thread, and says so. One email
@@ -81,6 +83,12 @@ fn is_recent_row(uri: &str) -> bool {
     uri.starts_with("recent:")
 }
 
+/// Whether `uri` is an item of the Recycle Bin, whose file is in the
+/// trash folder.
+fn is_recycled(uri: &str) -> bool {
+    uri.starts_with("trash:")
+}
+
 /// Whether a file at `uri` can have a local path at all, decided from
 /// the address alone: not a virtual place such as the Recycle Bin or
 /// Recent, and not inside a ZIP.
@@ -90,13 +98,15 @@ fn can_be_local(uri: &str) -> bool {
 
 /// The address of the file Share attaches for the row at `uri` of kind
 /// `kind`, decided without touching the disk. A Recent row attaches the
-/// file it stands for, `recent_target`, whatever type `GVfs` gave the
-/// row; any other row must be a shareable file itself.
-fn attachment_source<'a>(
-    (uri, recent_target, kind): (&'a str, Option<&'a str>, EntryKind),
-) -> Option<&'a str> {
+/// file it stands for, `stands_for`, whatever type `GVfs` gave the row; a
+/// recycled file attaches its file in the trash folder, `stands_for`, as
+/// Windows 11 offers Share for a recycled file; any other row must be a
+/// shareable file itself.
+fn attachment_source<'a>((uri, stands_for, kind): (&'a str, Option<&'a str>, EntryKind)) -> Option<&'a str> {
     let source = if is_recent_row(uri) {
-        recent_target?
+        stands_for?
+    } else if is_recycled(uri) {
+        (kind == EntryKind::File).then_some(stands_for?)?
     } else {
         is_shareable(uri, kind).then_some(uri)?
     };
@@ -194,12 +204,20 @@ impl BrowserWindow {
     /// The addresses of the files Share attaches for the selection
     /// ([`attachment_sources`]): Recent rows by the file they stand for.
     fn selected_sources(&self) -> Option<Vec<String>> {
+        // A row selected on Home stands for its file (HOME-036).
+        if let Some(uri) = self.selected_home_file() {
+            return attachment_sources(std::iter::once((uri.as_str(), None, EntryKind::File)));
+        }
         let items = self.folder_pane().model().selected_items();
         attachment_sources(items.iter().map(|item| {
             let entry = item.entry();
             (
                 entry.uri.as_str(),
-                entry.meta.recent_target.as_deref(),
+                entry
+                    .meta
+                    .recent_target
+                    .as_deref()
+                    .or(entry.meta.trash_file.as_deref()),
                 entry.kind,
             )
         }))
@@ -222,10 +240,19 @@ impl BrowserWindow {
             return;
         }
         let window = self.downgrade();
+        let opening = self.downgrade();
         glib::spawn_future_local(async move {
-            let result = email_files(&portal, sources).await;
+            // Said once the files are open, so the click is seen to do
+            // something while the desktop starts the email app.
+            let said = move || {
+                if let Some(window) = opening.upgrade() {
+                    window.show_message(&ox_core::i18n::gettext("Opening your email app…"));
+                }
+            };
+            let result = email_files(&portal, sources, said).await;
+            // A failure is a message to read, not a passing toast.
             if let (Err(error), Some(window)) = (result, window.upgrade()) {
-                window.show_message(&error.to_string());
+                window.show_result_dialog(&ox_core::i18n::gettext("Share"), &error.to_string());
             }
         });
     }
@@ -233,8 +260,9 @@ impl BrowserWindow {
 
 /// Finds and opens the files at `sources` on a worker thread, within
 /// [`OPEN_TIMEOUT`], and asks `portal` to email them. A file with no local
-/// path, gone or not a regular file fails as unreadable.
-async fn email_files(portal: &str, sources: Vec<String>) -> Result<(), EmailError> {
+/// path, gone or not a regular file fails as unreadable. `opened` runs once
+/// the files are open, before the portal is asked.
+async fn email_files(portal: &str, sources: Vec<String>, opened: impl FnOnce()) -> Result<(), EmailError> {
     let opening = gio::spawn_blocking(move || {
         let paths = sources
             .iter()
@@ -250,6 +278,7 @@ async fn email_files(portal: &str, sources: Vec<String>) -> Result<(), EmailErro
         Ok(Ok(opened)) => opened?,
         Ok(Err(_)) | Err(_) => return Err(timed_out()),
     };
+    opened();
     let connection = gio::bus_get_future(gio::BusType::Session)
         .await
         .map_err(EmailError::Unavailable)?;
@@ -272,11 +301,14 @@ mod tests {
 
     /// parity: CMD-037
     #[test]
-    fn share_needs_files_outside_the_recycle_bin_and_zips() {
+    fn share_needs_files_and_none_in_zips() {
         let file = ("file:///srv/plan.txt", None, EntryKind::File);
         let folder = ("file:///srv/Drafts", None, EntryKind::Directory);
         let pipe = ("file:///srv/queue", None, EntryKind::Special);
         let in_the_bin = ("trash:///plan.txt", None, EntryKind::File);
+        let bin_file = "file:///home/demo/.local/share/Trash/files/plan.txt";
+        let recycled = ("trash:///plan.txt", Some(bin_file), EntryKind::File);
+        let recycled_folder = ("trash:///Drafts", Some(bin_file), EntryKind::Directory);
         let zip_member = ox_core::location::ArchiveLocation::root("file:///srv/bundle.zip")
             .member("plan.txt")
             .uri();
@@ -287,7 +319,13 @@ mod tests {
         assert_eq!(sources(&[folder]), None, "Windows cannot share a folder");
         assert_eq!(sources(&[file, folder]), None);
         assert_eq!(sources(&[pipe]), None, "opening a pipe would wait for a writer");
-        assert_eq!(sources(&[in_the_bin]), None);
+        assert_eq!(sources(&[in_the_bin]), None, "no file named for it");
+        assert_eq!(
+            sources(&[recycled]),
+            Some(owned(&[bin_file])),
+            "a recycled file by its file in the trash, as Windows 11 offers Share for it"
+        );
+        assert_eq!(sources(&[recycled_folder]), None);
         assert_eq!(sources(&[file, in_a_zip]), None);
     }
 

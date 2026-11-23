@@ -47,16 +47,36 @@
     <content_attribute id="social-info">mild</content_attribute>
   </content_rating>
   <!--
-    TODO(Flathub): add <screenshots> of the native app. Flathub requires at
-    least one, served over HTTPS from a stable URL such as
-    https://openxplorer.app/assets/screenshots/. The public screenshots in
-    apps/web/public/assets/screenshots/ show the 1.x web interface with a
-    "1.1.4 preview" label, so they do not describe this app; capture new ones
-    of the native window on fictional files (OPENXPLORER_SNAPSHOT, see
-    docs/PRIVACY.md) and publish them first. native/packaging/README.md,
-    "Publishing on Flathub", lists the remaining steps.
+    Pictures of the native app on fictional files, taken by
+    tools/capture-screenshots.py and published with the website
+    (apps/web/public/assets/screenshots/). Software centres show
+    them; recapture them when the window changes.
   -->
+  <screenshots>
+    <screenshot type="default">
+      <caption>Folders in a tabbed window with the navigation and details panes</caption>
+      <image type="source" width="1440" height="900">https://openxplorer.app/assets/screenshots/explorer-light.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>The dark appearance</caption>
+      <image type="source" width="1440" height="900">https://openxplorer.app/assets/screenshots/explorer-dark.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Two folders side by side in split panes</caption>
+      <image type="source" width="1440" height="900">https://openxplorer.app/assets/screenshots/split-view.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>A previous version of a folder, opened read-only from its snapshots</caption>
+      <image type="source" width="1440" height="900">https://openxplorer.app/assets/screenshots/snapshot-tab.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Search results with the searched word highlighted</caption>
+      <image type="source" width="1440" height="900">https://openxplorer.app/assets/screenshots/cached-search.png</image>
+    </screenshot>
+  </screenshots>
   <releases>
+    <release version="2.0.23" date="2026-11-21" type="stable"><description><p>Previous Versions lists the snapshots an SMB server keeps of an item, as Windows 11 does, by asking the server with the account or password already saved for it. In Details view the sorted column shows a clear arrow after its title, and a sort other than Name ascending colours the title, so a list out of its usual order stands out. On GNOME and Zorin OS an app's Open or Save dialog, such as a browser's download dialog, now moves on its own instead of dragging the app's window with it. After a few sessions the app asks once whether you would like to star it on GitHub.</p></description></release>
+    <release version="2.0.22" date="2026-11-21" type="stable"><description><p>Recordings in the Preview and Details panes play in a separate process, and pictures, thumbnails and icons are decoded in separate processes, so a damaged or unusual file can no longer close or freeze the window; such a file shows its icon instead. A damaged 7z archive or a share that stops answering no longer closes or freezes the app either. Alt+D, Ctrl+L and F4 always select the whole address, Extract all gives files your usual permissions and the times stored in the archive, the Details pane widens with the text size, This PC opens with nothing selected, sizes keep their number and unit on one line, a Settings search of several words shows the settings that name them all, menus are as wide as their longest row and stay on screen on Wayland, and screen readers name the file list Items View.</p></description></release>
     <release version="2.0.21" date="2026-11-19" type="stable"><description><p>Settings › Appearance › File icons chooses the icon of folders, ZIP archives, each file type and files whose names end a certain way, such as .iso: one of the app's own pictures, including a document with a zipper so a ZIP archive no longer looks like a folder, or a picture of your own. Folder views and the details pane change at once, and screen readers name the chosen icon.</p></description></release>
     <release version="2.0.20" date="2026-11-18" type="stable"><description><p>7z archives open like folders, as ZIP and TAR archives do: browse them, open a file inside, and extract them with Extract all or Extract here. Every submenu opens when the pointer rests on its row, and a submenu with no room beside its menu opens over it. Properties leaves out an extension the window hides, overflowing tabs scroll with arrow buttons, and with the Recycle Bin switch for Replace off, Replace overwrites the old file as Windows 11 does. A mistyped address is answered with a message box, new files get the usual permissions, the Preview pane shows the text of RTF files, and at large text sizes columns and the navigation pane grow with the text. Reopen my tabs keeps the open tabs when the session ends, drive sizes agree between This PC and Properties, the keyboard shortcuts window uses Windows key names, and screen readers get the names the window shows.</p></description></release>
     <release version="2.0.19" date="2026-11-17" type="stable"><description><p>Gallery looks and works as in Windows 11, with justified photo rows, a date scrubber, Rotate left and Rotate right, and a choice of folders. The search box understands Windows search syntax: quoted phrases, AND, OR and NOT, and name:, ext:, date: and size:, and a tab shows a progress ring while its search or folder loads. Folders of 100,000 items stay responsive, emptying a large Recycle Bin takes seconds, and network folders show type icons by default, as in Windows 11, with a setting to show their thumbnails. Password-protected ZIPs ask for their password, large ZIPs and 7z archives can be made, and every Properties window fits one size, with a Shortcut tab for links and launchers. Settings and Folder Options use Windows' names and access keys, the keyboard no longer gets lost in dialogs, menus and panes, and Alt at a drop makes shortcuts.</p></description></release>

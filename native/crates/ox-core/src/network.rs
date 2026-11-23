@@ -32,17 +32,20 @@
 //! | `volumes` | Connect drives and phones, Disconnect, Eject and Safely remove | `winspace.py`, `volume_locations.py` |
 //! | `sign_out` | Sign out of a server | `winspace.py` |
 //! | `discovery` | Servers advertising on the local network | `winspace.py`, `gio_backend.py` |
+//! | `computers` | The services of one device merged into one computer | Windows' Network folder |
 //! | `visited` | Servers and shares browsed this session | `winspace.py` |
 //! | `usershare` | Sharing a local folder with Samba user shares | Dolphin's Share tab |
 //! | `recent_servers` | The recent-servers list GTK's Other Locations shares | GTK's places view |
 //! | `mount_table`, `local_path` | Local paths of SMB locations | `mount_support.py`, `native_opening.py` |
 //! | `mount_plan` | The persistent mount assistant's plan | `mount_support.py` |
 //! | `mount_helper` | The administrator helper, `openxplorer-mount-share` | `mount_share.py` |
+//! | `shadow_copies` | The shadow copies an SMB server lists, for Previous Versions | Windows' Previous Versions tab |
 //!
 //! The privacy rules of the Python modules hold here too, each enforced
 //! and documented where it applies:
 //!
-//! - Passwords go only to the mount operation and the keyring. They never
+//! - Passwords go only to the mount operation, the keyring and, to list
+//!   a share's previous versions, the server they were saved for. They never
 //!   reach a [`Challenge`], a log message or the settings, and there is no
 //!   plaintext fallback without a keyring (SAFE-011).
 //! - A window's in-memory credentials are its own and are wiped when it
@@ -53,6 +56,7 @@
 //! - Credentials are saved only after a successful mount (NET-015), and a
 //!   save racing a Sign out is discarded (SAFE-012).
 
+mod computers;
 mod credential;
 mod credential_store;
 mod discovery;
@@ -60,6 +64,8 @@ mod error;
 mod keyring;
 mod local_path;
 mod mount_helper;
+#[cfg(feature = "fuzzing")]
+pub(crate) use mount_helper::fuzz_arguments as fuzz_mount_helper;
 mod mount_plan;
 mod mount_table;
 mod mounting;
@@ -68,16 +74,24 @@ mod recent_servers;
 mod secret_service;
 mod server;
 mod session_credentials;
+mod shadow_copies;
 mod sign_out;
 #[cfg(test)]
 mod test_support;
 mod usershare;
+#[cfg(feature = "fuzzing")]
+pub(crate) use usershare::fuzz_info as fuzz_usershares;
 mod visited;
 mod volumes;
 
+pub use computers::{
+    computer_key_of, computers_among, service_row_name, DiscoveredComputer, ServiceProtocol,
+};
 pub use credential::{Credential, CredentialScope, Password};
 pub use credential_store::{CredentialGeneration, CredentialStore, ForgetScope, SMB_CREDENTIAL_SCHEMA};
-pub use discovery::{discover_servers, DiscoveredServer, Discovery, DISCOVERY_NOTE};
+pub use discovery::{
+    discover_servers, discovery_sources, DiscoveredServer, Discovery, DiscoverySources, DISCOVERY_NOTE,
+};
 pub use error::NetworkError;
 pub use keyring::{Keyring, KeyringCollection, KeyringError, NewSecret, SecretAttributes};
 pub use local_path::{fuse_export_location, fuse_export_path, local_path, outside_location};
@@ -99,11 +113,14 @@ pub use recent_servers::RecentServers;
 pub use secret_service::SecretService;
 pub use server::{ServerKey, DEFAULT_SMB_PORT};
 pub use session_credentials::SessionCredentials;
+#[cfg(feature = "fuzzing")]
+pub(crate) use shadow_copies::fuzz_snapshot_reply;
+pub use shadow_copies::SmbShadowCopies;
 pub use sign_out::{
     begin_sign_out, finish_sign_out, SignOutRegistry, SignOutReport, SignOutRequest, SigningOut,
 };
 pub use usershare::{validate_share_name, Usershare, UsershareError, Usershares};
-pub use visited::{session_network_root, VisitedNetwork};
+pub use visited::{is_at_or_inside, session_network_root, VisitedNetwork};
 pub use volumes::{
     eject_location, mount_volume, safely_remove_location, unmount_location, volume_id, volume_id_from,
 };

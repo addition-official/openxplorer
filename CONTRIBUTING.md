@@ -2,11 +2,11 @@
 
 ## Before a change
 
-Read [README.md](README.md), [AGENTS.md](AGENTS.md), [native/README.md](native/README.md), [the development guide](docs/development.md) and [SECURITY.md](SECURITY.md). Keep a change focused and explain the observable problem before changing implementation details. A visual improvement must preserve file-operation and desktop integration safeguards.
+Read [AGENTS.md](AGENTS.md), [native/README.md](native/README.md), [the development guide](docs/development.md) and [SECURITY.md](SECURITY.md). [native/BACKLOG.md](native/BACKLOG.md) lists the known gaps, and the [release checklist](docs/RELEASE-CHECKLIST.md) covers publishing a release. Keep a change focused and explain the observable problem before changing implementation details. A visual improvement must preserve file-operation and desktop integration safeguards.
 
 ## Local development
 
-The app is the Rust and GTK 4 program in `native/` (crates `ox-core` for the GIO services and `ox-app` for the interface). It needs Rust 1.92 or newer (`rust-version` in `native/Cargo.toml`), GTK 4.14 or newer, SQLite, libsoup 3 and GStreamer (core and base) development files, and Python 3.11+ for the check driver and parity tools. The distribution packages below are the ones CI installs in `native/packaging/ci/prepare-container.sh`, including the test tools:
+The app is the Rust and GTK 4 program in `native/` (crates `ox-core` for the GIO services and `ox-app` for the interface); the persistent SMB mount helper is Rust too, and no package ships Python. The Next.js website is a separate project in `apps/web/` ([its README](apps/web/README.md)). It needs Rust 1.92 or newer (`rust-version` in `native/Cargo.toml`), GTK 4.14 or newer, SQLite, libsoup 3 and GStreamer (core and base) development files, and Python 3.11+ for the check driver and parity tools. The distribution packages below are the ones CI installs in `native/packaging/ci/prepare-container.sh`, including the test tools:
 
 | Distribution | Packages |
 |---|---|
@@ -56,6 +56,8 @@ python3 native/parity/check.py
 `native/rustfmt.toml` sets a line width of 110. `native/tools/check.py` runs the parity inventory checks, the guard against icons drawn in code, rustfmt and Clippy with the workspace lints, and then every test executable and the doctests, each on its own Xvfb display with a private D-Bus session and disposable home, config, cache and runtime directories.
 
 Tests must never reach the live desktop, the real home folder or real user data: do not run GTK tests on your own display, keep `DISPLAY` and `WAYLAND_DISPLAY` unset, and write only inside temporary directories. To run a single test while iterating, wrap it the same way, for example `env -u DISPLAY -u WAYLAND_DISPLAY dbus-run-session -- xvfb-run -a cargo test -p ox-app <filter>` with `HOME` and the XDG directories pointing into a temporary folder. Tests must not mount or open remote locations; transfer tests use simulated devices. The tab-dragging tests in `native/crates/ox-app/src/window/tests/tab_dragging.rs` press and move a real pointer with the X server's XTEST extension, so they refuse to run unless check.py's isolation marker `OX_ISOLATED_SESSION=1` is set; run them through `python3 native/tools/check.py`.
+
+What a screen reader hears is checked through the real accessibility bus, not GTK's own properties, which hold more than GTK 4.14 sends: `native/crates/ox-app/src/test_support/atspi.rs` reads the test process's widgets back over the bus as Orca does, for the tests in `native/crates/ox-app/src/window/tests/screen_reader.rs`. They need at-spi2-core's bus launcher (`at-spi2-core` on every distribution above), which the private session bus starts on demand; without it they return early, and `OX_REQUIRE_ATSPI=1` makes that a failure.
 
 `native/parity/features.toml` lists every behaviour the app must provide, with its native status. A test that proves an item carries a `/// parity: ID` doc line; set the item to `done` and update its `native_note` only when it is implemented and a native test marked this way proves it. [native/parity/README.md](native/parity/README.md) explains the rules. `native/BACKLOG.md` lists the items still open after 2.0.0.
 

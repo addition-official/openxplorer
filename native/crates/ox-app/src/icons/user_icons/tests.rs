@@ -5,15 +5,11 @@
 
 use std::path::{Path, PathBuf};
 
-use gtk::prelude::*;
-use ox_core::places::KnownFolder;
 use ox_core::settings::Preferences;
 use ox_core::windows_icons::synthetic::SyntheticIconFile;
 use ox_core::windows_icons::{IconLibrary, IconRole};
 
 use super::*;
-use crate::icons::art::{NetworkArt, NetworkPlace};
-use crate::icons::{Connection, Medium};
 
 /// Turns the icons off again when a test ends, also when it fails, so the
 /// next test starts with the app's own icons.

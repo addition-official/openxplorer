@@ -95,6 +95,22 @@ const RECYCLE_REPLACED: RowText = RowText {
                replaced keep windows",
 };
 
+const RESTORE_OVER_ORIGINAL: RowText = RowText {
+    title: "Restore over the original (Windows)",
+    description: "Previous Versions' Restore copies the version back over the item, asking before \
+                  it replaces anything, as in Windows. Off: Restore asks where to put a copy, and \
+                  the item is never touched.",
+    keywords: "previous versions restore snapshot shadow copy overwrite original replace windows",
+};
+
+const DELETE_REMOVABLE_PERMANENTLY: RowText = RowText {
+    title: "Delete files on removable drives permanently (like Windows)",
+    description: "Delete on a USB stick or SD card asks, then deletes for good. Off: the items go to the \
+                  drive's own Recycle Bin and keep using its space until it is emptied.",
+    keywords: "delete permanently removable drive usb stick sd card memory card recycle bin trash space \
+               windows erase",
+};
+
 const SHOW_PREVIEWS: RowText = RowText {
     title: "Show previews",
     description: "Pictures, videos and documents show their contents instead of an icon.",
@@ -196,6 +212,7 @@ pub(super) fn build(page: &SettingsPage) -> SettingsSection {
     files.append_group(&folder_views_group(page));
     files.append_group(&details_group(page));
     files.append_group(&replacing_group(page));
+    files.append_group(&deleting_group(page));
     files.append_group(&clipboard_group(page));
     files.append_group(&previews_group(page));
     files
@@ -328,7 +345,8 @@ fn details_group(page: &SettingsPage) -> SettingsGroup {
 
 /// What Replace does with the file it replaces in a copy, move, paste,
 /// drag or Recycle Bin restore. On by default, the owner's choice; off,
-/// the old file is overwritten, as in Windows 11.
+/// the old file is overwritten, as in Windows 11. Then whether Previous
+/// Versions' Restore copies back over the item, as Windows' does.
 fn replacing_group(page: &SettingsPage) -> SettingsGroup {
     let group = SettingsGroup::new(&ox_core::i18n::gettext("Copying and moving"));
     let row = SettingRow::new(RECYCLE_REPLACED);
@@ -336,6 +354,35 @@ fn replacing_group(page: &SettingsPage) -> SettingsGroup {
         read: |preferences| preferences.recycle_replaced_files,
         write: |on| PreferencesUpdate {
             recycle_replaced_files: Some(on),
+            ..PreferencesUpdate::default()
+        },
+    };
+    row.add_control(&page.preference_switch(binding), ControlName::RowTitle);
+    group.add_row(&row);
+    // Off by default, the owner's choice; on, Restore works as Windows'.
+    let row = SettingRow::new(RESTORE_OVER_ORIGINAL);
+    let binding = PreferenceBinding {
+        read: |preferences| preferences.restore_over_original,
+        write: |on| PreferencesUpdate {
+            restore_over_original: Some(on),
+            ..PreferencesUpdate::default()
+        },
+    };
+    row.add_control(&page.preference_switch(binding), ControlName::RowTitle);
+    group.add_row(&row);
+    group
+}
+
+/// What Delete does on a removable drive: the drive's own Recycle Bin by
+/// default (OPS-018), or a permanent delete after Windows' question, as
+/// Windows 11 does.
+fn deleting_group(page: &SettingsPage) -> SettingsGroup {
+    let group = SettingsGroup::new(&ox_core::i18n::gettext("Deleting"));
+    let row = SettingRow::new(DELETE_REMOVABLE_PERMANENTLY);
+    let binding = PreferenceBinding {
+        read: |preferences| preferences.delete_removable_permanently,
+        write: |on| PreferencesUpdate {
+            delete_removable_permanently: Some(on),
             ..PreferencesUpdate::default()
         },
     };

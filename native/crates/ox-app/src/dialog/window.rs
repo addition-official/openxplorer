@@ -215,6 +215,23 @@ impl Dialog {
         dialog
     }
 
+    /// A dialog window like [`Self::with_title_bar`], `caption` in its
+    /// title bar, with `heading` over `message`, as Windows' "Network
+    /// Error" is laid out.
+    pub(crate) fn with_caption(
+        parent: &impl IsA<gtk::Window>,
+        caption: &str,
+        heading: &str,
+        message: &str,
+    ) -> Self {
+        let dialog = Self::with_title_bar(parent, caption, message);
+        // Windows draws this heading, its main instruction, in blue.
+        dialog.add_css_class("main-instruction");
+        dialog.imp().frame.title_label().set_text(heading);
+        dialog.imp().frame.title_label().set_visible(true);
+        dialog
+    }
+
     /// A Windows message box over `parent`: `title` in its caption, the
     /// warning icon beside `message`, and the buttons added next, as
     /// Windows 11 asks "Rename" before an extension changes
@@ -433,8 +450,12 @@ impl Dialog {
     /// Shows the dialog, focusing its first text field with the text
     /// selected, or else its first button.
     pub(crate) fn open(&self) {
-        let first_field =
-            crate::window::children(&self.fields()).find_map(|child| child.downcast::<gtk::Entry>().ok());
+        // A field may share its row with a button, as Map network drive's
+        // Folder has Browse... beside it.
+        let first_field = crate::window::children(&self.fields()).find_map(|child| {
+            let in_row = child.downcast_ref::<gtk::Box>().and_then(gtk::Box::first_child);
+            in_row.unwrap_or(child).downcast::<gtk::Entry>().ok()
+        });
         let first_button = self.imp().buttons.borrow().first().cloned();
         // Set before the window shows, so GTK's initial focus lands there.
         let initial_focus: Option<gtk::Widget> = match (&first_field, first_button) {
@@ -461,6 +482,15 @@ impl Dialog {
         self.present();
         if let Some(button) = first_button {
             button.grab_focus();
+        }
+    }
+
+    /// Shows the dialog with its primary (accent) button focused, so Enter
+    /// presses it, for a question whose answer is that button.
+    pub(crate) fn open_on_primary_button(&self) {
+        match self.default_widget() {
+            Some(primary) => self.open_focusing(&primary),
+            None => self.open(),
         }
     }
 

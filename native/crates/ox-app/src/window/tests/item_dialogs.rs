@@ -9,6 +9,7 @@
 
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
+use std::path::Path;
 
 use gtk::glib;
 use gtk::prelude::*;
@@ -117,6 +118,28 @@ pub(super) fn check(widget: &impl IsA<gtk::Widget>, label: &str) -> gtk::CheckBu
                 .is_some_and(|text| crate::test_support::harness::without_mnemonic(&text) == label)
         })
         .unwrap_or_else(|| panic!("a {label} check box"))
+}
+
+/// Waits for Confirm Attribute Changes over `window`, chooses `answer`
+/// unless it is empty and presses `button`; returns the dialog's texts.
+pub(super) fn answer_attribute_changes(window: &PropertiesWindow, answer: &str, button: &str) -> Vec<String> {
+    let over_window = || {
+        gtk::Window::list_toplevels()
+            .into_iter()
+            .filter_map(|shown| shown.downcast::<Dialog>().ok())
+            .find(|dialog| {
+                dialog.is_visible() && dialog.transient_for().as_ref() == Some(window.upcast_ref())
+            })
+    };
+    wait_until("Confirm Attribute Changes", || over_window().is_some());
+    let dialog = over_window().expect("wait_until returned once the dialog showed");
+    assert_eq!(dialog.title(), Some("Confirm Attribute Changes".into()));
+    let texts = dialog.texts();
+    if !answer.is_empty() {
+        check(&dialog, answer).set_active(true);
+    }
+    dialog.press(button);
+    texts
 }
 
 /// A button's text: its label, or the label inside it.
@@ -315,7 +338,7 @@ fn alt_enter_opens_a_files_properties_in_a_window_of_its_own() {
     assert!(button(&general, "Change...").is_visible());
     assert_eq!(
         value_after(&general, "Size:").as_deref(),
-        Some("20 bytes (20 bytes)")
+        Some("20\u{a0}bytes (20\u{a0}bytes)")
     );
     assert_eq!(
         value_after(&general, "Size on disk:"),
@@ -380,9 +403,9 @@ fn a_folders_size_and_contents_count_by_themselves() {
     assert_eq!(value_after(&general, "Type:").as_deref(), Some("File folder"));
     assert_eq!(
         value_after(&general, "Size:").as_deref(),
-        Some("15 bytes (15 bytes)")
+        Some("15\u{a0}bytes (15\u{a0}bytes)")
     );
-    assert!(value_after(&general, "Size on disk:").is_some_and(|text| text.ends_with(" bytes)")));
+    assert!(value_after(&general, "Size on disk:").is_some_and(|text| text.ends_with("\u{a0}bytes)")));
     assert!(value_after(&general, "Created:").is_some());
     assert_eq!(
         value_after(&general, "Modified:"),
@@ -424,7 +447,7 @@ fn a_partial_or_failed_folder_count_is_never_shown_as_exact() {
     });
     assert_eq!(
         value_after(&page, "Size:").as_deref(),
-        Some("≥ 10 bytes (10 bytes)")
+        Some("≥ 10\u{a0}bytes (10\u{a0}bytes)")
     );
     window.close();
 
@@ -448,9 +471,15 @@ fn a_partial_or_failed_folder_count_is_never_shown_as_exact() {
     );
 }
 
+/// Whether the `.hidden` list of the folder at `folder` names `name`.
+fn hidden_list_names(folder: &Path, name: &str) -> bool {
+    fs::read_to_string(folder.join(".hidden")).is_ok_and(|list| list.lines().any(|line| line == name))
+}
+
 /// Edit... after Apply on General changes the item as it is now: Read-only
-/// stays, and after Hidden renamed the file Edit changes the file under its
-/// new name, never an unrelated file that took the old one.
+/// stays, and Hidden, which lists the name in the folder's `.hidden` list
+/// as Windows sets the attribute, leaves the name, so Edit changes the
+/// same file.
 ///
 /// parity: PROP-007
 #[gtk::test]
@@ -467,20 +496,19 @@ fn edit_after_general_changes_the_item_as_it_is_now() {
     check(&general_page, "Read-only").set_active(true);
     check(&general_page, "Hidden").set_active(true);
     press(&window, "Apply");
-    let hidden = fixture.path(".Notes 2.txt");
-    wait_until("the hidden name", || hidden.exists());
+    let hidden = path.clone();
+    wait_until("the hidden name", || {
+        hidden_list_names(fixture.root(), "Notes 2.txt")
+    });
     wait_until("Read-only", || mode_of(&hidden) == 0o444);
-    // Another file takes the old name.
-    fs::write(&path, b"unrelated").expect("a file");
-    fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).expect("a known mode");
     window.select_tab("security");
     let security = tab(&window, "security");
     wait_until("the Security tab read again", || {
-        texts(&security).iter().any(|text| text.ends_with(".Notes 2.txt"))
+        texts(&security).iter().any(|text| text.ends_with("Notes 2.txt"))
     });
 
     press(&security, "Edit...");
-    let edit = sub_dialog(&window, "Permissions for .Notes 2.txt");
+    let edit = sub_dialog(&window, "Permissions for Notes 2.txt");
     let names = descendants::<gtk::ListBox>(&edit).remove(0);
     names.select_row(names.row_at_index(2).as_ref());
     let read = descendants::<gtk::CheckButton>(&edit)
@@ -493,7 +521,6 @@ fn edit_after_general_changes_the_item_as_it_is_now() {
     edit.ok_button().emit_clicked();
 
     wait_until("the change", || mode_of(&hidden) == 0o440);
-    assert_eq!(mode_of(&path), 0o600, "the unrelated file is untouched");
 }
 
 /// Tabs taller than the screen, as at a large text size, scroll inside
@@ -871,6 +898,12 @@ fn a_folders_read_only_reaches_the_files_inside_only() {
     assert!(!read_only.is_inconsistent() && read_only.is_active(), "ticked");
     assert!(window.apply_button().is_sensitive());
     press(&window, "Apply");
+    let texts = answer_attribute_changes(
+        &window,
+        "Apply changes to this folder, subfolders and files",
+        "OK",
+    );
+    assert!(texts.iter().any(|text| text == "set read-only"), "{texts:?}");
 
     wait_until("the files inside", || {
         mode_of(&fixture.path("Album/photo.png")) == 0o444
@@ -882,6 +915,106 @@ fn a_folders_read_only_reaches_the_files_inside_only() {
     );
     wait_until("Apply to grey", || !window.apply_button().is_sensitive());
     assert!(!window.is_closed(), "Apply keeps the window open");
+}
+
+/// A folder's Read-only asks first, as Windows does: "this folder only"
+/// leaves every file and subfolder inside as it was, and Cancel changes
+/// nothing and keeps the change to apply.
+///
+/// parity: PROP-003
+#[gtk::test]
+fn a_folders_read_only_asks_before_it_reaches_inside() {
+    let fixture = Fixture::standard();
+    fs::create_dir_all(fixture.path("Album/2026")).expect("folders");
+    for name in ["Album/photo.png", "Album/2026/beach.png"] {
+        fs::write(fixture.path(name), b"p").expect("a file");
+        fs::set_permissions(fixture.path(name), fs::Permissions::from_mode(0o644)).expect("mode");
+    }
+    let test = TestWindow::open(&fixture.uri());
+    test.select_named("Album");
+    test.activate("properties", None);
+    let window = test.wait_for_properties("Album Properties");
+    let read_only = check(&general(&window), "Read-only (Only applies to files in folder)");
+    let folder_mode = mode_of(&fixture.path("Album"));
+
+    read_only.set_active(true);
+    press(&window, "Apply");
+    let texts = answer_attribute_changes(&window, "", "Cancel");
+    assert!(
+        texts
+            .iter()
+            .any(|text| text == "Apply changes to this folder only"),
+        "{texts:?}"
+    );
+    wait_until("the buttons back", || window.ok_button().is_sensitive());
+    assert!(window.apply_button().is_sensitive(), "the change stays to apply");
+    assert!(!window.is_closed());
+    assert_eq!(
+        mode_of(&fixture.path("Album/photo.png")),
+        0o644,
+        "Cancel changes nothing"
+    );
+
+    press(&window, "Apply");
+    answer_attribute_changes(&window, "Apply changes to this folder only", "OK");
+    wait_until("Apply to grey", || !window.apply_button().is_sensitive());
+    assert_eq!(
+        mode_of(&fixture.path("Album/photo.png")),
+        0o644,
+        "its files stay writable"
+    );
+    assert_eq!(
+        mode_of(&fixture.path("Album/2026/beach.png")),
+        0o644,
+        "so do its subfolders' files"
+    );
+    assert_eq!(mode_of(&fixture.path("Album/2026")) & 0o200, 0o200);
+    assert_eq!(
+        mode_of(&fixture.path("Album")),
+        folder_mode,
+        "the folder keeps its bits"
+    );
+}
+
+/// With a folder among several items, Read-only asks in the selection's
+/// words; "the selected items only" changes the selected files and
+/// nothing inside the folder.
+///
+/// parity: PROP-002, PROP-003
+#[gtk::test]
+fn several_items_read_only_asks_and_can_stop_at_the_selection() {
+    let fixture = Fixture::standard();
+    fixture.write("Documents/inside.txt");
+    for name in ["Documents/inside.txt", "Notes 2.txt"] {
+        fs::set_permissions(fixture.path(name), fs::Permissions::from_mode(0o644)).expect("mode");
+    }
+    let test = TestWindow::open(&fixture.uri());
+    super::file_ops_support::select_names(&test, &["Documents", "Notes 2.txt"]);
+    test.activate("properties", None);
+    let window = test.wait_for_properties("Documents, Notes 2.txt Properties");
+    let read_only = check(&window, "Read-only (Only applies to files in folder)");
+    wait_until("the items read", || read_only.is_sensitive());
+
+    while !read_only.is_active() || read_only.is_inconsistent() {
+        read_only.set_active(!read_only.is_active());
+    }
+    press(&window, "Apply");
+    let texts = answer_attribute_changes(&window, "Apply changes to the selected items only", "OK");
+    assert!(
+        texts
+            .iter()
+            .any(|text| text == "Apply changes to the selected items, subfolders and files"),
+        "{texts:?}"
+    );
+    wait_until("the selected file", || {
+        mode_of(&fixture.path("Notes 2.txt")) == 0o444
+    });
+    wait_until("Apply to grey", || !window.apply_button().is_sensitive());
+    assert_eq!(
+        mode_of(&fixture.path("Documents/inside.txt")),
+        0o644,
+        "the folder's file is left alone"
+    );
 }
 
 /// A folder's Read-only changed while Apply makes the change before it
@@ -902,6 +1035,7 @@ fn a_folders_read_only_changed_during_apply_stays_to_apply() {
 
     read_only.set_active(true);
     press(&window, "Apply");
+    answer_attribute_changes(&window, "", "OK");
     // Apply greys the buttons as it starts the change, which then runs off
     // the main thread until the main loop takes its result.
     while window.ok_button().is_sensitive() {
@@ -1021,8 +1155,10 @@ fn alt_and_an_underlined_letter_press_the_properties_controls() {
     press_alt(&mut pointer, gtk::gdk::Key::h);
     wait_until("Alt+H ticks Hidden", || hidden.is_active());
     press_alt(&mut pointer, gtk::gdk::Key::a);
-    let hidden_path = fixture.path(".Notes 2.txt");
-    wait_until("Alt+A applies", || hidden_path.exists());
+    let hidden_path = fixture.path("Notes 2.txt");
+    wait_until("Alt+A applies", || {
+        hidden_list_names(fixture.root(), "Notes 2.txt")
+    });
     wait_until("Read-only applied", || mode_of(&hidden_path) & 0o222 == 0);
 
     window.select_tab("security");
@@ -1077,15 +1213,16 @@ fn an_item_that_cannot_be_renamed_greys_its_name_and_hidden() {
     );
 }
 
-/// Hidden adds a leading dot to the name on Apply, and a taken name is
-/// refused with the normal message.
+/// Hidden lists the name in the folder's `.hidden` list on Apply, as
+/// Windows sets the Hidden attribute, and never renames the item, so
+/// links and other apps' lists still find it; clearing it takes the name
+/// off the list.
 ///
 /// parity: PROP-005
 #[gtk::test]
-fn hidden_renames_with_a_leading_dot() {
+fn hidden_lists_the_name_without_renaming() {
     let fixture = Fixture::standard();
-    fs::write(fixture.path("Taken.txt"), b"keep").expect("a file");
-    fs::write(fixture.path(".Taken.txt"), b"hidden").expect("a file");
+    fs::write(fixture.path(".hidden"), "Other.txt\n").expect("a list");
     let test = TestWindow::open(&fixture.uri());
     test.select_named("Notes 2.txt");
     test.activate("properties", None);
@@ -1094,22 +1231,27 @@ fn hidden_renames_with_a_leading_dot() {
     check(&general(&window), "Hidden").set_active(true);
     press(&window, "Apply");
 
-    wait_until("the hidden name", || fixture.path(".Notes 2.txt").exists());
-    assert!(!fixture.path("Notes 2.txt").exists());
-    wait_until("the new title", || window.title_text() == ".Notes 2 Properties");
-    assert_eq!(name_field(&window).text(), ".Notes 2");
+    wait_until("the name listed", || {
+        hidden_list_names(fixture.root(), "Notes 2.txt")
+    });
+    assert!(fixture.path("Notes 2.txt").exists(), "the name stays");
+    assert!(hidden_list_names(fixture.root(), "Other.txt"), "other lines stay");
+    assert_eq!(window.title_text(), "Notes 2 Properties");
+    // GLib reads the folder's list again only some seconds after it last
+    // read it, so the view follows within that time.
+    crate::test_support::harness::wait_for(std::time::Duration::from_secs(12));
+    assert!(
+        !test.names().contains(&"Notes 2.txt".to_owned()),
+        "the view hides it"
+    );
 
-    test.select_named("Taken.txt");
-    test.activate("properties", None);
-    let taken = test.wait_for_properties("Taken Properties");
-    check(&general(&taken), "Hidden").set_active(true);
-    taken.ok_button().emit_clicked();
-    let refusal = message_over(&taken);
-    assert!(!refusal.message_text().is_empty());
-    refusal.press("OK");
-    assert!(!taken.is_closed(), "a refused change keeps the window open");
-    assert_eq!(fs::read(fixture.path(".Taken.txt")).expect("kept"), b"hidden");
-    assert_eq!(fs::read(fixture.path("Taken.txt")).expect("kept"), b"keep");
+    check(&general(&window), "Hidden").set_active(false);
+    press(&window, "Apply");
+    wait_until("the name off the list", || {
+        !hidden_list_names(fixture.root(), "Notes 2.txt")
+    });
+    assert!(hidden_list_names(fixture.root(), "Other.txt"));
+    window.close();
 }
 
 /// The name renames the item on OK, refusing a taken name in a message
@@ -1463,20 +1605,22 @@ fn several_items_count_a_link_to_a_folder_as_a_file() {
 }
 
 /// With several items selected, Size on disk counts a link to a file as
-/// the file it points to, as Size does.
+/// the file it points to, as Size does. The link is named for a type: a
+/// shortcut, named "… - Shortcut", counts its own size, as Windows counts
+/// a `.lnk`'s (VIEW-074).
 ///
 /// parity: PROP-033
 #[gtk::test]
 fn size_on_disk_of_several_items_follows_links_as_size_does() {
     let fixture = Fixture::standard();
     fs::write(fixture.path("Big.bin"), vec![7_u8; 200_000]).expect("the file is written");
-    std::os::unix::fs::symlink(fixture.path("Big.bin"), fixture.path("Big link.bin"))
+    std::os::unix::fs::symlink(fixture.path("Big.bin"), fixture.path("Big link.txt"))
         .expect("the link is made");
     let test = TestWindow::open(&fixture.uri());
-    super::file_ops_support::select_names(&test, &["Big.bin", "Big link.bin"]);
+    super::file_ops_support::select_names(&test, &["Big.bin", "Big link.txt"]);
     test.activate("properties", None);
-    let window = test.wait_for_properties("Big link.bin, Big.bin Properties");
-    let both = [fixture.path("Big.bin"), fixture.path("Big link.bin")];
+    let window = test.wait_for_properties("Big link.txt, Big.bin Properties");
+    let both = [fixture.path("Big.bin"), fixture.path("Big link.txt")];
 
     wait_until("the space on disk", || {
         value_after(&window, "Size on disk:") == Some(on_disk_text(&both))
@@ -1520,7 +1664,7 @@ fn properties_of_several_items_total_them_and_change_them_together() {
     });
     assert_eq!(
         value_after(&window, "Size:").as_deref(),
-        Some("60 bytes (60 bytes)")
+        Some("60\u{a0}bytes (60\u{a0}bytes)")
     );
     let files = ["Documents/inside.txt", "Notes 2.txt", "Notes 10.txt"].map(|name| fixture.path(name));
     assert_eq!(value_after(&window, "Size on disk:"), Some(on_disk_text(&files)));
@@ -1560,8 +1704,8 @@ fn properties_of_several_items_total_them_and_change_them_together() {
 
 /// Several items' Read-only and Hidden are half ticked where the items
 /// differ, and OK or Apply gives every item the state chosen: Read-only
-/// takes write from every file, and Hidden adds a leading dot to each
-/// name, as one item's do, and the title follows the new names.
+/// takes write from every file, and Hidden lists every name in the
+/// folder's `.hidden` list, as one item's do, renaming nothing.
 ///
 /// parity: PROP-002
 #[gtk::test]
@@ -1600,15 +1744,12 @@ fn several_items_attributes_show_mixed_and_apply_to_every_item() {
     press(&window, "Apply");
 
     wait_until("every name hidden", || {
-        fixture.path(".Notes 2.txt").exists() && fixture.path(".Notes 10.txt").exists()
+        hidden_list_names(fixture.root(), "Notes 2.txt") && hidden_list_names(fixture.root(), "Notes 10.txt")
     });
-    wait_until("the new title", || {
-        window.title_text() == ".Notes 2.txt, .Notes 10.txt Properties"
-    });
-    for name in [".Notes 2.txt", ".Notes 10.txt"] {
+    assert_eq!(window.title_text(), "Notes 2.txt, Notes 10.txt Properties");
+    for name in ["Notes 2.txt", "Notes 10.txt"] {
         assert_eq!(mode_of(&fixture.path(name)) & 0o222, 0, "{name} is read-only");
     }
-    assert!(!fixture.path("Notes 2.txt").exists() && !fixture.path("Notes 10.txt").exists());
     assert!(hidden.is_active() && read_only.is_active());
     assert!(!window.apply_button().is_sensitive(), "nothing is left to apply");
     window.close();
@@ -1816,7 +1957,8 @@ fn several_items_read_only_follows_a_change_made_on_security() {
     window.close();
 }
 
-/// A link says where it points. A drive, the root among them, has
+/// A shortcut names what it points to as its Description, as Windows 11
+/// shows a shortcut's. A drive, the root among them, has
 /// Windows' drive General tab: its type, file system, used and free
 /// space and capacity in bytes and short, and the ring, with nothing on
 /// it counted; where it is mounted and from what are on its Hardware tab.
@@ -1831,7 +1973,10 @@ fn properties_show_a_links_target_and_a_drives_space() {
     test.activate("properties-of", Some(&fixture.uri_of("Shortcut")));
     let window = test.wait_for_properties("Shortcut Properties");
     let general = general(&window);
-    assert_eq!(value_after(&general, "Target:").as_deref(), Some("Documents"));
+    assert_eq!(
+        value_after(&general, "Description:").as_deref(),
+        Some("Documents")
+    );
     window.close();
 
     test.activate("properties-of", Some("file:///"));
@@ -1848,7 +1993,7 @@ fn properties_show_a_links_target_and_a_drives_space() {
     assert!(value_after(&general, "File system:").is_some_and(|name| !name.is_empty()));
     for row in ["Used space:", "Free space:", "Capacity:"] {
         assert!(
-            value_after(&general, row).is_some_and(|text| text.ends_with(" bytes")),
+            value_after(&general, row).is_some_and(|text| text.ends_with("\u{a0}bytes")),
             "{row} in bytes"
         );
     }
@@ -1917,6 +2062,93 @@ fn change_opens_open_with_over_the_properties_window() {
     cover.destroy();
 }
 
+/// Change... in Properties changes which app opens the file's type, as
+/// in Windows, and opens nothing: the chooser asks "Select a default app
+/// for .txt files", lists the current app under "Default app" and the
+/// others under "More options", and offers "Set default" instead of
+/// "Just once" and "Always"; Set default makes the chosen app the default, closes the
+/// chooser and shows the new app in Opens with.
+///
+/// parity: PROP-003, OPEN-012
+#[gtk::test]
+fn change_sets_the_default_app_without_opening_the_file() {
+    const ENTRIES: [(&str, &str); 2] = [
+        ("io.winspace.PropertiesViewer.desktop", "Properties Viewer"),
+        ("io.winspace.PropertiesEditor.desktop", "Properties Editor"),
+    ];
+    let applications = glib::user_data_dir().join("applications");
+    assert!(
+        applications.starts_with(std::env::temp_dir())
+            && glib::user_config_dir().starts_with(std::env::temp_dir()),
+        "tests run with private XDG folders"
+    );
+    fs::create_dir_all(&applications).expect("the private data folder");
+    for (id, name) in ENTRIES {
+        let entry =
+            format!("[Desktop Entry]\nType=Application\nName={name}\nExec=true %F\nMimeType=text/plain;\n");
+        fs::write(applications.join(id), entry).expect("the fixture entry");
+    }
+    wait_until("GIO to read the entries", || {
+        ENTRIES
+            .iter()
+            .all(|(id, _)| crate::integration::installed_application(id).is_some())
+    });
+    for (id, _) in ENTRIES {
+        crate::integration::installed_application(id)
+            .expect("installed")
+            .add_supports_type("text/plain")
+            .expect("the private config folder is writable");
+    }
+    crate::integration::installed_application(ENTRIES[0].0)
+        .expect("installed")
+        .set_as_default_for_type("text/plain")
+        .expect("the private config folder is writable");
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    test.context.record_launches();
+    test.select_named("Notes 2.txt");
+    test.activate("properties", None);
+    let window = test.wait_for_properties("Notes 2 Properties");
+    let general = general(&window);
+    assert_eq!(
+        value_after(&general, "Opens with:").as_deref(),
+        Some("Properties Viewer")
+    );
+
+    press(&general, "Change...");
+    let open_with = || {
+        gtk::Window::list_toplevels()
+            .into_iter()
+            .filter_map(|toplevel| toplevel.downcast::<OpenWithDialog>().ok())
+            .find(WidgetExt::is_visible)
+    };
+    wait_until("Open with", || {
+        open_with().is_some_and(|dialog| dialog.is_listed())
+    });
+    let dialog = open_with().expect("Open with is open");
+    assert_eq!(dialog.heading_text(), "Select a default app for .txt files");
+    assert_eq!(dialog.section_headings(), ["Default app", "More options"]);
+    assert_eq!(dialog.footer_buttons(), ["Set default", "Cancel"]);
+    dialog.select_named("Properties Editor");
+    settle();
+    capture_dialog(&dialog, "native-open-with-set-default.png");
+    press(&dialog, "Set default");
+
+    wait_until("Open with to close", || open_with().is_none());
+    let default = gtk::gio::AppInfo::default_for_type("text/plain", false).and_then(|app| app.id());
+    assert_eq!(default.as_deref(), Some(ENTRIES[1].0), "the default changed");
+    assert!(test.context.recorded_launches().is_empty(), "nothing opened");
+    wait_until("Opens with to follow", || {
+        value_after(&general, "Opens with:").as_deref() == Some("Properties Editor")
+    });
+    assert!(!window.is_closed(), "Properties stays open");
+
+    gtk::gio::AppInfo::reset_type_associations("text/plain");
+    for (id, _) in ENTRIES {
+        fs::remove_file(applications.join(id)).expect("the fixture entry");
+    }
+}
+
 /// Escape closes Properties as Cancel does.
 ///
 /// parity: PROP-001, ACC-004
@@ -1977,6 +2209,44 @@ fn calculate_folder_size_shows_the_size_in_the_view_and_the_bar() {
     capture(&test.window, "native-size-scan.png");
     test.activate("cancel-size-scan", None);
     assert!(!strip.is_visible(), "Dismiss hides the finished bar");
+}
+
+/// A folder measured while its row is on screen shows its size in the
+/// Size column as soon as the scan ends, not only once the list is drawn
+/// again for another reason (the bar closing, a scroll).
+///
+/// parity: PROP-026
+#[gtk::test]
+fn a_measured_folder_shows_its_size_in_its_row_at_once() {
+    let fixture = Fixture::standard();
+    fs::write(fixture.path("Documents").join("a.txt"), b"0123456789").expect("fixture file");
+    let test = TestWindow::open(&fixture.uri());
+    let view = test.window.folder_pane().details().clone();
+    let shows = |text: &str| {
+        descendants::<gtk::Label>(view.column_view())
+            .iter()
+            .any(|label| label.is_drawable() && label.text() == text)
+    };
+    wait_until("the rows drawn", || shows("Notes 2.txt") || shows("Notes 2"));
+    assert!(!shows("10 bytes"));
+    let pane = test.window.folder_pane();
+    let notes = test.position_of("Notes 2.txt");
+    pane.reveal(notes);
+    wait_until("the keyboard on Notes 2", || {
+        pane.focused_position() == Some(notes)
+    });
+
+    test.activate("calculate-folder-size-of", Some(&fixture.uri_of("Documents")));
+
+    let strip = test.window.size_strip();
+    wait_until("the scan to end", || strip.button_label() == "Dismiss");
+    wait_until("the size in the Documents row", || shows("10 bytes"));
+    wait_for_frames(&test.window, 2);
+    assert_eq!(
+        pane.focused_position(),
+        Some(notes),
+        "the keyboard stays where it was"
+    );
 }
 
 /// parity: PROP-026, PROP-029
@@ -2100,7 +2370,8 @@ fn a_file_without_snapshots_explains_that_none_were_found() {
             .any(|text| text == "There are no previous versions available.")
     });
     assert!(versions.texts().iter().any(|text| text == "File versions:"));
-    assert!(versions
+    // A file on this computer has no server to mention, as in Windows.
+    assert!(!versions
         .texts()
         .iter()
         .any(|text| text.starts_with("No matching previous versions were found")));
@@ -2234,6 +2505,69 @@ fn restore_a_copy_copies_the_version_into_a_live_folder_only() {
     );
 }
 
+/// With "Restore over the original (Windows)" on, Restore copies the
+/// version back into the item's folder and asks "Replace or Skip Files"
+/// as a paste does: Skip keeps the live file, Replace puts the version
+/// there. The setting is off by default, so Restore asks for a folder.
+///
+/// parity: PROP-025
+#[gtk::test]
+fn restore_over_the_original_asks_before_replacing_the_live_item() {
+    let fixture = fixture_with_snapshot();
+    let test = TestWindow::open(&fixture.uri());
+    assert!(
+        !test.context.settings_data().preferences.restore_over_original,
+        "off by default, the owner's choice"
+    );
+    let update = ox_core::settings::PreferencesUpdate {
+        restore_over_original: Some(true),
+        ..ox_core::settings::PreferencesUpdate::default()
+    };
+    ox_core::settings::Settings::open(test.settings_directory())
+        .update_preferences(&update)
+        .expect("the settings file takes the choice");
+    test.context.reload_settings();
+    wait_until("the window to read the choice", || {
+        test.context.settings_data().preferences.restore_over_original
+    });
+    let version = fixture
+        .path("Documents")
+        .join(".snapshot")
+        .join(SNAPSHOT_NAME)
+        .join("plan.txt");
+    let request = RestoreRequest {
+        version_uri: ox_core::location::file_uri(&version),
+        label: SNAPSHOT_NAME.to_owned(),
+        name: "plan.txt".to_owned(),
+    };
+    let live = fixture.path("Documents/plan.txt");
+    let original = ox_core::location::file_uri(&live);
+
+    test.window.restore_over_original(&request, &original);
+    super::file_ops_support::answer_conflicts(&test, super::file_ops_support::ConflictAnswer::Skip);
+    super::file_ops_support::assert_ended_without_a_message(&test);
+    assert_eq!(
+        fs::read(&live).expect("the live file"),
+        b"live plan",
+        "Skip keeps it"
+    );
+
+    test.window.restore_over_original(&request, &original);
+    super::file_ops_support::answer_conflicts(&test, super::file_ops_support::ConflictAnswer::Replace);
+    wait_until("the version back in place", || {
+        fs::read(&live).is_ok_and(|bytes| bytes == b"earlier plan")
+    });
+    assert_eq!(
+        fs::read(&version).expect("the snapshot file"),
+        b"earlier plan",
+        "the snapshot is never changed"
+    );
+    assert!(
+        !fixture.path("Documents/plan - Copy.txt").exists(),
+        "no copy name"
+    );
+}
+
 /// `ShowItemProperties` opens the item's folder in a new tab with the
 /// item selected, and the item's Properties.
 ///
@@ -2263,7 +2597,7 @@ fn properties_of_a_location_open_for_menus_outside_the_folder_view() {
     let window = test.wait_for_properties("Documents Properties");
     let general = general(&window);
     wait_until("the count", || {
-        value_after(&general, "Size:").is_some_and(|text| text.ends_with(" bytes)"))
+        value_after(&general, "Size:").is_some_and(|text| text.ends_with("\u{a0}bytes)"))
     });
 }
 
@@ -2945,4 +3279,55 @@ fn a_link_renamed_in_properties_to_a_known_type_hides_its_extension_after() {
     wait_until("the title to follow the rename", || {
         window.title_text() == "memo Properties"
     });
+}
+
+/// Whether Windows' balloon about forbidden characters shows under
+/// `field`.
+fn shows_name_balloon(field: &gtk::Entry) -> bool {
+    descendants::<gtk::Popover>(field)
+        .iter()
+        .any(|balloon| balloon.has_css_class("name-balloon") && balloon.is_visible())
+}
+
+/// As in Windows 11's Properties, the name box refuses a character
+/// Windows forbids in names as it is typed, with the balloon renaming in
+/// place shows, so a name typed there can be copied to a Windows share
+/// or a USB stick; and a name ending in periods or spaces loses them, as
+/// a rename in place trims them: "Papers. " names the folder "Papers".
+/// The key is a real one on the private display.
+///
+/// parity: PROP-005
+#[gtk::test]
+fn the_name_in_properties_refuses_forbidden_characters_and_trims_its_end() {
+    let fixture = Fixture::standard();
+    fs::create_dir(fixture.path("Album")).expect("a folder");
+    // Before the window opens, which a new pointer would put away.
+    let mut pointer = crate::test_support::pointer::Pointer::connect();
+    let test = TestWindow::open(&fixture.uri());
+    test.select_named("Album");
+    test.activate("properties", None);
+    let window = test.wait_for_properties("Album Properties");
+    let name = name_field(&window);
+    name.grab_focus();
+    name.set_position(-1);
+    wait_until("the name box takes the keyboard", || {
+        name.has_focus() || name.first_child().is_some_and(|text| text.has_focus())
+    });
+    let (x, y) = crate::test_support::pointer::screen_point(&mut pointer, &name, (10.0, 10.0), (40, 40));
+    pointer.move_to(x, y);
+
+    pointer.tap_key(gtk::gdk::Key::slash);
+    wait_until("the balloon", || shows_name_balloon(&name));
+    let refused = name.text();
+    name.set_text("Papers. ");
+    press(&window, "Apply");
+    wait_until("the rename", || fixture.path("Papers").is_dir());
+
+    assert_eq!(refused, "Album", "the slash is refused");
+    assert!(
+        !fixture.path("Papers. ").exists(),
+        "the period and space are trimmed"
+    );
+    wait_until("the trimmed name in the box", || name.text() == "Papers");
+    window.close();
 }

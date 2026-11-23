@@ -27,9 +27,18 @@
 //! drawn at the size shown whatever size they declare. An animated GIF
 //! is fed only up to the end of its first frame, as Windows shows a GIF's
 //! first frame, so thousands of frames are never held. Reading stops
-//! once the time limit has passed, looked at between reads ([`TIME_LIMIT`]). Every failure is a [`Refusal`], and
+//! once the time limit has passed, looked at between reads ([`TIME_LIMIT`]).
+//! A vector picture is drawn with limits of its own ([`vector`]), as
+//! drawing one can take any time and memory and cannot be stopped once
+//! started: in a picture decoder, which lowers its own limits to them
+//! before it draws and then ends, or, where pictures are decoded in the
+//! app, in a drawing process of its own. Every failure is a [`Refusal`], and
 //! callers show the file's type icon instead, as Windows Explorer does
 //! for a picture it cannot preview.
+//!
+//! The decoding itself runs in a child process ([`decoder`]), sandboxed
+//! where bubblewrap works, so a picture that makes a C loader abort,
+//! crash or loop takes only that child down.
 //!
 //! Decoding blocks: run it off the main thread.
 
@@ -41,6 +50,18 @@ use std::time::{Duration, Instant};
 use gtk::gdk_pixbuf::{Pixbuf, PixbufFormat, PixbufLoader};
 use gtk::gio;
 use gtk::prelude::*;
+
+mod decoder;
+mod vector;
+
+#[cfg(feature = "fuzzing")]
+pub(crate) use decoder::{fuzz_answer, fuzz_serve};
+#[cfg(test)]
+pub(crate) use decoder::{idle_decoder_ids, UnusedForTests};
+pub(crate) use decoder::{run_as_decoder, unused_limit};
+#[cfg(feature = "fuzzing")]
+pub(crate) use vector::fuzz_vector_answer;
+pub(crate) use vector::run_as_drawer;
 
 /// The most pixels a raster picture may have to be decoded for display:
 /// 64 megapixels (8192 × 8192), more than any camera's photo, 256 MB
@@ -151,8 +172,88 @@ struct Header {
 }
 
 /// The picture in `file`, decoded to fit `width` × `height`, or at its own
-/// size when smaller, within `limits`. Blocks.
+/// size when smaller, within `limits`, in a child process
+/// ([`decoder`]): a picture that crashes or hangs its decoder leaves the
+/// app running, and is refused. Blocks.
 pub(crate) fn decode_to_fit(
+    file: &gio::File,
+    width: i32,
+    height: i32,
+    limits: Limits,
+    cancellable: Option<&gio::Cancellable>,
+) -> Result<Decoded, Refusal> {
+    decoder::decode(
+        decoder::Source::File(file.clone()),
+        width,
+        height,
+        limits,
+        cancellable,
+    )
+}
+
+/// The picture in `file`, decoded as [`decode_to_fit`] decodes a file's:
+/// for a file the caller opened itself, and checked is a plain file, so
+/// no link or pipe is opened after the check. Blocks.
+pub(crate) fn decode_file_to_fit(
+    file: std::fs::File,
+    width: i32,
+    height: i32,
+    limits: Limits,
+    cancellable: Option<&gio::Cancellable>,
+) -> Result<Decoded, Refusal> {
+    decoder::decode(
+        decoder::Source::Reader(Box::new(file)),
+        width,
+        height,
+        limits,
+        cancellable,
+    )
+}
+
+/// The picture in `bytes`, decoded as [`decode_to_fit`] decodes a file's:
+/// for a picture already read into memory. Blocks.
+pub(crate) fn decode_bytes_to_fit(
+    bytes: Vec<u8>,
+    width: i32,
+    height: i32,
+    limits: Limits,
+    cancellable: Option<&gio::Cancellable>,
+) -> Result<Decoded, Refusal> {
+    let reader = std::io::Cursor::new(bytes);
+    decoder::decode(
+        decoder::Source::Reader(Box::new(reader)),
+        width,
+        height,
+        limits,
+        cancellable,
+    )
+}
+
+/// Starts the picture decoders the thumbnail views use, in the background,
+/// before they are needed.
+pub(crate) fn warm_up_decoders(count: usize) {
+    decoder::warm_up(count);
+}
+
+/// The pictures in `pictures`, each decoded as [`decode_bytes_to_fit`]
+/// decodes one, in a single batch to one decoder process: what the
+/// thumbnail cache's reads use, many small files at a time. `each` is
+/// handed every result with its index as soon as it is decoded, in order.
+/// Blocks.
+pub(crate) fn decode_batch_to_fit(
+    pictures: Vec<Vec<u8>>,
+    width: i32,
+    height: i32,
+    limits: Limits,
+    cancellable: Option<&gio::Cancellable>,
+    each: &mut dyn FnMut(usize, Result<Decoded, Refusal>),
+) {
+    decoder::decode_batch(pictures, width, height, limits, cancellable, each);
+}
+
+/// The picture in `file`, decoded in this process: what the decoder
+/// process runs. Blocks.
+fn decode_here_to_fit(
     file: &gio::File,
     width: i32,
     height: i32,
@@ -165,10 +266,9 @@ pub(crate) fn decode_to_fit(
     decode_read_to_fit(read, started, width, height, limits, cancellable)
 }
 
-/// The picture `reader` reads, decoded as [`decode_to_fit`] decodes a
-/// file's: for a file the caller opened itself, and checked is a plain
-/// file, so no link or pipe is opened after the check. Blocks.
-pub(crate) fn decode_reader_to_fit(
+/// The picture `reader` reads, decoded in this process as
+/// [`decode_here_to_fit`] decodes a file's. Blocks.
+fn decode_reader_here_to_fit(
     reader: &mut impl std::io::Read,
     width: i32,
     height: i32,
@@ -179,9 +279,108 @@ pub(crate) fn decode_reader_to_fit(
     decode_read_to_fit(read, Instant::now(), width, height, limits, cancellable)
 }
 
+/// An image of the picture at `uri`, `pixels` square, which shows nothing
+/// until the picture is decoded off the main thread by
+/// [`decode_to_fit`], and stays empty when it is refused: a picture the
+/// user chose as an icon may be damaged or slow, and GTK's own icon loading would
+/// decode it on the main thread, in the app.
+pub(crate) fn guarded_image(uri: &str, pixels: i32) -> gtk::Image {
+    let image = gtk::Image::new();
+    image.set_pixel_size(pixels);
+    let weak = image.downgrade();
+    let uri = uri.to_owned();
+    gtk::glib::spawn_future_local(async move {
+        let decoded = gio::spawn_blocking(move || {
+            let file = gio::File::for_uri(&uri);
+            decode_to_fit(
+                &file,
+                pixels.saturating_mul(2),
+                pixels.saturating_mul(2),
+                Limits::DISPLAY,
+                None,
+            )
+            .ok()
+            .map(|decoded| gtk::gdk::Texture::for_pixbuf(&decoded.pixbuf))
+        })
+        .await
+        .ok()
+        .flatten();
+        if let (Some(image), Some(texture)) = (weak.upgrade(), decoded) {
+            image.set_paintable(Some(&texture));
+        }
+    });
+    image
+}
+
 /// The picture `next_chunk` hands over a chunk at a time, decoded within
-/// `limits` from `started`.
+/// `limits` from `started`: a vector picture in a drawing process
+/// ([`vector`]), any other here.
 fn decode_read_to_fit(
+    mut next_chunk: impl FnMut(&mut [u8]) -> Result<usize, ()>,
+    started: Instant,
+    width: i32,
+    height: i32,
+    limits: Limits,
+    cancellable: Option<&gio::Cancellable>,
+) -> Result<Decoded, Refusal> {
+    // The first bytes tell a vector picture.
+    let mut first = Vec::new();
+    let mut buffer = vec![0; READ_CHUNK];
+    let mut ended = false;
+    while first.len() < vector::SNIFF_BYTES {
+        if cancellable.is_some_and(CancellableExt::is_cancelled) {
+            return Err(Refusal::Cancelled);
+        }
+        if started.elapsed() >= limits.time {
+            return Err(Refusal::TimedOut);
+        }
+        let read = next_chunk(&mut buffer).map_err(|()| refusal_for(cancellable))?;
+        if read == 0 {
+            ended = true;
+            break;
+        }
+        first.extend_from_slice(&buffer[..read]);
+    }
+    if vector::may_be_vector(&first) {
+        let rest = |buffer: &mut [u8]| if ended { Ok(0) } else { next_chunk(buffer) };
+        let document = vector::read_document(first, rest, started, limits, cancellable)?;
+        if decoder::in_child() {
+            // In a picture decoder: drawn here, within the drawing limits
+            // of a vector picture, and the decoder then ends, so those
+            // limits stay with this picture alone.
+            decoder::end_after_this_picture();
+            vector::limit_drawing_after_use();
+            let mut at = 0;
+            let replayed = move |buffer: &mut [u8]| {
+                let count = (document.len() - at).min(buffer.len());
+                buffer[..count].copy_from_slice(&document[at..at + count]);
+                at += count;
+                Ok(count)
+            };
+            return decode_loaded(replayed, started, width, height, limits, cancellable);
+        }
+        return vector::draw(&document, width, height, limits, started, cancellable);
+    }
+    // Any other picture is read here, from those first bytes on.
+    let mut at = 0;
+    let replayed = move |buffer: &mut [u8]| {
+        if at < first.len() {
+            let count = (first.len() - at).min(buffer.len());
+            buffer[..count].copy_from_slice(&first[at..at + count]);
+            at += count;
+            Ok(count)
+        } else if ended {
+            Ok(0)
+        } else {
+            next_chunk(buffer)
+        }
+    };
+    decode_loaded(replayed, started, width, height, limits, cancellable)
+}
+
+/// The picture `next_chunk` hands over a chunk at a time, decoded here by
+/// gdk-pixbuf within `limits` from `started`.
+fn decode_loaded(
     mut next_chunk: impl FnMut(&mut [u8]) -> Result<usize, ()>,
     started: Instant,
     width: i32,
@@ -333,14 +532,15 @@ fn watch_header(loader: &PixbufLoader, header: &Rc<Header>, fit: (i32, i32), lim
     });
 }
 
+/// A PNG of one transparent pixel.
+const ONE_PIXEL_PNG: &[u8] =
+    b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR\0\0\0\x01\0\0\0\x01\x08\x06\0\0\0\x1f\x15\xc4\x89\
+    \0\0\0\nIDATx\x9cc\0\x01\0\0\x05\0\x01\r\n-\xb4\0\0\0\0IEND\xaeB`\x82";
+
 /// Whether this gdk-pixbuf reads a picture only once its loader is
 /// closed, as the loaders built on glycin do: they report no size while
 /// they are fed. Found once, by feeding a picture of one pixel.
 fn decodes_when_closed() -> bool {
-    /// A PNG of one transparent pixel.
-    const ONE_PIXEL: &[u8] =
-        b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR\0\0\0\x01\0\0\0\x01\x08\x06\0\0\0\x1f\x15\xc4\x89\
-        \0\0\0\nIDATx\x9cc\0\x01\0\0\x05\0\x01\r\n-\xb4\0\0\0\0IEND\xaeB`\x82";
     static ANSWER: OnceLock<bool> = OnceLock::new();
     *ANSWER.get_or_init(|| {
         let Ok(loader) = PixbufLoader::with_type("png") else {
@@ -349,7 +549,7 @@ fn decodes_when_closed() -> bool {
         let sized = Rc::new(Cell::new(false));
         let reported = Rc::clone(&sized);
         loader.connect_size_prepared(move |_, _, _| reported.set(true));
-        let written = loader.write(ONE_PIXEL).is_ok();
+        let written = loader.write(ONE_PIXEL_PNG).is_ok();
         let while_fed = sized.get();
         let _ = loader.close();
         written && !while_fed
@@ -380,6 +580,9 @@ enum Declared {
     },
     /// The bytes may be a picture whose header is not yet whole.
     Incomplete,
+    /// The header is one no loader may be given: it would make the loader
+    /// reserve far more memory than any picture's header needs.
+    Damaged,
     /// The bytes are no PNG, JPEG, GIF, WebP or BMP whose header can be
     /// read: gdk-pixbuf reads their size itself.
     Unknown,
@@ -388,14 +591,17 @@ enum Declared {
 /// Reads the size a picture's header declares.
 type HeaderReader = fn(&[u8]) -> Declared;
 
-/// The size a PNG, JPEG, GIF, WebP or BMP declares in its first `bytes`.
+/// The size a PNG, JPEG, GIF, WebP or BMP declares in its first `bytes`,
+/// or that an icon's directory is one no loader may be given.
 fn declared_size(bytes: &[u8]) -> Declared {
-    let readers: [(&[u8], HeaderReader); 5] = [
+    let readers: [(&[u8], HeaderReader); 7] = [
         (PNG_SIGNATURE, png_size),
         (b"\xFF\xD8", jpeg_size),
         (b"GIF87a", gif_size),
         (b"GIF89a", gif_size),
         (b"BM", bmp_size),
+        (b"\0\0\x01\0", icon_size),
+        (b"\0\0\x02\0", icon_size),
     ];
     let mut incomplete = false;
     for (signature, read) in readers {
@@ -437,7 +643,7 @@ fn starts_with(bytes: &[u8], signature: &[u8]) -> Option<bool> {
 /// `limits` allow, with the header's size.
 fn refusal_by_header(declared: Declared, limits: Limits) -> Option<Refusal> {
     let Declared::Size { jpeg, width, height } = declared else {
-        return None;
+        return (declared == Declared::Damaged).then_some(Refusal::Damaged);
     };
     let pixels = u64::from(width) * u64::from(height);
     let side = |side: u32| i32::try_from(side).unwrap_or(i32::MAX);
@@ -535,11 +741,21 @@ fn gif_size(bytes: &[u8]) -> Declared {
 
 /// The size in a BMP's information header: an OS/2 core header's two
 /// 16-bit sides, or a Windows header's 32-bit ones, whose height is
-/// negative for rows stored from the top.
+/// negative for rows stored from the top. gdk-pixbuf reserves room for
+/// the whole information header as its length says, and for everything
+/// up to the pixels as the file header's offset says, before it looks at
+/// either, so a length past the longest header (`BITMAPV5HEADER`) and an
+/// offset past [`MAX_BMP_PIXEL_OFFSET`] are refused.
 fn bmp_size(bytes: &[u8]) -> Declared {
-    let Some(header) = field(bytes, 14).map(u32::from_le_bytes) else {
+    let (Some(offset), Some(header)) = (
+        field(bytes, 10).map(u32::from_le_bytes),
+        field(bytes, 14).map(u32::from_le_bytes),
+    ) else {
         return Declared::Incomplete;
     };
+    if header > MAX_BMP_INFO_HEADER || offset > MAX_BMP_PIXEL_OFFSET {
+        return Declared::Damaged;
+    }
     let size = if header == 12 {
         field(bytes, 18).zip(field(bytes, 20)).map(|(width, height)| {
             (
@@ -565,6 +781,77 @@ fn bmp_size(bytes: &[u8]) -> Declared {
         height,
     })
 }
+
+/// What an icon's or cursor's directory says: gdk-pixbuf reserves room
+/// from the start of the file to an image's data, as the image's entry
+/// gives its offset and length, and rows as wide as the image's bitmap
+/// header says, before it reads the image. An entry past
+/// [`MAX_ICON_DATA_END`] or inside the directory, and a bitmap header
+/// wider or taller than [`MAX_ICON_EDGE`], are refused; a bitmap header
+/// past the start read before deciding is left to the loader. Each image's
+/// size is read by the loader itself.
+fn icon_size(bytes: &[u8]) -> Declared {
+    let Some(count) = field(bytes, 4).map(u16::from_le_bytes) else {
+        return Declared::Incomplete;
+    };
+    let directory = 6 + 16 * usize::from(count);
+    // A directory longer than the start read before deciding is no icon's.
+    if directory > HEADER_LIMIT {
+        return Declared::Damaged;
+    }
+    if bytes.len() < directory {
+        return Declared::Incomplete;
+    }
+    let mut incomplete = false;
+    for entry in bytes[6..directory].chunks_exact(16) {
+        let word = |at: usize| u32::from_le_bytes([entry[at], entry[at + 1], entry[at + 2], entry[at + 3]]);
+        let (length, offset) = (word(8), word(12));
+        let at = usize::try_from(offset).unwrap_or(usize::MAX);
+        if offset.saturating_add(length) > MAX_ICON_DATA_END || at < directory {
+            return Declared::Damaged;
+        }
+        // A PNG image's size is read by the loader as any PNG's is.
+        match starts_with(bytes.get(at..).unwrap_or_default(), PNG_SIGNATURE) {
+            Some(true) => continue,
+            Some(false) => {}
+            None => {
+                incomplete |= at < HEADER_LIMIT;
+                continue;
+            }
+        }
+        let sides = field(bytes, at + 4).zip(field(bytes, at + 8));
+        match sides.map(|(width, height)| (i32::from_le_bytes(width), i32::from_le_bytes(height))) {
+            // The height counts the image and its mask.
+            Some((width, height))
+                if width.unsigned_abs() > MAX_ICON_EDGE || height.unsigned_abs() > 2 * MAX_ICON_EDGE =>
+            {
+                return Declared::Damaged;
+            }
+            Some(_) => {}
+            None => incomplete |= at + 12 <= HEADER_LIMIT,
+        }
+    }
+    if incomplete {
+        Declared::Incomplete
+    } else {
+        Declared::Unknown
+    }
+}
+
+/// The widest and tallest an icon's bitmap may be: icons are at most 256
+/// pixels square, and this leaves room for larger ones some programs write.
+const MAX_ICON_EDGE: u32 = 1024;
+
+/// The furthest an icon's image data may end: far past any icon a program
+/// writes, which holds a few pictures of at most 256 pixels square.
+const MAX_ICON_DATA_END: u32 = 64 * 1024 * 1024;
+
+/// The length of the longest BMP information header, `BITMAPV5HEADER`.
+const MAX_BMP_INFO_HEADER: u32 = 124;
+
+/// The furthest a BMP's pixels may start: far past the longest header, its
+/// color masks and the largest palette a loader reads.
+const MAX_BMP_PIXEL_OFFSET: u32 = 1024 * 1024;
 
 /// The size in a WebP's first chunk: a lossy (VP8) frame's, a lossless
 /// (VP8L) picture's, or an extended file's (VP8X) canvas.
@@ -620,6 +907,17 @@ pub(crate) fn dimensions(file: &gio::File) -> Option<(i32, i32)> {
         Ok(decoded) => Some((decoded.width, decoded.height)),
         Err(Refusal::TooLarge { width, height }) if width > 0 && height > 0 => Some((width, height)),
         Err(_) => None,
+    }
+}
+
+/// The width and height a PNG, JPEG, GIF, WebP or BMP declares in its
+/// first `bytes`, read in pure Rust without decoding it: for a walk over
+/// many photos, which cannot start a decoder for each. `None` for another
+/// format, or a header that is not whole.
+pub(crate) fn declared_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
+    match declared_size(bytes) {
+        Declared::Size { width, height, .. } if width > 0 && height > 0 => Some((width, height)),
+        _ => None,
     }
 }
 
@@ -733,6 +1031,61 @@ impl Ending {
     fn is_complete(&self) -> bool {
         self.start != PNG_SIGNATURE || self.ended
     }
+}
+
+/// Runs the header readers and the stream cutters on `bytes`, for the
+/// fuzz targets, and checks that neither depends on how the bytes come:
+/// the size read from any start of the picture that is no longer
+/// incomplete is the size read from all of it, and feeding the picture
+/// in the pieces `cuts` gives the bytes feeding it whole gives.
+///
+/// # Panics
+///
+/// When a reader's answer depends on where the reads end.
+#[cfg(feature = "fuzzing")]
+pub(crate) fn fuzz_headers(bytes: &[u8], cuts: &[usize]) {
+    let whole = declared_size(bytes);
+    let _ = refusal_by_header(whole, Limits::DISPLAY);
+    let _ = refusal_by_header(whole, Limits::THUMBNAIL_FILE);
+    let _ = declared_dimensions(bytes);
+    for &cut in cuts {
+        let start = &bytes[..cut.min(bytes.len())];
+        let declared = declared_size(start);
+        assert!(
+            declared == Declared::Incomplete || declared == whole,
+            "the first {} bytes declare {declared:?}, all {} bytes {whole:?}",
+            start.len(),
+            bytes.len()
+        );
+    }
+    let feed = |pieces: &mut dyn Iterator<Item = &[u8]>| {
+        let mut first_frame = FirstFrame::default();
+        let mut ending = Ending::default();
+        let mut fed = Vec::new();
+        for piece in pieces {
+            let (chunk, first_frame_done) = first_frame.take(piece);
+            let (chunk, png_done) = ending.take(chunk);
+            fed.extend_from_slice(chunk);
+            if first_frame_done || png_done {
+                return (fed, true, ending.is_complete());
+            }
+        }
+        (fed, false, ending.is_complete())
+    };
+    let whole_feed = feed(&mut std::iter::once(bytes));
+    let mut pieces = Vec::new();
+    let mut from = 0;
+    for &cut in cuts {
+        let to = cut.clamp(from, bytes.len());
+        pieces.push(&bytes[from..to]);
+        from = to;
+    }
+    pieces.push(&bytes[from..]);
+    let pieces_feed = feed(&mut pieces.into_iter());
+    assert_eq!(
+        whole_feed, pieces_feed,
+        "feeding in pieces differs from feeding whole"
+    );
 }
 
 /// The byte that ends a GIF.
@@ -1075,6 +1428,100 @@ mod tests {
         webp
     }
 
+    /// An icon whose directory puts an image gigabytes in is refused
+    /// before a loader reserves room up to it; an icon as programs write
+    /// them is still read (found by fuzzing).
+    #[test]
+    fn an_icon_with_an_image_gigabytes_in_is_refused_before_it_is_read() {
+        let pixbuf = Pixbuf::new(gtk::gdk_pixbuf::Colorspace::Rgb, true, 8, 16, 16).expect("a small picture");
+        pixbuf.fill(0x3366_99ff);
+        let icon = pixbuf.save_to_bufferv("ico", &[]).expect("an icon");
+        assert_eq!(declared_size(&icon), Declared::Unknown);
+        let mut reader = std::io::Cursor::new(icon.clone());
+        let decoded =
+            decode_reader_here_to_fit(&mut reader, 64, 64, Limits::DISPLAY, None).expect("the icon");
+        assert_eq!((decoded.width, decoded.height), (16, 16));
+        for (offset, size) in [(0x4849_4441_u32, 40_u32), (22, 0xFFFF_FF00)] {
+            let mut far = icon.clone();
+            far[6 + 8..6 + 12].copy_from_slice(&size.to_le_bytes());
+            far[6 + 12..6 + 16].copy_from_slice(&offset.to_le_bytes());
+            assert_eq!(
+                declared_size(&far),
+                Declared::Damaged,
+                "offset {offset:#x}, size {size:#x}"
+            );
+            let mut reader = std::io::Cursor::new(far);
+            let decoded = decode_reader_here_to_fit(&mut reader, 64, 64, Limits::DISPLAY, None);
+            assert_eq!(decoded.err(), Some(Refusal::Damaged));
+        }
+        // An image inside the directory, or a bitmap far wider or taller
+        // than any icon's, makes the loader reserve rows of that width.
+        let mut inside = icon.clone();
+        inside[6 + 12..6 + 16].copy_from_slice(&0_u32.to_le_bytes());
+        assert_eq!(declared_size(&inside), Declared::Damaged);
+        let image = usize::try_from(u32::from_le_bytes(icon[18..22].try_into().expect("an offset")))
+            .expect("an offset");
+        assert!(
+            !icon[image..].starts_with(PNG_SIGNATURE),
+            "gdk-pixbuf writes bitmaps into icons"
+        );
+        for (width, height) in [(289_865_731_i32, 32_i32), (16, -1_000_000)] {
+            let mut wide = icon.clone();
+            wide[image + 4..image + 8].copy_from_slice(&width.to_le_bytes());
+            wide[image + 8..image + 12].copy_from_slice(&height.to_le_bytes());
+            assert_eq!(declared_size(&wide), Declared::Damaged, "{width} x {height}");
+        }
+        // The directory is read whole before deciding, and one longer
+        // than the start read before deciding is refused.
+        assert_eq!(declared_size(&icon[..10]), Declared::Incomplete);
+        let mut crowded = icon.clone();
+        crowded[4..6].copy_from_slice(&u16::MAX.to_le_bytes());
+        assert_eq!(declared_size(&crowded), Declared::Damaged);
+    }
+
+    /// A BMP whose information header claims to be gigabytes long is
+    /// refused before a loader reserves room for that header, whatever
+    /// size it gives (found by fuzzing).
+    #[test]
+    fn a_bmp_header_of_gigabytes_is_refused_before_it_is_read() {
+        for (width, height) in [(-741_092_397_i32, -741_092_397_i32), (1, 1), (640, -480)] {
+            let mut bmp = bmp_header(width, height);
+            bmp[14..18].copy_from_slice(&0xD3D3_D328_u32.to_le_bytes());
+            assert_eq!(declared_size(&bmp), Declared::Damaged, "{width} x {height}");
+            assert_eq!(
+                refusal_by_header(declared_size(&bmp), Limits::DISPLAY),
+                Some(Refusal::Damaged)
+            );
+            let mut reader = std::io::Cursor::new(bmp);
+            let decoded = decode_reader_here_to_fit(&mut reader, 64, 64, Limits::DISPLAY, None);
+            assert_eq!(decoded.err(), Some(Refusal::Damaged));
+        }
+        // The offset of the pixels makes the loader reserve room up to
+        // them, so one far past any header and palette is refused too.
+        for offset in [0xFFFF_FFC4_u32, 0x4000_0000] {
+            let mut bmp = bmp_header(12, 8);
+            bmp[10..14].copy_from_slice(&offset.to_le_bytes());
+            assert_eq!(declared_size(&bmp), Declared::Damaged, "offset {offset:#x}");
+            let mut reader = std::io::Cursor::new(bmp);
+            let decoded = decode_reader_here_to_fit(&mut reader, 64, 64, Limits::DISPLAY, None);
+            assert_eq!(decoded.err(), Some(Refusal::Damaged));
+        }
+        // Every header gdk-pixbuf reads is still read for its size.
+        for header in [40_u32, 52, 56, 64, 108, 124] {
+            let mut bmp = bmp_header(32, 16);
+            bmp[14..18].copy_from_slice(&header.to_le_bytes());
+            bmp.resize(14 + 124 + 16, 0);
+            assert!(matches!(
+                declared_size(&bmp),
+                Declared::Size {
+                    width: 32,
+                    height: 16,
+                    ..
+                }
+            ));
+        }
+    }
+
     /// Each format's size is read from its own header, however few of
     /// its first bytes were read; other bytes are left to gdk-pixbuf.
     #[test]
@@ -1297,6 +1744,49 @@ mod tests {
         assert_eq!((decoded.pixbuf.width(), decoded.pixbuf.height()), (256, 128));
     }
 
+    /// An SVG of `length` letters of text in one line, which costs far
+    /// more to draw than its file size suggests.
+    fn long_text_svg(folder: &Path, name: &str, length: usize) -> PathBuf {
+        let path = folder.join(name);
+        let text = "a".repeat(length);
+        let svg = format!(
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"100\">\
+             <text y=\"20\">{text}</text></svg>"
+        );
+        std::fs::write(&path, svg).expect("svg");
+        path
+    }
+
+    /// An SVG that needs more memory to draw whole than a picture may have
+    /// is drawn without what does not fit, or refused, in time, and the
+    /// app goes on running.
+    #[test]
+    fn an_svg_too_large_to_draw_whole_is_drawn_in_part_or_refused() {
+        let folder = tempfile::tempdir().expect("a temporary folder");
+        let path = long_text_svg(folder.path(), "Poster.svg", 1_000_000);
+        let started = Instant::now();
+        if let Ok(decoded) = decode(&path, Limits::DISPLAY) {
+            assert_eq!((decoded.width, decoded.height), (100, 100));
+            assert!(decoded.pixbuf.width() <= 256 && decoded.pixbuf.height() <= 256);
+        }
+        assert!(started.elapsed() < TIME_LIMIT + Duration::from_secs(5));
+    }
+
+    /// An SVG that takes longer to draw than the time limit is refused once
+    /// the limit has passed, not when drawing ends.
+    #[test]
+    fn an_svg_slow_to_draw_is_refused_at_the_time_limit() {
+        let folder = tempfile::tempdir().expect("a temporary folder");
+        let path = long_text_svg(folder.path(), "Leaflet.svg", 100_000);
+        let short = Limits {
+            time: Duration::from_secs(2),
+            ..Limits::DISPLAY
+        };
+        let started = Instant::now();
+        assert_eq!(decode(&path, short).map(|_| ()), Err(Refusal::TimedOut));
+        assert!(started.elapsed() < Duration::from_secs(6));
+    }
+
     /// Reading stops at the time limit, and when the caller cancels.
     #[test]
     fn decoding_stops_at_the_time_limit_and_when_cancelled() {
@@ -1456,5 +1946,250 @@ mod tests {
         assert_eq!(fit_within(600, 1200, (220, 146)), (73, 146));
         assert_eq!(fit_within(30_000, 1, (256, 256)), (256, 1), "at least a pixel");
         assert_eq!(fit_within(1, 1, (256, 256)), (256, 256));
+    }
+
+    /// One picture of each kind gdk-pixbuf reads, made here: PNG, JPEG,
+    /// BMP, ICO, TIFF, GIF and SVG.
+    fn sample_pictures(folder: &Path) -> Vec<(String, Vec<u8>)> {
+        let mut samples = Vec::new();
+        for (kind, extension) in [
+            ("png", "png"),
+            ("jpeg", "jpg"),
+            ("bmp", "bmp"),
+            ("ico", "ico"),
+            ("tiff", "tif"),
+        ] {
+            let path = saved_picture(folder, &format!("sample.{extension}"), kind, 32, 24);
+            samples.push((extension.to_owned(), std::fs::read(&path).expect("read back")));
+        }
+        samples.push(("gif".to_owned(), animated_gif(3, 16)));
+        samples.push((
+            "svg".to_owned(),
+            br##"<svg xmlns="http://www.w3.org/2000/svg" width="40" height="30"><rect width="40" height="30" fill="#369"/></svg>"##.to_vec(),
+        ));
+        samples
+    }
+
+    /// A corpus of broken pictures, written into `folder`: every sample
+    /// cut short at many points, headers declaring huge, zero and
+    /// negative sizes, SVGs made to expand without end or nest deeply,
+    /// pictures under the wrong name, and plain garbage. Made in the
+    /// test, never taken from anyone's files.
+    pub(super) fn broken_pictures(folder: &Path) -> Vec<PathBuf> {
+        let mut corpus: Vec<(String, Vec<u8>)> = Vec::new();
+        for (extension, bytes) in sample_pictures(folder) {
+            for cut in [
+                0,
+                1,
+                2,
+                7,
+                8,
+                12,
+                16,
+                24,
+                33,
+                50,
+                100,
+                bytes.len() / 2,
+                bytes.len().saturating_sub(1),
+            ] {
+                if cut < bytes.len() {
+                    corpus.push((extension.clone(), bytes[..cut].to_vec()));
+                }
+            }
+            // The right start with garbage after it, and the wrong name.
+            let mut tail = bytes[..bytes.len().min(20)].to_vec();
+            tail.extend(std::iter::repeat_n(0xA5, 4096));
+            corpus.push((extension.clone(), tail));
+            corpus.push(("png".to_owned(), bytes.clone()));
+        }
+        let mut huge_png = PNG_SIGNATURE.to_vec();
+        for (width, height) in [
+            (0_u32, 0_u32),
+            (u32::MAX, u32::MAX),
+            (1, 0x7fff_ffff),
+            (65_535, 65_535),
+        ] {
+            let mut png = huge_png.clone();
+            let mut ihdr = b"IHDR".to_vec();
+            ihdr.extend_from_slice(&width.to_be_bytes());
+            ihdr.extend_from_slice(&height.to_be_bytes());
+            ihdr.extend_from_slice(&[8, 6, 0, 0, 0]);
+            png.extend_from_slice(&13_u32.to_be_bytes());
+            png.extend_from_slice(&ihdr);
+            png.extend_from_slice(&crc32(&ihdr).to_be_bytes());
+            corpus.push(("png".to_owned(), png));
+        }
+        huge_png.extend_from_slice(&[0xFF; 64]);
+        corpus.push(("png".to_owned(), huge_png));
+        for (width, height) in [(0, 0), (-1, -1), (i32::MAX, 1), (1, i32::MIN), (70_000, 70_000)] {
+            corpus.push(("bmp".to_owned(), bmp_header(width, height)));
+        }
+        corpus.push(("webp".to_owned(), webp_extended(0x00FF_FFFF, 0x00FF_FFFF)));
+        corpus.push(("webp".to_owned(), b"RIFF\xff\xff\xff\xffWEBPVP8 ".to_vec()));
+        corpus.push((
+            "jpg".to_owned(),
+            b"\xFF\xD8\xFF\xC0\x00\x11\x08\xFF\xFF\xFF\xFF\x03".to_vec(),
+        ));
+        corpus.push((
+            "jpg".to_owned(),
+            b"\xFF\xD8".iter().copied().cycle().take(100_000).collect(),
+        ));
+        corpus.push(("gif".to_owned(), b"GIF89a\xff\xff\xff\xff\xf7\0\0".to_vec()));
+        corpus.push((
+            "ico".to_owned(),
+            b"\0\0\x01\0\xff\xff".iter().copied().chain([0xFF; 32]).collect(),
+        ));
+        corpus.push(("tif".to_owned(), b"II*\0\xff\xff\xff\x7f".to_vec()));
+        corpus.push(("tif".to_owned(), b"MM\0*\0\0\0\x08\xff\xff".to_vec()));
+        corpus.push((
+            "xpm".to_owned(),
+            b"/* XPM */\nstatic char *x[] = {\n\"99999 99999 999 9\",\n".to_vec(),
+        ));
+        corpus.push(("pnm".to_owned(), b"P6\n999999 999999\n255\n".to_vec()));
+        corpus.push((
+            "tga".to_owned(),
+            [
+                0_u8, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF, 32, 0,
+            ]
+            .to_vec(),
+        ));
+        let laughs = r#"<?xml version="1.0"?><!DOCTYPE svg [<!ENTITY a "aaaaaaaaaa"><!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;"><!ENTITY c "&b;&b;&b;&b;&b;&b;&b;&b;&b;&b;"><!ENTITY d "&c;&c;&c;&c;&c;&c;&c;&c;&c;&c;"><!ENTITY e "&d;&d;&d;&d;&d;&d;&d;&d;&d;&d;"><!ENTITY f "&e;&e;&e;&e;&e;&e;&e;&e;&e;&e;">]><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><text>&f;&f;&f;&f;</text></svg>"#;
+        corpus.push(("svg".to_owned(), laughs.as_bytes().to_vec()));
+        let mut nested = String::from(r#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">"#);
+        nested.push_str(&"<g>".repeat(50_000));
+        nested.push_str(&"</g>".repeat(50_000));
+        nested.push_str("</svg>");
+        corpus.push(("svg".to_owned(), nested.into_bytes()));
+        corpus.push((
+            "svg".to_owned(),
+            br#"<svg xmlns="http://www.w3.org/2000/svg" width="1e30" height="1e30"><rect width="1e30" height="1e30"/></svg>"#.to_vec(),
+        ));
+        corpus.push((
+            "svg".to_owned(),
+            br##"<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="9" height="9"><use id="u" xlink:href="#u"/></svg>"##.to_vec(),
+        ));
+        corpus.push(("png".to_owned(), Vec::new()));
+        corpus.push(("png".to_owned(), (0..=255).cycle().take(70_000).collect()));
+        write_corpus(folder, "broken", corpus)
+    }
+
+    /// `rounds` seeded mutations of each sample picture, written into
+    /// `folder`: bytes flipped, inserted and removed, as a fuzzer makes
+    /// them, the same every run.
+    pub(super) fn mutated_pictures(folder: &Path, rounds: usize) -> Vec<PathBuf> {
+        let mut corpus = Vec::new();
+        let mut seed = 0x9E37_79B9_u32;
+        let mut next = move || {
+            seed ^= seed << 13;
+            seed ^= seed >> 17;
+            seed ^= seed << 5;
+            usize::try_from(seed).unwrap_or(0)
+        };
+        for (extension, bytes) in sample_pictures(folder) {
+            for _ in 0..rounds {
+                let mut mutated = bytes.clone();
+                for _ in 0..=(next() % 8) {
+                    if mutated.is_empty() {
+                        break;
+                    }
+                    let at = next() % mutated.len();
+                    match next() % 4 {
+                        0 => mutated[at] ^= 1 << (next() % 8),
+                        1 => mutated[at] = [0, 0xFF, 0x7F, 0x80][next() % 4],
+                        2 => mutated.insert(at, u8::try_from(next() % 256).unwrap_or(0)),
+                        _ => {
+                            mutated.remove(at);
+                        }
+                    }
+                }
+                corpus.push((extension.clone(), mutated));
+            }
+        }
+        write_corpus(folder, "mutated", corpus)
+    }
+
+    fn write_corpus(folder: &Path, name: &str, corpus: Vec<(String, Vec<u8>)>) -> Vec<PathBuf> {
+        corpus
+            .into_iter()
+            .enumerate()
+            .map(|(index, (extension, bytes))| {
+                let path = folder.join(format!("{name}-{index}.{extension}"));
+                std::fs::write(&path, bytes).expect("written");
+                path
+            })
+            .collect()
+    }
+
+    /// The guarded decoding itself, in this process, survives the corpus
+    /// too: every picture is refused or drawn within its limits.
+    #[test]
+    fn the_guarded_decoding_refuses_the_broken_corpus_within_its_limits() {
+        let folder = tempfile::tempdir().expect("a temporary folder");
+        for path in broken_pictures(folder.path()).iter().filter(|path| {
+            // The pictures only a C loader's own checks stop are left to
+            // the child (see decoder/tests.rs).
+            path.extension().is_none_or(|extension| extension != "svg")
+        }) {
+            let started = Instant::now();
+            if let Ok(decoded) = decode(path, Limits::DISPLAY) {
+                assert!(decoded.pixbuf.width() <= 256 && decoded.pixbuf.height() <= 256);
+            }
+            assert!(
+                started.elapsed() < TIME_LIMIT + Duration::from_secs(1),
+                "{}",
+                path.display()
+            );
+        }
+    }
+
+    /// The header readers the app runs in its own process
+    /// ([`declared_dimensions`], for the gallery) read seeded mutations of
+    /// every sample's first bytes without a panic.
+    #[test]
+    fn mutated_headers_are_read_without_a_panic() {
+        let folder = tempfile::tempdir().expect("a temporary folder");
+        let mut samples: Vec<Vec<u8>> = sample_pictures(folder.path())
+            .into_iter()
+            .map(|(_, bytes)| bytes)
+            .collect();
+        samples.push(webp_extended(4000, 3000));
+        samples.push(bmp_header(64, -64));
+        let mut seed = 0x0BAD_F00D_u32;
+        let mut next = move || {
+            seed ^= seed << 13;
+            seed ^= seed >> 17;
+            seed ^= seed << 5;
+            usize::try_from(seed).unwrap_or(0)
+        };
+        for sample in &samples {
+            for cut in 0..sample.len().min(400) {
+                let _ = declared_dimensions(&sample[..cut]);
+            }
+            // `OX_FUZZ_ROUNDS` raises the rounds for a longer local run.
+            let rounds = std::env::var("OX_FUZZ_ROUNDS")
+                .ok()
+                .and_then(|rounds| rounds.parse().ok());
+            for _ in 0..rounds.unwrap_or(5000) {
+                let mut bytes = sample.clone();
+                for _ in 0..=(next() % 6) {
+                    let at = next() % bytes.len();
+                    match next() % 3 {
+                        0 => bytes[at] = u8::try_from(next() % 256).unwrap_or(0),
+                        1 => bytes.insert(at, 0xFF),
+                        _ => {
+                            bytes.remove(at);
+                        }
+                    }
+                }
+                let _ = declared_dimensions(&bytes);
+                let mut ending = Ending::default();
+                let mut frame = FirstFrame::default();
+                for chunk in bytes.chunks(1 + next() % 64) {
+                    let _ = ending.take(chunk);
+                    let _ = frame.take(chunk);
+                }
+            }
+        }
     }
 }

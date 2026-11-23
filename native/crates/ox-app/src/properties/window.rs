@@ -59,6 +59,11 @@ type RefreshHandler = Box<dyn Fn(&str)>;
 /// the message to show when the change could not be made.
 pub(crate) type ApplyFuture = Pin<Box<dyn Future<Output = Result<(), String>>>>;
 
+/// What a change returns when the user cancelled a question it asked,
+/// such as Confirm Attribute Changes: the changes stop there, the window
+/// stays open and no message shows.
+pub(crate) const CANCELLED: &str = "";
+
 /// A change a tab holds until OK or Apply.
 pub(crate) trait Pending {
     /// Whether there is anything to apply.
@@ -734,7 +739,9 @@ impl PropertiesWindow {
         let close_after = imp.close_after_apply.replace(false);
         if let Some(message) = failure {
             self.changed();
-            self.show_error(&message);
+            if message != CANCELLED {
+                self.show_error(&message);
+            }
             return false;
         }
         self.changed();
@@ -900,9 +907,14 @@ impl Rows {
             .build();
         self.grid.attach(&label, 0, line, 1, 1);
         self.grid.attach(control, 1, line, 1, 1);
-        control
-            .upcast_ref::<gtk::Widget>()
-            .update_relation(&[gtk::accessible::Relation::LabelledBy(&[label.upcast_ref()])]);
+        let control = control.upcast_ref::<gtk::Widget>();
+        // A read-only value is heard with its caption; a control the user
+        // changes is named by the caption alone.
+        if let Some(value) = control.downcast_ref::<gtk::Label>() {
+            crate::accessible_names::name_value_label(value, &label);
+        } else {
+            control.update_relation(&[gtk::accessible::Relation::LabelledBy(&[label.upcast_ref()])]);
+        }
         self.line.set(line + 1);
         label
     }
@@ -956,6 +968,23 @@ pub(crate) fn with_access_key(label: &str, key: char) -> String {
     }
 }
 
+/// `label` as it shows without the underscores that mark its access key:
+/// one underscore marks the next letter, two stand for one.
+pub(crate) fn without_access_key(label: &str) -> String {
+    let mut plain = String::with_capacity(label.len());
+    let mut characters = label.chars();
+    while let Some(character) = characters.next() {
+        if character == '_' {
+            if let Some(next) = characters.next() {
+                plain.push(next);
+            }
+        } else {
+            plain.push(character);
+        }
+    }
+    plain
+}
+
 /// Gives `control`, a button or a check box, the access key `key`, as
 /// Windows' Properties underline one letter of each control: Alt and the
 /// letter press the button or tick the box while its tab shows. A button
@@ -964,8 +993,17 @@ pub(crate) fn give_access_key(control: &impl IsA<gtk::Widget>, key: char) {
     let control = control.upcast_ref::<gtk::Widget>();
     if let Some(check) = control.downcast_ref::<gtk::CheckButton>() {
         if let Some(label) = check.label() {
-            check.set_label(Some(&with_access_key(&label, key)));
+            let plain = if check.uses_underline() {
+                without_access_key(&label)
+            } else {
+                label.to_string()
+            };
+            check.set_label(Some(&with_access_key(&plain, key)));
             check.set_use_underline(true);
+            // GTK 4.14 names a check box after its label as written,
+            // underscore and all, so Orca read "_Read-only"; a button is
+            // named after the label it shows.
+            check.update_property(&[gtk::accessible::Property::Label(&plain)]);
         }
         return;
     }

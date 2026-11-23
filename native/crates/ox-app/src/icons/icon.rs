@@ -111,8 +111,6 @@ pub(crate) enum Icon {
     /// `clock_20_regular`: Previous versions, and the banner of a tab that
     /// browses one (`icon('clock')` in app.js).
     Clock,
-    /// `code_20_regular`: the address menu's Keep address editable.
-    Code,
     /// `code_20_color`: code, HTML and JSON files at small sizes.
     CodeColor20,
     /// `code_24_color`: code, HTML and JSON files at larger sizes, the
@@ -380,7 +378,6 @@ impl Icon {
             Icon::CircleSmallFilled => "ox-circle-small-20-filled-symbolic",
             Icon::ClipboardPaste => "ox-clipboard-paste-20-symbolic",
             Icon::Clock => "ox-clock-20-symbolic",
-            Icon::Code => "ox-code-20-symbolic",
             Icon::CodeColor20 => "ox-code-20-color",
             Icon::CodeColor24 => "ox-code-24-color",
             Icon::ContentView => "ox-content-view-20-symbolic",
@@ -496,7 +493,7 @@ impl Icon {
 /// Every icon, in the order of [`Icon`]: for the tests that check each one
 /// ships, is recorded and resolves, and to find the icon a drawn name
 /// stands for ([`super::user_glyphs`]).
-pub(crate) const ALL_ICONS: [Icon; 126] = [
+pub(crate) const ALL_ICONS: [Icon; 125] = [
     Icon::Add,
     Icon::AddNetworkLocation24,
     Icon::Apps,
@@ -529,7 +526,6 @@ pub(crate) const ALL_ICONS: [Icon; 126] = [
     Icon::CircleSmallFilled,
     Icon::ClipboardPaste,
     Icon::Clock,
-    Icon::Code,
     Icon::CodeColor20,
     Icon::CodeColor24,
     Icon::ContentView,

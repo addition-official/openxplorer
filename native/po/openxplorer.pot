@@ -26,11 +26,11 @@ msgid "- Deleted items go to the Recycle Bin of their drive. Restore puts them b
 msgstr ""
 
 #: crates/ox-app/resources/manual.md
-msgid "- New in the command bar lists what Windows 11 lists: Folder, Shortcut, Bitmap image, Rich Text Document, Text Document and Compressed (zipped) Folder, then the files in your Templates folder. A new item is made at once as, for example, \"New Text Document.txt\" (or \"New Text Document (2).txt\" when that name is taken), then renamed in place: type its name and press Enter.\n- Cut, Copy and Paste work with other file managers. Paste on one selected folder pastes into that folder.\n- Rename with F2. Select several items to rename them together. As in Windows, \\ / : * ? \" < > | can’t be typed in a name, and a file given a name that is taken is offered the next free number, such as Report (2).txt.\n- Delete or Ctrl+D moves items to the Recycle Bin; Shift+Delete deletes them permanently after asking. Locations without a Recycle Bin offer a confirmed permanent delete.\n- When a name is already taken, OpenXplorer asks whether to replace, skip or keep both. Nothing is replaced without your answer.\n- Undo (Ctrl+Z) and Redo (Ctrl+Y) reverse the last operations.\n- Copies and moves show processed bytes and speed; a total and estimated time remaining appear when the total is known. Pause, Resume and Cancel apply to each job; finished items stay finished.\n- Up to four copy, move or delete jobs can run while you browse. Wait for a job using overlapping source or destination folders to finish before starting another. Archive operations, renaming, restore and Undo remain exclusive."
+msgid "- New in the command bar lists what Windows 11 lists: Folder, Shortcut, Bitmap image, Text Document and Compressed (zipped) Folder, with Rich Text Document while an app opens RTF files and OpenDocument Presentation, Spreadsheet and Text while an office suite such as LibreOffice is installed, then the files in your Templates folder. A new item is made at once as, for example, \"New Text Document.txt\" (or \"New Text Document (2).txt\" when that name is taken), then renamed in place: type its name and press Enter.\n- Cut, Copy and Paste work with other file managers. Paste on one selected folder pastes into that folder.\n- Rename with F2. Select several items to rename them together. As in Windows, \\ / : * ? \" < > | can’t be typed in a name, and a file given a name that is taken is offered the next free number, such as Report (2).txt.\n- Delete or Ctrl+D moves items to the Recycle Bin; Shift+Delete deletes them permanently after asking. Locations without a Recycle Bin offer a confirmed permanent delete.\n- When a name is already taken, OpenXplorer asks whether to replace, skip or keep both. Nothing is replaced without your answer.\n- Undo (Ctrl+Z) and Redo (Ctrl+Y) reverse the last operations.\n- Copies and moves show processed bytes and speed; a total and estimated time remaining appear when the total is known. Pause, Resume and Cancel apply to each job; finished items stay finished.\n- Up to four copy, move or delete jobs can run while you browse. Wait for a job using overlapping source or destination folders to finish before starting another. Archive operations, renaming, restore and Undo remain exclusive."
 msgstr ""
 
 #: crates/ox-app/resources/manual.md
-msgid "- Open Network in the navigation pane to see the computers and servers on your network, as in Windows; open one to see its shared folders. Refresh (F5) looks again. Or type an address such as \\\\server\\share or smb://server/share in the address bar.\n- Network finds only devices that advertise themselves, through the desktop's GVfs network services (DNS-SD through Avahi, Windows computers through WS-Discovery); firewalls and separate networks can hide them. If Network says that network discovery is turned off, those services are missing: install your distribution's GVfs backends (gvfs-backends on Ubuntu and Debian) and Avahi, or type the server's address instead.\n- Map network drive, on the right-click menu of This PC and Network in the navigation pane or in their \"…\" menu, connects a share such as \\\\server\\share under a drive letter, as in Windows, offering only the letters still free; Save in the sidebar · reconnect when opened (Windows has Reconnect at sign-in) saves it in the navigation pane. The letter is only part of its name. Its link Connect to a Web site, and Add a network location in that menu, connect SFTP, FTP, WebDAV and NFS folders too. Disconnect network drive there disconnects a connected share.\n- OpenXplorer asks for your user name and password in Enter network credentials when a server needs them, and can keep the password in your desktop's keyring. Connect using different credentials in Map network drive asks even when it knows an account.\n- Right-click a share or server and choose Sign out of server to disconnect and forget a session."
+msgid "- Open Network in the navigation pane to see the computers and devices on your network, one row per device, as in Windows; open one to see its shared folders, and its other services (SFTP, FTP, WebDAV) as rows of their own. Shares whose names end in $ are hidden until Show hidden files is on. Refresh (F5) looks again. In the navigation pane, Network expands to the same computers, and each computer to its shares. Or type an address such as \\\\server\\share or smb://server/share in the address bar.\n- Network finds only devices that advertise themselves, through the desktop's GVfs network services (DNS-SD through Avahi, Windows computers through WS-Discovery); firewalls and separate networks can hide them. If Network says that network discovery is turned off, those services are missing or stopped: click the bar and choose How to turn on network discovery, or type the server's address instead.\n- Map network drive, on the right-click menu of This PC and Network in the navigation pane or in their \"…\" menu, connects a share such as \\\\server\\share under a drive letter, as in Windows, offering only the letters still free; it is listed under This PC. Type the letter in the address bar, such as Z: or Z:\\Plans, to open the share or a folder in it. Save in the sidebar · reconnect when opened (Windows has Reconnect at sign-in) keeps it after OpenXplorer quits. Its link Connect to a Web site, and Add a network location in that menu, connect SFTP, FTP, WebDAV and NFS folders too. Disconnect network drive there disconnects a connected share and ends its mapping.\n- OpenXplorer asks for your user name and password in Enter network credentials when a server needs them, and can keep the password in your desktop's keyring. Connect using different credentials in Map network drive asks even when it knows an account.\n- Right-click a share or server and choose Sign out of server to disconnect and forget a session."
 msgstr ""
 
 #: crates/ox-app/resources/manual.md
@@ -71,6 +71,10 @@ msgstr ""
 
 #: crates/ox-app/resources/manual.md
 msgid "Getting help"
+msgstr ""
+
+#: crates/ox-app/resources/manual.md
+msgid "OpenXplorer finds computers through your desktop's own network discovery services, and never turns them on or changes them by itself. When Network says that network discovery is turned off, one of them is missing or stopped:\n\n- GVfs's network backends, which list the network: install gvfs-backends on Ubuntu, Debian and Zorin OS, gvfs-smb on Fedora and Arch Linux, or gvfs-backends and gvfs-backend-samba on openSUSE.\n- Avahi, which finds Linux computers, NAS devices and Macs (DNS-SD): install avahi-daemon and start it with sudo systemctl enable --now avahi-daemon.\n- wsdd, which finds Windows PCs (WS-Discovery): install the wsdd package.\n- Your firewall must let discovery through: mDNS on UDP port 5353 and WS-Discovery on UDP port 3702.\n\nThen open Network again or press F5. You can always open a computer by typing its address, such as \\\\server or \\\\server\\share, in the address bar."
 msgstr ""
 
 #: crates/ox-app/resources/manual.md
@@ -134,7 +138,7 @@ msgid "File commands"
 msgstr ""
 
 #: crates/ox-app/resources/ui/details-pane.ui
-msgid "Select a single file to get more information."
+msgid "Select a single file to get more information and share your cloud content."
 msgstr ""
 
 #: crates/ox-app/resources/ui/network-sign-in.ui
@@ -171,6 +175,10 @@ msgstr ""
 
 #: crates/ox-app/resources/ui/open-with-dialog.ui
 msgid "Current default"
+msgstr ""
+
+#: crates/ox-app/resources/ui/open-with-dialog.ui
+msgid "Find an app in Software"
 msgstr ""
 
 #: crates/ox-app/resources/ui/open-with-dialog.ui
@@ -353,7 +361,7 @@ msgstr ""
 msgid "Browse without extracting the entire archive."
 msgstr ""
 
-#: crates/ox-app/resources/ui/update-dialog.ui crates/ox-app/src/archive_view/browser.rs crates/ox-app/src/dialog/frame.rs crates/ox-app/src/dialog/window.rs crates/ox-app/src/properties/window.rs crates/ox-app/src/window/help.rs crates/ox-app/src/window/shortcuts_window.rs crates/ox-app/src/window/type_applications.rs
+#: crates/ox-app/resources/ui/update-dialog.ui crates/ox-app/src/archive_view/browser.rs crates/ox-app/src/dialog/frame.rs crates/ox-app/src/dialog/window.rs crates/ox-app/src/properties/window.rs crates/ox-app/src/window/help.rs crates/ox-app/src/window/network_info_bar.rs crates/ox-app/src/window/shortcuts_window.rs crates/ox-app/src/window/type_applications.rs
 msgid "Close"
 msgstr ""
 
@@ -413,18 +421,32 @@ msgstr[1] ""
 msgid "{name} — Compressed folder"
 msgstr ""
 
-#. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-app/src/archive_view/compress.rs
-msgid "Compressed {item_count} items into {name}."
-msgstr ""
-
 #: crates/ox-app/src/archive_view/compress.rs
 msgid "Compression stopped"
 msgstr ""
 
-#. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/archive_view/compress.rs
-msgid "{compressed} {skipped_count} links or special files were left out."
+msgid "Some items were not compressed"
+msgstr ""
+
+#: crates/ox-app/src/archive_view/compress.rs
+msgid "a link on a server or device"
+msgstr ""
+
+#: crates/ox-app/src/archive_view/compress.rs
+msgid "a link to a folder that holds it"
+msgstr ""
+
+#: crates/ox-app/src/archive_view/compress.rs
+msgid "a link whose target cannot be found"
+msgstr ""
+
+#: crates/ox-app/src/archive_view/compress.rs
+msgid "a name that is not valid text"
+msgstr ""
+
+#: crates/ox-app/src/archive_view/compress.rs
+msgid "a special file, which holds no data"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -432,11 +454,26 @@ msgstr ""
 msgid "{error}\n\nNo existing file was replaced."
 msgstr ""
 
-#: crates/ox-app/src/archive_view/extract_dialog.rs crates/ox-app/src/window/compress_dialog.rs crates/ox-app/src/window/place_editor.rs
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/archive_view/compress.rs
+msgid "{name} ({reason})"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/archive_view/compress.rs
+msgid "{name} was created without these items:\n\n{items}"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/archive_view/compress.rs
+msgid "…and {count} more."
+msgstr ""
+
+#: crates/ox-app/src/archive_view/extract_dialog.rs crates/ox-app/src/window/compress_dialog.rs crates/ox-app/src/window/file_ops/links.rs crates/ox-app/src/window/place_editor.rs
 msgid "Browse…"
 msgstr ""
 
-#: crates/ox-app/resources/ui/brave-dialog.ui crates/ox-app/resources/ui/network-sign-in.ui crates/ox-app/resources/ui/open-with-dialog.ui crates/ox-app/resources/ui/transfer-panel.ui crates/ox-app/src/archive_view/extract_dialog.rs crates/ox-app/src/dialogs/network_sign_in.rs crates/ox-app/src/properties/restore.rs crates/ox-app/src/properties/window.rs crates/ox-app/src/window/compress_dialog.rs crates/ox-app/src/window/conflict_window.rs crates/ox-app/src/window/file_drop/action.rs crates/ox-app/src/window/gallery_locations.rs crates/ox-app/src/window/picker.rs crates/ox-app/src/window/transfer_panel/failure.rs
+#: crates/ox-app/resources/ui/brave-dialog.ui crates/ox-app/resources/ui/network-sign-in.ui crates/ox-app/resources/ui/open-with-dialog.ui crates/ox-app/resources/ui/transfer-panel.ui crates/ox-app/src/archive_view/extract_dialog.rs crates/ox-app/src/dialogs/network_sign_in.rs crates/ox-app/src/properties/restore.rs crates/ox-app/src/properties/window.rs crates/ox-app/src/window/compress_dialog.rs crates/ox-app/src/window/conflict_window.rs crates/ox-app/src/window/file_drop/action.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/gallery_locations.rs crates/ox-app/src/window/loading/network_error.rs crates/ox-app/src/window/picker.rs crates/ox-app/src/window/transfer_panel/failure.rs
 msgid "Cancel"
 msgstr ""
 
@@ -508,6 +545,11 @@ msgstr ""
 msgid "{error}\n\nThe archive is unchanged. Existing files were not overwritten."
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/devices.rs crates/ox-app/src/window/mounting.rs
+msgid "'{drive}' is currently in use."
+msgstr ""
+
 #: crates/ox-app/src/devices.rs
 msgid "Could not disconnect"
 msgstr ""
@@ -540,6 +582,10 @@ msgstr ""
 msgid "Safely remove"
 msgstr ""
 
+#: crates/ox-app/src/devices.rs crates/ox-app/src/window/mounting.rs
+msgid "Save any open files on this disc, and then close the files or programs using the files before trying again."
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/devices.rs
 msgid "The '{label}' device can now be safely removed from the computer."
@@ -549,7 +595,7 @@ msgstr ""
 msgid "Not provided"
 msgstr ""
 
-#: crates/ox-app/resources/ui/network-sign-in.ui crates/ox-app/src/dialog/window.rs crates/ox-app/src/dialogs/network_sign_in.rs crates/ox-app/src/properties/window.rs crates/ox-app/src/window/about.rs crates/ox-app/src/window/activation.rs crates/ox-app/src/window/activation/outcome.rs crates/ox-app/src/window/archive_password.rs crates/ox-app/src/window/choose_details.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/file_ops/journal.rs crates/ox-app/src/window/gallery_locations.rs crates/ox-app/src/window/item_dialogs.rs crates/ox-app/src/window/loading/denied_folder.rs
+#: crates/ox-app/resources/ui/network-sign-in.ui crates/ox-app/src/dialog/window.rs crates/ox-app/src/dialogs/network_sign_in.rs crates/ox-app/src/properties/attribute_confirm.rs crates/ox-app/src/properties/window.rs crates/ox-app/src/window/about.rs crates/ox-app/src/window/activation.rs crates/ox-app/src/window/activation/broken_shortcut.rs crates/ox-app/src/window/activation/outcome.rs crates/ox-app/src/window/archive_password.rs crates/ox-app/src/window/choose_details.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/file_ops/journal.rs crates/ox-app/src/window/gallery_locations.rs crates/ox-app/src/window/item_dialogs.rs crates/ox-app/src/window/loading/denied_folder.rs
 msgid "OK"
 msgstr ""
 
@@ -557,7 +603,7 @@ msgstr ""
 msgid "Capacity"
 msgstr ""
 
-#: crates/ox-app/src/dialogs/format_drive.rs crates/ox-app/src/properties/drive_tab.rs
+#: crates/ox-app/src/dialogs/format_drive.rs crates/ox-app/src/properties/drive_tab.rs crates/ox-app/src/window/details_pane/content.rs
 msgid "File system"
 msgstr ""
 
@@ -582,6 +628,15 @@ msgstr ""
 msgid "Quick format"
 msgstr ""
 
+#: crates/ox-app/src/dialogs/format_drive.rs crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/file_ops/batch_rename.rs crates/ox-app/src/window/file_ops/extension_confirm.rs crates/ox-app/src/window/file_ops/unstorable_dialog.rs crates/ox-app/src/window/home_page.rs crates/ox-app/src/window/place_menus.rs crates/ox-app/src/window/shortcuts_window.rs crates/ox-core/src/ops/undo.rs
+msgid "Rename"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/dialogs/format_drive.rs
+msgid "Rename {drive}"
+msgstr ""
+
 #: crates/ox-app/src/dialogs/format_drive.rs
 msgid "Start"
 msgstr ""
@@ -594,8 +649,16 @@ msgstr ""
 msgid "Add a network folder to your sidebar: a Windows share, or a folder on an SSH, FTP, WebDAV or NFS server."
 msgstr ""
 
-#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/window/command_bar/menus.rs crates/ox-app/src/window/sidebar/menu.rs
+#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/window/command_bar/menus.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/sidebar/menu.rs
 msgid "Add a network location"
+msgstr ""
+
+#: crates/ox-app/src/dialogs/network_map.rs
+msgid "Browse For Folder"
+msgstr ""
+
+#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/properties/change_icon.rs
+msgid "Browse..."
 msgstr ""
 
 #: crates/ox-app/src/dialogs/network_map.rs
@@ -619,7 +682,7 @@ msgstr ""
 msgid "Example: {address}"
 msgstr ""
 
-#: crates/ox-app/src/dialogs/network_map.rs
+#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/window/file_ops/links.rs
 msgid "Finish"
 msgstr ""
 
@@ -643,7 +706,7 @@ msgstr ""
 msgid "Specify the drive letter for the connection and the folder that you want to connect to:"
 msgstr ""
 
-#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/drive_tab.rs crates/ox-app/src/properties/general_tab.rs crates/ox-app/src/properties/security_tab/advanced.rs crates/ox-app/src/properties/selection_view.rs crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-core/src/grouping.rs
+#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/properties/drive_tab.rs crates/ox-app/src/properties/general_tab.rs crates/ox-app/src/properties/security_tab/advanced.rs crates/ox-app/src/properties/selection_view.rs crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-core/src/grouping.rs
 msgid "Type"
 msgstr ""
 
@@ -712,8 +775,8 @@ msgstr ""
 msgid "Show password"
 msgstr ""
 
-#: crates/ox-app/src/dialogs/network_sign_in.rs
-msgid "The previous sign-in was not accepted. Check your username and password."
+#: crates/ox-app/src/dialogs/network_sign_in.rs crates/ox-core/src/system_error.rs
+msgid "The user name or password is incorrect."
 msgstr ""
 
 #: crates/ox-app/src/dialogs/network_sign_out.rs
@@ -745,12 +808,12 @@ msgstr ""
 msgid "Date modified:"
 msgstr ""
 
-#: crates/ox-app/src/folder_view/cells.rs crates/ox-app/src/window/shortcuts_window.rs
-msgid "Files"
+#: crates/ox-app/src/folder_view/cells.rs
+msgid "Folder contents — type a filename prefix to select"
 msgstr ""
 
-#: crates/ox-app/src/folder_view/cells.rs crates/ox-app/src/window/input.rs
-msgid "Folder contents — type a filename prefix to select"
+#: crates/ox-app/src/folder_view/cells.rs
+msgid "Items View"
 msgstr ""
 
 #: crates/ox-app/src/folder_view/cells.rs
@@ -765,23 +828,37 @@ msgstr ""
 msgid "Expand"
 msgstr ""
 
+#: crates/ox-app/src/folder_view/cells/folder_summary.rs
+msgid "Empty folder"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/folder_view/cells/folder_summary.rs
+msgid "Files: {names}"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/folder_view/cells/folder_summary.rs
+msgid "Folders: {names}"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/folder_view/cells/folder_summary.rs crates/ox-app/src/folder_view/cells/row_tooltip.rs crates/ox-app/src/folder_view/gallery_view.rs crates/ox-app/src/window/file_ops/delete.rs crates/ox-app/src/window/file_ops/failure_dialog.rs
+msgid "Size: {size}"
+msgstr ""
+
 #: crates/ox-app/src/folder_view/cells/item_check.rs crates/ox-app/src/window/select_matching.rs
 msgid "Select"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-app/src/folder_view/cells/row_tooltip.rs crates/ox-app/src/window/file_ops/delete.rs crates/ox-app/src/window/file_ops/failure_dialog.rs
+#: crates/ox-app/src/folder_view/cells/row_tooltip.rs crates/ox-app/src/window/file_ops/delete.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/file_ops/rename_conflict.rs
 msgid "Date created: {date}"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/folder_view/cells/row_tooltip.rs crates/ox-app/src/window/file_ops/delete.rs crates/ox-app/src/window/file_ops/failure_dialog.rs
 msgid "Date modified: {date}"
-msgstr ""
-
-#. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-app/src/folder_view/cells/row_tooltip.rs crates/ox-app/src/folder_view/gallery_view.rs crates/ox-app/src/window/file_ops/delete.rs crates/ox-app/src/window/file_ops/failure_dialog.rs
-msgid "Size: {size}"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -800,6 +877,19 @@ msgstr ""
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/folder_view/column_keys.rs
 msgid "Resize {name} column"
+msgstr ""
+
+#: crates/ox-app/src/folder_view/column_titles.rs
+msgid "Sorted ascending."
+msgstr ""
+
+#: crates/ox-app/src/folder_view/column_titles.rs
+msgid "Sorted descending."
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/folder_view/details.rs
+msgid "{column}: {value}"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -834,7 +924,7 @@ msgid "Date: {date}"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-app/src/folder_view/gallery_view.rs
+#: crates/ox-app/src/folder_view/gallery_view.rs crates/ox-app/src/window/file_ops/failure_dialog.rs
 msgid "Item type: {type}"
 msgstr ""
 
@@ -947,7 +1037,7 @@ msgstr ""
 msgid "Date accessed"
 msgstr ""
 
-#: crates/ox-app/src/folder_view/sort_roles.rs crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-core/src/grouping.rs
+#: crates/ox-app/src/folder_view/sort_roles.rs crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs crates/ox-core/src/grouping.rs
 msgid "Date created"
 msgstr ""
 
@@ -983,11 +1073,11 @@ msgstr ""
 msgid "Date modified"
 msgstr ""
 
-#: crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs
+#: crates/ox-app/src/folder_view/sorting.rs
 msgid "Folder path"
 msgstr ""
 
-#: crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/properties/general_tab.rs crates/ox-app/src/properties/security_tab/advanced.rs crates/ox-app/src/properties/versions_panel.rs crates/ox-app/src/window/file_ops/batch_rename.rs crates/ox-app/src/window/file_ops/links.rs crates/ox-app/src/window/file_ops/name_dialog.rs crates/ox-app/src/window/home_page.rs crates/ox-core/src/grouping.rs
+#: crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/properties/general_tab.rs crates/ox-app/src/properties/security_tab/advanced.rs crates/ox-app/src/properties/versions_panel.rs crates/ox-app/src/window/file_ops/batch_rename.rs crates/ox-app/src/window/file_ops/name_dialog.rs crates/ox-app/src/window/home_page.rs crates/ox-core/src/grouping.rs
 msgid "Name"
 msgstr ""
 
@@ -1057,6 +1147,10 @@ msgstr ""
 
 #: crates/ox-app/src/integration/applications.rs
 msgid "That installed application is unavailable for this file/location."
+msgstr ""
+
+#: crates/ox-app/src/integration/applications.rs
+msgid "The default app could not be changed."
 msgstr ""
 
 #: crates/ox-app/src/integration/applications.rs
@@ -1313,6 +1407,10 @@ msgid "Super+E will stop opening OpenXplorer once you log out and back in."
 msgstr ""
 
 #: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "A default app can be set only for files with an extension."
+msgstr ""
+
+#: crates/ox-app/src/integration/open_with_dialog.rs
 msgid "All files"
 msgstr ""
 
@@ -1321,11 +1419,27 @@ msgid "Choose an app on your PC"
 msgstr ""
 
 #: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "Default app"
+msgstr ""
+
+#: crates/ox-app/src/integration/open_with_dialog.rs
 msgid "Finding installed applications…"
 msgstr ""
 
 #: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "More options"
+msgstr ""
+
+#: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "No installed app can open this item."
+msgstr ""
+
+#: crates/ox-app/src/integration/open_with_dialog.rs
 msgid "No matching installed applications."
+msgstr ""
+
+#: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "Only an installed app (.desktop) can be the default."
 msgstr ""
 
 #: crates/ox-app/src/integration/open_with_dialog.rs
@@ -1336,8 +1450,19 @@ msgstr ""
 msgid "Ran the command."
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/integration/open_with_dialog.rs
-msgid "Select an app to open this file"
+msgid "Select a default app for '{name}'"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "Select a default app for {extension} files"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "Select an app to open '{name}'"
 msgstr ""
 
 #: crates/ox-app/src/integration/open_with_dialog.rs
@@ -1349,11 +1474,15 @@ msgstr ""
 msgid "Select an app to open this {extension} file"
 msgstr ""
 
+#: crates/ox-app/src/integration/open_with_dialog.rs
+msgid "Set default"
+msgstr ""
+
 #: crates/ox-app/src/integration/status.rs
 msgid "Not set"
 msgstr ""
 
-#: crates/ox-app/resources/ui/window.ui crates/ox-app/src/integration/status.rs crates/ox-app/src/window/activation.rs crates/ox-app/src/window/title_bar.rs packaging/data/io.winspace.Development.desktop packaging/data/io.winspace.Development.metainfo.xml
+#: crates/ox-app/resources/ui/window.ui crates/ox-app/src/integration/status.rs crates/ox-app/src/window/activation.rs crates/ox-app/src/window/mounting.rs crates/ox-app/src/window/title_bar.rs packaging/data/io.winspace.Development.desktop packaging/data/io.winspace.Development.metainfo.xml
 msgid "OpenXplorer"
 msgstr ""
 
@@ -1408,6 +1537,14 @@ msgstr ""
 msgid "Your explorer, your way."
 msgstr ""
 
+#: crates/ox-app/src/network/discovery.rs
+msgid "Avahi (DNS-SD) is not running and wsdd (WS-Discovery) is not installed."
+msgstr ""
+
+#: crates/ox-app/src/network/discovery.rs
+msgid "The GVfs network browser is not installed."
+msgstr ""
+
 #: crates/ox-app/src/properties.rs
 msgid "Customize"
 msgstr ""
@@ -1432,12 +1569,48 @@ msgstr ""
 msgid "Sharing"
 msgstr ""
 
-#: crates/ox-app/src/properties.rs crates/ox-app/src/window/command_bar/menus.rs crates/ox-core/src/entry/type_label.rs
+#: crates/ox-app/src/properties.rs crates/ox-app/src/window/command_bar/menus.rs crates/ox-app/src/window/send_to.rs crates/ox-core/src/entry/type_label.rs
 msgid "Shortcut"
 msgstr ""
 
-#: crates/ox-app/src/properties/change_icon.rs
-msgid "Browse..."
+#: crates/ox-app/src/properties/attribute_confirm.rs
+msgid "Apply changes to the selected items only"
+msgstr ""
+
+#: crates/ox-app/src/properties/attribute_confirm.rs
+msgid "Apply changes to the selected items, subfolders and files"
+msgstr ""
+
+#: crates/ox-app/src/properties/attribute_confirm.rs
+msgid "Apply changes to this folder only"
+msgstr ""
+
+#: crates/ox-app/src/properties/attribute_confirm.rs
+msgid "Apply changes to this folder, subfolders and files"
+msgstr ""
+
+#: crates/ox-app/src/properties/attribute_confirm.rs
+msgid "Confirm Attribute Changes"
+msgstr ""
+
+#: crates/ox-app/src/properties/attribute_confirm.rs
+msgid "Do you want to apply this change to the selected items only, or do you want to apply it to all subfolders and files as well?"
+msgstr ""
+
+#: crates/ox-app/src/properties/attribute_confirm.rs
+msgid "Do you want to apply this change to this folder only, or do you want to apply it to all subfolders and files as well?"
+msgstr ""
+
+#: crates/ox-app/src/properties/attribute_confirm.rs
+msgid "You have chosen to make the following attribute changes:"
+msgstr ""
+
+#: crates/ox-app/src/properties/attribute_confirm.rs
+msgid "set read-only"
+msgstr ""
+
+#: crates/ox-app/src/properties/attribute_confirm.rs
+msgid "unset read-only"
 msgstr ""
 
 #: crates/ox-app/src/properties/change_icon.rs
@@ -1626,6 +1799,10 @@ msgstr ""
 msgid "Composers"
 msgstr ""
 
+#: crates/ox-app/src/properties/details_rows.rs crates/ox-core/src/entry/classify.rs
+msgid "Computer"
+msgstr ""
+
 #: crates/ox-app/src/properties/details_rows.rs
 msgid "Conductors"
 msgstr ""
@@ -1650,7 +1827,7 @@ msgstr ""
 msgid "Data rate"
 msgstr ""
 
-#: crates/ox-app/src/properties/details_rows.rs
+#: crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/properties/general_tab.rs
 msgid "Description"
 msgstr ""
 
@@ -1684,6 +1861,10 @@ msgstr ""
 
 #: crates/ox-app/src/properties/details_rows.rs crates/ox-core/src/entry/type_label.rs
 msgid "File"
+msgstr ""
+
+#: crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-app/src/window/home_page.rs
+msgid "File location"
 msgstr ""
 
 #: crates/ox-app/src/properties/details_rows.rs
@@ -1741,10 +1922,6 @@ msgstr ""
 
 #: crates/ox-app/src/properties/details_rows.rs
 msgid "Image"
-msgstr ""
-
-#: crates/ox-app/src/properties/details_rows.rs
-msgid "Item type"
 msgstr ""
 
 #: crates/ox-app/src/properties/details_rows.rs
@@ -1905,6 +2082,11 @@ msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/properties/details_rows.rs
+msgid "{name} (this PC)"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/properties/details_rows.rs
 msgid "{value} dpi"
 msgstr ""
 
@@ -1943,7 +2125,7 @@ msgstr ""
 msgid "{width} x {height}"
 msgstr ""
 
-#: crates/ox-app/resources/ui/command-bar.ui crates/ox-app/resources/ui/details-pane.ui crates/ox-app/src/properties.rs crates/ox-app/src/properties/details_tab.rs crates/ox-app/src/properties/drive_tab.rs crates/ox-app/src/settings_page/files_folders.rs crates/ox-app/src/window/command_bar/menus.rs crates/ox-app/src/window/empty_page.rs crates/ox-app/src/window/loading/denied_folder.rs crates/ox-app/src/window/shortcuts_window.rs
+#: crates/ox-app/resources/ui/command-bar.ui crates/ox-app/resources/ui/details-pane.ui crates/ox-app/src/properties.rs crates/ox-app/src/properties/details_tab.rs crates/ox-app/src/properties/drive_tab.rs crates/ox-app/src/settings_page/files_folders.rs crates/ox-app/src/window/command_bar/menus.rs crates/ox-app/src/window/empty_page.rs crates/ox-app/src/window/shortcuts_window.rs
 msgid "Details"
 msgstr ""
 
@@ -1990,6 +2172,10 @@ msgstr ""
 
 #: crates/ox-app/src/properties/drive_tab.rs
 msgid "Opens the disk usage analyser on this drive"
+msgstr ""
+
+#: crates/ox-app/src/properties/drive_tab.rs crates/ox-app/src/properties/general_tab.rs crates/ox-app/src/properties/selection_attributes.rs
+msgid "The window that opened these properties is closed."
 msgstr ""
 
 #: crates/ox-app/src/properties/drive_tab.rs
@@ -2090,8 +2276,9 @@ msgstr ""
 msgid "Target"
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/properties/general_tab.rs crates/ox-app/src/properties/selection_attributes.rs
-msgid "The window that opened these properties is closed."
+msgid "The item could not be hidden or shown. {error}"
 msgstr ""
 
 #: crates/ox-app/src/properties/general_tab.rs
@@ -2606,6 +2793,10 @@ msgid "The shortcut could not be changed."
 msgstr ""
 
 #: crates/ox-app/src/properties/shortcut_tab.rs
+msgid "The shortcut could not be saved because its location isn't responding."
+msgstr ""
+
+#: crates/ox-app/src/properties/shortcut_tab.rs
 msgid "The target cannot be found."
 msgstr ""
 
@@ -2630,7 +2821,7 @@ msgstr ""
 msgid "Cancelling… "
 msgstr ""
 
-#: crates/ox-app/src/properties/size_scan_strip.rs crates/ox-app/src/window/update_notice.rs
+#: crates/ox-app/src/properties/size_scan_strip.rs crates/ox-app/src/window/notice_card.rs crates/ox-app/src/window/star_prompt.rs
 msgid "Dismiss"
 msgstr ""
 
@@ -2670,7 +2861,7 @@ msgstr ""
 msgid "Read-only in OpenXplorer · Restore a copy to edit"
 msgstr ""
 
-#: crates/ox-app/src/properties/snapshot_source.rs crates/ox-app/src/settings_page/section.rs crates/ox-app/src/window/navigation_buttons.rs crates/ox-app/src/window/shortcuts_window.rs
+#: crates/ox-app/src/properties/snapshot_source.rs crates/ox-app/src/settings_page/section.rs crates/ox-app/src/window/file_ops/links.rs crates/ox-app/src/window/navigation_buttons.rs crates/ox-app/src/window/shortcuts_window.rs
 msgid "Back"
 msgstr ""
 
@@ -2708,6 +2899,10 @@ msgstr ""
 
 #: crates/ox-app/src/properties/versions_panel.rs
 msgid "Availability details"
+msgstr ""
+
+#: crates/ox-app/src/properties/versions_panel.rs
+msgid "Copy this version back over the item; you are asked before anything is replaced."
 msgstr ""
 
 #: crates/ox-app/src/properties/versions_panel.rs
@@ -2800,6 +2995,14 @@ msgid "The search cache holds names only"
 msgstr ""
 
 #: crates/ox-app/src/search/report.rs
+msgid "(first 500)"
+msgstr ""
+
+#: crates/ox-app/src/search/report.rs
+msgid "Cached"
+msgstr ""
+
+#: crates/ox-app/src/search/report.rs
 msgid "Cached metadata · see update coverage in Settings"
 msgstr ""
 
@@ -2832,9 +3035,11 @@ msgid "Searching…"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-app/src/search/report.rs
-msgid "{shown} results"
-msgstr ""
+#: crates/ox-app/src/search/report.rs crates/ox-app/src/window/status_bar.rs
+msgid "{count} item"
+msgid_plural "{count} items"
+msgstr[0] ""
+msgstr[1] ""
 
 #: crates/ox-app/src/search/source.rs
 msgid "All cached folders"
@@ -3021,6 +3226,10 @@ msgid "Clear"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "Column header style"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "Ctrl + and Ctrl − change it anywhere; Ctrl 0 resets. Desktop scaling is unchanged."
 msgstr ""
 
@@ -3038,11 +3247,19 @@ msgid "English: no translation for {language} is installed"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "F6 moves like Windows"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "Fonts"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
 msgid "Hide expand arrows in the sidebar"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "How the Details view marks the sorted column. OpenXplorer puts an arrow after its title and colors a sort other than Name ascending; Windows shows only a small gray arrow above the title, as Windows 11 does."
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
@@ -3079,6 +3296,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
 msgid "On, but no file is chosen yet"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "OpenXplorer (default)"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
@@ -3158,11 +3379,19 @@ msgid "Use the desktop font"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "When on, F6 moves only between the tabs, the navigation pane, the file list, the Details pane and the status bar, as in Windows 11, and Tab reaches the address bar, search box and command bar. When off, F6 visits those three too."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "When on, Shift+F10 opens the Windows 10 menu. When off, it opens the same menu as a right-click and the Menu key, as in Windows 11."
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
 msgid "Where the Cut, Copy, Rename and Delete buttons appear in the right-click menu. Near the pointer puts them at the top of a menu that opens downward and at the bottom of one that opens upward, as Windows does."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "Windows"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
@@ -3195,11 +3424,19 @@ msgid "appearance dark light system colour color mode"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "column header title sort sorted arrow chevron caret accent underline details view windows 11 style look"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "context menu right-click strip buttons icons cut copy rename share delete paste top bottom pointer position windows 11 compact"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
 msgid "context menu style windows 10 11 classic compact"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "f6 shift+f6 keyboard focus panes regions cycle windows 11 address bar search box command bar tab"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
@@ -3368,6 +3605,14 @@ msgid "Everything in it is deleted permanently."
 msgstr ""
 
 #: crates/ox-app/src/settings_page/confirmations.rs
+msgid "Launchers"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/confirmations.rs
+msgid "Like Windows: a shortcut to an installed app starts it. Off: it opens in its editor. Other launchers still ask before they run."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/confirmations.rs
 msgid "Moving items to the Recycle Bin"
 msgstr ""
 
@@ -3377,6 +3622,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/confirmations.rs
 msgid "Off: opening one shows it in its viewer or editor, and nothing runs."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/confirmations.rs
+msgid "Run installed apps' launchers on double-click"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/confirmations.rs
@@ -3405,6 +3654,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/confirmations.rs
 msgid "ask whether to run programs and scripts confirm execute run program script executable launcher open"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/confirmations.rs
+msgid "run installed apps launchers double click desktop entry shortcut application start execute trust windows"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/default_apps.rs
@@ -3863,6 +4116,18 @@ msgid "Copying and moving"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs
+msgid "Delete files on removable drives permanently (like Windows)"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/files_folders.rs
+msgid "Delete on a USB stick or SD card asks, then deletes for good. Off: the items go to the drive's own Recycle Bin and keep using its space until it is emptied."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/files_folders.rs
+msgid "Deleting"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/files_folders.rs
 msgid "Documents and other files"
 msgstr ""
 
@@ -3951,6 +4216,10 @@ msgid "Previews and thumbnails"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs
+msgid "Previous Versions' Restore copies the version back over the item, asking before it replaces anything, as in Windows. Off: Restore asks where to put a copy, and the item is never touched."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/files_folders.rs
 msgid "Relative dates (Today, Yesterday)"
 msgstr ""
 
@@ -3960,6 +4229,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs
 msgid "Replace in a copy, move or restore keeps the old file in the Recycle Bin, so Undo can bring it back. Off: the new file overwrites it, as in Windows, and it is gone."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/files_folders.rs
+msgid "Restore over the original (Windows)"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs
@@ -4027,6 +4300,10 @@ msgid "copy cut paths text clipboard terminal editor plain ctrl+c paste location
 msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs
+msgid "delete permanently removable drive usb stick sd card memory card recycle bin trash space windows erase"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/files_folders.rs
 msgid "density spacing padding rows tight dense smaller"
 msgstr ""
 
@@ -4056,6 +4333,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs
 msgid "preview videos thumbnails types plugins movies films"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/files_folders.rs
+msgid "previous versions restore snapshot shadow copy overwrite original replace windows"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs
@@ -4299,7 +4580,7 @@ msgid "Local changes update the index after a short debounce. Watching uses up t
 msgstr ""
 
 #: crates/ox-app/src/settings_page/indexed_folders.rs
-msgid "No folders are indexed yet. Add one below, or pin a folder to Quick access."
+msgid "No folders are indexed. Add one below. Folders pinned to Quick access are indexed while “Index pinned folders automatically” is on."
 msgstr ""
 
 #: crates/ox-app/src/settings_page/indexed_folders.rs
@@ -4363,6 +4644,10 @@ msgstr ""
 msgid "Frequent"
 msgstr ""
 
+#: crates/ox-app/src/settings_page/indexed_folders/root_row.rs
+msgid "Indexed, some folders could not be read"
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/settings_page/indexed_folders/root_row.rs
 msgid "Last full refresh: {value1}"
@@ -4424,6 +4709,10 @@ msgstr ""
 msgid "5 minutes"
 msgstr ""
 
+#: crates/ox-app/src/settings_page/indexing.rs
+msgid "A word also finds names whose extension starts with it, as in Windows: “doc” finds “report.docx”. Off: a word finds an extension only when it is the whole extension."
+msgstr ""
+
 #: crates/ox-app/resources/ui/search-info-strip.ui crates/ox-app/src/settings_page/indexing.rs crates/ox-app/src/window/cache_folder.rs crates/ox-app/src/window/context_menu/entries.rs
 msgid "Cache this folder for search"
 msgstr ""
@@ -4475,6 +4764,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/indexing.rs
 msgid "Manage…"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/indexing.rs
+msgid "Match words at the start of file extensions (like Windows)"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/indexing.rs crates/ox-app/src/window/disabled_reasons.rs
@@ -4535,6 +4828,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/indexing.rs
 msgid "search filter bar strip options scope kind date size cache save search windows layout"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/indexing.rs
+msgid "search word extension suffix type docx pdf partial match windows file name"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/indexing.rs
@@ -4664,7 +4961,7 @@ msgid "Start up"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/startup.rs
-msgid "Starting OpenXplorer without a folder reopens the tabs and split panes the last window had."
+msgid "Starting OpenXplorer without a folder reopens every window with the tabs and split panes it had."
 msgstr ""
 
 #: crates/ox-app/src/settings_page/startup.rs
@@ -4921,6 +5218,28 @@ msgstr ""
 msgid "This item is not a regular file or a readable folder."
 msgstr ""
 
+#: crates/ox-app/src/window/activation/broken_shortcut.rs crates/ox-app/src/window/file_ops/delete.rs crates/ox-app/src/window/file_ops/extension_confirm.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/file_ops/rename_conflict.rs crates/ox-app/src/window/folder_options.rs crates/ox-app/src/window/picker.rs crates/ox-app/src/window/send_to.rs
+msgid "No"
+msgstr ""
+
+#: crates/ox-app/src/window/activation/broken_shortcut.rs
+msgid "Problem with Shortcut"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/activation/broken_shortcut.rs
+msgid "The drive or network connection that the shortcut ‘{name}’ refers to is unavailable. Make sure that the disk is properly inserted or the network resource is available, and then try again."
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/activation/broken_shortcut.rs
+msgid "The item ‘{name}’ that this shortcut refers to has been changed or moved, so this shortcut will no longer work properly.\n\nDo you want to delete this shortcut?"
+msgstr ""
+
+#: crates/ox-app/src/window/activation/broken_shortcut.rs crates/ox-app/src/window/file_ops/delete.rs crates/ox-app/src/window/file_ops/extension_confirm.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/file_ops/rename_conflict.rs crates/ox-app/src/window/folder_options.rs crates/ox-app/src/window/picker.rs crates/ox-app/src/window/send_to.rs
+msgid "Yes"
+msgstr ""
+
 #: crates/ox-app/src/window/activation/outcome.rs crates/ox-app/src/window/file_ops/failure_dialog.rs
 msgid "Could not find this item"
 msgstr ""
@@ -4970,33 +5289,19 @@ msgid "Address copied."
 msgstr ""
 
 #: crates/ox-app/src/window/address_menu.rs
-msgid "Copy address"
+msgid "Copy Address"
 msgstr ""
 
 #: crates/ox-app/src/window/address_menu.rs
-msgid "Edit address"
+msgid "Copy Address as Text"
 msgstr ""
 
 #: crates/ox-app/src/window/address_menu.rs
-msgid "Keep address editable"
-msgstr ""
-
-#. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-app/src/window/address_menu.rs
-msgid "Open “{label}” in new tab"
-msgstr ""
-
-#. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-app/src/window/address_menu.rs
-msgid "Open “{label}” in new window"
+msgid "Delete History"
 msgstr ""
 
 #: crates/ox-app/src/window/address_menu.rs
-msgid "Paste and go"
-msgstr ""
-
-#: crates/ox-app/src/window/address_menu.rs
-msgid "Show full path"
+msgid "Edit Address"
 msgstr ""
 
 #: crates/ox-app/src/window/address_menu.rs
@@ -5179,7 +5484,7 @@ msgstr ""
 msgid "Collection"
 msgstr ""
 
-#: crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/folder_tree/menu.rs crates/ox-app/src/window/place_menus.rs crates/ox-app/src/window/shortcuts_window.rs crates/ox-core/src/ops/undo.rs
+#: crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/folder_tree/menu.rs crates/ox-app/src/window/home_page.rs crates/ox-app/src/window/place_menus.rs crates/ox-app/src/window/shortcuts_window.rs crates/ox-core/src/ops/undo.rs
 msgid "Copy"
 msgstr ""
 
@@ -5187,7 +5492,7 @@ msgstr ""
 msgid "Copy (Ctrl+C)"
 msgstr ""
 
-#: crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/folder_tree/menu.rs crates/ox-app/src/window/shortcuts_window.rs
+#: crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/folder_tree/menu.rs crates/ox-app/src/window/home_page.rs crates/ox-app/src/window/shortcuts_window.rs
 msgid "Cut"
 msgstr ""
 
@@ -5195,7 +5500,7 @@ msgstr ""
 msgid "Cut (Ctrl+X)"
 msgstr ""
 
-#: crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/file_ops/delete_label.rs crates/ox-app/src/window/folder_tree/menu.rs crates/ox-app/src/window/shortcuts_window.rs crates/ox-core/src/ops/undo.rs
+#: crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/file_ops/delete_label.rs crates/ox-app/src/window/folder_tree/menu.rs crates/ox-app/src/window/home_page.rs crates/ox-app/src/window/shortcuts_window.rs crates/ox-core/src/ops/undo.rs
 msgid "Delete"
 msgstr ""
 
@@ -5225,10 +5530,6 @@ msgstr ""
 
 #: crates/ox-app/src/window/command_bar.rs
 msgid "Paste files (Ctrl+V)"
-msgstr ""
-
-#: crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/file_ops/batch_rename.rs crates/ox-app/src/window/file_ops/extension_confirm.rs crates/ox-app/src/window/file_ops/unstorable_dialog.rs crates/ox-app/src/window/place_menus.rs crates/ox-app/src/window/shortcuts_window.rs crates/ox-core/src/ops/undo.rs
-msgid "Rename"
 msgstr ""
 
 #: crates/ox-app/src/window/command_bar.rs
@@ -5271,7 +5572,7 @@ msgstr ""
 msgid "Settings (Ctrl+,)"
 msgstr ""
 
-#: crates/ox-app/resources/ui/details-pane.ui crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/context_menu/entries.rs
+#: crates/ox-app/resources/ui/details-pane.ui crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/share.rs
 msgid "Share"
 msgstr ""
 
@@ -5397,10 +5698,6 @@ msgid "Reset text size"
 msgstr ""
 
 #: crates/ox-app/src/window/command_bar/menus.rs
-msgid "Rich Text Document"
-msgstr ""
-
-#: crates/ox-app/src/window/command_bar/menus.rs
 msgid "Select items matching…"
 msgstr ""
 
@@ -5452,7 +5749,7 @@ msgstr ""
 msgid "Compression method:"
 msgstr ""
 
-#: crates/ox-app/src/window/compress_dialog.rs crates/ox-app/src/window/file_ops/links.rs
+#: crates/ox-app/src/window/compress_dialog.rs
 msgid "Create"
 msgstr ""
 
@@ -5488,7 +5785,7 @@ msgstr ""
 msgid "Smaller"
 msgstr ""
 
-#: crates/ox-app/src/window/conflict_window.rs crates/ox-app/src/window/file_ops/failure_dialog.rs
+#: crates/ox-app/src/window/conflict_window.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/mounting.rs
 msgid "Continue"
 msgstr ""
 
@@ -5598,6 +5895,10 @@ msgstr ""
 msgid "Copy as path"
 msgstr ""
 
+#: crates/ox-app/src/window/context_menu/entries.rs
+msgid "Create shortcut"
+msgstr ""
+
 #: crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/file_ops/delete_label.rs crates/ox-app/src/window/folder_tree/menu.rs crates/ox-app/src/window/shortcuts_window.rs
 msgid "Delete permanently"
 msgstr ""
@@ -5608,6 +5909,11 @@ msgstr ""
 
 #: crates/ox-app/src/window/context_menu/entries.rs crates/ox-core/src/ops/undo.rs
 msgid "Duplicate"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/context_menu/entries.rs
+msgid "Edit in {name}"
 msgstr ""
 
 #: crates/ox-app/src/window/context_menu/entries.rs
@@ -5659,7 +5965,7 @@ msgstr ""
 msgid "Open in {name}"
 msgstr ""
 
-#: crates/ox-app/resources/ui/open-with-dialog.ui crates/ox-app/src/window/context_menu/entries.rs
+#: crates/ox-app/resources/ui/open-with-dialog.ui crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/home_page.rs
 msgid "Open with"
 msgstr ""
 
@@ -5690,6 +5996,10 @@ msgstr ""
 
 #: crates/ox-app/src/window/context_menu/entries.rs
 msgid "Restore previous versions"
+msgstr ""
+
+#: crates/ox-app/src/window/context_menu/entries.rs
+msgid "Restore the item to compress or share it."
 msgstr ""
 
 #: crates/ox-app/src/window/context_menu/entries.rs
@@ -5744,6 +6054,11 @@ msgstr ""
 msgid "Recycle Bin"
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/crumb_menus.rs
+msgid "Show all {count} folders"
+msgstr ""
+
 #: crates/ox-app/src/window/crumb_menus.rs
 msgid "Show subfolders"
 msgstr ""
@@ -5756,12 +6071,20 @@ msgstr ""
 msgid "This link points to an address OpenXplorer cannot open."
 msgstr ""
 
-#: crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-app/src/window/home_page.rs
-msgid "File location"
+#: crates/ox-app/src/window/details_pane/content.rs
+msgid "Space"
 msgstr ""
 
 #: crates/ox-app/src/window/details_pane/content.rs
-msgid "Space"
+msgid "Space free"
+msgstr ""
+
+#: crates/ox-app/src/window/details_pane/content.rs
+msgid "Space used"
+msgstr ""
+
+#: crates/ox-app/src/window/details_pane/content.rs
+msgid "Total size"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -5831,6 +6154,11 @@ msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/disk_tools.rs
+msgid "Could not rename the drive: {error}"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/disk_tools.rs
 msgid "Could not start {display}: {error}"
 msgstr ""
 
@@ -5851,11 +6179,32 @@ msgid "No program to make a file system is installed on this computer."
 msgstr ""
 
 #: crates/ox-app/src/window/disk_tools.rs
+msgid "Renaming a drive needs the UDisks service, which is not available."
+msgstr ""
+
+#: crates/ox-app/src/window/disk_tools.rs
+msgid "Renaming…"
+msgstr ""
+
+#: crates/ox-app/src/window/disk_tools.rs
+msgid "The drive was not renamed."
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/disk_tools.rs
+msgid "The drive was renamed, but it could not be mounted again: {reason}"
+msgstr ""
+
+#: crates/ox-app/src/window/disk_tools.rs
 msgid "The tool is not installed."
 msgstr ""
 
 #: crates/ox-app/src/window/disk_tools.rs
 msgid "This drive cannot be formatted."
+msgstr ""
+
+#: crates/ox-app/src/window/disk_tools.rs
+msgid "This drive cannot be renamed."
 msgstr ""
 
 #: crates/ox-app/src/window/disk_tools.rs
@@ -5866,9 +6215,13 @@ msgstr ""
 msgid "Wait until the drive is formatted, then try again."
 msgstr ""
 
+#: crates/ox-app/src/window/disk_tools.rs
+msgid "You are not allowed to rename this drive."
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/disk_tools.rs
-msgid "{drive} is formatted, but could not be mounted again: {error}"
+msgid "{drive} is formatted, but could not be mounted again."
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -5876,8 +6229,17 @@ msgstr ""
 msgid "{drive} is formatted."
 msgstr ""
 
+#: crates/ox-app/src/window/empty_page.rs crates/ox-core/src/system_error.rs
+msgid "Access is denied."
+msgstr ""
+
 #: crates/ox-app/src/window/empty_page.rs
 msgid "Create a folder or paste files here."
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/empty_page.rs crates/ox-app/src/window/loading/network_error.rs
+msgid "Error code: {code}\n{message}"
 msgstr ""
 
 #: crates/ox-app/src/window/empty_page.rs
@@ -5901,7 +6263,19 @@ msgid "Photos in your Pictures folder show here."
 msgstr ""
 
 #: crates/ox-app/src/window/empty_page.rs
+msgid "The file name or path is too long."
+msgstr ""
+
+#: crates/ox-app/src/window/empty_page.rs
 msgid "This archive can't be opened"
+msgstr ""
+
+#: crates/ox-app/src/window/empty_page.rs
+msgid "This folder can't be found. It may have been moved or deleted."
+msgstr ""
+
+#: crates/ox-app/src/window/empty_page.rs
+msgid "This folder can't be opened."
 msgstr ""
 
 #: crates/ox-app/src/window/empty_page.rs
@@ -5914,6 +6288,11 @@ msgstr ""
 
 #: crates/ox-app/src/window/empty_page.rs
 msgid "Try again"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/empty_page.rs
+msgid "{location} is not accessible. The device is not ready."
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -6056,6 +6435,15 @@ msgstr ""
 msgid "This program has no local path. Mount its share before dropping files on it."
 msgstr ""
 
+#: crates/ox-app/src/window/file_drop/program.rs
+msgid "Trust and Launch"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/file_drop/program.rs
+msgid "“{name}” is a launcher that has not been marked as trusted. Launching it runs the command it holds. Launch it only if you trust where it came from."
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/file_drop/program.rs
 msgid "“{name}” is not a program you can run."
@@ -6171,14 +6559,6 @@ msgstr ""
 msgid "The desktop clipboard could not be claimed."
 msgstr ""
 
-#: crates/ox-app/src/window/file_ops/delete.rs crates/ox-app/src/window/file_ops/extension_confirm.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/file_ops/rename_conflict.rs crates/ox-app/src/window/folder_options.rs crates/ox-app/src/window/picker.rs
-msgid "No"
-msgstr ""
-
-#: crates/ox-app/src/window/file_ops/delete.rs crates/ox-app/src/window/file_ops/extension_confirm.rs crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/file_ops/rename_conflict.rs crates/ox-app/src/window/folder_options.rs crates/ox-app/src/window/picker.rs
-msgid "Yes"
-msgstr ""
-
 #: crates/ox-app/src/window/file_ops/extension_confirm.rs
 msgid "If you change a file name extension, the file might become unusable.\nAre you sure you want to change it?"
 msgstr ""
@@ -6208,6 +6588,14 @@ msgid "An unexpected error is keeping you from moving the folder. If you continu
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/failure_dialog.rs
+msgid "An unexpected error is keeping you from renaming the file. If you continue to receive this error, you can use the error code to search for help with this problem."
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/failure_dialog.rs
+msgid "An unexpected error is keeping you from renaming the folder. If you continue to receive this error, you can use the error code to search for help with this problem."
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/failure_dialog.rs
 msgid "Close the file and try again."
 msgstr ""
 
@@ -6225,6 +6613,11 @@ msgstr ""
 
 #: crates/ox-app/src/window/file_ops/failure_dialog.rs
 msgid "Destination Folder Access Denied"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/file_ops/failure_dialog.rs
+msgid "Dimensions: {dimensions}"
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/failure_dialog.rs
@@ -6245,6 +6638,14 @@ msgstr ""
 
 #: crates/ox-app/src/window/file_ops/failure_dialog.rs
 msgid "Interrupted Action"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/loading/denied_folder.rs
+msgid "Location is not available"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/failure_dialog.rs
+msgid "Remove the write-protection or use another disk."
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/file_ops/unstorable_dialog.rs
@@ -6272,6 +6673,10 @@ msgstr ""
 msgid "The destination folder is a subfolder of the source folder."
 msgstr ""
 
+#: crates/ox-app/src/window/file_ops/failure_dialog.rs
+msgid "The disk is write-protected."
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/file_ops/failure_dialog.rs
 msgid "There is not enough space on {drive}."
@@ -6290,7 +6695,7 @@ msgstr ""
 msgid "Total size: {size}"
 msgstr ""
 
-#: crates/ox-app/resources/ui/transfer-panel.ui crates/ox-app/src/window/file_ops/failure_dialog.rs
+#: crates/ox-app/resources/ui/transfer-panel.ui crates/ox-app/src/window/file_ops/failure_dialog.rs crates/ox-app/src/window/mounting.rs
 msgid "Try Again"
 msgstr ""
 
@@ -6312,6 +6717,11 @@ msgstr ""
 
 #: crates/ox-app/src/window/file_ops/failure_dialog.rs
 msgid "You'll need to provide administrator permission to move to this folder"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/file_ops/failure_dialog.rs
+msgid "{location} is unavailable. If the location is on this PC, make sure the device or drive is connected or the disc is inserted, and then try again. If the location is on a network, make sure you're connected to the network or Internet, and then try again. If the location still can't be found, it might have been moved or deleted."
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -6383,19 +6793,47 @@ msgid "“{name}” was replaced, so Undo can't bring back the old file."
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/links.rs
-msgid "A link opens the file or folder it points to. Leave the name empty to use the name of that item."
+msgid "Browse for Files or Folders"
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/links.rs
-msgid "For example ~/Documents"
+msgid "Click Finish to create the shortcut."
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/links.rs
-msgid "Link to"
+msgid "Click Next to continue."
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/links.rs
-msgid "New link"
+msgid "Create Shortcut"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/links.rs
+msgid "Next"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/links.rs
+msgid "The location could not be read. Try again."
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/links.rs
+msgid "This wizard helps you to create shortcuts to local or network programs, files, folders, computers, or Internet addresses."
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/links.rs
+msgid "Type a name for this shortcut:"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/links.rs
+msgid "Type the location of the item:"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/links.rs
+msgid "What item would you like to create a shortcut for?"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/links.rs
+msgid "What would you like to name the shortcut?"
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/move_by_copying_dialog.rs
@@ -6453,6 +6891,10 @@ msgid "Creating a compressed (zipped) folder…"
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/new_items.rs
+msgid "Creating a document…"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/new_items.rs
 msgid "Creating a file…"
 msgstr ""
 
@@ -6473,6 +6915,18 @@ msgid "New Compressed (zipped) Folder"
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/new_items.rs
+msgid "New OpenDocument Presentation"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/new_items.rs
+msgid "New OpenDocument Spreadsheet"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/new_items.rs
+msgid "New OpenDocument Text"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/new_items.rs
 msgid "New Rich Text Document"
 msgstr ""
 
@@ -6482,6 +6936,22 @@ msgstr ""
 
 #: crates/ox-app/src/window/file_ops/new_items.rs crates/ox-app/src/window/shortcuts_window.rs
 msgid "New folder"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/opendocuments.rs crates/ox-core/src/entry/type_label.rs
+msgid "OpenDocument Presentation"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/opendocuments.rs crates/ox-core/src/entry/type_label.rs
+msgid "OpenDocument Spreadsheet"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/opendocuments.rs crates/ox-core/src/entry/type_label.rs
+msgid "OpenDocument Text"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/opendocuments.rs
+msgid "Rich Text Document"
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/pasted_content.rs
@@ -6496,6 +6966,10 @@ msgstr ""
 msgid "The name was not changed."
 msgstr ""
 
+#: crates/ox-app/src/window/file_ops/rename_conflict.rs
+msgid "Confirm Folder Replace"
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/file_ops/rename_conflict.rs
 msgid "Do you want to rename \"{name}\" to \"{numbered}\"?\nThere is already a file with the same name in this location."
@@ -6503,6 +6977,15 @@ msgstr ""
 
 #: crates/ox-app/src/window/file_ops/rename_conflict.rs
 msgid "Rename File"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/file_ops/rename_conflict.rs
+msgid "This destination already contains a folder named '{name}'.\n\nIf any files have the same names, you will be asked if you want to replace those files.\n\nDo you still want to merge this folder"
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/rename_conflict.rs
+msgid "with this one?"
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/transfer.rs
@@ -6721,6 +7204,10 @@ msgid "Select a folder or share to calculate its size."
 msgstr ""
 
 #: crates/ox-app/src/window/folder_tree/menu.rs
+msgid "Expand to current folder"
+msgstr ""
+
+#: crates/ox-app/src/window/folder_tree/menu.rs
 msgid "Limit to home folder"
 msgstr ""
 
@@ -6822,6 +7309,15 @@ msgstr ""
 msgid "Topic"
 msgstr ""
 
+#: crates/ox-app/resources/manual.md crates/ox-app/src/window/help.rs
+msgid "Turning on network discovery"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/home_page.rs
+msgid "Could not remove from Recent: {error}"
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/home_page.rs
 msgid "Could not save Favorites: {error}"
@@ -6857,6 +7353,10 @@ msgstr ""
 
 #: crates/ox-app/src/window/home_page.rs
 msgid "Recent and Favorites"
+msgstr ""
+
+#: crates/ox-app/src/window/home_page.rs
+msgid "Remove from list"
 msgstr ""
 
 #: crates/ox-app/src/window/imp.rs
@@ -6912,10 +7412,6 @@ msgstr ""
 msgid "“{name}” is not a link."
 msgstr ""
 
-#: crates/ox-app/src/window/loading/denied_folder.rs
-msgid "Location is not available"
-msgstr ""
-
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/loading/denied_folder.rs
 msgid "{path} is not accessible.\n\nAccess is denied."
@@ -6923,6 +7419,35 @@ msgstr ""
 
 #: crates/ox-app/src/window/loading/disconnected.rs
 msgid "The drive or network share that holds this folder was disconnected."
+msgstr ""
+
+#: crates/ox-app/src/window/loading/network_error.rs
+msgid "Check the spelling of the name. Otherwise, there might be a problem with your network."
+msgstr ""
+
+#: crates/ox-app/src/window/loading/network_error.rs
+msgid "Check the spelling of the name. Otherwise, there might be a problem with your network. To try to identify and resolve network problems, click Diagnose."
+msgstr ""
+
+#: crates/ox-app/src/window/loading/network_error.rs
+msgid "Diagnose"
+msgstr ""
+
+#: crates/ox-app/src/window/loading/network_error.rs
+msgid "Hide details"
+msgstr ""
+
+#: crates/ox-app/src/window/loading/network_error.rs
+msgid "Network Error"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/loading/network_error.rs
+msgid "OpenXplorer cannot access {location}"
+msgstr ""
+
+#: crates/ox-app/src/window/loading/network_error.rs
+msgid "See details"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -6973,6 +7498,10 @@ msgstr ""
 msgid "Finish the current operation before disconnecting."
 msgstr ""
 
+#: crates/ox-app/src/window/mounting.rs
+msgid "If you choose to continue, the files will be closed, which might cause data to be lost."
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/navigation_buttons.rs
 msgid "Back to {place}"
@@ -6998,7 +7527,15 @@ msgid "Up to \"{place}\""
 msgstr ""
 
 #: crates/ox-app/src/window/network_info_bar.rs
-msgid "Network discovery is turned off. Network computers and devices are not visible. Click to learn more..."
+msgid "How to turn on network discovery"
+msgstr ""
+
+#: crates/ox-app/src/window/network_info_bar.rs
+msgid "Network discovery is turned off. Network computers and devices are not visible. Click to change..."
+msgstr ""
+
+#: crates/ox-app/src/window/network_info_bar.rs
+msgid "Open Help"
 msgstr ""
 
 #: crates/ox-app/src/window/network_sign_out.rs
@@ -7163,10 +7700,6 @@ msgid "Clear recent locations"
 msgstr ""
 
 #: crates/ox-app/src/window/place_menus.rs
-msgid "Drive names cannot be changed here."
-msgstr ""
-
-#: crates/ox-app/src/window/place_menus.rs
 msgid "Format…"
 msgstr ""
 
@@ -7176,6 +7709,10 @@ msgstr ""
 
 #: crates/ox-app/src/window/place_menus.rs
 msgid "Mount volume"
+msgstr ""
+
+#: crates/ox-app/src/window/place_menus.rs
+msgid "Only a removable drive can be renamed here."
 msgstr ""
 
 #: crates/ox-app/src/window/place_menus.rs
@@ -7299,6 +7836,10 @@ msgid "Only files on this computer or on a mounted share can be sent by Bluetoot
 msgstr ""
 
 #: crates/ox-app/src/window/send_to.rs
+msgid "OpenXplorer can’t create a shortcut here.\n\nDo you want the shortcut to be placed on the desktop instead?"
+msgstr ""
+
+#: crates/ox-app/src/window/send_to.rs
 msgid "The Bluetooth sender could not be started."
 msgstr ""
 
@@ -7330,6 +7871,10 @@ msgstr ""
 msgid "This service action changed or no longer matches the selection. Configure it again."
 msgstr ""
 
+#: crates/ox-app/src/window/share.rs
+msgid "Opening your email app…"
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/share.rs
 msgid "Share can attach up to {count} files to one email."
@@ -7349,6 +7894,18 @@ msgstr ""
 
 #: crates/ox-app/src/window/shortcuts_window.rs
 msgid "Backspace"
+msgstr ""
+
+#: crates/ox-app/src/window/shortcuts_window.rs
+msgid "Browser Back key"
+msgstr ""
+
+#: crates/ox-app/src/window/shortcuts_window.rs
+msgid "Browser Forward key"
+msgstr ""
+
+#: crates/ox-app/src/window/shortcuts_window.rs
+msgid "Browser Home key"
 msgstr ""
 
 #: crates/ox-app/src/window/shortcuts_window.rs
@@ -7421,6 +7978,10 @@ msgstr ""
 
 #: crates/ox-app/src/window/shortcuts_window.rs
 msgid "Expand the selected folder in the navigation pane"
+msgstr ""
+
+#: crates/ox-app/src/window/shortcuts_window.rs
+msgid "Files"
 msgstr ""
 
 #: crates/ox-app/src/window/shortcuts_window.rs
@@ -7680,7 +8241,23 @@ msgid "Map network drive…"
 msgstr ""
 
 #: crates/ox-app/src/window/sidebar/menu.rs
+msgid "Pin current folder to Quick access"
+msgstr ""
+
+#: crates/ox-app/src/window/sidebar/menu.rs
+msgid "Show Network"
+msgstr ""
+
+#: crates/ox-app/src/window/sidebar/menu.rs
+msgid "Show This PC"
+msgstr ""
+
+#: crates/ox-app/src/window/sidebar/menu.rs
 msgid "Show all entries"
+msgstr ""
+
+#: crates/ox-app/src/window/sidebar/menu.rs
+msgid "Show all folders"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -7723,8 +8300,16 @@ msgstr ""
 msgid "Places (F9 shows the navigation pane)"
 msgstr ""
 
-#: crates/ox-app/src/window/software_search.rs
-msgid "Find an app in Software"
+#: crates/ox-app/src/window/star_prompt.rs
+msgid "Enjoying OpenXplorer?"
+msgstr ""
+
+#: crates/ox-app/src/window/star_prompt.rs
+msgid "Give us a star on GitHub to let us know!"
+msgstr ""
+
+#: crates/ox-app/src/window/star_prompt.rs
+msgid "Star on GitHub"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -7739,13 +8324,6 @@ msgstr ""
 #: crates/ox-app/resources/ui/status-bar.ui crates/ox-app/src/window/status_bar.rs
 msgid "Ready"
 msgstr ""
-
-#. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-app/src/window/status_bar.rs
-msgid "{count} item"
-msgid_plural "{count} items"
-msgstr[0] ""
-msgstr[1] ""
 
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/status_bar.rs
@@ -8151,7 +8729,7 @@ msgstr ""
 msgid "Items in an archive are read-only. Use Copy, then Paste where you want them."
 msgstr ""
 
-#: crates/ox-app/src/window/zip_copies.rs crates/ox-core/src/archive/error.rs crates/ox-core/src/entry/error.rs crates/ox-core/src/integration/terminal/error.rs crates/ox-core/src/network/error.rs crates/ox-core/src/ops/error.rs crates/ox-core/src/search/error.rs crates/ox-core/src/transfer/error.rs crates/ox-core/src/versions/error.rs
+#: crates/ox-app/src/window/zip_copies.rs crates/ox-core/src/archive/error.rs crates/ox-core/src/entry/error.rs crates/ox-core/src/integration/terminal/error.rs crates/ox-core/src/network/error.rs crates/ox-core/src/ops/error.rs crates/ox-core/src/search/error.rs crates/ox-core/src/transfer/error.rs crates/ox-core/src/versions/error.rs crates/ox-core/src/versions/shadow_copies.rs
 msgid "Operation cancelled."
 msgstr ""
 
@@ -8605,6 +9183,14 @@ msgid "That compression method is not supported"
 msgstr ""
 
 #: crates/ox-core/src/archive/zip/error.rs
+msgid "The Compressed (zipped) Folder is invalid."
+msgstr ""
+
+#: crates/ox-core/src/archive/zip/error.rs
+msgid "This ZIP archive uses a feature that isn't supported. To open it, use a different archive app."
+msgstr ""
+
+#: crates/ox-core/src/archive/zip/error.rs
 msgid "Truncated central directory"
 msgstr ""
 
@@ -8637,20 +9223,12 @@ msgstr ""
 msgid "Checksums can only be calculated for ordinary files, not for pipes, devices or sockets."
 msgstr ""
 
-#: crates/ox-core/src/clipboard.rs crates/ox-core/src/location/text.rs
-msgid "Encoded control characters are not allowed."
-msgstr ""
-
 #: crates/ox-core/src/clipboard.rs
 msgid "This file selection is too large to copy or cut."
 msgstr ""
 
 #: crates/ox-core/src/clipboard/pasted.rs
 msgid "The picture on the clipboard is too large to paste."
-msgstr ""
-
-#: crates/ox-core/src/entry/classify.rs
-msgid "Computer"
 msgstr ""
 
 #: crates/ox-core/src/entry/classify.rs
@@ -8687,18 +9265,6 @@ msgstr ""
 
 #: crates/ox-core/src/entry/type_label.rs
 msgid "Microsoft Word Document"
-msgstr ""
-
-#: crates/ox-core/src/entry/type_label.rs
-msgid "OpenDocument Presentation"
-msgstr ""
-
-#: crates/ox-core/src/entry/type_label.rs
-msgid "OpenDocument Spreadsheet"
-msgstr ""
-
-#: crates/ox-core/src/entry/type_label.rs
-msgid "OpenDocument Text"
 msgstr ""
 
 #: crates/ox-core/src/entry/type_label.rs
@@ -9082,17 +9648,16 @@ msgstr ""
 msgid "xdg-mime could not be run: {error}"
 msgstr ""
 
-#. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-core/src/integration/drive_format.rs
-msgid "Could not format the drive: {error}"
-msgstr ""
-
 #: crates/ox-core/src/integration/drive_format.rs
 msgid "Formatting needs the UDisks service, which is not available."
 msgstr ""
 
 #: crates/ox-core/src/integration/drive_format.rs
 msgid "Formatting was cancelled."
+msgstr ""
+
+#: crates/ox-core/src/integration/drive_format.rs
+msgid "OpenXplorer was unable to complete the format."
 msgstr ""
 
 #: crates/ox-core/src/integration/drive_format.rs
@@ -9113,7 +9678,11 @@ msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-core/src/integration/drive_format.rs
-msgid "{error} (It could not be mounted again: {reason})"
+msgid "{error} The drive could not be mounted again."
+msgstr ""
+
+#: crates/ox-core/src/integration/email_portal.rs
+msgid "No email app is set up, so the email could not be written. Choose an email app in your desktop's settings, then share again."
 msgstr ""
 
 #: crates/ox-core/src/integration/email_portal.rs
@@ -9381,6 +9950,10 @@ msgstr ""
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-core/src/location/parts.rs
 msgid "The server name “{host}” in brackets is not an IPv6 address."
+msgstr ""
+
+#: crates/ox-core/src/location/text.rs
+msgid "Encoded control characters are not allowed."
 msgstr ""
 
 #: crates/ox-core/src/location/text.rs
@@ -9709,9 +10282,17 @@ msgstr ""
 msgid "Links can only point to items on this computer."
 msgstr ""
 
+#: crates/ox-core/src/ops/links.rs
+msgid "New Internet Shortcut"
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-core/src/ops/links.rs
 msgid "Nothing exists at “{display}”. Check the path."
+msgstr ""
+
+#: crates/ox-core/src/ops/links.rs
+msgid "Type the location of a file or folder on this computer, a network share such as \\\\server\\share, or an Internet address that starts with http:// or https://."
 msgstr ""
 
 #: crates/ox-core/src/ops/new_from_template.rs
@@ -9790,6 +10371,11 @@ msgstr ""
 
 #: crates/ox-core/src/ops/rename.rs
 msgid "Undo can only rename an item back within its own folder."
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-core/src/ops/rename.rs
+msgid "You don't have permission to rename “{name}” here."
 msgstr ""
 
 #: crates/ox-core/src/ops/report.rs
@@ -9987,6 +10573,11 @@ msgstr ""
 
 #: crates/ox-core/src/ops/undo.rs
 msgid "Undo Restore"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-core/src/ops/undo_apply.rs
+msgid "An item named “{name}” is already in “{folder}”, so Undo left it in “{left_in}”."
 msgstr ""
 
 #: crates/ox-core/src/ops/unfinished.rs
@@ -10302,6 +10893,171 @@ msgstr ""
 msgid "Time limit reached"
 msgstr ""
 
+#: crates/ox-core/src/system_error.rs
+msgid "A device which does not exist was specified."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "An operation is not supported on a directory."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "An unexpected network error occurred."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "Cannot create a file when that file already exists."
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-core/src/system_error.rs
+msgid "Error {code}: {message}"
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "Incorrect function."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "No application is associated with the specified file for this operation."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "Not enough memory resources are available to process this command."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The data is invalid."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The device is not connected."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The device is not ready."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The directory is not empty."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The directory name is invalid."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The file or directory is corrupted and unreadable."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The file or directory is not a reparse point."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The file size exceeds the limit allowed and cannot be saved."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The filename or extension is too long."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The filename, directory name, or volume label syntax is incorrect."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The handle is invalid."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The media is write protected."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The name of the file cannot be resolved by the system."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The network connection was aborted by the local system."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The network location cannot be reached."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The network name cannot be found."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The network path was not found."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The operation was canceled by the user."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The parameter is incorrect."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The process cannot access the file because it is being used by another process."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The remote computer refused the network connection."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The request could not be performed because of an I/O device error."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The request is not supported."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The requested file operation failed because the storage quota was exceeded. To free up disk space, move files to a different location or delete unnecessary files. For more information, contact your system administrator."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The semaphore timeout period has expired."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The specified network name is no longer available."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The system cannot find the file specified."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The system cannot find the path specified."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The system cannot move the file to a different disk drive."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "The system cannot open the file."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "There is not enough space on the disk."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "This operation returned because the timeout period expired."
+msgstr ""
+
+#: crates/ox-core/src/system_error.rs
+msgid "Unspecified error"
+msgstr ""
+
 #: crates/ox-core/src/transfer/commit.rs
 msgid "A file and folder have the same name. Rename or remove one of them, then try again."
 msgstr ""
@@ -10376,6 +11132,11 @@ msgstr ""
 
 #: crates/ox-core/src/transfer/engine.rs
 msgid "Only copies and moves can rename an item."
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-core/src/transfer/engine.rs
+msgid "The copy at {uri} could not be written to its drive, so the original was kept. {error}"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
@@ -10731,6 +11492,22 @@ msgstr ""
 msgid "This item is outside the live folder."
 msgstr ""
 
+#: crates/ox-core/src/versions/shadow_copies.rs
+msgid "No saved password was found for this server, so its previous versions could not be listed. Sign in with \"Remember my credentials\" checked to list them."
+msgstr ""
+
+#: crates/ox-core/src/versions/shadow_copies.rs
+msgid "The server did not list its previous versions."
+msgstr ""
+
+#: crates/ox-core/src/versions/shadow_copies.rs
+msgid "The server does not offer previous versions of this share."
+msgstr ""
+
+#: crates/ox-core/src/versions/shadow_copies.rs
+msgid "The server refused the saved password, so its previous versions could not be listed."
+msgstr ""
+
 #: crates/ox-core/src/versions/snapshot_date.rs
 msgid "Date encoded in the @GMT snapshot name, shown in UTC."
 msgstr ""
@@ -10780,6 +11557,10 @@ msgid "A preview of the next OpenXplorer, drawn with native GTK 4 widgets instea
 msgstr ""
 
 #: packaging/data/io.winspace.Development.Native.metainfo.xml packaging/data/io.winspace.Development.metainfo.xml
+msgid "A previous version of a folder, opened read-only from its snapshots"
+msgstr ""
+
+#: packaging/data/io.winspace.Development.Native.metainfo.xml packaging/data/io.winspace.Development.metainfo.xml
 msgid "Adds Windows Explorer's Group by, separate from the sort, and Folder Options' Apply to all folders and Reset folders. Copies ask about one unreadable file instead of failing the folder and about names Windows cannot use, TAR archives get the ZIP safety limits, read-only and disconnected drives say so, and the Open and Save dialogs no longer freeze or get stuck."
 msgstr ""
 
@@ -10813,6 +11594,10 @@ msgstr ""
 
 #: packaging/data/io.winspace.Development.Native.metainfo.xml packaging/data/io.winspace.Development.metainfo.xml
 msgid "Folder Options replaces Adjust view display style, with Windows' General and View tabs, and Windows Explorer's Ctrl+E, Ctrl+D, F11 and Alt+P work. The Share button emails the selected files through the desktop's email app. Delete moves items to the Recycle Bin wherever it works and asks only about items that cannot go there. As in Windows Explorer, a file operation that succeeds or is cancelled says nothing and sends no desktop notification, while failures, and failures not yet shown when you cancel, are still reported; read-only drives are not singled out, and New and Paste stay on in folders you cannot write to; Undo stays on Ctrl+Z and the folder menu. Keys meant for an open dialog no longer reach the files behind it, menus show in full when they fit on the monitor, submenus open in the same popup, a cut item pasted into its own folder stays put, and a failed copy names the real file."
+msgstr ""
+
+#: packaging/data/io.winspace.Development.Native.metainfo.xml packaging/data/io.winspace.Development.metainfo.xml
+msgid "Folders in a tabbed window with the navigation and details panes"
 msgstr ""
 
 #: packaging/data/io.winspace.Development.Native.metainfo.xml packaging/data/io.winspace.Development.metainfo.xml
@@ -10856,6 +11641,14 @@ msgid "Preview build of OpenXplorer 2.0.2 under its own application ID."
 msgstr ""
 
 #: packaging/data/io.winspace.Development.Native.metainfo.xml packaging/data/io.winspace.Development.metainfo.xml
+msgid "Previous Versions lists the snapshots an SMB server keeps of an item, as Windows 11 does, by asking the server with the account or password already saved for it. In Details view the sorted column shows a clear arrow after its title, and a sort other than Name ascending colours the title, so a list out of its usual order stands out. On GNOME and Zorin OS an app's Open or Save dialog, such as a browser's download dialog, now moves on its own instead of dragging the app's window with it. After a few sessions the app asks once whether you would like to star it on GitHub."
+msgstr ""
+
+#: packaging/data/io.winspace.Development.Native.metainfo.xml packaging/data/io.winspace.Development.metainfo.xml
+msgid "Recordings in the Preview and Details panes play in a separate process, and pictures, thumbnails and icons are decoded in separate processes, so a damaged or unusual file can no longer close or freeze the window; such a file shows its icon instead. A damaged 7z archive or a share that stops answering no longer closes or freezes the app either. Alt+D, Ctrl+L and F4 always select the whole address, Extract all gives files your usual permissions and the times stored in the archive, the Details pane widens with the text size, This PC opens with nothing selected, sizes keep their number and unit on one line, a Settings search of several words shows the settings that name them all, menus are as wide as their longest row and stay on screen on Wayland, and screen readers name the file list Items View."
+msgstr ""
+
+#: packaging/data/io.winspace.Development.Native.metainfo.xml packaging/data/io.winspace.Development.metainfo.xml
 msgid "Running copies, moves and deletes show in a Windows-style progress window, and Properties is redone as Windows 11's Properties windows. Several selected items can be renamed at once, a new text document is created at once and renamed in place, tabs drag as in Chrome, and the menus and defaults match Windows 11 Explorer. A slow location shows at once that it is opening, search is faster and more reliable, and Copy as path quotes each path. Deleting a folder permanently under Open as administrator is refused when other accounts can change it, and a share another app asks OpenXplorer to show is connected to only when you choose Try again."
 msgstr ""
 
@@ -10868,6 +11661,10 @@ msgid "Search results no longer refresh every few seconds while folders are bein
 msgstr ""
 
 #: packaging/data/io.winspace.Development.Native.metainfo.xml packaging/data/io.winspace.Development.metainfo.xml
+msgid "Search results with the searched word highlighted"
+msgstr ""
+
+#: packaging/data/io.winspace.Development.Native.metainfo.xml packaging/data/io.winspace.Development.metainfo.xml
 msgid "Settings › Appearance › File icons chooses the icon of folders, ZIP archives, each file type and files whose names end a certain way, such as .iso: one of the app's own pictures, including a document with a zipper so a ZIP archive no longer looks like a folder, or a picture of your own. Folder views and the details pane change at once, and screen readers name the chosen icon."
 msgstr ""
 
@@ -10875,8 +11672,16 @@ msgstr ""
 msgid "TAR archives open like folders, Compress to makes TAR files, and Additional options opens a Create archive window laid out like Windows 11's. Windows resize from just inside their edges and corners, and resize cursors show on Wayland when the desktop's cursor theme is missing. Renaming an extension and saving over a file ask in Windows 11's compact message boxes, the Save dialog hides known extensions, the column titles' menu offers Choose Details, Shift+F10 opens the right-click menu, and Ctrl+T, Ctrl+W and Esc work as in Windows 11. Settings can turn on Windows 11's Home page with Quick access, Recent and Favorites, switch to its tab menu and navigation pane, and hide the command bar's Update button. Typing Recycle Bin or Recent in the address bar opens it, the tab menu can close tabs to the right, Properties dates name the weekday, and Downloads stays grouped in a split tab's other pane."
 msgstr ""
 
+#: packaging/data/io.winspace.Development.Native.metainfo.xml packaging/data/io.winspace.Development.metainfo.xml
+msgid "The dark appearance"
+msgstr ""
+
 #: packaging/data/io.winspace.Development.Native.metainfo.xml
 msgid "The preview is incomplete and runs beside the current OpenXplorer without replacing it. It never changes file associations, browser preferences or network mounts."
+msgstr ""
+
+#: packaging/data/io.winspace.Development.Native.metainfo.xml packaging/data/io.winspace.Development.metainfo.xml
+msgid "Two folders side by side in split panes"
 msgstr ""
 
 #: packaging/data/io.winspace.Development.Native.metainfo.xml packaging/data/io.winspace.Development.metainfo.xml

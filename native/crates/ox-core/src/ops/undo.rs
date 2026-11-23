@@ -236,6 +236,42 @@ impl Operation {
 }
 
 impl UndoRecord {
+    /// This move's record once `folder`, whose items it moved into a
+    /// folder of another name, was emptied and removed: a folder renamed
+    /// onto another folder's name is merged into it, as Windows offers.
+    /// One Undo, named Rename, makes `folder` again first, so the items
+    /// have it to go back into, then undoes the move and brings back what
+    /// it replaced; Redo moves them in again and removes the folder while
+    /// it is empty.
+    #[must_use]
+    pub fn with_emptied_folder(self, folder: String) -> UndoRecord {
+        let emptied = UndoRecord::EmptiedFolders {
+            folders: vec![folder],
+        };
+        match self {
+            UndoRecord::Replace {
+                steps,
+                replaced,
+                replaced_since,
+                overwritten,
+                ..
+            } => UndoRecord::Replace {
+                operation: Operation::Rename,
+                steps: std::iter::once(emptied).chain(steps).collect(),
+                replaced,
+                replaced_since,
+                overwritten,
+            },
+            other => UndoRecord::Replace {
+                operation: Operation::Rename,
+                steps: vec![emptied, other],
+                replaced: Vec::new(),
+                replaced_since: 0,
+                overwritten: Vec::new(),
+            },
+        }
+    }
+
     /// The operation the record reverses.
     pub fn operation(&self) -> Operation {
         match self {
@@ -268,12 +304,115 @@ impl UndoRecord {
         }
     }
 
+    /// Each item the operation moved or renamed, from where it was to
+    /// where it is now: what the thumbnail cache follows, so a moved file
+    /// keeps its thumbnail (`crate::thumbnail_cache::follow_move`).
+    pub fn moved_items(&self) -> Vec<(String, String)> {
+        match self {
+            UndoRecord::Rename {
+                original_uri,
+                renamed_uri,
+            } => vec![(original_uri.clone(), renamed_uri.clone())],
+            UndoRecord::BatchRename { items } => items
+                .iter()
+                .map(|pair| (pair.original_uri.clone(), pair.renamed_uri.clone()))
+                .collect(),
+            UndoRecord::Move { items } => items
+                .iter()
+                .map(|item| (item.original_uri.clone(), item.moved_uri.clone()))
+                .collect(),
+            UndoRecord::Replace { steps, .. } => steps.iter().flat_map(UndoRecord::moved_items).collect(),
+            _ => Vec::new(),
+        }
+    }
+
+    /// Every location (URI) reversing the record may rename, move, delete
+    /// or create, in the record's order: each item as it is now and where
+    /// it goes back to, and for a Replace, the files it put back and the
+    /// ones it could not. The app stops any player of these first.
+    pub fn locations(&self) -> Vec<String> {
+        match self {
+            UndoRecord::Rename {
+                original_uri,
+                renamed_uri,
+            } => vec![original_uri.clone(), renamed_uri.clone()],
+            UndoRecord::BatchRename { items } => items
+                .iter()
+                .flat_map(|pair| [pair.original_uri.clone(), pair.renamed_uri.clone()])
+                .collect(),
+            UndoRecord::Move { items } => items
+                .iter()
+                .flat_map(|item| [item.original_uri.clone(), item.moved_uri.clone()])
+                .collect(),
+            UndoRecord::Create { uri, .. } => vec![uri.clone()],
+            UndoRecord::Link { links } => links.clone(),
+            UndoRecord::Copy { copies } | UndoRecord::Duplicate { copies } => copies.clone(),
+            UndoRecord::Restore { restored } => restored.clone(),
+            UndoRecord::EmptiedFolders { folders } | UndoRecord::RemadeFolders { folders } => folders.clone(),
+            UndoRecord::Trash { original_paths, .. } => original_paths
+                .iter()
+                .map(|path| crate::location::file_uri(path))
+                .collect(),
+            UndoRecord::Replace {
+                steps,
+                replaced,
+                overwritten,
+                ..
+            } => steps
+                .iter()
+                .flat_map(UndoRecord::locations)
+                .chain(replaced.iter().map(|path| crate::location::file_uri(path)))
+                .chain(overwritten.iter().cloned())
+                .collect(),
+        }
+    }
+
     /// Whether undoing the record does anything beyond saying which files
     /// it cannot bring back ([`Self::overwritten`]).
     pub fn undoes_more_than_overwrites(&self) -> bool {
         match self {
             UndoRecord::Replace { steps, replaced, .. } => !steps.is_empty() || !replaced.is_empty(),
             _ => true,
+        }
+    }
+
+    /// How Undo takes back an extraction into an existing folder, given
+    /// the record of the move that brought its items in from the
+    /// extraction's private folder: that folder is gone, so the items are
+    /// not moved back but taken away as copies are, to the Recycle Bin,
+    /// under Undo Copy, as Windows names the Undo of Extract All. Files
+    /// a Replace answered there still come back from the Recycle Bin;
+    /// the private folder's removal is not undone. `None` when nothing is
+    /// left to undo.
+    pub fn as_extraction(self) -> Option<UndoRecord> {
+        match self {
+            UndoRecord::Move { items } => {
+                let copies: Vec<String> = items.into_iter().map(|item| item.moved_uri).collect();
+                (!copies.is_empty()).then_some(UndoRecord::Copy { copies })
+            }
+            UndoRecord::Replace {
+                steps,
+                replaced,
+                replaced_since,
+                overwritten,
+                ..
+            } => {
+                let steps: Vec<UndoRecord> =
+                    steps.into_iter().filter_map(UndoRecord::as_extraction).collect();
+                if steps.is_empty() && replaced.is_empty() && overwritten.is_empty() {
+                    return None;
+                }
+                Some(UndoRecord::Replace {
+                    operation: Operation::Copy,
+                    steps,
+                    replaced,
+                    replaced_since,
+                    overwritten,
+                })
+            }
+            // The private folder the move emptied is not made again.
+            UndoRecord::EmptiedFolders { .. } | UndoRecord::RemadeFolders { .. } => None,
+            other => Some(other),
         }
     }
 
@@ -427,6 +566,85 @@ fn moved_forward_again(items: &[MovedItem], moved_back: &[String]) -> Vec<MovedI
 mod tests {
     use super::*;
 
+    /// Renames and moves, also inside a Replace, name each item's old and
+    /// new place; other operations move nothing.
+    ///
+    /// parity: VIEW-057
+    #[test]
+    fn renames_and_moves_name_what_they_moved() {
+        let rename = UndoRecord::Rename {
+            original_uri: "file:///work/a.jpg".to_owned(),
+            renamed_uri: "file:///work/b.jpg".to_owned(),
+        };
+        assert_eq!(
+            rename.moved_items(),
+            [("file:///work/a.jpg".to_owned(), "file:///work/b.jpg".to_owned())]
+        );
+        let moved = UndoRecord::Move {
+            items: vec![MovedItem {
+                original_uri: "file:///work/c.jpg".to_owned(),
+                moved_uri: "file:///work/Done/c.jpg".to_owned(),
+            }],
+        };
+        let replace = UndoRecord::Replace {
+            operation: Operation::Move,
+            steps: vec![moved, rename],
+            replaced: Vec::new(),
+            replaced_since: 0,
+            overwritten: Vec::new(),
+        };
+        assert_eq!(replace.moved_items().len(), 2);
+        assert_eq!(replace.moved_items()[0].1, "file:///work/Done/c.jpg");
+        let copy = UndoRecord::Copy {
+            copies: vec!["file:///work/d.jpg".to_owned()],
+        };
+        assert!(copy.moved_items().is_empty());
+    }
+
+    #[test]
+    fn a_reversal_names_every_file_it_may_change() {
+        let moved = MovedItem {
+            original_uri: "file:///work/Clip.ogv".to_owned(),
+            moved_uri: "file:///work/Done/Clip.ogv".to_owned(),
+        };
+        let record = UndoRecord::Replace {
+            operation: Operation::Move,
+            steps: vec![
+                UndoRecord::Move { items: vec![moved] },
+                UndoRecord::EmptiedFolders {
+                    folders: vec!["file:///work/Old".to_owned()],
+                },
+            ],
+            replaced: vec![PathBuf::from("/work/Done/Song.ogg")],
+            replaced_since: 0,
+            overwritten: vec!["file:///work/Done/Tone.mp3".to_owned()],
+        };
+        assert_eq!(
+            record.locations(),
+            [
+                "file:///work/Clip.ogv",
+                "file:///work/Done/Clip.ogv",
+                "file:///work/Old",
+                "file:///work/Done/Song.ogg",
+                "file:///work/Done/Tone.mp3",
+            ]
+        );
+        assert_eq!(
+            rename(1).locations(),
+            ["file:///tmp/1", "file:///tmp/1-renamed"],
+            "a rename back may land on its old name"
+        );
+        let trashed = UndoRecord::Trash {
+            original_paths: vec![PathBuf::from("/work/Clip.ogv")],
+            trashed_since: 0,
+        };
+        assert_eq!(trashed.locations(), ["file:///work/Clip.ogv"]);
+        let copied = UndoRecord::Copy {
+            copies: vec!["file:///work/Copy.ogv".to_owned()],
+        };
+        assert_eq!(copied.locations(), ["file:///work/Copy.ogv"]);
+    }
+
     fn rename(number: usize) -> UndoRecord {
         UndoRecord::Rename {
             original_uri: format!("file:///tmp/{number}"),
@@ -476,6 +694,58 @@ mod tests {
         for case in cases {
             assert_eq!(case.record.undo_label(), case.label);
         }
+    }
+
+    /// An extraction into an existing folder moved its items in from a
+    /// private folder that is gone: Undo takes them away as copies, and a
+    /// Replace keeps bringing back the files it replaced.
+    ///
+    /// parity: OPS-029
+    #[test]
+    fn an_extraction_is_undone_as_a_copy() {
+        let moved = |from: &str, to: &str| MovedItem {
+            original_uri: from.to_owned(),
+            moved_uri: to.to_owned(),
+        };
+        let private = "file:///tmp/Work/.openxplorer-extract-1";
+        let plain = UndoRecord::Move {
+            items: vec![moved(&format!("{private}/a.mp3"), "file:///tmp/Work/a.mp3")],
+        };
+        assert_eq!(
+            plain.as_extraction(),
+            Some(UndoRecord::Copy {
+                copies: vec!["file:///tmp/Work/a.mp3".into()]
+            })
+        );
+        let replacing = UndoRecord::Replace {
+            operation: Operation::Move,
+            steps: vec![
+                UndoRecord::EmptiedFolders {
+                    folders: vec![format!("{private}/Docs")],
+                },
+                UndoRecord::Move {
+                    items: vec![moved(&format!("{private}/b.pdf"), "file:///tmp/Work/b.pdf")],
+                },
+            ],
+            replaced: vec![PathBuf::from("/tmp/Work/b.pdf")],
+            replaced_since: 3,
+            overwritten: Vec::new(),
+        };
+        let undone = replacing.as_extraction().expect("a step to undo");
+        assert_eq!(undone.undo_label(), "Undo Copy");
+        assert_eq!(
+            undone,
+            UndoRecord::Replace {
+                operation: Operation::Copy,
+                steps: vec![UndoRecord::Copy {
+                    copies: vec!["file:///tmp/Work/b.pdf".into()]
+                }],
+                replaced: vec![PathBuf::from("/tmp/Work/b.pdf")],
+                replaced_since: 3,
+                overwritten: Vec::new(),
+            }
+        );
+        assert_eq!(UndoRecord::Move { items: Vec::new() }.as_extraction(), None);
     }
 
     /// A reversal that finished `done`.
@@ -556,5 +826,67 @@ mod tests {
                 case.record
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod merged_rename_tests {
+    use super::*;
+
+    fn moved(from: &str, to: &str) -> MovedItem {
+        MovedItem {
+            original_uri: from.to_owned(),
+            moved_uri: to.to_owned(),
+        }
+    }
+
+    /// A folder renamed onto another folder's name is merged into it: its
+    /// items move in, and the emptied folder goes. One Undo, "Undo
+    /// Rename", makes the folder again first, so the items have it to go
+    /// back into, then undoes the move; what the move replaced comes back
+    /// as after any Replace.
+    ///
+    /// parity: OPS-008
+    #[test]
+    fn a_merge_by_rename_is_undone_by_making_the_folder_then_moving_back() {
+        let alpha = "file:///srv/example/Alpha";
+        let movement = UndoRecord::Move {
+            items: vec![moved(&format!("{alpha}/a.txt"), "file:///srv/example/Beta/a.txt")],
+        };
+
+        let merged = movement.clone().with_emptied_folder(alpha.to_owned());
+        let replaced = UndoRecord::Replace {
+            operation: Operation::Move,
+            steps: vec![movement.clone()],
+            replaced: vec![PathBuf::from("/srv/example/Beta/b.txt")],
+            replaced_since: 42,
+            overwritten: vec!["file:///srv/example/Beta/c.txt".to_owned()],
+        }
+        .with_emptied_folder(alpha.to_owned());
+
+        let emptied = UndoRecord::EmptiedFolders {
+            folders: vec![alpha.to_owned()],
+        };
+        assert_eq!(
+            merged,
+            UndoRecord::Replace {
+                operation: Operation::Rename,
+                steps: vec![emptied.clone(), movement.clone()],
+                replaced: Vec::new(),
+                replaced_since: 0,
+                overwritten: Vec::new(),
+            }
+        );
+        assert_eq!(merged.title(), Operation::Rename.title());
+        assert_eq!(
+            replaced,
+            UndoRecord::Replace {
+                operation: Operation::Rename,
+                steps: vec![emptied, movement],
+                replaced: vec![PathBuf::from("/srv/example/Beta/b.txt")],
+                replaced_since: 42,
+                overwritten: vec!["file:///srv/example/Beta/c.txt".to_owned()],
+            }
+        );
     }
 }

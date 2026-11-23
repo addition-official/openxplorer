@@ -35,6 +35,7 @@
 //! | [`windows_glyphs`] | Glyphs read at run time from the Windows symbol font the user chooses | (new) |
 //! | [`windows_icons`] | Icons read at run time from Windows icon files the user chooses | (new) |
 //! | [`ops`] | File operations as the interface starts them: New, Rename, paste conflicts, the Delete plan, copy and move, Duplicate, the Recycle Bin, Undo and tab moves | `winspace.py`, `file_services.py`, `gio_backend.py`, `tab_transfers.py`, `ui/app.js` |
+//! | [`system_error`] | The system's error in Windows' words, and its code | (new, after Windows) |
 
 pub mod admin_copy;
 pub mod admin_delete;
@@ -45,6 +46,9 @@ pub mod drive;
 pub mod entry;
 pub mod folder_locations;
 pub mod format;
+#[cfg(feature = "fuzzing")]
+#[doc(hidden)]
+pub mod fuzzing;
 pub mod gio_node;
 pub mod grouping;
 pub mod i18n;
@@ -60,7 +64,10 @@ pub mod service_actions;
 pub mod session;
 pub mod settings;
 pub mod sizes;
+pub mod system_error;
+pub mod thumbnail_cache;
 pub mod transfer;
+pub mod typed_addresses;
 pub mod update;
 pub mod versions;
 pub mod windows_glyphs;

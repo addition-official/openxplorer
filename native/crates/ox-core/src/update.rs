@@ -68,6 +68,8 @@ mod github;
 mod helper_report;
 mod identity;
 mod install_helper;
+#[cfg(feature = "fuzzing")]
+pub(crate) use install_helper::fuzz_request as fuzz_install_request;
 mod installation;
 mod instance;
 mod package;
@@ -86,7 +88,7 @@ pub use diagnosis::{AssociationStatus, Associations, Diagnosis, ShowInFolder};
 pub use error::{InstanceError, UpdateError};
 pub use github::GitHubReleases;
 pub use helper_report::{HelperFailure, HelperReport};
-pub use identity::{InstalledBuild, RuntimeIdentity, RUNTIME_PROTOCOL};
+pub use identity::{ExecutableFile, InstalledBuild, RuntimeIdentity, RUNTIME_PROTOCOL};
 pub use install_helper::{
     install_as_root, install_update_command, RootInstallParts, ENVIRONMENT, INSTALL_HELPER_COMMAND,
     STAGING_FOLDER,

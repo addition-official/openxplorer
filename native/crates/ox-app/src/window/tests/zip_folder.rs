@@ -653,7 +653,7 @@ fn a_corrupt_or_password_zip_says_why_in_the_tab() {
     });
     test.wait_for_listing("the refusal");
     let error = test.window.load_error().expect("the tab says why");
-    assert!(error.contains("not a zip file"), "{error}");
+    assert_eq!(error, "The Compressed (zipped) Folder is invalid.");
 
     mark_encrypted(&fixture.path("Bundle.zip"));
     let test = TestWindow::open(&fixture.uri());
@@ -719,13 +719,34 @@ fn the_menus_inside_a_zip_are_short() {
     test.window.right_click(Some(position));
     assert_eq!(
         test.window.context_menu().row_labels(),
-        ["Open", "-", "Copy", "Copy as path", "-", "Extract all…"]
+        [
+            "Open",
+            "-",
+            "Cut",
+            "Copy",
+            "Copy as path",
+            "-",
+            "Delete",
+            "-",
+            "Extract all…",
+            "-",
+            "Properties"
+        ]
     );
     test.window.context_menu().popdown();
     test.window.right_click(None);
     assert_eq!(
         test.window.context_menu().row_labels(),
-        ["Extract all…", "Refresh"]
+        [
+            "View",
+            "Sort by",
+            "Group by",
+            "Refresh",
+            "-",
+            "Extract all…",
+            "-",
+            "Show more options"
+        ]
     );
 }
 

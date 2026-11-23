@@ -36,6 +36,7 @@ use gtk::prelude::*;
 use ox_core::entry::Entry;
 use ox_core::format;
 use ox_core::location::LocationContext;
+use ox_core::permissions::hidden_list::{hidden_list_for, is_listed, set_listed};
 use ox_core::permissions::{apply_outside_in_background, ModeChange, PermissionRequest};
 use ox_core::transfer::Cancellation;
 use ox_core::versions::PreviousVersions;
@@ -49,6 +50,10 @@ use crate::icons::{Art, ArtImage};
 
 /// The size of the item's picture beside its name.
 pub(super) const HEADER_ART_SIZE: i32 = 32;
+
+/// The CSS class of the dates' rows, whose names take only the room they
+/// need (`properties.css`).
+const DATES_CLASS: &str = "properties-dates";
 
 /// A file's Opens with row without a default application.
 const NO_DEFAULT_APP: &str = crate::i18n::message_id("No default application");
@@ -80,6 +85,10 @@ pub(super) struct GeneralTab {
 
 /// Fills the General tab of `properties`, registering its changes with
 /// `window`.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one row of the tab after another, as Windows lays them out"
+)]
 pub(super) fn general_tab(
     window: &PropertiesWindow,
     properties: &ItemProperties,
@@ -119,7 +128,9 @@ pub(super) fn general_tab(
         let is_shortcut = entry.is_symlink || entry.content_type.as_deref() == Some("application/x-desktop");
         if entry.trash_orig_path.is_none() && !is_shortcut {
             let (row, value) = opens_with_row(properties, rights.can_change_app, uri);
-            kind.add_control(&ox_core::i18n::gettext("Opens with"), &row);
+            let caption = kind.add_control(&ox_core::i18n::gettext("Opens with"), &row);
+            // The app's name is heard as "Opens with: Text Editor".
+            crate::accessible_names::name_value_label(&value, &caption);
             opens_with = Some(value);
         }
     }
@@ -128,8 +139,17 @@ pub(super) fn general_tab(
 
     let place = Rows::new();
     place_row(&place, properties, locations);
+    // A shortcut's Description is its target's name, as Windows 11 shows a
+    // shortcut's; a symbolic link named for a type shows its Target.
     if let Some(target) = &properties.link_target {
-        place.add_line(&ox_core::i18n::gettext("Target"), target);
+        if properties.entry.is_shortcut() {
+            let name = std::path::Path::new(target)
+                .file_name()
+                .map_or_else(|| target.clone(), |name| name.to_string_lossy().into_owned());
+            place.add_line(&ox_core::i18n::gettext("Description"), &name);
+        } else {
+            place.add_line(&ox_core::i18n::gettext("Target"), target);
+        }
     }
     let folder_rows = if let Some(mount) = &properties.mount {
         place.add_control(&ox_core::i18n::gettext("Target"), &volume_row(mount, uri));
@@ -156,25 +176,29 @@ pub(super) fn general_tab(
     page.append(place.widget());
     page.append(&divider());
 
+    // The dates' names need less room than the other groups' ("Size on
+    // disk:"), so their values take it: Windows 11 writes each date on one
+    // line, "Wednesday, November 18, 2026, 8:36:06 PM".
     let dates = Rows::new();
+    dates.widget().add_css_class(DATES_CLASS);
     dates.add(
         &ox_core::i18n::gettext("Created"),
-        &format::weekday_date_time_text(properties.created),
+        &keep_time_together(&format::weekday_date_time_text(properties.created)),
     );
     if !is_folder {
         dates.add(
             &ox_core::i18n::gettext("Modified"),
-            &format::weekday_date_time_text(entry.modified),
+            &keep_time_together(&format::weekday_date_time_text(entry.modified)),
         );
         dates.add(
             &ox_core::i18n::gettext("Accessed"),
-            &format::long_date_time_text(properties.accessed),
+            &keep_time_together(&format::long_date_time_text(properties.accessed)),
         );
     }
     if entry.trash_orig_path.is_some() {
         dates.add(
             &ox_core::i18n::gettext("Deleted"),
-            &format::weekday_date_time_text(entry.trash_deletion_date),
+            &keep_time_together(&format::weekday_date_time_text(entry.trash_deletion_date)),
         );
     }
     page.append(dates.widget());
@@ -189,6 +213,22 @@ pub(super) fn general_tab(
         folder_rows,
         opens_with,
         edits,
+    }
+}
+
+/// `date` with a no-break space between its time and a closing word
+/// without digits, such as "PM", so a date too long for its line never leaves "PM" alone
+/// on the next one.
+fn keep_time_together(date: &str) -> String {
+    match date.rsplit_once(' ') {
+        Some((time, word))
+            if !word.is_empty()
+                && !word.chars().any(|c| c.is_ascii_digit())
+                && time.ends_with(|c: char| c.is_ascii_digit()) =>
+        {
+            format!("{time}\u{a0}{word}")
+        }
+        _ => date.to_owned(),
     }
 }
 
@@ -236,8 +276,9 @@ fn type_of_file(entry: &Entry) -> String {
     }
 }
 
-/// The application's name and Change..., which opens Open with for the
-/// file as a dialog of the Properties window.
+/// The application's icon and name, as Windows 11 shows them, and
+/// Change..., which opens Open with for the file as a dialog of the
+/// Properties window.
 fn opens_with_row(
     properties: &ItemProperties,
     can_change: bool,
@@ -256,7 +297,21 @@ fn opens_with_row(
         .ellipsize(gtk::pango::EllipsizeMode::End)
         .css_classes(["property-value"])
         .build();
-    row.append(&value);
+    let icon = gtk::Image::builder()
+        .accessible_role(gtk::AccessibleRole::Presentation)
+        .valign(gtk::Align::Center)
+        .css_classes([APP_ICON_CLASS])
+        .build();
+    show_app_icon(
+        &icon,
+        properties.default_app.is_some(),
+        properties.default_app_icon.as_deref(),
+    );
+    let named = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    named.set_hexpand(true);
+    named.append(&icon);
+    named.append(&value);
+    row.append(&named);
     let change = push_button(&ox_core::i18n::gettext("Change..."));
     super::window::give_access_key(&change, 'c');
     change.set_valign(gtk::Align::Center);
@@ -268,16 +323,43 @@ fn opens_with_row(
     // window, which may be behind other windows.
     // The file's location now: a rename on this tab changes it.
     let uri = Rc::clone(uri);
+    let shown = value.downgrade();
     change.connect_clicked(move |button| {
         let Some(window) = PropertiesWindow::of(button) else {
             return;
         };
         if let Some(opener) = window.opener() {
-            opener.change_app_over(window.upcast_ref(), &uri.borrow());
+            // Opens with shows the new default at once.
+            let shown = shown.clone();
+            opener.change_app_over(window.upcast_ref(), &uri.borrow(), move |name| {
+                if let Some(label) = shown.upgrade() {
+                    label.set_text(name);
+                }
+            });
         }
     });
     row.append(&change);
     (row, value)
+}
+
+/// The CSS class of Opens with's application icon.
+const APP_ICON_CLASS: &str = "app-icon";
+
+/// The edge of Opens with's application icon.
+const APP_ICON_SIZE: i32 = 16;
+
+/// Shows the default application's `icon` in `image`, or the generic
+/// application glyph for one without an icon, while there is an
+/// application (`has_app`); hides it otherwise.
+pub(super) fn show_app_icon(image: &gtk::Image, has_app: bool, icon: Option<&str>) {
+    image.set_visible(has_app);
+    match icon.and_then(|icon| gtk::gio::Icon::for_string(icon).ok()) {
+        Some(icon) => {
+            image.set_from_gicon(&icon);
+            image.set_pixel_size(APP_ICON_SIZE);
+        }
+        None => crate::icons::set_icon(image, crate::icons::Icon::Apps, APP_ICON_SIZE),
+    }
 }
 
 /// A Mounted Volume's Target: the volume's label, else its type, and
@@ -328,6 +410,14 @@ fn header(properties: &ItemProperties, edits: &GeneralEdits) -> gtk::Box {
     // A picture chosen in File icons for the item's kind (LOOK-029), read
     // as the file list reads it, else its art.
     let art = ArtImage::new(Art::for_entry(&properties.entry), HEADER_ART_SIZE);
+    // A shortcut's icon carries the shortcut arrow, as Windows shows it.
+    art.set_emblems(
+        crate::icons::Emblems {
+            link: properties.entry.is_shortcut(),
+            read_only: false,
+        },
+        HEADER_ART_SIZE,
+    );
     header.append(&art);
     if let Some(picture) = crate::icons::file_icons::picture_for(&properties.entry) {
         let art = art.downgrade();
@@ -394,6 +484,12 @@ pub(super) struct GeneralEdits {
     read_only_now: Cell<Option<bool>>,
     folder_read_only: Cell<ReadOnly>,
     hidden: gtk::CheckButton,
+    /// The folder's `.hidden` list, where Hidden lists the name as Windows
+    /// sets an attribute, without renaming the item; `None` off this
+    /// computer, where Hidden adds a leading dot instead.
+    hidden_list: Option<std::path::PathBuf>,
+    /// Whether the list names the item now.
+    listed: Cell<bool>,
     /// Set while the tab changes a box itself.
     is_updating: Cell<bool>,
     /// Which locations are previous versions, which are never changed.
@@ -422,6 +518,9 @@ impl GeneralEdits {
             .css_classes(["properties-name"])
             .build();
         name.update_property(&[gtk::accessible::Property::Label(&ox_core::i18n::gettext("Name"))]);
+        // The characters Windows forbids in names are refused as they are
+        // typed, with Windows' balloon, as renaming in place refuses them.
+        crate::window::refuse_forbidden_characters(&name);
         let read_only_label = if entry.is_dir {
             ox_core::i18n::gettext("Read-only (Only applies to files in folder)")
         } else {
@@ -437,7 +536,11 @@ impl GeneralEdits {
         super::window::give_access_key(&hidden, 'h');
         super::window::wrap_check_label(&read_only);
         super::window::wrap_check_label(&hidden);
-        hidden.set_active(entry.name.starts_with('.'));
+        let hidden_list = hidden_list_for(&entry.uri);
+        let listed = hidden_list
+            .as_deref()
+            .is_some_and(|list| is_listed(list, &entry.name));
+        hidden.set_active(entry.name.starts_with('.') || listed);
         hidden.set_sensitive(rights.can_rename);
         let edits = Rc::new(Self {
             window: window.downgrade(),
@@ -455,6 +558,8 @@ impl GeneralEdits {
             read_only_now: Cell::new(read_only_now),
             folder_read_only: Cell::new(ReadOnly::Unchanged),
             hidden,
+            hidden_list,
+            listed: Cell::new(listed),
             is_updating: Cell::new(false),
             versions,
         });
@@ -549,8 +654,9 @@ impl GeneralEdits {
         boxes
     }
 
-    /// The name the item should have: the field's, with a leading dot for
-    /// Hidden and none without it.
+    /// The name the item should have: the field's, without a leading dot
+    /// when Hidden is cleared. Hidden adds a dot only where no `.hidden`
+    /// list can be written; elsewhere the name stays, as in Windows.
     fn wanted_name(&self) -> String {
         let typed = match self.hidden_extension.borrow().as_deref() {
             // An erased name is refused as it is: it never becomes the
@@ -559,16 +665,77 @@ impl GeneralEdits {
             Some(extension) => format!("{}{extension}", self.name.text()),
             None => self.name.text().to_string(),
         };
-        let was_hidden = self.original_name.borrow().starts_with('.');
+        // A changed name loses the periods and spaces at its end, as a
+        // rename in place trims them: "Papers. " names a folder "Papers".
+        let original = self.original_name.borrow().clone();
+        let typed = if self.name.text() == self.shown(&original) {
+            typed
+        } else {
+            crate::window::trim_typed_name(&typed).to_owned()
+        };
+        let has_dot = self.original_name.borrow().starts_with('.');
+        let was_hidden = has_dot || self.listed.get();
         let hide = self.hidden.is_active();
         if hide == was_hidden {
             return typed;
         }
-        if hide {
+        if hide && self.hidden_list.is_none() {
             format!(".{typed}")
-        } else {
+        } else if !hide && has_dot {
             typed.trim_start_matches('.').to_owned()
+        } else {
+            typed
         }
+    }
+
+    /// Whether the `.hidden` list should name the item, when that changes.
+    fn listing_change(&self) -> Option<bool> {
+        self.hidden_list.as_ref()?;
+        let wanted = self.hidden.is_active() && !self.wanted_name().starts_with('.');
+        (wanted != self.listed.get()).then_some(wanted)
+    }
+
+    /// Lists the item, named `name` now and `old_name` before any rename,
+    /// in its folder's `.hidden` list for `hide`, or takes it off, and
+    /// lists the folder again in every window.
+    fn list_as_hidden(
+        &self,
+        window: Option<&PropertiesWindow>,
+        (name, old_name): (&str, &str),
+        hide: bool,
+    ) -> Result<(), String> {
+        // A location registered as a previous version since the window
+        // opened is never changed (PROP-024).
+        self.versions
+            .check_writable(&self.uri.borrow())
+            .map_err(|refusal| refusal.to_string())?;
+        self.apply_listing(name, old_name, hide)?;
+        let folder = gtk::gio::File::for_uri(&self.uri.borrow())
+            .parent()
+            .map(|folder| folder.uri().to_string());
+        if let (Some(opener), Some(folder)) = (window.and_then(PropertiesWindow::opener), folder) {
+            opener.announce_hidden_changed(&folder);
+        }
+        Ok(())
+    }
+
+    /// Lists the item, named `name` now and `old_name` before any rename,
+    /// in the folder's `.hidden` list, or takes it off, for `hide`.
+    fn apply_listing(&self, name: &str, old_name: &str, hide: bool) -> Result<(), String> {
+        let Some(list) = &self.hidden_list else {
+            return Ok(());
+        };
+        // The old name's line goes either way: a listed item renamed in
+        // the name field stays hidden under its new name.
+        let listing = set_listed(list, old_name, false).and_then(|()| set_listed(list, name, hide));
+        listing.map_err(|error| {
+            ox_core::i18n::format_message(
+                "The item could not be hidden or shown. {error}",
+                &[("error", &error.to_string())],
+            )
+        })?;
+        self.listed.set(hide);
+        Ok(())
     }
 
     /// A folder or a link to a folder, whose name always shows whole.
@@ -605,23 +772,39 @@ impl GeneralEdits {
             self.versions
                 .check_writable(&uri)
                 .map_err(|refusal| refusal.to_string())?;
+            let submitted = self.folder_read_only.get();
+            // A folder's change reaches its files only once the user said
+            // so, as Windows asks; Cancel makes no change at all.
+            let reaches_inside = if self.is_folder {
+                let Some(parent) = window.as_ref() else {
+                    return Err(super::window::CANCELLED.to_owned());
+                };
+                super::attribute_confirm::ask_reach(parent, read_only, false)
+                    .await
+                    .ok_or_else(|| super::window::CANCELLED.to_owned())?
+            } else {
+                false
+            };
             // No drive is formatted while the item changes (DEV-012).
             let _writing = match &opener {
                 Some(opener) => Some(opener.hold_write()?),
                 None => None,
             };
-            let request = PermissionRequest {
-                mode: ModeChange::ReadOnlyFiles(read_only),
-                owner: None,
-                group: None,
-                recursive: self.is_folder,
-            };
-            let submitted = self.folder_read_only.get();
-            // Backups inside a folder are left alone too.
-            let protected = self.versions.protected_locations();
-            apply_outside_in_background(uri, request, Cancellation::new(), protected)
-                .await
-                .map_err(|error| error.to_string())?;
+            // "This folder only" changes nothing: a folder keeps its own
+            // bits whatever its Read-only says.
+            if !self.is_folder || reaches_inside {
+                let request = PermissionRequest {
+                    mode: ModeChange::ReadOnlyFiles(read_only),
+                    owner: None,
+                    group: None,
+                    recursive: reaches_inside,
+                };
+                // Backups inside a folder are left alone too.
+                let protected = self.versions.protected_locations();
+                apply_outside_in_background(uri, request, Cancellation::new(), protected)
+                    .await
+                    .map_err(|error| error.to_string())?;
+            }
             if self.is_folder {
                 // A box changed while the change was made stays to apply.
                 if self.folder_read_only.get() == submitted {
@@ -633,6 +816,8 @@ impl GeneralEdits {
         }
         let wanted = self.wanted_name();
         let original = self.original_name.borrow().clone();
+        let relisted = self.listed.get() && wanted != original && self.hidden.is_active();
+        let listing = self.listing_change().or(relisted.then_some(true));
         if wanted != original {
             let Some(opener) = opener else {
                 return Err(ox_core::i18n::gettext(
@@ -665,7 +850,8 @@ impl GeneralEdits {
                 // place; the other changes still apply.
                 self.is_updating.set(true);
                 self.name.set_text(self.shown(&original));
-                self.hidden.set_active(original.starts_with('.'));
+                self.hidden
+                    .set_active(original.starts_with('.') || self.listed.get());
                 self.is_updating.set(false);
                 return Ok(());
             }
@@ -680,7 +866,8 @@ impl GeneralEdits {
                 .replace(hidden_extension(&wanted, self.always_whole(), self.extensions).map(str::to_owned));
             self.is_updating.set(true);
             self.name.set_text(self.shown(&wanted));
-            self.hidden.set_active(wanted.starts_with('.'));
+            self.hidden
+                .set_active(wanted.starts_with('.') || self.listed.get() || listing == Some(true));
             self.is_updating.set(false);
             if let Some(window) = &window {
                 window.set_title_text(&ox_core::i18n::format_message(
@@ -689,13 +876,18 @@ impl GeneralEdits {
                 ));
             }
         }
+        if let Some(hide) = listing {
+            self.list_as_hidden(window.as_ref(), (&wanted, &original), hide)?;
+        }
         Ok(())
     }
 }
 
 impl Pending for GeneralEdits {
     fn has_changes(&self) -> bool {
-        self.wanted_name() != *self.original_name.borrow() || self.read_only_change().is_some()
+        self.wanted_name() != *self.original_name.borrow()
+            || self.read_only_change().is_some()
+            || self.listing_change().is_some()
     }
 
     fn apply(self: Rc<Self>) -> ApplyFuture {

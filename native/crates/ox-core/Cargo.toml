@@ -27,6 +27,11 @@ path = "src/bin/openxplorer-admin-delete.rs"
 name = "openxplorer-install-update"
 path = "src/bin/openxplorer-install-update.rs"
 
+[features]
+# Entry points for the fuzz targets in native/fuzz (`ox_core::fuzzing`).
+# Off in every build of the app.
+fuzzing = []
+
 [dependencies]
 gio.workspace = true
 glib.workspace = true
@@ -48,6 +53,10 @@ rustix = { workspace = true, features = ["event", "process", "termios"] }
 # SQLite.
 rusqlite.workspace = true
 oo7.workspace = true
+# Lists an SMB server's shadow copies for Previous Versions; see the workspace
+# manifest.
+smb.workspace = true
+binrw.workspace = true
 # ZIP decompression and CRC-32 checks for `archive`; see the workspace manifest.
 flate2.workspace = true
 bzip2.workspace = true

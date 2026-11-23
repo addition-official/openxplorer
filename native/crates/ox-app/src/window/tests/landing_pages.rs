@@ -196,11 +196,20 @@ fn this_pc_counts_its_tiles_in_the_status_bar_and_the_details_pane() {
         art_image_showing(&pane, Art::Glyph(Icon::HardDrive)).is_some(),
         "the drive's icon"
     );
+    // As Windows 11 lists C: (checked 2026-11-22): Type, Space used,
+    // Space free, Total size and File system, read off the main thread.
     wait_until("its space", || {
-        pane.shown_properties()
-            .iter()
-            .any(|property| property.value.contains(" free of "))
+        let names: Vec<String> = pane.shown_properties().into_iter().map(|row| row.name).collect();
+        names.starts_with(&[
+            "Type".to_owned(),
+            "Space used".to_owned(),
+            "Space free".to_owned(),
+            "Total size".to_owned(),
+        ])
     });
+    let rows = pane.shown_properties();
+    assert_eq!(rows[0].value, "Local Disk");
+    assert!(rows[1].value.ends_with('%'), "{rows:?}");
 
     flow.unselect_all();
     wait_until("nothing selected", || {
@@ -209,6 +218,51 @@ fn this_pc_counts_its_tiles_in_the_status_bar_and_the_details_pane() {
     wait_until("This PC again", || {
         pane.shown_name() == format!("This PC ({items})")
     });
+}
+
+/// The Details pane's Properties button opens a selected drive's
+/// Properties, as Alt+Enter does, and the selection's again once a
+/// folder shows, without GTK finding the button's action and its target
+/// at odds on the way.
+///
+/// parity: PROP-009
+#[gtk::test]
+fn the_panes_properties_button_follows_a_selected_drive() {
+    let fixture = Fixture::standard();
+    let test = super::geometry::laid_out_with_details_pane(&fixture.uri());
+    let recorder = crate::test_support::gtk_log::LogRecorder::start();
+    test.window.navigate(Page::ThisPc.uri()).expect("This PC");
+    test.wait_for_listing("This PC");
+    let pane = test.window.imp().details_pane.get();
+    let groups = landing::tile_groups(test.window.folder_pane().landing());
+    let (flow, children) = &groups[0];
+    flow.unselect_all();
+    flow.select_child(&children[0]);
+    wait_until("Local Disk in the pane", || pane.shown_name() == "Local Disk");
+    let properties = descendants::<gtk::Button>(&pane)
+        .into_iter()
+        .find(|button| button.has_css_class("detail-button") && button.is_visible())
+        .expect("the Properties button");
+    assert_eq!(properties.action_name().as_deref(), Some("win.properties-of"));
+    assert_eq!(
+        properties
+            .action_target_value()
+            .and_then(|target| target.get::<String>())
+            .as_deref(),
+        Some("file:///")
+    );
+
+    test.window.navigate(&fixture.uri()).expect("the fixture folder");
+    test.wait_for_listing("the fixture folder");
+    test.select_named("Notes 2.txt");
+    assert_eq!(properties.action_name().as_deref(), Some("win.properties"));
+    assert!(properties.action_target_value().is_none());
+    let warnings: Vec<String> = recorder
+        .warnings()
+        .into_iter()
+        .filter(|warning| warning.contains("actionhelper"))
+        .collect();
+    assert!(warnings.is_empty(), "{warnings:?}");
 }
 
 /// Drive tiles are the Tiles view's: at least 256 pixels a column with
@@ -422,10 +476,15 @@ fn open_tile_menu(test: &TestWindow, tile: &gtk::FlowBoxChild) -> MenuPopover {
     menu
 }
 
-/// Closes `menu` and waits for it to let go of the pane.
+/// Closes `menu` and waits until it has; the pane keeps it, to show it
+/// again (`MenuPopover::kept_by`).
 fn close_menu(menu: &MenuPopover) {
     menu.popdown();
-    wait_until("the menu to let go of the pane", || menu.parent().is_none());
+    wait_until("the menu to close", || !menu.is_visible());
+    crate::test_support::harness::wait_for_frames(
+        menu.parent().as_ref().expect("the pane keeps the menu"),
+        2,
+    );
 }
 
 /// A drive tile's menu is the file list's right-click menu, in its
@@ -665,19 +724,20 @@ fn a_saved_share_tile_shows_the_art_of_its_sidebar_row() {
 #[gtk::test]
 fn a_server_row_shows_the_server_in_the_share_blue_on_the_network_bar() {
     let test = laid_out(Page::ThisPc.uri());
-    // Browsing a server lists it under Network for the session; recording
-    // it directly mounts nothing.
+    // Browsing a server lists it as a computer under Network for the
+    // session (SIDE-035); recording it directly mounts nothing.
     test.window.context().remember_network("smb://nas/");
-    let server = Art::for_network_location(NetworkKind::Server, "nas", Connection::Disconnected);
     let sidebar = test.window.sidebar();
+    sidebar.toggle_section("network");
+    let server = Art::COMPUTER;
     wait_until("the server's row", || arts_in(sidebar).contains(&server));
     wait_for_frames(&test.window, 2);
     let row_art = art_image_showing(sidebar, server).expect("the row is drawn");
     let glyph = descendants::<gtk::Image>(&row_art)
         .into_iter()
         .find(|image| image.has_css_class("server"))
-        .expect("the row shows the server glyph");
-    assert_eq!(glyph.icon_name().as_deref(), Some(Icon::Server.name()));
+        .expect("the row shows the computer glyph");
+    assert_eq!(glyph.icon_name().as_deref(), Some(Icon::Desktop.name()));
     assert_eq!(glyph.color().to_str(), "rgb(75,150,192)");
 }
 

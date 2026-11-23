@@ -67,6 +67,7 @@ pub(super) enum Stop {
     Details,
     Toast,
     UpdateNotice,
+    StarPrompt,
     Status,
     Picker,
     Tabs,
@@ -76,7 +77,7 @@ pub(super) enum Stop {
 
 impl Stop {
     /// Every stop, in Tab's order.
-    pub(super) const ALL: [Stop; 18] = [
+    pub(super) const ALL: [Stop; 19] = [
         Stop::Address,
         Stop::Search,
         Stop::Commands,
@@ -90,6 +91,7 @@ impl Stop {
         Stop::Details,
         Stop::Toast,
         Stop::UpdateNotice,
+        Stop::StarPrompt,
         Stop::Status,
         Stop::Picker,
         Stop::Tabs,
@@ -284,12 +286,13 @@ impl BrowserWindow {
             Stop::Places => self.sidebar().list().clone().upcast(),
             Stop::FolderTree => self.sidebar().folder_tree().clone().upcast(),
             Stop::SidebarResizer => self.sidebar_resizer().clone().upcast(),
-            Stop::NetworkInfoBar => self.network_info_bar().clone().upcast(),
+            Stop::NetworkInfoBar => self.network_info_bar().bar.clone().upcast(),
             Stop::SearchStrip => self.search_strip().clone().upcast(),
             Stop::Pane(side) => self.pane_on(side).clone().upcast(),
             Stop::Details => self.details_pane().clone().upcast(),
             Stop::Toast => imp.toast.get().upcast(),
             Stop::UpdateNotice => imp.update_notice.get().upcast(),
+            Stop::StarPrompt => imp.star_prompt.get().upcast(),
             Stop::Status => self.status_bar().clone().upcast(),
             Stop::Picker => imp.picker_bar.get().upcast(),
             Stop::Tabs => self.tab_strip().clone().upcast(),

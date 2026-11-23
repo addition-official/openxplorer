@@ -81,6 +81,16 @@ pub(super) enum PlaceMenu {
         /// Whether Edit… can change it.
         editable: bool,
     },
+    /// A row of Home's Recent or Favorites list: the file at `uri`
+    /// (HOME-036).
+    HomeFile {
+        /// The file it stands for.
+        uri: String,
+        /// Whether it is among the Favorites.
+        favorite: bool,
+        /// Whether it is a row of Recent, which offers Remove from list.
+        recent: bool,
+    },
 }
 
 /// An item that runs `action` with the place `target`.
@@ -142,8 +152,7 @@ fn disks_items(uri: &str, controls: MountControls) -> Vec<MenuEntry> {
 /// can open there (`terminalMenuItem`): anywhere but a local folder, an
 /// SMB share or an SFTP, FTP, WebDAV or NFS place.
 fn terminal_item(uri: &str) -> MenuEntry {
-    let is_share = (is_smb_location(uri) || is_remote_location(uri)) && !is_smb_server(uri);
-    let can_open = uri.starts_with("file:") || is_share;
+    let can_open = terminal_opens_at(uri);
     let terminal = MenuItem::with_text_target(
         &ox_core::i18n::gettext("Open in Terminal"),
         Icon::WindowConsole,
@@ -151,6 +160,14 @@ fn terminal_item(uri: &str) -> MenuEntry {
         uri,
     );
     terminal.disabled_when(!can_open).into()
+}
+
+/// Whether a terminal can open at `uri` (`terminalMenuItem`): a local
+/// folder, an SMB share or an SFTP, FTP, WebDAV or NFS place, not a
+/// server's share list or a page such as Network or Gallery.
+pub(super) fn terminal_opens_at(uri: &str) -> bool {
+    let is_share = (is_smb_location(uri) || is_remote_location(uri)) && !is_smb_server(uri);
+    uri.starts_with("file:") || is_share
 }
 
 /// "Cache this folder for search" for the place at `uri`, where it can be
@@ -168,15 +185,15 @@ const DEVICE_NOT_COPIED: &str =
     crate::i18n::message_id("A phone or camera cannot be copied. Open it and select what to copy.");
 
 /// Why a drive cannot be renamed from its menu.
-const DRIVE_NOT_RENAMED: &str = crate::i18n::message_id("Drive names cannot be changed here.");
+const DRIVE_NOT_RENAMED: &str = crate::i18n::message_id("Only a removable drive can be renamed here.");
 
 /// Copy and Rename, the icon strip Windows 11 shows on a drive. Copy
 /// copies the drive as Windows Explorer does: a paste of it into a folder
 /// makes a shortcut to the drive there, never a copy of what it holds
 /// ([`super::drive_shortcuts`]). A phone's or a camera's Copy is greyed
 /// out, saying why: its root has no path a shortcut could point to.
-/// Rename is greyed out: the app changes no drive's name.
-fn drive_strip(uri: &str) -> Vec<MenuItem> {
+/// Rename changes a removable drive's volume label ([`rename_drive_item`]).
+fn drive_strip(uri: &str, controls: MountControls) -> Vec<MenuItem> {
     vec![
         MenuItem::with_text_target(
             &ox_core::i18n::gettext("Copy"),
@@ -189,14 +206,29 @@ fn drive_strip(uri: &str) -> Vec<MenuItem> {
             is_device_location(uri),
             ox_core::i18n::gettext_static(DEVICE_NOT_COPIED),
         ),
-        MenuItem::with_text_target(
+        rename_drive_item(uri, controls),
+    ]
+}
+
+/// Rename for the drive at `uri`: it changes the volume label of a
+/// removable drive, as Windows' Rename of a drive does, and is grayed out,
+/// saying why, for Local Disk and other drives the app cannot relabel.
+fn rename_drive_item(uri: &str, controls: MountControls) -> MenuItem {
+    if controls.can_format {
+        return MenuItem::with_text_target(
             &ox_core::i18n::gettext("Rename"),
             Icon::Rename,
-            WindowAction::RenameFolder,
+            WindowAction::RenameDrive,
             uri,
-        )
-        .disabled_because(true, ox_core::i18n::gettext_static(DRIVE_NOT_RENAMED)),
-    ]
+        );
+    }
+    MenuItem::with_text_target(
+        &ox_core::i18n::gettext("Rename"),
+        Icon::Rename,
+        WindowAction::RenameFolder,
+        uri,
+    )
+    .disabled_because(true, ox_core::i18n::gettext_static(DRIVE_NOT_RENAMED))
 }
 
 /// Pin to Quick access for the drive at `uri`, or Unpin while it is
@@ -273,7 +305,7 @@ fn drive_menu(
             entries.extend(removals);
             entries.push(drive_pin_item(uri, facts.pinned));
             entries.push(properties);
-            (entries, drive_strip(uri))
+            (entries, drive_strip(uri, controls))
         }
         MenuStyle::Classic => {
             entries.push(drive_pin_item(uri, facts.pinned));
@@ -291,7 +323,7 @@ fn drive_menu(
                 entries.extend(drive_tools);
             }
             entries.push(MenuEntry::Divider);
-            entries.extend(drive_strip(uri).into_iter().map(MenuEntry::from));
+            entries.extend(drive_strip(uri, controls).into_iter().map(MenuEntry::from));
             entries.push(MenuEntry::Divider);
             entries.push(properties);
             (entries, Vec::new())
@@ -355,11 +387,12 @@ fn quick_access_pin_menu(
     }
 }
 
-/// `networkLocationMenu`: opening, Open in Terminal, the cache item,
+/// `networkLocationMenu`: opening, a computer's Pin to Quick access (or
+/// Unpin while `pinned`), Open in Terminal, the cache item,
 /// keeping or removing a share, Sign out for SMB, Disconnect for a
 /// connected SFTP, FTP, WebDAV or NFS place, and Properties of a mount or
 /// a connected share.
-fn network_entries(location: &NetworkLocation, caching: Option<Caching>) -> Vec<MenuEntry> {
+fn network_entries(location: &NetworkLocation, caching: Option<Caching>, pinned: bool) -> Vec<MenuEntry> {
     let uri = location.uri.as_str();
     let mut entries = vec![
         item(
@@ -376,12 +409,17 @@ fn network_entries(location: &NetworkLocation, caching: Option<Caching>) -> Vec<
         ),
         item(
             ox_core::i18n::gettext_static("Open in new window"),
-            Icon::Share,
+            Icon::WindowNew,
             WindowAction::OpenWindow,
             uri,
         ),
-        terminal_item(uri),
     ];
+    // A computer's Pin to Quick access, as Windows 11's (checked on build
+    // 26200); Windows' Create shortcut is not offered yet.
+    if location.kind == NetworkKind::Server {
+        entries.push(drive_pin_item(uri, pinned));
+    }
+    entries.push(terminal_item(uri));
     entries.extend(cache_entries(uri, caching));
     let is_smb = is_smb_location(uri);
     let is_remote = is_remote_location(uri);
@@ -546,6 +584,14 @@ impl PlaceMenu {
             PlaceMenu::QuickAccessPin { uri, editable } => {
                 quick_access_pin_menu(uri, *editable, facts, style)
             }
+            PlaceMenu::HomeFile {
+                uri,
+                favorite,
+                recent,
+            } => super::home_page::file_menu(uri, *favorite, *recent, style),
+            PlaceMenu::Network(location) => {
+                (network_entries(location, facts.caching, facts.pinned), Vec::new())
+            }
             _ => (self.entries(facts.caching), Vec::new()),
         }
     }
@@ -560,7 +606,8 @@ impl PlaceMenu {
             PlaceMenu::Volume { .. }
             | PlaceMenu::RecycleBin { .. }
             | PlaceMenu::RecentFiles
-            | PlaceMenu::RecentLocations => None,
+            | PlaceMenu::RecentLocations
+            | PlaceMenu::HomeFile { .. } => None,
         }
     }
 
@@ -581,11 +628,16 @@ impl PlaceMenu {
                 WindowAction::MountVolume,
                 id,
             )],
-            PlaceMenu::Network(location) => network_entries(location, caching),
+            PlaceMenu::Network(location) => network_entries(location, caching, false),
             PlaceMenu::RecycleBin { has_items } => recycle_bin_entries(*has_items),
             PlaceMenu::RecentFiles => recent_files_entries(),
             PlaceMenu::RecentLocations => recent_locations_entries(),
             PlaceMenu::QuickAccessPin { uri, editable } => pin_menu(uri, caching, *editable),
+            PlaceMenu::HomeFile {
+                uri,
+                favorite,
+                recent,
+            } => super::home_page::file_menu(uri, *favorite, *recent, MenuStyle::Classic).0,
             PlaceMenu::SavedShare { uri } => {
                 let mut entries = vec![
                     item(
@@ -676,7 +728,18 @@ pub(super) fn popup_place_menu_in(
     style: MenuStyle,
     opener: Option<&gtk::Widget>,
 ) -> Option<MenuPopover> {
-    let (entries, strip) = menu.styled(facts_in(menu, owner), style);
+    let (entries, strip) = match (menu, owner.root().and_downcast::<BrowserWindow>()) {
+        // A Recent row offers what this computer has for its file.
+        (
+            PlaceMenu::HomeFile {
+                uri,
+                favorite,
+                recent: true,
+            },
+            Some(window),
+        ) => window.home_recent_menu(uri, *favorite, style),
+        _ => menu.styled(facts_in(menu, owner), style),
+    };
     if entries.is_empty() {
         return None;
     }
@@ -684,21 +747,22 @@ pub(super) fn popup_place_menu_in(
     if let Some(window) = owner.root().and_downcast::<BrowserWindow>() {
         window.remember_place_menu(menu.clone(), owner, point, opener);
     }
-    let popover = MenuPopover::new(entries);
+    // The pane keeps one place menu and shows it again each time
+    // ([`MenuPopover::kept_by`]).
+    let popover = MenuPopover::kept_by(owner, PLACE_MENU);
+    popover.set_entries(entries);
     popover.set_style_and_strip(style, strip);
     popover.set_offset(0, 0);
     popover.set_position(gtk::PositionType::Bottom);
-    popover.set_parent(owner);
     #[expect(clippy::cast_possible_truncation, reason = "pointer positions are small")]
     let pointing_to = gdk::Rectangle::new(point.x() as i32, point.y() as i32, 1, 1);
     popover.set_pointing_to(Some(&pointing_to));
-    // A menu belongs to one right-click; it lets go of the pane once it
-    // closes and its item has run.
     let opener = opener.map(ObjectExt::downgrade);
-    popover.connect_closed(move |popover| {
-        let closed = popover.clone();
-        glib::idle_add_local_once(move || closed.unparent());
+    popover.after_close(move |_| {
         if let Some(opener) = opener.as_ref().and_then(glib::WeakRef::upgrade) {
+            // On Wayland the menu's grab takes the button's release, so a
+            // tile or row would stay drawn as pressed.
+            opener.unset_state_flags(gtk::StateFlags::ACTIVE);
             if opener.is_drawable() {
                 opener.grab_focus();
             }
@@ -735,6 +799,9 @@ pub(super) fn classic_or_compact(entries: Vec<MenuEntry>, style: MenuStyle) -> V
         MenuStyle::Classic => classic_look(entries),
     }
 }
+
+/// The name of the place menu a folder pane keeps.
+const PLACE_MENU: &str = "place-menu";
 
 /// A place menu as it was opened, for "Show more options".
 #[derive(Debug)]

@@ -20,9 +20,11 @@
 
 mod content;
 mod contents;
+mod drive;
 mod media;
 mod metadata;
 mod options_menu;
+mod player;
 mod preview_page;
 mod rich_text;
 
@@ -39,7 +41,11 @@ use super::window_action::WindowAction;
 
 pub(super) use content::{describe_tiles, pane_content, PaneFacts};
 use content::{PaneContent, Preview};
+#[cfg(feature = "fuzzing")]
+pub(crate) use preview_page::fuzz_text;
 pub(super) use preview_page::PreviewRules;
+#[cfg(feature = "fuzzing")]
+pub(crate) use rich_text::fuzz_rtf;
 
 /// What the pane at the right shows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -71,7 +77,7 @@ const SMALL_ART: i32 = 20;
 /// The glyphs in the pane's buttons.
 const SMALL_GLYPH: i32 = 16;
 
-/// The width of the names column, so every value starts at one line.
+/// The narrowest the names column is, so every value starts at one line.
 const PROPERTY_NAME_WIDTH: i32 = 88;
 /// The Details column of the names.
 const NAME_COLUMN: i32 = 0;
@@ -168,6 +174,13 @@ mod imp {
         pub(super) has_selection: Cell<bool>,
         /// The file rows of the content shown.
         pub(super) base_rows: RefCell<Vec<super::content::Property>>,
+        /// The drive selected on This PC whose space is read, if any.
+        pub(super) drive: RefCell<Option<String>>,
+        /// Its space rows, once read.
+        pub(super) drive_rows: RefCell<Vec<super::content::Property>>,
+        /// Counts the drives measured, so an answer for an earlier one is
+        /// dropped.
+        pub(super) drive_generation: Cell<u64>,
         /// The selected file's own details, read by the reader.
         pub(super) metadata: super::metadata::MetadataState,
         /// Counts the content shown, so a preview read for an earlier
@@ -176,6 +189,20 @@ mod imp {
         /// The content preview shown, which a redraw for the same item
         /// keeps (PROP-011).
         pub(super) shown_media: RefCell<Option<super::content::MediaPreview>>,
+        /// The wait for the selection to rest before its content preview
+        /// is read.
+        pub(super) media_timer: RefCell<Option<glib::SourceId>>,
+        /// Cancels the read of the content preview shown.
+        pub(super) media_cancellation: RefCell<Option<gtk::gio::Cancellable>>,
+        /// How many content previews were read, for tests.
+        #[cfg(test)]
+        pub(super) media_reads: Cell<u32>,
+        /// The player of the recording shown, in its own process.
+        pub(super) player: RefCell<Option<crate::media_player::PlayerStream>>,
+        /// The app stopped the last player before changing its file: the
+        /// next one waits for Play, even with auto-play on, so a folder's
+        /// change never starts a recording again in mid-playback.
+        pub(super) holds_auto_play: Cell<bool>,
         /// The Preview pane shows the item's icon in place of its
         /// contents (Folder Options' "Show preview handlers in preview
         /// pane" off).
@@ -254,6 +281,7 @@ mod imp {
 
         fn dispose(&self) {
             self.obj().stop_reading();
+            self.obj().stop_media_reading();
             self.dispose_template();
         }
     }
@@ -350,6 +378,10 @@ impl DetailsPane {
             PaneMode::Preview => ox_core::i18n::gettext("Preview pane"),
         };
         self.update_property(&[gtk::accessible::Property::Label(&title)]);
+        // The scroller is where Tab from the file list lands; a screen
+        // reader names it as the pane rather than saying nothing.
+        imp.scroller
+            .update_property(&[gtk::accessible::Property::Label(&title)]);
         imp.title.replace(title);
         if mode == PaneMode::Details {
             self.show_page(None);
@@ -401,6 +433,12 @@ impl DetailsPane {
         self.imp().preview_area.is_visible()
     }
 
+    /// The scroller that holds the pane's contents, for tests.
+    #[cfg(test)]
+    pub(super) fn scroller(&self) -> gtk::ScrolledWindow {
+        self.imp().scroller.get()
+    }
+
     /// The pane's accessible name, for tests.
     #[cfg(test)]
     pub(super) fn title_text(&self) -> String {
@@ -418,10 +456,12 @@ impl DetailsPane {
         imp.has_selection
             .set(content.subject == content::Subject::Selection);
         imp.has_properties.set(content.has_properties);
+        self.aim_properties_button(content.properties_of.as_deref());
         imp.small_icon.set(content.small_icon);
-        imp.shows_hint.set(content.subject == content::Subject::Folder);
+        imp.shows_hint.set(content.hint);
         self.show_mode();
         imp.base_rows.replace(content.properties.clone());
+        self.follow_drive(content.measures_drive.as_deref());
         self.follow_metadata(content.metadata.as_ref());
         self.redraw_properties();
         let preview_only = imp.mode.get() == PaneMode::Preview;
@@ -447,6 +487,26 @@ impl DetailsPane {
         }
     }
 
+    /// Makes Properties open the Properties of `location`, a drive
+    /// selected on This PC, or else of the selection. The button lets go
+    /// of its action while its target changes: GTK checks an action's
+    /// parameter against the target at each change and warns while they
+    /// differ.
+    fn aim_properties_button(&self, location: Option<&str>) {
+        let button = &*self.imp().properties_button;
+        let (action, target) = match location {
+            Some(uri) => (WindowAction::PropertiesOf, Some(uri.to_variant())),
+            None => (WindowAction::Properties, None),
+        };
+        let name = action.detailed_name();
+        if button.action_name().as_deref() == Some(name.as_str()) && button.action_target_value() == target {
+            return;
+        }
+        button.set_action_name(None);
+        button.set_action_target_value(target.as_ref());
+        button.set_action_name(Some(&name));
+    }
+
     /// Shows Share while the window can share the selection (CMD-037):
     /// the desktop can share, and the selection is files it can attach.
     /// Unlike the command bar, which keeps a disabled Share, the pane
@@ -463,8 +523,8 @@ impl DetailsPane {
             .set_visible(details && imp.share_offered.get() && imp.has_selection.get());
     }
 
-    /// Draws the Details rows again: the file rows, then the rows the
-    /// reader found, then those the preview found (an image's Dimensions,
+    /// Draws the Details rows again: the file rows (a drive's Type and
+    /// space), then the rows the reader found, then those the preview found (an image's Dimensions,
     /// a recording's Length) that the reader did not give.
     pub(super) fn redraw_properties(&self) {
         let imp = self.imp();
@@ -473,7 +533,7 @@ impl DetailsPane {
             grid.remove(&child);
         }
         let mut shown: Vec<&str> = Vec::new();
-        for property in imp.base_rows.borrow().iter() {
+        for property in imp.base_rows.borrow().iter().chain(&self.shown_drive_rows()) {
             self.add_property(property.key, &property.name, &property.value);
             shown.push(property.key);
         }
@@ -624,9 +684,14 @@ fn property_label(text: &str, css_class: &str) -> gtk::Label {
         .build()
 }
 
-/// A property's name in the left column.
+/// A property's name in the left column, on one line: the column is as
+/// wide as its widest name, at least [`PROPERTY_NAME_WIDTH`], so larger
+/// text widens the column only as much as the names need and leaves the
+/// rest of the pane to the values.
 fn property_name(name: &str) -> gtk::Label {
     let label = property_label(name, "detail-key");
+    label.set_wrap(false);
+    label.set_max_width_chars(-1);
     label.set_width_request(PROPERTY_NAME_WIDTH);
     label.set_yalign(0.0);
     label

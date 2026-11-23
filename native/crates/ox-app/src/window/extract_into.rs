@@ -13,7 +13,8 @@
 //!   both), so nothing is replaced without asking. The private folder is
 //!   removed afterwards, with whatever the user chose to skip.
 //!
-//! Either way the extraction shows in the transfer panel, and the result
+//! Either way Undo takes the extracted items away again, as Undo Copy
+//! (OPS-029). The extraction shows in the transfer panel, and the result
 //! is shown in the tab it started from if that is still in front, else
 //! in a new tab, or its folder is listed again. Cancel just stops, with
 //! no message, as in Windows Explorer.
@@ -27,6 +28,7 @@ use ox_core::archive::{
 };
 use ox_core::gio_node::GioNode;
 use ox_core::location::{parent_location, validate_name};
+use ox_core::ops::UndoRecord;
 use ox_core::transfer::{Cancellation, Node, TransferMode};
 
 use crate::archive_view::{extraction_failure_text, ArchiveTarget, ExtractionChoice, EXTRACTION_STOPPED};
@@ -68,7 +70,7 @@ async fn target_of(uri: &str) -> Result<Target, String> {
         Ok(info) if info.file_type() == gio::FileType::Directory => Ok(Target::Folder),
         Ok(_) => Ok(Target::Other),
         Err(error) if error.matches(gio::IOErrorEnum::NotFound) => Ok(Target::Missing),
-        Err(error) => Err(error.to_string()),
+        Err(error) => Err(ox_core::system_error::message_of(&error)),
     }
 }
 
@@ -162,7 +164,7 @@ impl BrowserWindow {
         gio::spawn_blocking(move || make_folder(&missing_parent))
             .await
             .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| ox_core::system_error::message_of(&error))?;
         let request = ExtractionRequest {
             archive_uri: archive.uri.clone(),
             destination_uri: parent,
@@ -175,6 +177,7 @@ impl BrowserWindow {
         let lifted = gio::spawn_blocking(move || lift_same_named_folder(extracted))
             .await
             .unwrap_or_else(|panic| std::panic::resume_unwind(panic));
+        self.remember_extraction(&lifted.uri);
         Ok(Some(lifted.uri))
     }
 
@@ -210,7 +213,7 @@ impl BrowserWindow {
             Ok(uris) => uris,
             Err(error) => {
                 self.discard_private_folder(staging).await;
-                return Err(error.to_string());
+                return Err(ox_core::system_error::message_of(&error));
             }
         };
         let moved = uris.is_empty()
@@ -227,6 +230,17 @@ impl BrowserWindow {
                 .is_some_and(|outcome| !outcome.result.cancelled);
         self.discard_private_folder(staging).await;
         Ok(moved.then_some(target))
+    }
+
+    /// Remembers the extraction that made the folder at `uri` for Undo, as
+    /// Windows' Undo of Extract All is an Undo Copy: it takes the folder
+    /// away to the Recycle Bin, asking first when something in it changed
+    /// since (OPS-030), and Redo brings it back. A folder the dialog's
+    /// path needed above it stays.
+    pub(super) fn remember_extraction(&self, uri: &str) {
+        self.context().record_operation(UndoRecord::Copy {
+            copies: vec![uri.to_owned()],
+        });
     }
 
     /// Removes the private folder of an extraction into an existing

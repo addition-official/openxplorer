@@ -201,6 +201,15 @@ impl BrowserWindow {
         if let Some(tiles) = self.this_pc_tiles() {
             return tiles.count;
         }
+        // Home counts its tiles and rows, as its status bar does.
+        let shows_home = self
+            .current_uri()
+            .is_some_and(|uri| Page::from_uri(&uri) == Some(Page::Home));
+        if let Some(count) = super::home_page::item_count(self.folder_pane().landing())
+            .filter(|_| shows_home && !self.shows_search_step())
+        {
+            return count;
+        }
         let model = self.folder_pane().model();
         if let Some(count) = self.search_count(model.n_items()) {
             return count.shown;
@@ -225,6 +234,13 @@ impl BrowserWindow {
     /// Shows the selection's properties, or the folder's, in the details
     /// pane.
     pub(super) fn update_details_pane(&self) {
+        // The selection's details come from files: a panic while they are
+        // shown is logged and skipped, never an abort (crash_guard).
+        crate::crash_guard::guarded("the details pane", || self.update_details_pane_now());
+    }
+
+    /// [`Self::update_details_pane`], unguarded.
+    fn update_details_pane_now(&self) {
         let pane = self.details_pane();
         let hovered = pane.hovered();
         let selected;
@@ -245,6 +261,13 @@ impl BrowserWindow {
         } else {
             Vec::new()
         };
+        // Only the folder's own picture, with nothing selected, needs the
+        // standard folders.
+        let known_folders = if selection.is_empty() {
+            self.context().known_folders()
+        } else {
+            Vec::new()
+        };
         let locations = self.imp().locations.borrow();
         let mut content = details_pane::pane_content(&PaneFacts {
             selection,
@@ -252,6 +275,7 @@ impl BrowserWindow {
             folder_item_count,
             locations: &locations,
             network: &network,
+            known_folders: &known_folders,
             condensed_dates: pane.options().condensed_dates,
             preview_rules: PreviewRules {
                 // A recent item or a search result is judged by its own

@@ -217,7 +217,8 @@ fn the_skins_chevrons_follow_through_an_override_stylesheet() {
             (Icon::ChevronRight16, 12) => "ox-win-chevron-right-16-box12-symbolic",
             (Icon::ChevronLeft16, 12) => "ox-win-chevron-left-16-box12-symbolic",
             (Icon::ChevronDown16, 16) => "ox-win-chevron-down-16-symbolic",
-            (Icon::ChevronDown16, 10) => "ox-win-chevron-down-16-box10-symbolic",
+            (Icon::ChevronDown16, 12) => "ox-win-chevron-down-16-box12-symbolic",
+            (Icon::ChevronDown16, 13) => "ox-win-chevron-down-16-box13-symbolic",
             (other, _) => other.name(),
         }
     };
@@ -236,8 +237,12 @@ fn the_skins_chevrons_follow_through_an_override_stylesheet() {
         "the expander's 16-pixel square: {stylesheet}"
     );
     assert!(
-        has("-gtk-icontheme(\"ox-win-chevron-down-16-box10-symbolic\")"),
-        "the sort arrow's 10-pixel square: {stylesheet}"
+        has("-gtk-icontheme(\"ox-win-chevron-down-16-box12-symbolic\")"),
+        "the sort indicator's 12-pixel square: {stylesheet}"
+    );
+    assert!(
+        has("-gtk-icontheme(\"ox-win-chevron-down-16-box13-symbolic\")"),
+        "the Windows header style's 13-pixel chevron: {stylesheet}"
     );
     assert!(!stylesheet.contains("min-width"), "only the icon declarations");
     assert!(

@@ -8,7 +8,7 @@
 
 use gio::prelude::*;
 
-use super::attributes::{optional_boolean, path_attribute, string_attribute, time_attribute};
+use super::attributes::{optional_boolean, path_attribute, signed_time_attribute, string_attribute};
 use super::classify::{classify_entry, Classification, FolderType, ItemMetadata};
 use super::type_label::{shortcut_label, type_label};
 use super::{Entry, EntryKind, EntryMeta};
@@ -44,6 +44,7 @@ pub(super) fn build_entry(
     let kind = file_kind(info);
     let name = display_name(uri, info, fallback_name);
     let content_type = string_attribute(info, "standard::content-type")
+        .map(|sniffed| typed_by_name_when_empty(sniffed, &name))
         .or_else(|| network_file_type(uri, info, kind, &name));
     let classification = classify_info(uri, info, kind, content_type.as_deref());
     let is_symlink = info.boolean("standard::is-symlink");
@@ -60,6 +61,7 @@ pub(super) fn build_entry(
     let is_dir = classification.is_dir();
     // A folder's own size is not the size of its contents, so none is shown.
     let size = if is_dir { None } else { reported_size(info) };
+    let is_hidden = info.boolean("standard::is-hidden") || is_administrative_share(&classification, &name);
     Entry {
         uri: uri.to_owned(),
         name,
@@ -71,8 +73,8 @@ pub(super) fn build_entry(
         size,
         type_label,
         content_type,
-        modified: time_attribute(info, "time::modified"),
-        is_hidden: info.boolean("standard::is-hidden"),
+        modified: signed_time_attribute(info, "time::modified"),
+        is_hidden,
         is_symlink,
         trash_orig_path: path_attribute(info, "trash::orig-path"),
         trash_deletion_date: deletion_date(info),
@@ -83,9 +85,19 @@ pub(super) fn build_entry(
         serialized_icon: serialized_icon(info),
         meta: Box::new(EntryMeta {
             recent_target: recent_target(uri, info),
+            trash_file: trash_file(uri, info),
             ..EntryMeta::from_info(info)
         }),
     }
+}
+
+/// Whether the item is a share whose name ends in `$` in an SMB server's
+/// listing, which Windows hides: "Shared resource names that end in a $
+/// character do not appear when you browse the local computer from a
+/// remote computer." Such shares are hidden items, so "Show hidden files"
+/// shows them, and typing `\\server\share$` still opens one.
+fn is_administrative_share(classification: &Classification, name: &str) -> bool {
+    classification.folder_type == Some(FolderType::NetworkShare) && name.ends_with('$')
 }
 
 /// The type of a file of a server or a device whose backend reported no
@@ -134,11 +146,39 @@ fn recent_target(uri: &str, info: &gio::FileInfo) -> Option<String> {
     (!is_virtual_location(&target)).then_some(target)
 }
 
+/// For an item in the Recycle Bin, the local file that holds it in the
+/// trash folder, which `GVfs` names in `standard::target-uri`; only a
+/// `file:` address with a local path is kept.
+fn trash_file(uri: &str, info: &gio::FileInfo) -> Option<String> {
+    if scheme(uri).as_deref() != Some("trash") {
+        return None;
+    }
+    let target = string_attribute(info, "standard::target-uri")?;
+    (scheme(&target).as_deref() == Some("file") && is_local_file_uri(&target)).then_some(target)
+}
+
 /// Whether `target` is a `file:` address with no host that GIO maps to a
 /// local path; GIO reads only the text.
 fn is_local_file_uri(target: &str) -> bool {
     let after_scheme = &target["file:".len()..];
     after_scheme.starts_with("///") && gio::File::for_uri(target).path().is_some()
+}
+
+/// GIO sniffs every empty file as `application/x-zerosize`, for which no
+/// application is registered, so a new, empty "New Text Document.txt"
+/// could not be opened. Windows types an empty file by its extension, as
+/// Nautilus does, so opening, Open with and Properties' "Opens with" use
+/// the type its name gives (the Type column already did).
+fn typed_by_name_when_empty(sniffed: String, name: &str) -> String {
+    if sniffed != super::type_label::EMPTY_FILE_TYPE {
+        return sniffed;
+    }
+    let (guessed, uncertain) = gio::content_type_guess(Some(name), None::<&[u8]>);
+    if uncertain {
+        sniffed
+    } else {
+        guessed.to_string()
+    }
 }
 
 /// Classifies the item at `uri` from its kind, content type and the
@@ -197,12 +237,11 @@ fn reported_size(info: &gio::FileInfo) -> Option<u64> {
 
 /// `trash::deletion-date` as seconds since the Unix epoch. GIO stores it
 /// as local time without a zone, the way the `.trashinfo` file does.
-fn deletion_date(info: &gio::FileInfo) -> Option<u64> {
+fn deletion_date(info: &gio::FileInfo) -> Option<i64> {
     if !info.has_attribute("trash::deletion-date") {
         return None;
     }
-    let date = info.deletion_date()?;
-    u64::try_from(date.to_unix()).ok()
+    Some(info.deletion_date()?.to_unix())
 }
 
 /// `standard::icon` in a thread-safe form; see [`Entry::icon`].
@@ -275,17 +314,34 @@ mod tests {
         assert_eq!(folder.type_label, "File folder");
     }
 
-    /// The Python app sent 0 for a missing time, and the web interface
-    /// showed `—` for every 0 (`dateText` in `v2.0.0:desktop/ui/app.js`).
+    /// A file dated 1 January 1970 or earlier shows its date, as Windows
+    /// does (its file times count from 1601): GIO keeps the signed seconds,
+    /// and 0 is a real time. Only a time the backend does not report is
+    /// unknown. (The Python app sent 0 for a missing time in its own data,
+    /// which the search cache still reads as unknown.)
     ///
     /// parity: VIEW-001, VIEW-002
     #[test]
-    fn modification_time_of_zero_is_shown_as_unknown() {
+    fn times_at_and_before_1970_are_dates() {
         let info = file_info(gio::FileType::Regular, "old.txt", Some("text/plain"));
         info.set_attribute_uint64("time::modified", 0);
-        let file = entry_for_uri("file:///tmp/old.txt", &info);
-        assert_eq!(file.modified, None);
-        assert_eq!(date_text(file.modified), "—");
+        let epoch = entry_for_uri("file:///tmp/old.txt", &info);
+        assert_eq!(epoch.modified, Some(0));
+        assert_ne!(date_text(epoch.modified), "—");
+        // 1 March 1960, 12:00 UTC, as GIO stores the signed seconds.
+        let sixties: i64 = -310_651_200;
+        info.set_attribute_uint64("time::modified", u64::from_ne_bytes(sixties.to_ne_bytes()));
+        let older = entry_for_uri("file:///tmp/old.txt", &info);
+        assert_eq!(older.modified, Some(sixties));
+        assert!(
+            date_text(older.modified).contains("1960"),
+            "{}",
+            date_text(older.modified)
+        );
+        info.remove_attribute("time::modified");
+        let unknown = entry_for_uri("file:///tmp/old.txt", &info);
+        assert_eq!(unknown.modified, None);
+        assert_eq!(date_text(unknown.modified), "—");
     }
 
     /// `GVfs`'s SMB backend names a file's content type only when its
@@ -450,6 +506,22 @@ mod tests {
         assert_eq!(share.serialized_icon, None);
     }
 
+    /// A share whose name ends in `$` is a hidden item in a server's
+    /// listing, as Windows hides it; a folder named so on a share is not.
+    ///
+    /// parity: NET-037
+    #[test]
+    fn a_share_ending_in_a_dollar_sign_is_hidden() {
+        let backup = file_info(gio::FileType::Mountable, "Backup$", Some(FOLDER_MIME_TYPE));
+        let hidden = entry_for_uri("smb://nas/Backup%24", &backup);
+        assert_eq!(hidden.name, "Backup$");
+        assert!(hidden.is_hidden);
+        assert!(!entry_for_uri("smb://nas/work", &smb_share_info()).is_hidden);
+
+        let folder = file_info(gio::FileType::Directory, "Cash$", Some(FOLDER_MIME_TYPE));
+        assert!(!entry_for_uri("smb://nas/work/Cash%24", &folder).is_hidden);
+    }
+
     /// parity: NET-003
     #[test]
     fn share_without_any_metadata_is_still_a_share() {
@@ -582,7 +654,23 @@ mod tests {
         let expected = glib::DateTime::from_iso8601("2026-09-26T10:11:12", Some(&local_zone))
             .expect("valid ISO 8601 date")
             .to_unix();
-        assert_eq!(item.trash_deletion_date, u64::try_from(expected).ok());
+        assert_eq!(item.trash_deletion_date, Some(expected));
+    }
+
+    /// A recycled item keeps the file that holds it in the trash, which
+    /// `GVfs` names in `standard::target-uri`; no other item does.
+    #[test]
+    fn a_recycled_item_keeps_its_file_in_the_trash() {
+        let bin_file = "file:///home/demo/.local/share/Trash/files/notes.txt";
+        let info = file_info(gio::FileType::Regular, "notes.txt", Some("text/plain"));
+        let item = entry_for_uri("trash:///notes.txt", &with_target(info, bin_file));
+        assert_eq!(item.meta.trash_file.as_deref(), Some(bin_file));
+        let info = file_info(gio::FileType::Regular, "notes.txt", Some("text/plain"));
+        let remote = entry_for_uri("trash:///notes.txt", &with_target(info, "smb://nas/notes.txt"));
+        assert_eq!(remote.meta.trash_file, None, "only a local file");
+        let info = file_info(gio::FileType::Regular, "notes.txt", Some("text/plain"));
+        let plain = entry_for_uri("file:///srv/notes.txt", &with_target(info, bin_file));
+        assert_eq!(plain.meta.trash_file, None, "only a recycled item");
     }
 
     #[test]

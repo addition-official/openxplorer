@@ -40,18 +40,18 @@ pub(super) fn control_name(control: &gtk::Widget) -> Option<String> {
     tooltip.lines().next().map(str::to_owned)
 }
 
-/// The command bar's shown controls in order, the scrolling file commands
-/// included.
+/// The command bar's shown controls in order, the file commands
+/// included, without those that moved into "…" for lack of room.
 pub(super) fn command_bar_controls(test: &TestWindow) -> Vec<gtk::Widget> {
     let bar = test.window.command_bar();
     let mut controls = Vec::new();
     for child in children(bar) {
-        let group = descendants::<gtk::Box>(&child)
-            .into_iter()
-            .find(|widget| widget.has_css_class("command-group"));
+        let group = child.has_css_class("command-group").then(|| child.clone());
         match group {
             // Extract all shows only inside a ZIP opened like a folder.
-            Some(group) => controls.extend(children(&group).filter(WidgetExt::is_visible)),
+            Some(group) => controls.extend(
+                children(&group).filter(|control| control.is_visible() && control.is_child_visible()),
+            ),
             // The appearance toggle is hidden, as Settings › Appearance
             // chooses the theme; Update shows only while a release waits
             // and Settings › About leaves it on.
@@ -158,12 +158,12 @@ fn the_edit_commands_follow_the_selection_with_their_python_tooltips() {
 }
 
 /// The New menu, laid out as Windows 11's, a divider as `-`.
-const NEW_MENU: [&str; 7] = [
+/// The New menu as Windows 11 lists it without WordPad or an office
+/// suite (VM check 2026-11-22): no separators and no shortcut text.
+const NEW_MENU: [&str; 5] = [
     "Folder",
     "Shortcut",
-    "-",
     "Bitmap image",
-    "Rich Text Document",
     "Text Document",
     "Compressed (zipped) Folder",
 ];

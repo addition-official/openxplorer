@@ -53,6 +53,9 @@ pub(super) struct Service {
     connection: gio::DBusConnection,
     /// URI scheme and MIME type pairs from `GetSupported`.
     supported: HashSet<(String, String)>,
+    /// The sizes it makes, from `GetFlavors`: often only `normal` and
+    /// `large`, so the app makes the larger ones itself.
+    flavors: HashSet<String>,
     outcomes: Rc<RefCell<Outcomes>>,
     _signals: Vec<gio::SignalSubscription>,
 }
@@ -95,6 +98,29 @@ impl Service {
             .ok()?;
         let (schemes, types) = reply.get::<(Vec<String>, Vec<String>)>()?;
         let supported = schemes.into_iter().zip(types).collect();
+        let flavors = connection
+            .call_future(
+                Some(BUS_NAME),
+                OBJECT_PATH,
+                INTERFACE,
+                "GetFlavors",
+                None,
+                None,
+                gio::DBusCallFlags::NONE,
+                CALL_TIMEOUT_MS,
+            )
+            .await
+            .ok()
+            .and_then(|reply| reply.get::<(Vec<String>,)>())
+            .map_or_else(
+                // The standard's first two sizes, which every service makes.
+                || {
+                    [ThumbnailFlavor::Normal, ThumbnailFlavor::Large]
+                        .map(|flavor| flavor.as_str().to_owned())
+                        .into()
+                },
+                |(flavors,)| flavors.into_iter().collect(),
+            );
         let outcomes = Rc::new(RefCell::new(Outcomes::default()));
         let signals = ["Ready", "Error", "Finished"]
             .map(|signal| subscribe(&connection, signal, &outcomes))
@@ -102,6 +128,7 @@ impl Service {
         Some(Self {
             connection,
             supported,
+            flavors,
             outcomes,
             _signals: signals,
         })
@@ -113,10 +140,16 @@ impl Service {
         scheme.is_some_and(|scheme| self.supported.contains(&(scheme, content_type.to_owned())))
     }
 
+    /// Whether the service makes thumbnails in `flavor`.
+    pub(super) fn makes(&self, flavor: ThumbnailFlavor) -> bool {
+        self.flavors.contains(flavor.as_str())
+    }
+
     /// Asks for the thumbnail of `uri` in `flavor` and waits until the
     /// service is done; `true` when it made one. Dropping the future
     /// takes the request back out of the queue.
     pub(super) async fn make(&self, uri: &str, content_type: &str, flavor: ThumbnailFlavor) -> bool {
+        super::trace::event("service", uri);
         let arguments = (
             vec![uri.to_owned()],
             vec![content_type.to_owned()],

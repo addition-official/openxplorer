@@ -62,6 +62,7 @@ mod caller_window;
 mod caption_buttons;
 mod choose_details;
 mod closing;
+mod column_header_style;
 mod command_bar;
 mod compact_density;
 mod compress_dialog;
@@ -124,8 +125,10 @@ mod navigation;
 mod navigation_buttons;
 mod network_actions;
 mod network_info_bar;
+mod network_pane;
 mod network_session;
 mod network_sign_out;
+mod notice_card;
 mod open_several;
 mod pane_content;
 mod picker;
@@ -152,7 +155,7 @@ mod send_to;
 mod service_actions;
 mod session;
 mod session_restore;
-pub(crate) use session_restore::save_front_session;
+pub(crate) use session_restore::{save_front_session, save_windows_for_quit};
 mod settings_tab;
 mod share;
 mod shortcuts_window;
@@ -164,9 +167,10 @@ mod slow_click_rename;
 mod slow_delay;
 mod slow_location;
 mod snapshot_tabs;
-mod software_search;
+pub(crate) mod software_search;
 mod sort_actions;
 mod split_view;
+mod star_prompt;
 mod status_bar;
 mod stop_listing;
 mod tab_commands;
@@ -217,12 +221,21 @@ pub(crate) use crate::dialog::Dialog;
 pub(crate) use actions::follow_text_size_keys;
 pub(crate) use actions::install_accelerators;
 pub(crate) use button_style::ButtonStyle;
+#[cfg(feature = "fuzzing")]
+pub(crate) use caller_window::fuzz_parent;
 pub(crate) use closing::{QUIT_WHILE_WRITING, WAIT_FOR_FORMAT};
 pub(crate) use compact_density::DENSITY_CLASS as COMPACT_DENSITY_CLASS;
+#[cfg(feature = "fuzzing")]
+pub(crate) use desktop_link::fuzz_link;
+#[cfg(feature = "fuzzing")]
+pub(crate) use details_pane::{fuzz_rtf, fuzz_text};
 pub(crate) use disk_tools::is_installed as is_disk_tool_installed;
+pub(crate) use file_ops::{refuse_forbidden_characters, trim_typed_name};
 pub(crate) use folder_pane::FolderView;
 pub(crate) use menu_popover::OPENING_MOTION as MENU_OPENING_MOTION;
 pub(crate) use menu_popover::SUBMENU_DELAY;
+#[cfg(feature = "fuzzing")]
+pub(crate) use picker::fuzz_quoted_names;
 pub(crate) use progress_window::ProgressWindow;
 pub(crate) use search_box::{show_bundled_clear_icon, show_bundled_magnifier};
 pub(crate) use title_bar::list_open_windows_on_click;
@@ -264,6 +277,7 @@ impl BrowserWindow {
         window.install_sidebar_resizer();
         window.install_day_changes();
         window.focus_file_list_once_shown();
+        crate::startup_trace::trace_window(&window);
         window
     }
 

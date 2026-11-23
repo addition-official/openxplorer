@@ -12,6 +12,11 @@ publish.workspace = true
 name = "openxplorer-native"
 path = "src/main.rs"
 
+[features]
+# Entry points for the fuzz targets in native/fuzz (`ox_app::fuzzing`).
+# Off in every build of the app.
+fuzzing = ["ox-core/fuzzing"]
+
 [dependencies]
 async-channel.workspace = true
 gtk.workspace = true
@@ -25,8 +30,10 @@ kamadak-exif.workspace = true
 # The Details tab's reader writes what it read as JSON to the app.
 serde.workspace = true
 serde_json.workspace = true
-# The Details tab's reader limits its own processor time.
-rustix = { workspace = true, features = ["process"] }
+# The Details tab's reader, the details pane's player and the picture
+# decoders limit their own resources; the player moves its events off
+# standard output, and the vector picture drawer reads its own processor time.
+rustix = { workspace = true, features = ["process", "stdio", "time"] }
 thiserror.workspace = true
 
 [lints]

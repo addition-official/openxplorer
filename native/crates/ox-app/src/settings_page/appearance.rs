@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! Appearance: the theme, the text size and font, the compact view, the
-//! navigation pane's arrows, the app's extra navigation pane rows and tab
-//! menu items, the right-click menu, the pane widths and the icons of
-//! kinds of item ([`super::file_icons`], LOOK-029), including icons from
-//! Windows icon files the user chooses (LOOK-030).
+//! Details view's column header style, the navigation pane's arrows, the
+//! app's extra navigation pane rows and tab menu items, the right-click
+//! menu, the pane widths and the icons of kinds of item
+//! ([`super::file_icons`], LOOK-029), including icons from Windows icon
+//! files the user chooses (LOOK-030).
 //!
 //! Ports the "Appearance & layout" section of `renderSettingsPage`,
 //! `textSizeControls` and `menuPreferenceControls` in
@@ -16,13 +17,14 @@
 
 use gtk::prelude::*;
 use gtk::{gio, glib};
-use ox_core::settings::{ContextMenu, PreferencesUpdate, StripPosition, Theme};
+use ox_core::settings::{ColumnHeaderStyle, ContextMenu, PreferencesUpdate, StripPosition, Theme};
 
 use super::bindings::{position_u32, Choice, PreferenceBinding};
 use super::choice_list::ChoiceButton;
 use super::group::SettingsGroup;
 use super::pages::Category;
 use super::parts;
+use super::radio_cards::RadioCards;
 use super::row::{ControlName, RowLayout, SettingRow};
 use super::search::RowText;
 use super::section::{PageKind, SettingsSection};
@@ -84,6 +86,15 @@ const SHIFT_F10_CLASSIC: RowText = RowText {
                show more options",
 };
 
+const F6_LIKE_WINDOWS: RowText = RowText {
+    title: "F6 moves like Windows",
+    description: "When on, F6 moves only between the tabs, the navigation pane, the file list, the \
+                  Details pane and the status bar, as in Windows 11, and Tab reaches the address bar, \
+                  search box and command bar. When off, F6 visits those three too.",
+    keywords: "f6 shift+f6 keyboard focus panes regions cycle windows 11 address bar search box \
+               command bar tab",
+};
+
 const HIDE_EXPAND_ARROWS: RowText = RowText {
     title: "Hide expand arrows in the sidebar",
     description: "As in Windows, the navigation pane's arrows (This PC, Network and the folder tree) \
@@ -105,6 +116,15 @@ const MORE_TAB_MENU_ITEMS: RowText = RowText {
     description: "Adds Move tab to new window, Move tab to window… and Open windows… to the menu you \
                   get when you right-click a tab. Off, the tab menu looks like Windows 11's.",
     keywords: "tab menu right-click move tab new window open windows extra more items windows",
+};
+
+const COLUMN_HEADER_STYLE: RowText = RowText {
+    title: "Column header style",
+    description: "How the Details view marks the sorted column. OpenXplorer puts an arrow after its \
+                  title and colors a sort other than Name ascending; Windows shows only a small gray \
+                  arrow above the title, as Windows 11 does.",
+    keywords: "column header title sort sorted arrow chevron caret accent underline details view \
+               windows 11 style look",
 };
 
 const ICON_FILES: RowText = RowText {
@@ -150,6 +170,18 @@ const MENU_STYLES: [Choice<ContextMenu>; 2] = [
     Choice {
         value: ContextMenu::Win11,
         label: crate::i18n::message_id("Windows 11 · Compact actions (default)"),
+    },
+];
+
+/// The column header styles, the app's own first, as the default.
+const HEADER_STYLES: [Choice<ColumnHeaderStyle>; 2] = [
+    Choice {
+        value: ColumnHeaderStyle::OpenXplorer,
+        label: crate::i18n::message_id("OpenXplorer (default)"),
+    },
+    Choice {
+        value: ColumnHeaderStyle::Windows,
+        label: crate::i18n::message_id("Windows"),
     },
 ];
 
@@ -264,8 +296,8 @@ fn language_status(picked: Option<&str>, asked: &[String]) -> String {
 }
 
 /// The three theme cards, in a row that wraps in a narrow window, their
-/// radio buttons one group.
-fn theme_cards() -> gtk::FlowBox {
+/// radio buttons one group and one Tab stop ([`RadioCards`]).
+fn theme_cards() -> RadioCards {
     let cards = gtk::FlowBox::builder()
         .selection_mode(gtk::SelectionMode::None)
         .max_children_per_line(3)
@@ -275,6 +307,7 @@ fn theme_cards() -> gtk::FlowBox {
         .css_classes(["theme-cards"])
         .build();
     let mut first_radio: Option<gtk::CheckButton> = None;
+    let mut radios = Vec::new();
     for card in THEME_CARDS {
         let radio = theme_radio(&card, first_radio.as_ref());
         let child = gtk::FlowBoxChild::builder()
@@ -282,9 +315,10 @@ fn theme_cards() -> gtk::FlowBox {
             .focusable(false)
             .build();
         cards.append(&child);
-        first_radio.get_or_insert(radio);
+        first_radio.get_or_insert_with(|| radio.clone());
+        radios.push(radio);
     }
-    cards
+    RadioCards::new(&cards, radios)
 }
 
 /// The radio button under a card, "System", "Light" or "Dark", in the
@@ -654,6 +688,25 @@ fn menu_buttons_row(page: &SettingsPage) -> SettingRow {
     row
 }
 
+/// "Column header style": how the Details view draws its sorted column's
+/// title, which every window follows at once
+/// (`src/window/column_header_style.rs`).
+fn column_header_style_row(page: &SettingsPage) -> SettingRow {
+    let row = SettingRow::new(COLUMN_HEADER_STYLE);
+    let binding = PreferenceBinding {
+        read: |preferences| preferences.column_header_style,
+        write: |style| PreferencesUpdate {
+            column_header_style: Some(style),
+            ..PreferencesUpdate::default()
+        },
+    };
+    row.add_control(
+        &page.preference_choice(&HEADER_STYLES, binding),
+        ControlName::RowTitle,
+    );
+    row
+}
+
 /// "Shift+F10 opens the classic menu": the switch saves the choice, which
 /// the keyboard menus read when Shift+F10 opens one
 /// (`src/window/context_menu.rs`).
@@ -663,6 +716,21 @@ fn shift_f10_row(page: &SettingsPage) -> SettingRow {
         read: |preferences| preferences.shift_f10_classic,
         write: |on| PreferencesUpdate {
             shift_f10_classic: Some(on),
+            ..PreferencesUpdate::default()
+        },
+    });
+    row.add_control(&switch, ControlName::RowTitle);
+    row
+}
+
+/// "F6 moves like Windows": the switch saves the choice, which F6 reads
+/// each time it moves the keyboard (`src/window/focus_regions.rs`).
+fn f6_like_windows_row(page: &SettingsPage) -> SettingRow {
+    let row = SettingRow::new(F6_LIKE_WINDOWS);
+    let switch = page.preference_switch(PreferenceBinding {
+        read: |preferences| preferences.f6_like_windows,
+        write: |on| PreferencesUpdate {
+            f6_like_windows: Some(on),
             ..PreferencesUpdate::default()
         },
     });
@@ -745,12 +813,13 @@ fn choose_text_size(page: &SettingsPage, size: TextSize) {
     });
 }
 
-/// The compact view, the navigation pane's arrows, the app's extra
-/// navigation pane rows and tab menu items, the right-click menu,
-/// Shift+F10's menu and the pane widths.
+/// The compact view, the column header style, the navigation pane's
+/// arrows, the app's extra navigation pane rows and tab menu items, the
+/// right-click menu, Shift+F10's menu and the pane widths.
 fn layout_group(page: &SettingsPage) -> SettingsGroup {
     let group = SettingsGroup::new(&ox_core::i18n::gettext("Layout"));
     group.add_row(&super::files_folders::compact_view_row(page));
+    group.add_row(&column_header_style_row(page));
     let arrows = SettingRow::new(HIDE_EXPAND_ARROWS);
     let binding = PreferenceBinding {
         read: |preferences| preferences.hide_expand_arrows,
@@ -784,6 +853,7 @@ fn layout_group(page: &SettingsPage) -> SettingsGroup {
     group.add_row(&right_click_menu_row(page));
     group.add_row(&menu_buttons_row(page));
     group.add_row(&shift_f10_row(page));
+    group.add_row(&f6_like_windows_row(page));
     let row = SettingRow::new(PANE_WIDTHS);
     let reset = parts::button_with_glyph(&ox_core::i18n::gettext("Reset"), Icon::ArrowClockwise);
     WindowAction::ResetLayout.assign_to(&reset);

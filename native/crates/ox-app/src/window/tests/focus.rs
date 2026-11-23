@@ -126,6 +126,53 @@ fn refresh_button(test: &TestWindow) -> gtk::Button {
         .expect("the navigation row shows Refresh")
 }
 
+/// A tab opened in front, with Ctrl+T or the "+" button or for another
+/// application, puts the keyboard in its list, as any other way of
+/// opening a folder does, even when the keyboard was on a button: the
+/// arrow keys and typed names then work there at once, rather than
+/// moving along the command bar. A tab opened behind leaves the keyboard
+/// where it is.
+///
+/// parity: SEL-020, TAB-001
+#[gtk::test]
+fn a_tab_opened_in_front_puts_the_keyboard_in_its_folder() {
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    test.wait_for_listing("the first folder");
+
+    refresh_button(&test).grab_focus();
+    test.activate("new-tab", None);
+    test.wait_for_listing("the new tab");
+    settle();
+    let after_new_tab = test.window.folder_pane().view_has_focus();
+
+    refresh_button(&test).grab_focus();
+    test.window
+        .open_locations_as_tabs(vec![fixture.uri_of("Documents")]);
+    wait_until("the requested folder", || {
+        test.window.current_uri() == Some(fixture.uri_of("Documents"))
+    });
+    test.wait_for_listing("Documents");
+    settle();
+    let after_request = test.window.folder_pane().view_has_focus();
+
+    refresh_button(&test).grab_focus();
+    test.activate("open-tab-background", Some(&fixture.uri()));
+    settle();
+    let after_background_tab = focused(&test);
+
+    assert!(after_new_tab, "Ctrl+T leaves the keyboard in the new tab's list");
+    assert!(
+        after_request,
+        "a folder another application opens takes the keyboard"
+    );
+    assert_eq!(
+        after_background_tab,
+        Some(refresh_button(&test).upcast()),
+        "a tab opened behind leaves the keyboard where it is"
+    );
+}
+
 /// parity: SIDE-002, SEL-020
 #[gtk::test]
 fn clicking_a_place_puts_the_keyboard_in_the_folder() {
@@ -925,7 +972,7 @@ fn every_control_the_window_shows_is_a_tab_stop_that_draws_its_focus() {
     test.search_for("notes");
     wait_until("the search strip", || test.window.search_strip().is_mapped());
     // Network's info bar shows while Network found no computers.
-    test.window.network_info_bar().set_visible(true);
+    test.window.network_info_bar().bar.set_visible(true);
     test.window.present();
     wait_for_frames(&test.window, 3);
 
@@ -1095,4 +1142,41 @@ fn the_keyboard_entering_a_scrolled_list_lands_on_an_item_in_view() {
         "the selected tile has the keyboard"
     );
     assert!(pane.positions_shown().contains(&0), "and is scrolled into view");
+}
+
+/// A window closed or hidden while the pointer rests on a control whose
+/// tooltip is about to show logs no critical message: GTK 4.14's tooltip
+/// timer asks for the pointer's position on the window it started for,
+/// which has no surface once the window is gone. Checked with the real
+/// pointer, as a user closing Properties or a dialog with the keyboard
+/// leaves it. (A pointer moved by the tests while they put windows away
+/// did trigger it: `Gdk-CRITICAL gdk_surface_get_device_position`.)
+#[gtk::test]
+fn closing_a_window_with_a_tooltip_pending_logs_no_critical() {
+    let recorder = crate::test_support::gtk_log::LogRecorder::start();
+    let fixture = Fixture::standard();
+    let mut pointer = Pointer::connect();
+    for hide in [false, true] {
+        let test = TestWindow::open(&fixture.uri());
+        test.window.present();
+        wait_for_frames(&test.window, 3);
+        let refresh = refresh_button(&test);
+        let (x, y) = screen_point(&mut pointer, &refresh, (8.0, 8.0), (8, 8));
+        pointer.move_to(x - 30, y);
+        pointer.move_to(x, y);
+        wait_for(std::time::Duration::from_millis(100));
+        if hide {
+            test.window.set_visible(false);
+        } else {
+            test.window.close();
+        }
+        // Longer than GTK's tooltip delay.
+        wait_for(std::time::Duration::from_millis(1200));
+    }
+    let criticals: Vec<String> = recorder
+        .warnings()
+        .into_iter()
+        .filter(|warning| warning.contains("gdk_surface_get_device_position"))
+        .collect();
+    assert!(criticals.is_empty(), "{criticals:?}");
 }

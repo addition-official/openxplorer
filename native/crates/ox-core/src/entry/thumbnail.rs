@@ -31,23 +31,33 @@ pub enum CachedThumbnail {
     Missing,
 }
 
-/// The thumbnail sizes of the standard, by their cache folder.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// The thumbnail sizes of the standard, by their cache folder, smallest
+/// first.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ThumbnailFlavor {
     /// At most 128 pixels square (`normal`).
     Normal,
     /// At most 256 pixels square (`large`).
     Large,
+    /// At most 512 pixels square (`x-large`): Extra large icons on a
+    /// screen at 150 % or 200 %.
+    XLarge,
+    /// At most 1024 pixels square (`xx-large`): Extra large icons on a
+    /// screen above 200 %.
+    XXLarge,
 }
 
 impl ThumbnailFlavor {
-    /// The smallest size that shows `pixels` device pixels sharply.
+    /// Every size, smallest first.
+    pub const ALL: [Self; 4] = [Self::Normal, Self::Large, Self::XLarge, Self::XXLarge];
+
+    /// The smallest size that shows `pixels` device pixels sharply, or the
+    /// largest for more.
     pub fn for_pixels(pixels: i32) -> Self {
-        if pixels <= Self::Normal.pixels() {
-            Self::Normal
-        } else {
-            Self::Large
-        }
+        Self::ALL
+            .into_iter()
+            .find(|flavor| pixels <= flavor.pixels())
+            .unwrap_or(Self::XXLarge)
     }
 
     /// The longest edge, in pixels.
@@ -55,6 +65,8 @@ impl ThumbnailFlavor {
         match self {
             Self::Normal => 128,
             Self::Large => 256,
+            Self::XLarge => 512,
+            Self::XXLarge => 1024,
         }
     }
 
@@ -63,7 +75,25 @@ impl ThumbnailFlavor {
         match self {
             Self::Normal => "normal",
             Self::Large => "large",
+            Self::XLarge => "x-large",
+            Self::XXLarge => "xx-large",
         }
+    }
+
+    /// The size of the thumbnail at `path`, by the cache folder it is in,
+    /// or `None` outside the standard's folders.
+    pub fn of_thumbnail(path: &Path) -> Option<Self> {
+        let folder = path.parent()?.file_name()?.to_str()?;
+        Self::ALL.into_iter().find(|flavor| flavor.as_str() == folder)
+    }
+
+    /// This size and every larger one, in that order: a thumbnail of a
+    /// larger size shows sharply when it is shrunk, one of a smaller size
+    /// would not.
+    pub fn and_larger(self) -> impl Iterator<Item = Self> {
+        Self::ALL
+            .into_iter()
+            .filter(move |flavor| flavor.pixels() >= self.pixels())
     }
 }
 
@@ -89,6 +119,28 @@ pub fn cached_thumbnail(info: &gio::FileInfo) -> CachedThumbnail {
         CachedThumbnail::Failed
     } else {
         CachedThumbnail::Missing
+    }
+}
+
+/// What the thumbnail cache holds for an item shown `wanted` large: as
+/// [`cached_thumbnail`], but a valid thumbnail smaller than `wanted`, or
+/// one whose size its path does not tell, is [`CachedThumbnail::Missing`],
+/// so a larger one is made rather than a small one drawn stretched and
+/// blurred. GIO reports a single thumbnail of whatever size it finds, such
+/// as the 128-pixel one made for Details when Extra large icons need 256.
+///
+/// `info` must have been queried with [`THUMBNAIL_ATTRIBUTES`].
+pub fn cached_thumbnail_for(info: &gio::FileInfo, wanted: ThumbnailFlavor) -> CachedThumbnail {
+    match cached_thumbnail(info) {
+        CachedThumbnail::Valid(path) => {
+            let size = ThumbnailFlavor::of_thumbnail(&path).unwrap_or(ThumbnailFlavor::Normal);
+            if size >= wanted {
+                CachedThumbnail::Valid(path)
+            } else {
+                CachedThumbnail::Missing
+            }
+        }
+        other => other,
     }
 }
 
@@ -157,6 +209,19 @@ mod tests {
         );
         assert_eq!(ThumbnailFlavor::for_pixels(96), ThumbnailFlavor::Normal);
         assert_eq!(ThumbnailFlavor::for_pixels(192), ThumbnailFlavor::Large);
+        // Extra large icons on a screen of twice the pixels.
+        assert_eq!(ThumbnailFlavor::for_pixels(512), ThumbnailFlavor::XLarge);
+        assert_eq!(ThumbnailFlavor::for_pixels(513), ThumbnailFlavor::XXLarge);
+        assert_eq!(ThumbnailFlavor::for_pixels(4096), ThumbnailFlavor::XXLarge);
+        assert_eq!(ThumbnailFlavor::XLarge.as_str(), "x-large");
+        assert_eq!(
+            ThumbnailFlavor::Large.and_larger().collect::<Vec<_>>(),
+            [
+                ThumbnailFlavor::Large,
+                ThumbnailFlavor::XLarge,
+                ThumbnailFlavor::XXLarge
+            ]
+        );
         let failed = gio::FileInfo::new();
         failed.set_attribute_boolean("thumbnail::failed", true);
         assert_eq!(cached_thumbnail(&failed), CachedThumbnail::Failed);

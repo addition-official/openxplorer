@@ -11,7 +11,7 @@ use std::ops::RangeInclusive;
 use serde::Serialize;
 use serde_json::Value;
 
-use super::choices::{ContextMenu, StripPosition, Theme, View, ZipOpening};
+use super::choices::{ColumnHeaderStyle, ContextMenu, StripPosition, Theme, View, ZipOpening};
 use super::file_icons::{canonical_file_icons, read_file_icons, FileIcons};
 use super::pane_options::DetailsPaneOptions;
 use super::tree_options::FolderTreeOptions;
@@ -262,11 +262,24 @@ pub struct Preferences {
         skip_serializing_if = "StripPosition::is_pointer"
     )]
     pub strip_position: StripPosition,
+    /// How the Details view draws the sorted column's title; stored only
+    /// when it is not the app's own style.
+    #[serde(
+        rename = "columnHeaderStyle",
+        skip_serializing_if = "ColumnHeaderStyle::is_openxplorer"
+    )]
+    pub column_header_style: ColumnHeaderStyle,
     /// Shift+F10 opens the classic (Windows 10) menu instead of the
     /// right-click menu's style, which Windows 11 opens on Shift+F10.
     /// Stored only when on.
     #[serde(rename = "shiftF10Classic", skip_serializing_if = "std::ops::Not::not")]
     pub shift_f10_classic: bool,
+    /// F6 visits only the regions Windows 11's F6 does (the tabs, the
+    /// navigation pane, the file list, the Details pane and the status
+    /// bar), leaving the address bar, search box and command bar to Tab.
+    /// Off, F6 visits those too. Stored only when on.
+    #[serde(rename = "f6LikeWindows", skip_serializing_if = "std::ops::Not::not")]
+    pub f6_like_windows: bool,
     /// Folder item counts were turned on in this app. Files of older
     /// releases store `viewOptions.countFolderItems: true`, then the
     /// default, whenever any view option changed, so without this mark
@@ -274,6 +287,13 @@ pub struct Preferences {
     /// (`read.rs`). Stored only when set.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub item_counts_chosen: bool,
+    /// Thumbnails in network folders were turned on in this app since
+    /// 2.0.18, which stored `viewOptions.remotePreviews: true`, its short-
+    /// lived default, whenever any view option changed. Without this mark
+    /// that value gives way to icons in network folders, the default
+    /// again, once (`read.rs`). Stored only when set.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub remote_previews_chosen: bool,
     /// The classic menu was chosen in this app. Files the Python app or an
     /// older release wrote store `"win10"`, its default, whether chosen or
     /// not, so without this mark that value gives way to the compact menu
@@ -347,6 +367,15 @@ pub struct Preferences {
     /// Ask before emptying the Recycle Bin.
     #[serde(skip_serializing_if = "is_true")]
     pub confirm_empty_trash: bool,
+    /// Delete on a removable drive (a USB stick, an SD card) deletes the
+    /// items permanently, after Windows' "Are you sure you want to
+    /// permanently delete this file?", as Windows 11 does, instead of
+    /// moving them to the drive's own Trash (OPS-018), where they keep
+    /// using its space until the Recycle Bin is emptied. Off by default,
+    /// the owner's choice, so stored as `deleteRemovablePermanently` only
+    /// when on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub delete_removable_permanently: bool,
     /// Ask before closing a window with several tabs (Dolphin's
     /// `ConfirmClosingMultipleTabs`); off, as Explorer never asks.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
@@ -355,6 +384,13 @@ pub struct Preferences {
     /// its application (Dolphin's "Always ask"); off, it only ever opens.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub ask_to_run_programs: bool,
+    /// Opening an installed application's launcher (one in an
+    /// applications folder, or a link to one) starts the application, as
+    /// Windows runs a shortcut to a program; a launcher that is neither
+    /// installed nor marked trusted asks first. Off, as OPEN-007 keeps it:
+    /// a launcher opens in its editor.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub run_installed_launchers: bool,
     /// The progress window shows "More details": the speed graph, the
     /// name, the time and the items remaining. Windows keeps it as it
     /// was last left, across sessions; stored only when on.
@@ -368,6 +404,20 @@ pub struct Preferences {
     /// `recycleReplacedFiles`, only when off.
     #[serde(skip_serializing_if = "is_true")]
     pub recycle_replaced_files: bool,
+    /// Previous Versions' Restore copies the version back over the item,
+    /// asking "Replace or Skip Files" as a paste does, as Windows 11's
+    /// Restore does. Off by default, the owner's choice: Restore then
+    /// asks for another folder and never touches the live item. Stored as
+    /// `restoreOverOriginal`, only when on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub restore_over_original: bool,
+    /// A search word also matches from the start of a name's extension,
+    /// as Windows 11's search does: `doc` finds `report.docx`. Off by
+    /// default, the owner's rule: a word reaches into an extension only
+    /// as the whole extension. Stored as `extensionWordStarts`, only when
+    /// on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub extension_word_starts: bool,
     /// Explicitly enabled installed service actions, keyed by definition digest.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub enabled_service_actions: Vec<String>,
@@ -594,6 +644,14 @@ pub struct Preferences {
     /// not pop up again. Stored once one was dismissed.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub update_notice_dismissed: Option<String>,
+    /// How many times the app has started, counted for the GitHub star
+    /// prompt until it is dismissed. Stored once the app has started.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub star_prompt_launches: u32,
+    /// The GitHub star prompt was dismissed or its Star on GitHub pressed,
+    /// so it never pops up again. Stored only once it was.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub star_prompt_dismissed: bool,
 }
 
 /// The longest release version a dismissed update notice may name.
@@ -639,9 +697,12 @@ impl Default for Preferences {
             auto_index: true,
             context_menu: ContextMenu::default(),
             strip_position: StripPosition::Pointer,
+            column_header_style: ColumnHeaderStyle::OpenXplorer,
             shift_f10_classic: false,
+            f6_like_windows: false,
             classic_menu_chosen: false,
             item_counts_chosen: false,
+            remote_previews_chosen: false,
             network_interval: DEFAULT_NETWORK_INTERVAL,
             text_size: DEFAULT_TEXT_SIZE,
             sidebar_width: None,
@@ -659,10 +720,14 @@ impl Default for Preferences {
             confirm_trash: false,
             confirm_delete: true,
             confirm_empty_trash: true,
+            delete_removable_permanently: false,
             confirm_close_tabs: false,
             ask_to_run_programs: false,
+            run_installed_launchers: false,
             progress_details: false,
             recycle_replaced_files: true,
+            restore_over_original: false,
+            extension_word_starts: false,
             enabled_service_actions: Vec::new(),
             desktop_font: false,
             hide_sidebar: false,
@@ -710,6 +775,8 @@ impl Default for Preferences {
             show_update_button: true,
             update_checked_at: None,
             update_notice_dismissed: None,
+            star_prompt_launches: 0,
+            star_prompt_dismissed: false,
         }
     }
 }
@@ -764,9 +831,16 @@ impl Preferences {
         replace_if_some(&mut self.confirm_trash, update.confirm_trash);
         replace_if_some(&mut self.confirm_delete, update.confirm_delete);
         replace_if_some(&mut self.confirm_empty_trash, update.confirm_empty_trash);
+        replace_if_some(
+            &mut self.delete_removable_permanently,
+            update.delete_removable_permanently,
+        );
         replace_if_some(&mut self.recycle_replaced_files, update.recycle_replaced_files);
+        replace_if_some(&mut self.restore_over_original, update.restore_over_original);
+        replace_if_some(&mut self.extension_word_starts, update.extension_word_starts);
         replace_if_some(&mut self.confirm_close_tabs, update.confirm_close_tabs);
         replace_if_some(&mut self.ask_to_run_programs, update.ask_to_run_programs);
+        replace_if_some(&mut self.run_installed_launchers, update.run_installed_launchers);
     }
 
     /// The sidebar sections and places hidden: up to 16 short ASCII keys
@@ -849,6 +923,15 @@ impl Preferences {
         }
     }
 
+    /// The GitHub star prompt's launch count, and its dismissal, which
+    /// nothing takes back.
+    fn apply_star_prompt(&mut self, update: &PreferencesUpdate) {
+        replace_if_some(&mut self.star_prompt_launches, update.star_prompt_launches);
+        if update.star_prompt_dismissed == Some(true) {
+            self.star_prompt_dismissed = true;
+        }
+    }
+
     /// Applies every valid value in `update` and silently ignores the rest,
     /// exactly like `update_preferences` in the Python app. A present
     /// `column_widths` replaces all saved column widths.
@@ -884,6 +967,7 @@ impl Preferences {
         self.apply_service_actions(update.enabled_service_actions.as_ref());
         replace_if_some(&mut self.desktop_font, update.desktop_font);
         replace_if_some(&mut self.shift_f10_classic, update.shift_f10_classic);
+        replace_if_some(&mut self.f6_like_windows, update.f6_like_windows);
         replace_if_some(&mut self.progress_details, update.progress_details);
         replace_if_some(&mut self.hide_sidebar, update.hide_sidebar);
         replace_if_some(&mut self.hide_expand_arrows, update.hide_expand_arrows);
@@ -915,6 +999,7 @@ impl Preferences {
         replace_if_some(&mut self.browse_archives, update.browse_archives);
         replace_if_some(&mut self.zip_opening, update.zip_opening);
         replace_if_some(&mut self.strip_position, update.strip_position);
+        replace_if_some(&mut self.column_header_style, update.column_header_style);
         if let Some(options) = &update.details_pane_options {
             self.details_pane_options = options.clone();
         }
@@ -951,6 +1036,7 @@ impl Preferences {
         }
         self.downloads_group_by = update.downloads_group_by.or(self.downloads_group_by);
         self.apply_update_checks(update);
+        self.apply_star_prompt(update);
         self.sync_style_defaults(update, columns_changed);
     }
 
@@ -964,6 +1050,7 @@ impl Preferences {
         let columns_changed = options.details_columns != self.view_options.details_columns;
         self.view_options = options.clone();
         self.item_counts_chosen = options.count_folder_items;
+        self.remote_previews_chosen = options.remote_previews;
         columns_changed
     }
 
@@ -987,7 +1074,14 @@ impl Preferences {
     /// chooses another Group by there (VIEW-022). That choice is kept in
     /// Downloads' own style when each folder keeps one, else apart from
     /// the shared style.
+    ///
+    /// Network keeps a style of its own whether or not each folder does:
+    /// Tiles grouped by type ("Computer"), as Windows 11 shows devices,
+    /// until the user chooses another view there ([`Self::network_style`]).
     pub fn view_in(&self, uri: &str, downloads: Option<&str>) -> ViewProperties {
+        if location::same_location(uri, location::NETWORK_URI) {
+            return self.network_style();
+        }
         let mut style = self.view_for(uri);
         let in_downloads = downloads.is_some_and(|downloads| location::same_location(downloads, uri));
         let own_style = self.per_folder_views
@@ -996,6 +1090,27 @@ impl Preferences {
             style.set_grouping(self.downloads_group_by.unwrap_or(GroupBy::Modified));
         }
         style
+    }
+
+    /// The style of Network: the one saved for it, else Tiles grouped by
+    /// type, with the shared columns and widths.
+    pub fn network_style(&self) -> ViewProperties {
+        let mut style = self.view_for(location::NETWORK_URI);
+        let Some((saved, _)) =
+            super::view_properties::saved_style_for(&self.folder_views, location::NETWORK_URI)
+        else {
+            NETWORK_MODE.clone_into(&mut style.mode);
+            style.set_grouping(GroupBy::Type);
+            return style;
+        };
+        let mut own = saved.clone();
+        if own.details_columns.is_none() {
+            own.details_columns = style.details_columns.take();
+        }
+        if own.column_widths.is_none() {
+            own.column_widths = style.column_widths.take();
+        }
+        own
     }
 
     /// The display style `uri` is shown in: its own when each folder
@@ -1025,6 +1140,9 @@ impl Preferences {
     }
 }
 
+/// The view Network starts in: Windows 11's Tiles.
+const NETWORK_MODE: &str = "tiles";
+
 /// A partial preferences change; `None` leaves a preference unchanged and
 /// out-of-range numbers are ignored when applied.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -1049,8 +1167,12 @@ pub struct PreferencesUpdate {
     pub context_menu: Option<ContextMenu>,
     /// Where the compact menu's strip sits.
     pub strip_position: Option<StripPosition>,
+    /// How the Details view draws the sorted column's title.
+    pub column_header_style: Option<ColumnHeaderStyle>,
     /// Whether Shift+F10 opens the classic menu.
     pub shift_f10_classic: Option<bool>,
+    /// Whether F6 visits only the regions Windows 11's F6 does.
+    pub f6_like_windows: Option<bool>,
     /// New network refresh interval in seconds.
     pub network_interval: Option<u32>,
     /// The size new windows open at.
@@ -1079,12 +1201,20 @@ pub struct PreferencesUpdate {
     pub confirm_delete: Option<bool>,
     /// Ask before emptying the Recycle Bin.
     pub confirm_empty_trash: Option<bool>,
+    /// See [`Preferences::delete_removable_permanently`].
+    pub delete_removable_permanently: Option<bool>,
     /// See [`Preferences::recycle_replaced_files`].
     pub recycle_replaced_files: Option<bool>,
+    /// See [`Preferences::restore_over_original`].
+    pub restore_over_original: Option<bool>,
+    /// See [`Preferences::extension_word_starts`].
+    pub extension_word_starts: Option<bool>,
     /// Ask before closing a window with several tabs.
     pub confirm_close_tabs: Option<bool>,
     /// Ask whether to run a program or script that is opened.
     pub ask_to_run_programs: Option<bool>,
+    /// See [`Preferences::run_installed_launchers`].
+    pub run_installed_launchers: Option<bool>,
     /// Show the progress window's details.
     pub progress_details: Option<bool>,
     /// Replaces the allowlist of installed service actions.
@@ -1193,6 +1323,10 @@ pub struct PreferencesUpdate {
     /// The release whose update notice was dismissed; a value that is not
     /// a release version is ignored.
     pub update_notice_dismissed: Option<String>,
+    /// How many times the app has started, for the GitHub star prompt.
+    pub star_prompt_launches: Option<u32>,
+    /// The GitHub star prompt was dismissed; `false` is ignored.
+    pub star_prompt_dismissed: Option<bool>,
 }
 
 impl PreferencesUpdate {
@@ -1204,6 +1338,10 @@ impl PreferencesUpdate {
     /// # Errors
     ///
     /// [`SettingsError::Invalid`] if `value` is not an object.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one line per stored preference, which reads best as one list"
+    )]
     pub fn from_json(value: &Value) -> Result<Self, SettingsError> {
         let Some(values) = value.as_object() else {
             return Err(SettingsError::invalid(crate::i18n::gettext(
@@ -1223,7 +1361,9 @@ impl PreferencesUpdate {
             column_widths: values.get("columnWidths").and_then(read_column_widths),
             context_menu: text("contextMenu").and_then(ContextMenu::from_key),
             strip_position: text("menuStripPosition").and_then(StripPosition::from_key),
+            column_header_style: text("columnHeaderStyle").and_then(ColumnHeaderStyle::from_key),
             shift_f10_classic: flag("shiftF10Classic"),
+            f6_like_windows: flag("f6LikeWindows"),
             network_interval: values.get("networkInterval").and_then(read_network_interval),
             window_size: values.get("windowSize").and_then(WindowSize::from_json),
             dialog_size: values.get("dialogSize").and_then(WindowSize::from_json),
@@ -1240,9 +1380,13 @@ impl PreferencesUpdate {
             confirm_trash: flag("confirmTrash"),
             confirm_delete: flag("confirmDelete"),
             confirm_empty_trash: flag("confirmEmptyTrash"),
+            delete_removable_permanently: flag("deleteRemovablePermanently"),
             recycle_replaced_files: flag("recycleReplacedFiles"),
+            restore_over_original: flag("restoreOverOriginal"),
+            extension_word_starts: flag("extensionWordStarts"),
             confirm_close_tabs: flag("confirmCloseTabs"),
             ask_to_run_programs: flag("askToRunPrograms"),
+            run_installed_launchers: flag("runInstalledLaunchers"),
             progress_details: flag("progressDetails"),
             enabled_service_actions: values.get("enabledServiceActions").and_then(read_keys),
             desktop_font: flag("desktopFont"),
@@ -1297,6 +1441,11 @@ impl PreferencesUpdate {
             show_update_button: flag("showUpdateButton"),
             update_checked_at: values.get("updateCheckedAt").and_then(Value::as_u64),
             update_notice_dismissed: text("updateNoticeDismissed").map(str::to_owned),
+            star_prompt_launches: values
+                .get("starPromptLaunches")
+                .and_then(Value::as_u64)
+                .map(|launches| u32::try_from(launches).unwrap_or(u32::MAX)),
+            star_prompt_dismissed: flag("starPromptDismissed"),
         })
     }
 }
@@ -1472,6 +1621,15 @@ fn is_true(value: &bool) -> bool {
     *value
 }
 
+/// Whether `value` is zero, for counts saved only once they start.
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde passes the field by reference"
+)]
+fn is_zero(value: &u32) -> bool {
+    *value == 0
+}
+
 /// Stores `value` in `slot` if there is one.
 fn replace_if_some<T>(slot: &mut T, value: Option<T>) {
     if let Some(value) = value {
@@ -1510,37 +1668,6 @@ mod tests {
             ["file:///home/demo/Camera%20imports"]
         );
         assert_eq!(gallery_folder_key("smb://nas/photos"), None);
-    }
-
-    /// Icons from Windows icon files are off and no file is chosen by
-    /// default, and neither is stored until the user chooses (LOOK-030).
-    ///
-    /// parity: LOOK-030
-    #[test]
-    fn icon_files_are_off_by_default_and_stored_only_when_chosen() {
-        let preferences = Preferences::default();
-        assert!(!preferences.use_icon_files);
-        assert!(preferences.icon_files.is_empty());
-        let stored = serde_json::to_value(&preferences).expect("serializable");
-        assert!(stored.get("useIconFiles").is_none());
-        assert!(stored.get("iconFiles").is_none());
-
-        let mut chosen = Preferences::default();
-        chosen.apply(&PreferencesUpdate {
-            use_icon_files: Some(true),
-            icon_files: Some(vec![
-                "/mnt/windows/Windows/SystemResources/imageres.dll.mun".to_owned()
-            ]),
-            ..PreferencesUpdate::default()
-        });
-        let stored = serde_json::to_value(&chosen).expect("serializable");
-        assert_eq!(stored["useIconFiles"], json!(true));
-        assert_eq!(
-            stored["iconFiles"],
-            json!(["/mnt/windows/Windows/SystemResources/imageres.dll.mun"])
-        );
-        let read = PreferencesUpdate::from_json(&stored).expect("an update");
-        assert_eq!(read.use_icon_files, Some(true));
     }
 
     /// The Windows symbol font is unset by default and not stored until
@@ -1937,6 +2064,34 @@ mod tests {
         assert_eq!(stored["confirmTrash"], json!(true));
         assert_eq!(stored["confirmCloseTabs"], json!(true));
         assert!(stored.get("confirmDelete").is_none() && stored.get("fullPathInTitle").is_none());
+    }
+
+    /// Delete on a removable drive uses the drive's own Trash by default
+    /// (OPS-018); deleting there permanently, as Windows does, is a choice
+    /// stored only when made.
+    ///
+    /// parity: OPS-018
+    #[test]
+    fn deleting_on_removable_drives_permanently_is_opt_in() {
+        let mut preferences = Preferences::default();
+        assert!(
+            !preferences.delete_removable_permanently,
+            "the drive's Trash by default"
+        );
+        assert!(serde_json::to_value(&preferences)
+            .unwrap()
+            .get("deleteRemovablePermanently")
+            .is_none());
+
+        preferences
+            .apply(&PreferencesUpdate::from_json(&json!({"deleteRemovablePermanently": true})).unwrap());
+
+        assert!(preferences.delete_removable_permanently);
+        let stored = serde_json::to_value(&preferences).unwrap();
+        assert_eq!(stored["deleteRemovablePermanently"], json!(true));
+        let mut read = Preferences::default();
+        read.apply(&PreferencesUpdate::from_json(&stored).unwrap());
+        assert!(read.delete_removable_permanently, "read back");
     }
 
     /// The progress window's "More details" stays as it was last left,

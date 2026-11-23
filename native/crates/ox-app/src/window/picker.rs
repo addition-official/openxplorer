@@ -56,11 +56,12 @@ mod local_paths;
 mod probe;
 
 /// The window commands that make no sense while choosing a file: more tabs,
-/// windows or panes, Settings, Format…, as a dialog closes on its own
-/// once answered, leaving no window to report the format in, Full
+/// windows or panes, Settings, Format… and a drive's Rename, as a dialog
+/// closes on its own once answered, leaving no window to report the
+/// format or the rename in, Full
 /// screen, as a Windows Open or Save dialog keeps its size, and Share,
 /// which Windows' file dialogs do not have.
-const DISABLED_ACTIONS: [WindowAction; 17] = [
+const DISABLED_ACTIONS: [WindowAction; 18] = [
     WindowAction::NewTab,
     WindowAction::OpenTab,
     WindowAction::OpenTabBackground,
@@ -76,6 +77,7 @@ const DISABLED_ACTIONS: [WindowAction; 17] = [
     WindowAction::OpenFileLocationInWindow,
     WindowAction::SplitView,
     WindowAction::FormatDrive,
+    WindowAction::RenameDrive,
     WindowAction::FullScreen,
     WindowAction::Share,
 ];
@@ -154,7 +156,7 @@ pub(crate) struct Picker {
     /// not its position: files another application creates or removes
     /// move it in the list.
     single: RefCell<Option<glib::Object>>,
-    /// Set once the dialog is a modal child of the caller's window
+    /// Set once the dialog is a child of the caller's window
     /// ([`super::caller_window`]).
     attached_to_caller: Rc<Cell<bool>>,
     /// The calling application, whose last folder the dialog remembers;
@@ -1902,6 +1904,11 @@ fn quoted_names(files: &[&Entry]) -> String {
 /// The names of a quoted list such as `"a.txt" "b.txt"`, `None` for text
 /// that is not one (a plain name or path). A file name cannot hold a
 /// quote here, as in Windows.
+#[cfg(feature = "fuzzing")]
+pub(crate) fn fuzz_quoted_names(text: &str) {
+    let _ = parse_quoted_names(text);
+}
+
 fn parse_quoted_names(text: &str) -> Option<Vec<String>> {
     let mut names = Vec::new();
     let mut rest = text.trim();
@@ -3354,7 +3361,9 @@ mod tests {
 
     /// On Wayland a dialog becomes a modal child of the window the caller
     /// exported, as KDE's own dialog does: the compositor keeps it above
-    /// that window and sends clicks on the window to it. The other
+    /// that window and sends clicks on the window to it. Where Mutter
+    /// would glue a modal dialog to that window, so that dragging the
+    /// dialog moved the window too, it is a child that is not modal. The other
     /// `OpenXplorer` windows are in other window groups, so stay usable.
     /// Under X11, as check.py runs the tests, there is no exported window
     /// to attach to; the test then only checks the window group.
@@ -3407,7 +3416,11 @@ mod tests {
         );
         if !parent.is_empty() {
             assert!(picker.attached_to_caller.get(), "a child of the caller's window");
-            assert!(window.is_modal(), "modal while the caller waits");
+            assert_eq!(
+                window.is_modal(),
+                !crate::window::caller_window::desktop_attaches_modal_dialogs(),
+                "modal while the caller waits, unless Mutter would glue it to the caller's window"
+            );
         }
         caller.destroy();
     }

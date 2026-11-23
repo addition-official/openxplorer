@@ -15,19 +15,15 @@
 //! asking at all ([`Failure`]): a picture the app cannot read leaves room
 //! for one, while a picture it read and the cache refused does not.
 
-use std::fs;
-use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
-use gtk::gdk_pixbuf::{Pixbuf, PixbufLoader};
+use gtk::gdk_pixbuf::Pixbuf;
 use gtk::prelude::*;
 use gtk::{gio, glib};
 use ox_core::entry::{thumbnail_file, ThumbnailFlavor};
+use ox_core::thumbnail_cache::{self, Version};
 
 use crate::picture_guard::{self, Limits, Refusal};
-
-/// How much of a picture is read at a time.
-const READ_CHUNK: usize = 64 * 1024;
 
 /// What the thumbnail is made of.
 #[derive(Debug, Clone)]
@@ -36,6 +32,36 @@ pub(super) struct Source {
     pub uri: String,
     /// Its modification time in seconds, which keeps the thumbnail valid.
     pub modified: u64,
+    /// Its size in bytes, when known, which keeps the thumbnail valid too.
+    pub size: Option<u64>,
+    /// Its content type, written with the thumbnail.
+    pub mime_type: Option<String>,
+    /// The edge, in device pixels, the thumbnail is shown at: the picture
+    /// handed back ([`Made::picture`]) is no larger, so the memory of the
+    /// previews shown keeps no more pixels than the screen shows.
+    pub shown: i32,
+}
+
+impl Source {
+    /// The version of the file the thumbnail is made from.
+    pub(super) fn version(&self) -> Version {
+        Version {
+            uri: self.uri.clone(),
+            modified: self.modified,
+            size: self.size,
+        }
+    }
+}
+
+/// A thumbnail written to the cache, and its picture, which the view
+/// shows without reading the file back.
+#[derive(Debug, Clone)]
+pub(super) struct Made {
+    /// Where it was written.
+    #[cfg_attr(not(test), expect(dead_code, reason = "the tests look where it went"))]
+    pub path: PathBuf,
+    /// Its picture, no larger than it is shown ([`Source::shown`]).
+    pub picture: gtk::gdk::Texture,
 }
 
 /// Why no thumbnail was written, which tells the caller whether another
@@ -78,7 +104,8 @@ pub(super) fn write_thumbnail(
     source: &Source,
     flavor: ThumbnailFlavor,
     cancellation: &gio::Cancellable,
-) -> Result<PathBuf, Failure> {
+) -> Result<Made, Failure> {
+    super::trace::event("generate", &source.uri);
     let pixbuf = scaled_picture(&source.uri, flavor.pixels(), cancellation).map_err(|refusal| {
         // A read that stopped because it was cancelled is no reason to
         // fall back to another thumbnailer, nor is a picture the guard
@@ -113,53 +140,59 @@ pub(super) fn save_thumbnail(
     source: &Source,
     flavor: ThumbnailFlavor,
     pixbuf: &Pixbuf,
-) -> Result<PathBuf, Failure> {
+) -> Result<Made, Failure> {
     let target = thumbnail_file(cache_dir, &source.uri, flavor);
-    let Some(folder) = target.parent() else {
-        return Err(Failure::Unwritable);
-    };
     // A thumbnail of a thumbnail would grow the cache from itself.
     if inside_cache(cache_dir, &source.uri) {
         return Err(Failure::Unwritable);
     }
-    if create_folder(folder).is_none() {
-        return Err(Failure::Unwritable);
-    }
-    let temporary = folder.join(format!(".{}.openxplorer.tmp", glib::random_int()));
-    let modified = source.modified.to_string();
-    let options = [
-        ("tEXt::Thumb::URI", source.uri.as_str()),
-        ("tEXt::Thumb::MTime", modified.as_str()),
-        ("tEXt::Software", "OpenXplorer"),
-    ];
-    let saved = pixbuf.savev(&temporary, "png", &options).is_ok()
-        && fs::set_permissions(&temporary, fs::Permissions::from_mode(0o600)).is_ok()
-        && fs::rename(&temporary, &target).is_ok();
-    if !saved {
-        let _ = fs::remove_file(&temporary);
-        return Err(Failure::Unwritable);
-    }
-    Ok(target)
+    let version = source.version();
+    let options: Vec<(String, String)> = version
+        .keys(source.mime_type.as_deref())
+        .into_iter()
+        .map(|(key, value)| (format!("tEXt::{key}"), value))
+        .collect();
+    let options: Vec<(&str, &str)> = options
+        .iter()
+        .map(|(key, value)| (key.as_str(), value.as_str()))
+        .collect();
+    // Encoded here, then written privately from the start and renamed into
+    // place ([`thumbnail_cache::write_entry`]): another program never
+    // reads half a thumbnail, nor one readable by others.
+    let png = pixbuf
+        .save_to_bufferv("png", &options)
+        .map_err(|_| Failure::Unwritable)?;
+    thumbnail_cache::write_entry(&target, &png).map_err(|_| Failure::Unwritable)?;
+    super::trace::event("written", &source.uri);
+    Ok(Made {
+        path: target,
+        picture: texture_to_fit(pixbuf, source.shown),
+    })
 }
 
-/// The thumbnail of `uri` in `flavor` under `cache_dir`, if one exists
-/// that was made from the version modified at `modified`. Blocks.
-pub(super) fn find_thumbnail(
-    cache_dir: &Path,
-    uri: &str,
-    modified: u64,
-    flavor: ThumbnailFlavor,
-) -> Option<PathBuf> {
-    let path = thumbnail_file(cache_dir, uri, flavor);
-    // Read within a thumbnail's limits: another program may have left a
-    // huge or damaged file there.
-    let file = gio::File::for_path(&path);
-    let thumbnail = picture_guard::decode_to_fit(&file, i32::MAX, i32::MAX, Limits::THUMBNAIL_FILE, None)
-        .ok()?
-        .pixbuf;
-    let is_current = thumbnail.option("tEXt::Thumb::URI").as_deref() == Some(uri)
-        && thumbnail.option("tEXt::Thumb::MTime").as_deref() == Some(modified.to_string().as_str());
-    is_current.then_some(path)
+/// `picture` as a texture no larger than `edge` pixels square, shrunk with
+/// gdk-pixbuf's bilinear filter when larger: a picture the app decoded
+/// itself, so no untrusted bytes are read here.
+fn texture_to_fit(picture: &Pixbuf, edge: i32) -> gtk::gdk::Texture {
+    let longest = picture.width().max(picture.height());
+    if edge <= 0 || longest <= edge {
+        return gtk::gdk::Texture::for_pixbuf(picture);
+    }
+    let side = |side: i32| {
+        i32::try_from(i64::from(side) * i64::from(edge) / i64::from(longest))
+            .unwrap_or(1)
+            .max(1)
+    };
+    picture
+        .scale_simple(
+            side(picture.width()),
+            side(picture.height()),
+            gtk::gdk_pixbuf::InterpType::Bilinear,
+        )
+        .map_or_else(
+            || gtk::gdk::Texture::for_pixbuf(picture),
+            |shrunk| gtk::gdk::Texture::for_pixbuf(&shrunk),
+        )
 }
 
 /// Whether `uri` names an item of the thumbnail cache under `cache_dir`: a
@@ -171,29 +204,15 @@ pub(super) fn inside_cache(cache_dir: &Path, uri: &str) -> bool {
         .is_ok_and(|cache| uri.starts_with(cache.as_str()))
 }
 
-/// The folder `folder` and its parents, enterable by its owner only, as
-/// the standard asks of the cache folders.
-fn create_folder(folder: &Path) -> Option<()> {
-    fs::DirBuilder::new()
-        .recursive(true)
-        .mode(0o700)
-        .create(folder)
-        .ok()
-}
-
 /// The PNG in `bytes`, decoded to fit `edge` pixels square as
 /// [`scaled_picture`] decodes a file: a desktop thumbnailer's picture,
 /// which the app read into memory itself and checked the size of (see
-/// [`super::thumbnailers`]). Only gdk-pixbuf's PNG loader reads it.
+/// [`super::thumbnailers`]). It was made from a file that may be damaged, so it is
+/// decoded by the picture decoder process, never in the app.
 pub(super) fn scaled_png(bytes: &[u8], edge: i32) -> Option<Pixbuf> {
-    let loader = scaling(PixbufLoader::with_type("png").ok()?, edge);
-    for chunk in bytes.chunks(READ_CHUNK) {
-        if loader.write(chunk).is_err() {
-            let _ = loader.close();
-            return None;
-        }
-    }
-    finish(&loader)
+    picture_guard::decode_bytes_to_fit(bytes.to_vec(), edge, edge, Limits::DISPLAY, None)
+        .ok()
+        .map(|decoded| decoded.pixbuf)
 }
 
 /// The picture at `uri`, turned upright and decoded to fit `edge` pixels
@@ -205,34 +224,6 @@ fn scaled_picture(uri: &str, edge: i32, cancellation: &gio::Cancellable) -> Resu
     let file = gio::File::for_uri(uri);
     picture_guard::decode_to_fit(&file, edge, edge, Limits::DISPLAY, Some(cancellation))
         .map(|decoded| decoded.pixbuf)
-}
-
-/// `loader`, made to decode its picture to fit `edge` pixels square, or
-/// at its own size when smaller.
-fn scaling(loader: PixbufLoader, edge: i32) -> PixbufLoader {
-    loader.connect_size_prepared(move |loader, width, height| {
-        if width > edge || height > edge {
-            let (width, height) = fit(width, height, edge);
-            loader.set_size(width, height);
-        }
-    });
-    loader
-}
-
-/// The picture `loader` was given, turned upright.
-fn finish(loader: &PixbufLoader) -> Option<Pixbuf> {
-    loader.close().ok()?;
-    let pixbuf = loader.pixbuf()?;
-    Some(pixbuf.apply_embedded_orientation().unwrap_or(pixbuf))
-}
-
-/// `width` × `height` scaled to fit `edge` square, keeping the aspect
-/// ratio and at least one pixel.
-fn fit(width: i32, height: i32, edge: i32) -> (i32, i32) {
-    let longest = width.max(height).max(1);
-    let scale = |side: i32| (i64::from(side) * i64::from(edge) / i64::from(longest)).max(1);
-    let to_i32 = |side: i64| i32::try_from(side).unwrap_or(edge);
-    (to_i32(scale(width)), to_i32(scale(height)))
 }
 
 #[cfg(test)]
@@ -257,10 +248,17 @@ mod tests {
         let source = Source {
             uri: gio::File::for_path(&picture).uri().to_string(),
             modified: 1_700_000_000,
+            size: Some(4096),
+            mime_type: Some("image/png".to_owned()),
+            shown: 96,
         };
 
-        let written = write_thumbnail(&cache, &source, ThumbnailFlavor::Normal, &gio::Cancellable::new())
+        let made = write_thumbnail(&cache, &source, ThumbnailFlavor::Normal, &gio::Cancellable::new())
             .expect("a thumbnail");
+        let written = made.path;
+        // The file is as large as its flavor; the picture handed back is
+        // as large as it is shown.
+        assert_eq!((made.picture.width(), made.picture.height()), (96, 48));
 
         assert_eq!(
             written,
@@ -276,7 +274,18 @@ mod tests {
             thumbnail.option("tEXt::Thumb::MTime").as_deref(),
             Some("1700000000")
         );
-        let mode = fs::metadata(&written).expect("the file").permissions().mode();
+        assert_eq!(thumbnail.option("tEXt::Thumb::Size").as_deref(), Some("4096"));
+        assert_eq!(
+            thumbnail.option("tEXt::Thumb::Mimetype").as_deref(),
+            Some("image/png")
+        );
+        // And the app's own reading of the keys, which needs no decoder,
+        // finds it current.
+        let keys = thumbnail_cache::png_keys(&std::fs::read(&written).expect("read")).expect("keys");
+        assert!(keys.describe(&source.version()));
+        let mode = std::os::unix::fs::PermissionsExt::mode(
+            &std::fs::metadata(&written).expect("the file").permissions(),
+        );
         assert_eq!(mode & 0o777, 0o600);
 
         // A picture of the cache's own folder is read, but its thumbnail
@@ -289,9 +298,12 @@ mod tests {
         let inside = Source {
             uri: gio::File::for_path(&inner).uri().to_string(),
             modified: 1_700_000_000,
+            size: None,
+            mime_type: None,
+            shown: 128,
         };
         assert_eq!(
-            save_thumbnail(&cache, &inside, ThumbnailFlavor::Normal, &thumbnail),
+            save_thumbnail(&cache, &inside, ThumbnailFlavor::Normal, &thumbnail).map(|made| made.path),
             Err(Failure::Unwritable)
         );
 
@@ -299,7 +311,7 @@ mod tests {
         cancelled.cancel();
         let other_cache = folder.path().join("cancelled-cache");
         assert_eq!(
-            write_thumbnail(&other_cache, &source, ThumbnailFlavor::Normal, &cancelled),
+            write_thumbnail(&other_cache, &source, ThumbnailFlavor::Normal, &cancelled).map(|made| made.path),
             Err(Failure::Cancelled)
         );
         assert!(!other_cache.exists(), "a cancelled read leaves no cache file");

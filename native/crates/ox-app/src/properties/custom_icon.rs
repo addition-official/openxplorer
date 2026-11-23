@@ -55,8 +55,7 @@ impl IconChoice {
         }
         match icon {
             Some(icon) => {
-                let picture = gtk::Image::from_gicon(&gio::FileIcon::new(&gio::File::for_uri(icon)));
-                picture.set_pixel_size(PREVIEW_SIZE);
+                let picture = crate::picture_guard::guarded_image(icon, PREVIEW_SIZE);
                 self.preview.append(&picture);
             }
             None => self.preview.append(&ArtImage::new(Art::Folder, PREVIEW_SIZE)),
@@ -87,7 +86,7 @@ impl Pending for IconChoice {
             let uri = self.uri.borrow().clone();
             set_custom_icon(&uri, icon.clone())
                 .await
-                .map_err(|error| error.to_string())?;
+                .map_err(|error| ox_core::system_error::message_of(&error))?;
             self.current.replace(icon);
             if let Some(opener) = self.window.upgrade().and_then(|window| window.opener()) {
                 opener.announce_item_icon(&uri);

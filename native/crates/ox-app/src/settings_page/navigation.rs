@@ -64,8 +64,10 @@ impl SettingsPage {
             .build();
         content.append(&match_count);
         content.append(&results);
+        // A row that cannot narrow further, at a large text size in a
+        // narrow window, scrolls sideways rather than widening the window.
         let scrolled = gtk::ScrolledWindow::builder()
-            .hscrollbar_policy(gtk::PolicyType::Never)
+            .hscrollbar_policy(gtk::PolicyType::Automatic)
             .child(&content)
             .build();
         imp.pages.add_named(&scrolled, Some(RESULTS_PAGE));
@@ -80,6 +82,7 @@ impl SettingsPage {
 
     fn connect_category_list(&self) {
         let list = &self.imp().category_list;
+        self.leave_the_list_with_tab();
         list.connect_row_selected(glib::clone!(
             #[weak(rename_to = page)]
             self,
@@ -110,6 +113,46 @@ impl SettingsPage {
             self,
             move |_, _| page.focus_page()
         ));
+    }
+
+    /// Makes the category list one Tab stop, as Windows 11 Settings'
+    /// list is: GTK's list box takes Tab as Down, so every category was a
+    /// stop of its own and each Tab opened the next page. Tab goes on to
+    /// "Back to files" and Shift+Tab back to the search; the arrow keys
+    /// still move through the categories.
+    fn leave_the_list_with_tab(&self) {
+        let keys = gtk::EventControllerKey::new();
+        keys.set_propagation_phase(gtk::PropagationPhase::Capture);
+        keys.connect_key_pressed(glib::clone!(
+            #[weak(rename_to = page)]
+            self,
+            #[upgrade_or]
+            glib::Propagation::Proceed,
+            move |_, key, _, modifiers| {
+                let others = modifiers - gdk::ModifierType::SHIFT_MASK;
+                if !others.is_empty() {
+                    return glib::Propagation::Proceed;
+                }
+                let imp = page.imp();
+                match key {
+                    gdk::Key::ISO_Left_Tab => {
+                        imp.search_entry.grab_focus();
+                    }
+                    gdk::Key::Tab | gdk::Key::KP_Tab if modifiers.contains(gdk::ModifierType::SHIFT_MASK) => {
+                        imp.search_entry.grab_focus();
+                    }
+                    gdk::Key::Tab | gdk::Key::KP_Tab => {
+                        let back = &*imp.back_button;
+                        if !(back.is_visible() && back.is_sensitive() && back.grab_focus()) {
+                            page.focus_page();
+                        }
+                    }
+                    _ => return glib::Propagation::Proceed,
+                }
+                glib::Propagation::Stop
+            }
+        ));
+        self.imp().category_list.add_controller(keys);
     }
 
     fn connect_search_entry(&self) {
@@ -275,23 +318,41 @@ impl SettingsPage {
     /// with matches, their counts and the first page that has any.
     fn apply_search(&self, typed: &str) {
         let imp = self.imp();
-        let query = SearchQuery::parse(typed);
+        let mut query = SearchQuery::parse(typed);
         self.gather_results(!query.is_empty());
+        // Several words: first where settings are named; descriptions
+        // count only when no setting names them all.
         let mut total = 0;
-        for category_row in self.category_rows() {
-            let section = self.category_section(category_row.category());
-            let matches = section.apply_query(&query);
-            category_row.set_matches(matches);
-            // Among the results, a category without matches leaves out
-            // its title too.
-            section.set_visible(query.is_empty() || matches > 0);
-            total += matches;
+        if let Some(by_names) = query.by_names() {
+            total = self.filter_categories(&by_names);
+            if total > 0 {
+                query = by_names;
+            }
+        }
+        if total == 0 {
+            total = self.filter_categories(&query);
         }
         imp.match_count().set_text(&match_count_text(total));
         imp.match_count().set_visible(!query.is_empty());
         imp.query.replace(query);
         self.mark_chosen_category();
         self.show_search_results();
+    }
+
+    /// Shows the settings of every category that match `query`, with
+    /// each category's count and title, and returns how many match.
+    fn filter_categories(&self, query: &SearchQuery) -> usize {
+        let mut total = 0;
+        for category_row in self.category_rows() {
+            let section = self.category_section(category_row.category());
+            let matches = section.apply_query(query);
+            category_row.set_matches(matches);
+            // Among the results, a category without matches leaves out
+            // its title too.
+            section.set_visible(query.is_empty() || matches > 0);
+            total += matches;
+        }
+        total
     }
 
     /// Shows the results from the top, or says that nothing matches. The

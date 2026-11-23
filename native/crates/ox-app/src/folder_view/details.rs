@@ -167,6 +167,8 @@ fn text_factory(
 struct CellContext {
     owners: Rc<CellOwners>,
     dates: Rc<Cell<DateStyle>>,
+    /// The day relative dates were last written from (year, month, day).
+    dates_day: Cell<Option<(i32, i32, i32)>>,
     tree: FolderTree,
     positions: PositionMap,
 }
@@ -188,6 +190,11 @@ impl CellContext {
             _ => text_factory(column, &self.owners, &self.dates, &self.positions),
         }
     }
+}
+
+/// Today's date on the clock the date cells and groups count from.
+fn today() -> Option<(i32, i32, i32)> {
+    crate::folder_view::groups::local_now().map(|now| now.ymd())
 }
 
 /// A resizable column showing `column`, sorted by its header.
@@ -306,9 +313,8 @@ mod imp {
         /// width change. A `RefCell`, as a `Cell` of a type that is not
         /// `Copy` cannot be debug-printed.
         pub(super) resize_timer: RefCell<Option<glib::SourceId>>,
-        /// The column titles' sort arrows, in column order; set by
-        /// [`super::DetailsView::new`].
-        pub(super) carets: OnceCell<Vec<gtk::Widget>>,
+        /// Each column's title; set by [`super::DetailsView::new`].
+        pub(super) titles: OnceCell<super::column_titles::ColumnTitles>,
         /// The check box before the Name title that selects every item
         /// or none (SEL-014).
         pub(super) select_all: OnceCell<gtk::CheckButton>,
@@ -479,11 +485,12 @@ mod imp {
                 popover.present();
             }
             let minimum = self.obj().size_minimum();
-            if self.size_minimum.replace(minimum) != minimum {
+            let old = self.size_minimum.replace(minimum);
+            if old != minimum {
                 let view = self.obj().downgrade();
                 glib::idle_add_local_once(move || {
                     if let Some(view) = view.upgrade() {
-                        view.fit_size_to_its_font();
+                        view.follow_size_font(old);
                     }
                 });
             }
@@ -512,6 +519,7 @@ impl DetailsView {
         let cells = CellContext {
             owners: Rc::clone(owners),
             dates: Rc::default(),
+            dates_day: Cell::new(today()),
             tree: model.tree().clone(),
             positions: Rc::new(move |row| match grouping.borrow().as_ref() {
                 Some(grouped) => grouped.item_at(row),
@@ -521,6 +529,10 @@ impl DetailsView {
         for column in SortColumn::ALL {
             column_view.append_column(&new_view_column(column, &cells));
         }
+        view.imp()
+            .titles
+            .set(column_titles::ColumnTitles::new(column_view))
+            .expect("DetailsView::new reads the titles once");
         view.imp().chosen.replace(column_choice::default_chosen());
         // The listings' own columns follow Name from the start, before the
         // first change of the chosen columns arranges them.
@@ -552,6 +564,15 @@ impl DetailsView {
     fn describe_rows(&self, model: &FolderModel) {
         let column_view = self.column_view();
         cells::label_view(column_view.upcast_ref());
+        // Its list of rows takes the keyboard while there is no row, and a
+        // screen reader reads it on its own: it is named the same.
+        let rows = std::iter::successors(column_view.first_child(), WidgetExt::next_sibling)
+            .find(ObjectExt::is::<gtk::ListView>);
+        if let Some(rows) = rows {
+            rows.update_property(&[gtk::accessible::Property::Label(&ox_core::i18n::gettext(
+                cells::ITEMS_VIEW_NAME,
+            ))]);
+        }
         let rows = gtk::SignalListItemFactory::new();
         // A heading row's name follows its heading's title: the grouped
         // model retitles a heading in place when the groups change, and GTK
@@ -559,6 +580,7 @@ impl DetailsView {
         let titles: HeadingTitles = Rc::default();
         let unbind_titles = Rc::clone(&titles);
         let owners = Rc::clone(&self.cells().owners);
+        let view = self.downgrade();
         rows.connect_bind(move |_, object| {
             if let Some(row) = object.downcast_ref::<gtk::ColumnViewRow>() {
                 forget_heading_title(&titles, row);
@@ -567,6 +589,9 @@ impl DetailsView {
                     // Named as the Name column shows it, without a hidden
                     // extension.
                     owners.name_detail_row(row, item);
+                    if let Some(view) = view.upgrade() {
+                        row.set_accessible_description(&view.row_description(item));
+                    }
                     row.set_selectable(true);
                     row.set_activatable(true);
                 } else if let Some(heading) = item.and_downcast_ref::<GroupSlot>() {
@@ -618,6 +643,34 @@ impl DetailsView {
         self.imp().scroller.vadjustment()
     }
 
+    /// What a screen reader hears after an item's name: the other columns
+    /// shown, in the order shown, each after its title ("Date modified:
+    /// 9/14/2026 09:30, Type: Text Document, Size: 1 KB"), leaving out
+    /// empty cells. Orca heard only the name, while the list shows its
+    /// type, size and date beside it.
+    pub(crate) fn row_description(&self, item: &FileItem) -> String {
+        let dates = self.date_style();
+        let counts = self.counts_items();
+        self.column_order()
+            .into_iter()
+            .filter(|column| *column != SortColumn::Name)
+            .filter_map(|column| {
+                let view_column = self.column(column).filter(gtk::ColumnViewColumn::is_visible)?;
+                let text = shown_cell_text(column, item, dates, counts);
+                let text = text.trim();
+                if text.is_empty() {
+                    return None;
+                }
+                let title = view_column.title().unwrap_or_default();
+                Some(ox_core::i18n::format_message(
+                    "{column}: {value}",
+                    &[("column", title.as_str()), ("value", text)],
+                ))
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
     /// What `column` shows for the first `limit` items the view lists.
     pub(crate) fn cell_texts(&self, column: SortColumn, limit: u32) -> Vec<String> {
         let Some(items) = self.column_view().model() else {
@@ -657,9 +710,26 @@ impl DetailsView {
     /// shown.
     pub(crate) fn set_date_style(&self, style: DateStyle) {
         if self.cells().dates.replace(style) != style {
-            for column in [SortColumn::Modified, SortColumn::Created, SortColumn::Deleted] {
-                self.redraw_column(column);
-            }
+            self.redraw_dates();
+        }
+    }
+
+    /// Writes relative dates from the new day once the day has changed
+    /// since they were written: "Today at …" becomes "Yesterday at …" at
+    /// midnight without the folder being opened again (VIEW-022). On the
+    /// same day, or with dates written in full, nothing is drawn again.
+    pub(crate) fn follow_the_day(&self) {
+        let today = today();
+        let changed = self.cells().dates_day.replace(today) != today;
+        if changed && self.date_style() == DateStyle::Relative {
+            self.redraw_dates();
+        }
+    }
+
+    /// Binds the date cells shown again.
+    fn redraw_dates(&self) {
+        for column in [SortColumn::Modified, SortColumn::Created, SortColumn::Deleted] {
+            self.redraw_column(column);
         }
     }
 
@@ -871,6 +941,29 @@ impl DetailsView {
         }
     }
 
+    /// The list's font changed while Size needed `old_minimum` pixels: a
+    /// Size still at its default for that font, which nobody resized,
+    /// takes its default for the new one, so it also narrows again when
+    /// the text gets smaller (ACC-012); any other width only widens to
+    /// fit ([`Self::fit_size_to_its_font`]). Not a resize by the user.
+    fn follow_size_font(&self, old_minimum: u32) {
+        let Some(size) = self.column(SortColumn::Size) else {
+            return;
+        };
+        let default_for = |minimum: u32| {
+            let width =
+                column_widths::start_width_at(SortColumn::Size, None, 1.0).map(|width| width.max(minimum));
+            column_widths::fixed_width(SortColumn::Size, width)
+        };
+        let at_old_default = size.fixed_width() >= 0 && size.fixed_width() == default_for(old_minimum);
+        if at_old_default {
+            size.set_fixed_width(default_for(self.size_minimum()));
+            self.cancel_resize_report();
+        } else {
+            self.fit_size_to_its_font();
+        }
+    }
+
     /// The widths the user set, in the form settings save them. Name
     /// counts only once it has a width of its own.
     pub(crate) fn widths_to_save(&self) -> Vec<ColumnWidth> {
@@ -994,14 +1087,9 @@ impl DetailsView {
         Some(SortOrder { column, direction })
     }
 
-    /// Gives the titles Windows' sort chevrons, which follow the view's
+    /// Gives the titles their sort chevrons, which follow the view's
     /// sorter from now on.
     fn add_sort_carets(&self) {
-        let carets = column_titles::style_titles(self.column_view());
-        self.imp()
-            .carets
-            .set(carets)
-            .expect("DetailsView::new adds the carets once");
         self.show_sort_caret();
         let Some(sorter) = self.column_view().sorter() else {
             return;
@@ -1016,9 +1104,15 @@ impl DetailsView {
     /// Shows the sorted column's chevron, pointing its way, and clears
     /// the others.
     fn show_sort_caret(&self) {
-        if let Some(carets) = self.imp().carets.get() {
-            column_titles::show_sort_caret(carets, self.primary_sort());
-        }
+        self.titles_by_column().show_sort(self.primary_sort());
+    }
+
+    /// Each column's title.
+    pub(crate) fn titles_by_column(&self) -> &column_titles::ColumnTitles {
+        self.imp()
+            .titles
+            .get()
+            .expect("DetailsView::new reads the titles")
     }
 }
 

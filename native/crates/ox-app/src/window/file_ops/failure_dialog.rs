@@ -12,15 +12,16 @@
 //! | Another program holds it | File In Use (Folder …) | The action can't be completed because the file is open in another program · Close the file and try again. | Try Again · Skip · Cancel |
 //! | It is gone | Item Not Found | Could not find this item · This is no longer located in <folder>. Verify the item's location and try again. | Try Again · Skip · Cancel |
 //! | A folder would go into a folder inside it | Interrupted Action | The destination folder is a subfolder of the source folder. | Skip · Cancel |
-//! | Anything else | Interrupted Action | An unexpected error is keeping you from copying the file. … · the system's error | Try Again · Skip · Cancel |
+//! | Anything else | Interrupted Action | An unexpected error is keeping you from copying the file. … · Error 0x8007048F: The device is not connected. | Try Again · Skip · Cancel |
 //! | Something to sort out by hand, such as a kept backup | Interrupted Action | An unexpected error is keeping you from copying the file. … · what happened and where | OK, shown after Cancel too |
 //!
 //! Each names the item as Windows does: its icon and name, then its Type,
 //! Size and Date modified (a folder's Date created; for the destination
 //! folder, the folder's). "Do this for all current items", shown while
 //! other items remain, makes Skip skip, and Continue continue, every later
-//! item without asking. The system's own words are kept only for the
-//! unexpected error, as Windows shows its error text there. The progress
+//! item without asking. The system's error is shown only for the
+//! unexpected error, as Windows shows it there: its error code line, in
+//! Windows' words ([`SystemError::code_line`]). The progress
 //! window's More details shows where the item is and where it was going.
 //!
 //! Continue, with the administrator shield "Open as administrator" shows,
@@ -59,15 +60,17 @@ use ox_core::entry::{entry_from_info, Entry, ATTRIBUTES};
 use ox_core::format;
 use ox_core::i18n::{format_message, gettext};
 use ox_core::location::parent_location;
-use ox_core::ops::{permanent_delete_confirmation, DeleteSubject, FailureAsker};
+use ox_core::ops::{permanent_delete_confirmation, DeleteSubject, FailureAsker, OpsError};
+use ox_core::system_error::SystemError;
 use ox_core::transfer::{Cancellation, FailedItem, FailureAnswer, FailureCause, TransferMode};
 
 use super::worker_question::worker_question;
+use crate::dialog::Dialog;
 use crate::icons::{self, FileType, Icon};
 use crate::window::transfer_panel::{
     location_name, FailureChoice, FailureView, FirstButton, SpaceTexts, TransferPanel,
 };
-use crate::window::BrowserWindow;
+use crate::window::{BrowserWindow, ButtonStyle};
 
 /// The edge of the item's icon.
 const ITEM_ICON_SIZE: i32 = 48;
@@ -92,6 +95,8 @@ enum Question {
     InsideSource,
     /// "Interrupted Action": an unexpected error.
     Unexpected,
+    /// "Interrupted Action": the destination's drive may not be written.
+    WriteProtected,
 }
 
 /// What the dialog says, in Windows' words.
@@ -166,10 +171,15 @@ fn wording(question: Question, item: &FailedItem, is_folder: bool, folder: &str)
             gettext("The destination folder is a subfolder of the source folder."),
             String::new(),
         ),
+        Question::WriteProtected => (
+            gettext("Interrupted Action"),
+            gettext("The disk is write-protected."),
+            gettext("Remove the write-protection or use another disk."),
+        ),
         Question::Unexpected => (
             gettext("Interrupted Action"),
             unexpected_heading(item.mode, is_folder),
-            item.error.clone(),
+            error_code_line(&item.error),
         ),
     };
     Wording {
@@ -177,6 +187,65 @@ fn wording(question: Question, item: &FailedItem, is_folder: bool, folder: &str)
         heading,
         message,
     }
+}
+
+/// Whether `error` is the system's "The media is write protected.",
+/// after the path of the item it names, if any.
+fn is_write_protected(error: &str) -> bool {
+    let sentence = error.rsplit_once(": ").map_or(error, |(_, sentence)| sentence);
+    SystemError::from_sentence(sentence) == Some(ox_core::system_error::WRITE_PROTECT)
+}
+
+/// The line under "An unexpected error…": Windows' error code line
+/// ("Error 0x8007048F: The device is not connected.") for an error the
+/// system reported, or `error` itself, a message of the app's own that has
+/// no code.
+fn error_code_line(error: &str) -> String {
+    // The item is named above the line, so a path the error names is left
+    // out of it.
+    let sentence = error.rsplit_once(": ").map_or(error, |(_, sentence)| sentence);
+    SystemError::from_sentence(sentence).map_or_else(|| error.to_owned(), SystemError::code_line)
+}
+
+/// What Windows asks when renaming `name`, a folder when `is_folder`, in
+/// `folder` failed with `error`, or `None` for a failure that is said
+/// another way: a cancellation, or a taken name, which has questions of
+/// its own. Access denied, an item in use and an item gone have Windows'
+/// own questions; anything else is "Interrupted Action" with the error
+/// code line.
+fn rename_wording(error: &OpsError, is_folder: bool, folder: &str) -> Option<Wording> {
+    let said = error.to_string();
+    let sentence = said
+        .rsplit_once(": ")
+        .map_or(said.as_str(), |(_, sentence)| sentence);
+    let in_use = SystemError::from_sentence(sentence) == Some(ox_core::system_error::SHARING_VIOLATION);
+    let question = match error {
+        OpsError::Cancelled | OpsError::Exists(_) => return None,
+        OpsError::PermissionDenied(_) => Question::AccessDenied,
+        OpsError::NotFound(_) => Question::NotFound,
+        _ if in_use => Question::InUse,
+        _ => Question::Unexpected,
+    };
+    let renamed = FailedItem {
+        mode: TransferMode::Move,
+        name: String::new(),
+        error: said.clone(),
+        more_items: false,
+        cause: FailureCause::Other,
+        uri: String::new(),
+        destination_folder: None,
+        needed: None,
+        administrator: false,
+    };
+    let mut wording = wording(question, &renamed, is_folder, folder);
+    if question == Question::Unexpected {
+        wording.heading = gettext(if is_folder {
+            crate::i18n::message_id("An unexpected error is keeping you from renaming the folder. If you continue to receive this error, you can use the error code to search for help with this problem.")
+        } else {
+            crate::i18n::message_id("An unexpected error is keeping you from renaming the file. If you continue to receive this error, you can use the error code to search for help with this problem.")
+        });
+    }
+    Some(wording)
 }
 
 /// "An unexpected error is keeping you from copying the file. …", by what
@@ -228,6 +297,53 @@ fn space_texts(
         needed,
         drive,
     }
+}
+
+/// What `entry` shows under its name: for a picture whose `dimensions`
+/// are known, "Item type", "Dimensions" and "Size", as Windows' item
+/// lines show a picture; for anything else [`facts_lines`].
+fn facts_lines_of(entry: &Entry, dimensions: Option<(i32, i32)>) -> Vec<String> {
+    let (Some((width, height)), false) = (dimensions, entry.is_dir) else {
+        return facts_lines(entry);
+    };
+    let mut lines = Vec::new();
+    if !entry.type_label.is_empty() {
+        lines.push(format_message(
+            "Item type: {type}",
+            &[("type", &entry.type_label)],
+        ));
+    }
+    let dimensions = format!("{width} x {height}");
+    lines.push(format_message(
+        "Dimensions: {dimensions}",
+        &[("dimensions", &dimensions)],
+    ));
+    if let Some(size) = entry.size {
+        let size = format::size_text(Some(size));
+        lines.push(format_message("Size: {size}", &[("size", &size)]));
+    }
+    lines
+}
+
+/// The width and height of the picture at `uri`, read from its header off
+/// the main thread, when it is a local file the system can decode; a
+/// share's picture is not read, so a slow share never holds the question.
+async fn picture_dimensions(uri: &str) -> Option<(i32, i32)> {
+    let path = gio::File::for_uri(uri)
+        .path()
+        .filter(|_| !uri.contains("/gvfs/"))?;
+    if !uri.starts_with("file://") {
+        return None;
+    }
+    let read = gio::spawn_blocking(move || {
+        gtk::gdk_pixbuf::Pixbuf::file_info(&path).map(|(_, width, height)| (width, height))
+    });
+    glib::future_with_timeout(crate::bounded_io::MAIN_THREAD_WAIT, read)
+        .await
+        .ok()
+        .and_then(Result::ok)
+        .flatten()
+        .filter(|&(width, height)| width > 0 && height > 0)
 }
 
 /// What `entry` shows under its name: "Type", "Size" and "Date modified"
@@ -297,11 +413,25 @@ async fn can_write(uri: &str) -> bool {
 /// bytes, when known.
 async fn drive_of(uri: &str) -> (String, Option<(u64, u64)>) {
     let file = gio::File::for_uri(uri);
-    // Local and GVfs mounts answer from their mount tables, at once.
-    let name = match file.find_enclosing_mount(gio::Cancellable::NONE) {
-        Ok(mount) => mount.name().to_string(),
-        Err(_) if uri.starts_with("file://") => gettext("Local Disk"),
-        Err(_) => location_name(uri),
+    // Local and GVfs mounts answer from their mount tables, but a kernel
+    // mount of a share may be asked too: the question waits for it at most
+    // a moment, off the main thread.
+    let looked = file.clone();
+    let asked = gio::spawn_blocking(move || {
+        looked
+            .find_enclosing_mount(gio::Cancellable::NONE)
+            .map(|mount| mount.name().to_string())
+            .ok()
+    });
+    let mount = glib::future_with_timeout(crate::bounded_io::MAIN_THREAD_WAIT, asked)
+        .await
+        .ok()
+        .and_then(Result::ok)
+        .flatten();
+    let name = match mount {
+        Some(mount) => mount,
+        None if uri.starts_with("file://") => gettext("Local Disk"),
+        None => location_name(uri),
     };
     let space = file
         .query_filesystem_info_future(
@@ -385,6 +515,41 @@ fn last_name(name: &str) -> &str {
 }
 
 impl BrowserWindow {
+    /// Asks, as Windows does when a rename fails, whether to try renaming
+    /// the item at `uri`, called `name`, again: its caption, what went
+    /// wrong, the item, and Try Again or Cancel. True for Try Again. A
+    /// failure Windows has no such question for (a cancellation, a taken
+    /// name) is shown in the message line instead, and answers false.
+    pub(in crate::window) async fn ask_to_rename_again(
+        &self,
+        uri: &str,
+        name: &str,
+        is_folder: bool,
+        error: &OpsError,
+    ) -> bool {
+        let folder = parent_location(uri)
+            .map(|folder| self.imp().locations.borrow().display_location(&folder))
+            .unwrap_or_default();
+        let Some(said) = rename_wording(error, is_folder, &folder) else {
+            if !error.is_cancelled() {
+                self.show_message(&error.to_string());
+            }
+            return false;
+        };
+        let text = [said.heading.as_str(), name, said.message.as_str()]
+            .into_iter()
+            .filter(|line| !line.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+        let dialog = Dialog::new(self, &said.caption, &text);
+        let again = dialog.add_button(&gettext("Try Again"), ButtonStyle::Accent);
+        dialog.add_button(&gettext("Cancel"), ButtonStyle::Bordered);
+        dialog.open();
+        let answer = dialog.next_response().await;
+        dialog.finish();
+        answer == Some(again)
+    }
+
     /// An asker for the worker of the operation `cancel` stops: each
     /// question opens over this window, or in that operation's action for a
     /// full drive, and waits.
@@ -400,12 +565,52 @@ impl BrowserWindow {
         ))
     }
 
+    /// Windows' "Location is not available" about the destination folder
+    /// of `item`, whose drive went away after the user skipped an item
+    /// there, as Windows 11's copy says it then (checked in the VM on
+    /// 2026-11-22): a message box with the red error icon and OK alone,
+    /// over the progress window; OK ends the copy.
+    async fn tell_location_unavailable(&self, item: &FailedItem) -> FailureAnswer {
+        let folder = item.destination_folder.as_deref().unwrap_or(&item.uri);
+        let mut location = self.imp().locations.borrow().display_location(folder);
+        if !location.ends_with(['/', '\\']) {
+            location.push(if location.starts_with("\\\\") { '\\' } else { '/' });
+        }
+        let text = format_message(
+            "{location} is unavailable. If the location is on this PC, make sure the device or drive is \
+             connected or the disc is inserted, and then try again. If the location is on a network, make \
+             sure you're connected to the network or Internet, and then try again. If the location still \
+             can't be found, it might have been moved or deleted.",
+            &[("location", &location)],
+        );
+        let title = gettext("Location is not available");
+        let progress = self
+            .context()
+            .progress_window()
+            .filter(|progress| !progress.actions().is_empty());
+        let dialog = match &progress {
+            Some(progress) => {
+                progress.show_question();
+                let dialog = crate::dialog::Dialog::error_box(progress, &title, &text);
+                progress.group_for_questions().add_window(&dialog);
+                dialog
+            }
+            None => crate::dialog::Dialog::error_box(self, &title, &text),
+        };
+        dialog.add_button(&gettext("OK"), crate::window::ButtonStyle::Accent);
+        dialog.open();
+        dialog.next_response().await;
+        dialog.finish();
+        FailureAnswer::Cancel
+    }
+
     /// Asks about `item` in its operation's action; Cancel and closing the
     /// progress window cancel the operation.
     async fn ask_about_failure(&self, item: &FailedItem, cancel: &Cancellation) -> FailureAnswer {
         match item.cause {
             FailureCause::NoSpace => return self.ask_about_space(item, cancel).await,
             FailureCause::NeedsAttention => return self.tell_about_failure(item, cancel).await,
+            FailureCause::LocationUnavailable => return self.tell_location_unavailable(item).await,
             _ => {}
         }
         let (question, shown_uri) = self.question_about(item).await;
@@ -425,9 +630,16 @@ impl BrowserWindow {
             .filter(|line| !line.is_empty())
             .collect::<Vec<_>>()
             .join("\n\n");
-        let lines = entry.as_ref().map(facts_lines).unwrap_or_default();
+        let dimensions = picture_dimensions(&shown_uri).await;
+        let lines = entry
+            .as_ref()
+            .map(|entry| facts_lines_of(entry, dimensions))
+            .unwrap_or_default();
         let card = || item_card(&name, icon_of(entry.as_ref(), &name), &lines).upcast::<gtk::Widget>();
         let panel = self.panel_for_operation(cancel);
+        // Windows asks about a write-protected drive without "Do this for
+        // all current items", and with More details greyed.
+        let write_protected = question == Question::WriteProtected;
         let administrator = matches!(question, Question::DestinationDenied | Question::AdminDelete);
         // A refusal cannot be tried again: Skip comes first, then Cancel.
         let refused = question == Question::InsideSource;
@@ -445,8 +657,12 @@ impl BrowserWindow {
                 caption: wording.caption.clone(),
                 text: text.clone(),
                 card: card(),
-                details: self.failure_details(item),
-                for_all: item.more_items,
+                details: if write_protected {
+                    Vec::new()
+                } else {
+                    self.failure_details(item)
+                },
+                for_all: item.more_items && !write_protected,
                 first,
                 second: (!refused).then(|| gettext("Skip")),
                 cancel: true,
@@ -623,9 +839,13 @@ impl BrowserWindow {
             FailureCause::InUse => (Question::InUse, item.uri.clone()),
             FailureCause::NotFound => (Question::NotFound, item.uri.clone()),
             FailureCause::InsideSource => (Question::InsideSource, item.uri.clone()),
-            FailureCause::NoSpace | FailureCause::Other | FailureCause::NeedsAttention => {
-                (Question::Unexpected, item.uri.clone())
+            FailureCause::Other if is_write_protected(&item.error) => {
+                (Question::WriteProtected, item.uri.clone())
             }
+            FailureCause::NoSpace
+            | FailureCause::Other
+            | FailureCause::NeedsAttention
+            | FailureCause::LocationUnavailable => (Question::Unexpected, item.uri.clone()),
         }
     }
 
@@ -660,7 +880,7 @@ mod tests {
         FailedItem {
             mode,
             name: "Reports/2026/plan.docx".into(),
-            error: "Input/output error".into(),
+            error: "The request could not be performed because of an I/O device error.".into(),
             more_items: true,
             cause,
             uri: "file:///home/sample/Reports/2026/plan.docx".into(),
@@ -752,7 +972,10 @@ mod tests {
         assert!(unexpected
             .heading
             .starts_with("An unexpected error is keeping you from copying the file."));
-        assert_eq!(unexpected.message, "Input/output error");
+        assert_eq!(
+            unexpected.message,
+            "Error 0x8007045D: The request could not be performed because of an I/O device error."
+        );
     }
 
     /// A full drive says how much the item needs and what to do, as

@@ -212,6 +212,10 @@ struct Opening {
     target: String,
 }
 
+/// The class of a tile whose Properties Alt+Enter opens: the location
+/// its widget is named by.
+const PROPERTIES_TILE_CLASS: &str = "tile-properties";
+
 /// One tile of This PC and what it does.
 struct Tile {
     child: gtk::FlowBoxChild,
@@ -528,18 +532,16 @@ fn popup_heading_menu(page: &gtk::Box, group: Group, point: gtk::graphene::Point
     // The folder view's heading menu, as Windows 11 words both
     // (`group_headings.rs`), with nothing below it.
     let entries = super::group_headings::this_pc_heading_entries(collapsed);
-    let popover = MenuPopover::new(classic_or_compact(entries, style));
+    // The pane keeps one heading menu and shows it again each time
+    // ([`MenuPopover::kept_by`]).
+    let popover = MenuPopover::kept_by(&owner, "heading-menu");
+    popover.set_entries(classic_or_compact(entries, style));
     popover.set_style_and_strip(style, Vec::new());
     popover.set_offset(0, 0);
     popover.set_position(gtk::PositionType::Bottom);
-    popover.set_parent(&owner);
     #[expect(clippy::cast_possible_truncation, reason = "pointer positions are small")]
     let pointing_to = gtk::gdk::Rectangle::new(point.x() as i32, point.y() as i32, 1, 1);
     popover.set_pointing_to(Some(&pointing_to));
-    popover.connect_closed(|popover| {
-        let closed = popover.clone();
-        glib::idle_add_local_once(move || closed.unparent());
-    });
     popover.popup();
 }
 
@@ -650,6 +652,25 @@ fn focus_header(header: &gtk::Button) {
 /// would leave the cursor behind.
 fn focus_tile(child: &gtk::FlowBoxChild) {
     child.child_focus(gtk::DirectionType::TabForward);
+}
+
+/// Gives This PC's `page` the keyboard, on its first tile, as a folder
+/// view takes it when it opens: GTK's tile box selects the tile it moves
+/// to, so a page with nothing selected keeps nothing selected, as Windows
+/// 11's This PC opens ("2 items", no selection). The tile keeps the box's
+/// cursor, which the arrows and Space start from. `false` when nothing on
+/// the page could take the keyboard.
+pub(super) fn focus_page(page: &gtk::Box) -> bool {
+    let nothing_selected = tile_boxes(page).all(|flow| flow.selected_children().is_empty());
+    let focused = page.child_focus(gtk::DirectionType::TabForward);
+    if nothing_selected && page.has_css_class(THIS_PC_CLASS) {
+        across_groups(|| {
+            for flow in tile_boxes(page) {
+                flow.unselect_all();
+            }
+        });
+    }
+    focused
 }
 
 /// The first or last tile of `flow`.
@@ -901,6 +922,11 @@ fn tile_group(page: &gtk::Box, group: Group, tiles: Vec<Tile>) {
     page.append(&flow);
     for tile in &tiles {
         flow.append(&tile.child);
+        // The Details pane's Properties opens what Alt+Enter does: the
+        // location a tile is named by ([`tile_facts`]).
+        if tile.properties.as_deref() == Some(tile.child.widget_name().as_str()) {
+            tile.child.add_css_class(PROPERTIES_TILE_CLASS);
+        }
     }
     let tiles = Rc::new(tiles);
     // The tiles are held by the box's own handlers; their gestures hold
@@ -975,6 +1001,8 @@ pub(super) struct TileFacts {
     /// What the tile says under its name: "27.6 GB free of 252 GB", or
     /// that it connects when opened.
     pub(super) note: Option<String>,
+    /// The location Alt+Enter shows the Properties of, if it can.
+    pub(super) properties: Option<String>,
 }
 
 /// The tiles of This PC in `page`, or `None` when `page` shows another
@@ -1017,6 +1045,9 @@ fn tile_facts(child: &gtk::FlowBoxChild) -> TileFacts {
         name: text_with("tile-name").unwrap_or_default(),
         art,
         note: text_with("card-sub"),
+        properties: child
+            .has_css_class(PROPERTIES_TILE_CLASS)
+            .then(|| child.widget_name().to_string()),
     }
 }
 
@@ -1357,7 +1388,7 @@ mod tests {
             size: 270_553_174_016,
             free: 29_600_000_000,
         };
-        assert_eq!(capacity.text(), "27.5 GB free of 251 GB");
+        assert_eq!(capacity.text(), "27.5\u{a0}GB free of 251\u{a0}GB");
         assert_eq!(
             capacity.text(),
             ox_core::format::short_size(29_600_000_000)

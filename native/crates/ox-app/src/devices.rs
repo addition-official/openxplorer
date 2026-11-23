@@ -96,6 +96,29 @@ impl Removal {
         }
     }
 
+    /// What the message says when the removal of the drive `label`
+    /// failed with `error`: a drive still in use is refused in the words
+    /// of Windows 11's box, which say what to do; anything else in the
+    /// system's words.
+    pub(crate) fn failure_detail(error: &NetworkError, label: &str) -> String {
+        let is_busy = matches!(
+            error,
+            NetworkError::Gio(error) if error.matches(gio::IOErrorEnum::Busy)
+        );
+        if is_busy {
+            [
+                ox_core::i18n::format_message("'{drive}' is currently in use.", &[("drive", label)]),
+                ox_core::i18n::gettext(
+                    "Save any open files on this disc, and then close the files or programs using the files \
+                     before trying again.",
+                ),
+            ]
+            .join("\n\n")
+        } else {
+            error.to_string()
+        }
+    }
+
     /// Whether the user already heard about `error`: they cancelled, or
     /// GTK's dialog showed why (`G_IO_ERROR_FAILED_HANDLED`, which GIO asks
     /// never to report again).

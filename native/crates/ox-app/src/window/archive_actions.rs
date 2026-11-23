@@ -370,6 +370,7 @@ impl BrowserWindow {
                     // A lone top-level folder becomes the output (ARC-025).
                     let lifted = gio::spawn_blocking(move || lift_single_folder(extracted)).await;
                     let lifted = lifted.unwrap_or_else(|panic| std::panic::resume_unwind(panic));
+                    self.remember_extraction(&lifted.uri);
                     return Ok(extraction_success_text(&lifted));
                 }
                 Err(error) => return Err(error),
@@ -448,12 +449,21 @@ impl BrowserWindow {
             uri: created.uri.clone(),
             kind: ItemKind::File,
         };
+        // An archive that lacks selected items says so instead of being
+        // renamed in place (ARC-023): the message names what is missing.
+        let left_out = crate::archive_view::left_out_text(created);
         let undisturbed = origin.is_some_and(|tab| self.is_undisturbed_since(generation, tab, folder));
-        if undisturbed {
+        if undisturbed && left_out.is_none() {
             self.rename_created(Ok(item));
         } else {
             self.context().record_operation(item.undo_record());
             self.reload_tabs_showing(folder);
+        }
+        if let Some(text) = left_out {
+            self.show_result_dialog(
+                &ox_core::i18n::gettext(crate::archive_view::ITEMS_LEFT_OUT),
+                &text,
+            );
         }
     }
 

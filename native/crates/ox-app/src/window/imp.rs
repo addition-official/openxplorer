@@ -30,6 +30,7 @@ use super::session::Session;
 use super::session::TabId;
 use super::settings_tab::SettingsTabState;
 use super::sidebar::Sidebar;
+use super::star_prompt::StarPrompt;
 use super::status_bar::StatusBar;
 use super::tab_commands::ClosedTab;
 use super::tab_moves::OutgoingTabDrag;
@@ -89,6 +90,9 @@ pub(crate) struct BrowserWindow {
     pub(super) sidebar_show_all: Cell<bool>,
     /// How many items the Recycle Bin holds, as its sidebar row shows.
     pub(super) trash_items: Cell<u32>,
+    /// The folder last asked whether its drive may be written, and the
+    /// answer: true when its file system is read-only (New is greyed).
+    pub(super) read_only_drive: RefCell<(String, bool)>,
     /// The generation of the icons chosen in File icons (LOOK-029) the
     /// details pane last showed.
     pub(super) file_icons_shown: Cell<u32>,
@@ -137,6 +141,15 @@ pub(crate) struct BrowserWindow {
     /// How many times its 100% size the window's text is drawn, which
     /// widens the sidebar's default width; 0 until it is drawn.
     pub(super) sidebar_text_scale: Cell<f64>,
+    /// The sidebar width the user chose, or the text size's default,
+    /// which the window shows whenever it is wide enough; `None` until
+    /// the sidebar is first placed.
+    pub(super) sidebar_wanted: Cell<Option<i32>>,
+    /// While the window itself moves the sidebar to fit its width, which
+    /// is not a width anyone chose.
+    pub(super) fitting_sidebar: Cell<bool>,
+    /// Whether a fit of the sidebar to the window's width waits to run.
+    pub(super) sidebar_fit_pending: Cell<bool>,
     /// The modifiers held at the last key press or click in a folder view,
     /// which decide how an activated folder opens (TAB-026).
     pub(super) view_modifiers: Cell<Option<gtk::gdk::ModifierType>>,
@@ -152,6 +165,9 @@ pub(crate) struct BrowserWindow {
     /// Pops up when the daily check finds a newer release.
     #[template_child]
     pub(super) update_notice: TemplateChild<UpdateNotice>,
+    /// Asks for a GitHub star once the app has started a few times.
+    #[template_child]
+    pub(super) star_prompt: TemplateChild<StarPrompt>,
     /// Counts, the type-to-select hint and the view buttons.
     #[template_child]
     pub(super) status_bar: TemplateChild<StatusBar>,
@@ -175,6 +191,9 @@ pub(crate) struct BrowserWindow {
     /// The place menu last opened on a page (a This PC tile), its folder
     /// pane and where in it, for "Show more options".
     pub(super) place_menu: RefCell<Option<super::place_menus::OpenPlaceMenu>>,
+    /// Where the rows of the Back or Forward history menu open now, for
+    /// a middle-click on one.
+    pub(super) history_targets: RefCell<Vec<super::history_menu::StepTarget>>,
     /// What every window shares: the skin, settings and places. It
     /// comes from the application, so [`super::BrowserWindow::new`]
     /// sets it.
@@ -276,6 +295,10 @@ pub(crate) struct BrowserWindow {
     /// after Settings hides; see
     /// [`super::BrowserWindow::focus_new_file_list`].
     pub(super) file_list_awaits_focus: Cell<bool>,
+    /// The item a folder opened from outside or typed into the address bar
+    /// rang without selecting it, until the next key in the file list:
+    /// Up or Down then moves on from it, as in Windows 11 (SEL-020).
+    pub(super) ringed_item: Cell<Option<u32>>,
     /// Folder Options' "Always search file names and contents" as the
     /// window last followed it; `None` until it first did.
     pub(super) searches_contents: Cell<Option<bool>>,
@@ -311,6 +334,10 @@ pub(crate) struct BrowserWindow {
     pub(super) first_offer: RefCell<Option<FirstOffer>>,
     /// What the label on the drag icon says over the window (DND-028).
     pub(super) drop_labels: RefCell<DropLabels>,
+    /// Whether the items of this process's drag are all drives, with
+    /// the drag generation it was read at: read once per drag, not at
+    /// each motion (`file_drop/action.rs`).
+    pub(super) drags_drives: Cell<Option<(u64, bool)>>,
     /// The drag the window last said it refuses, so it says so once.
     pub(super) explained_drop: RefCell<Option<glib::WeakRef<glib::Object>>>,
     /// The drop menu, built when first needed.
@@ -366,8 +393,10 @@ pub(crate) struct BrowserWindow {
     /// The in-window dialogs, Properties by tab, and the tabs that
     /// browse snapshots.
     pub(super) item_dialogs: super::item_dialogs::ItemDialogs,
+    /// The computers under Network in the navigation pane.
+    pub(super) network_pane: super::network_pane::NetworkPane,
     /// Network's info bar, shown while discovery cannot run.
-    pub(super) network_info_bar: OnceCell<gtk::Button>,
+    pub(super) network_info_bar: OnceCell<super::network_info_bar::NetworkInfoBar>,
     /// The rename a slow second click on a name scheduled (OPS-011).
     pub(super) slow_click_rename: super::slow_click_rename::SlowClickRename,
     /// Measured folder sizes and the running folder-size scan.
@@ -395,6 +424,7 @@ impl ObjectSubclass for BrowserWindow {
         TransferPanel::ensure_type();
         Toast::ensure_type();
         UpdateNotice::ensure_type();
+        StarPrompt::ensure_type();
         StatusBar::ensure_type();
         SettingsPage::ensure_type();
         klass.bind_template();

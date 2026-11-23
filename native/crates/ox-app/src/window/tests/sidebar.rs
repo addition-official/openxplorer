@@ -381,6 +381,7 @@ fn a_volume_to_mount_is_not_dragged_and_a_drop_mounts_it() {
         pinned: false,
         menu: None,
         eject: None,
+        expander: None,
     };
     sidebar.set_entries(vec![volume]);
     wait_for_frames(&test.window, 3);
@@ -504,10 +505,12 @@ fn add_entry_pins_a_typed_location_and_edit_changes_it_in_place() {
         .sidebar()
         .menu_entries_at(100_000.0)
         .expect("a menu on empty space");
-    let MenuEntry::Item(add) = &menu[0] else {
-        panic!("Add entry… comes first");
-    };
-    assert_eq!(add.label, "Add entry…");
+    // After Windows' own items (Show This PC … Expand to current folder).
+    let add = menu.iter().find_map(|entry| match entry {
+        MenuEntry::Item(item) if item.action == WindowAction::AddPlace.into() => Some(item),
+        _ => None,
+    });
+    assert_eq!(add.map(|item| item.label.as_str()), Some("Add entry…"));
 
     test.activate("add-place", None);
     answer_place_dialog(&test, "Docs", &fixture.path("Documents").to_string_lossy());
@@ -706,10 +709,11 @@ fn this_pc_and_network_menus_list_windows_items_in_its_order() {
             "Show more options",
         ]
     );
+    // Network starts collapsed, as in Windows 11 (SIDE-035).
     assert_eq!(
         menu_labels("Network"),
         [
-            "Collapse",
+            "Expand",
             "Open in new tab",
             "Open in new window",
             "Map network drive…",
@@ -1075,4 +1079,32 @@ fn recent_locations_lists_visited_folders_and_clear_forgets_them() {
     );
     assert!(recent_folder_uris().is_empty());
     wait_until("the cleared list", || test.names().is_empty());
+}
+
+/// The Recycle Bin's menu is as wide as its longest row, so "Hide section
+/// “Recent files and Recycle Bin”" reads in full rather than cut off.
+///
+/// parity: SIDE-010
+#[gtk::test]
+fn the_recycle_bin_menu_is_as_wide_as_its_longest_row() {
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    let sidebar = test.window.sidebar();
+    wait_for_frames(&test.window, 3);
+
+    let menu = sidebar.right_click_row("Recycle Bin");
+    wait_for_frames(&test.window, 3);
+    let labels = descendants::<gtk::Label>(&menu);
+    let menu_width = menu.width();
+    menu.popdown();
+
+    let hide_section = labels
+        .iter()
+        .find(|label| label.label().starts_with("Hide section"))
+        .expect("the Hide section row");
+    assert!(
+        !hide_section.layout().is_ellipsized(),
+        "{:?} is cut off in a menu {menu_width} pixels wide",
+        hide_section.label()
+    );
 }

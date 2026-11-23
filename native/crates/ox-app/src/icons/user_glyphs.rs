@@ -90,7 +90,6 @@ pub(crate) const fn windows_source(icon: Icon) -> WindowsSource {
         Icon::CircleSmallFilled => glyph(0xE915, "RadioBullet"),
         Icon::ClipboardPaste => glyph(0xE77F, "Paste"),
         Icon::Clock => glyph(0xE917, "Clock"),
-        Icon::Code => glyph(0xE943, "Code"),
         Icon::Copy => glyph(0xE8C8, "Copy"),
         Icon::Cut => glyph(0xE8C6, "Cut"),
         Icon::Delete => glyph(0xE74D, "Delete"),

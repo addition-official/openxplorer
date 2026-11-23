@@ -19,10 +19,16 @@ mod network;
 mod quick_access;
 mod user_dirs;
 
+/// Reads `text` as `user-dirs.dirs`, for the fuzz targets.
+#[cfg(feature = "fuzzing")]
+pub(crate) fn fuzz_user_dirs(text: &str) {
+    let _ = user_dirs::parse(text, std::path::Path::new("/home/alex"));
+}
+
 pub use desktop_bookmarks::{bookmarks_file, merged_bookmarks, sync_bookmarks, MergedBookmarks};
 pub use known_folders::{FolderLocations, KnownFolder, KnownFolderPaths};
 pub use network::{
     merge_network_locations, network_key, NetworkKey, NetworkKind, NetworkLocation, NetworkMount, SavedShare,
     StableMount,
 };
-pub use quick_access::{compose_quick_access, quick_access, Place};
+pub use quick_access::{compose_quick_access, pinned_folders, pinned_standard_folders, quick_access, Place};

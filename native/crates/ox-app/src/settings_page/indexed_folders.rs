@@ -58,7 +58,7 @@ const LIMITS_NOTE: &str = crate::i18n::message_id(
 
 /// What the "Indexed folders" group says while the index keeps nothing.
 const NOTHING_INDEXED: &str =
-    crate::i18n::message_id("No folders are indexed yet. Add one below, or pin a folder to Quick access.");
+    crate::i18n::message_id("No folders are indexed. Add one below. Folders pinned to Quick access are indexed while “Index pinned folders automatically” is on.");
 
 const ADD_FOLDER: RowText = RowText {
     title: "Add a folder",
@@ -193,7 +193,10 @@ fn add_folder_field() -> gtk::Entry {
             "Add a folder: /home/you/Projects or \\\\nas\\share",
         ))
         .hexpand(true)
-        .width_chars(36)
+        // 36 characters when there is room, down to 12 at a large text
+        // size in a narrow window, rather than widening the page.
+        .width_chars(12)
+        .max_width_chars(36)
         .build();
     field.update_property(&[gtk::accessible::Property::Label(&ox_core::i18n::gettext(
         "Folder to cache",

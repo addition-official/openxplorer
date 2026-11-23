@@ -25,6 +25,7 @@ use crate::test_support::python::{python_preference, python_saves_preferences};
 use crate::text_size::TextSize;
 use crate::window::WindowAction;
 
+mod column_header;
 mod indexing;
 mod moved_from_more;
 mod passwordless;
@@ -361,8 +362,11 @@ fn the_search_finds_what_buttons_options_and_headings_show() {
             typed: "refresh all",
             category: Category::Search,
             shows_status_card: true,
-            // "all" is in the privacy note ("locally"), in the row's ⓘ.
-            shown: &["Indexed folders", "Check network and unwatched folders every"],
+            // The card's Refresh all button names both words, so a row
+            // with "all" only in its ⓘ note ("locally"), Indexed folders,
+            // is left out; the network row's keywords name both
+            // ("refresh", "fallback").
+            shown: &["Check network and unwatched folders every"],
         },
         ShownTextCase {
             typed: "make openxplorer default",
@@ -422,7 +426,7 @@ fn enter_on_a_status_card_match_jumps_to_the_card() {
         .next()
         .expect("Search has a status card");
     assert!(card.has_css_class("jump-target"));
-    assert_eq!(settings.page.imp().match_count().text(), "3 matching settings");
+    assert_eq!(settings.page.imp().match_count().text(), "2 matching settings");
 }
 
 /// parity: SET-019
@@ -555,12 +559,14 @@ fn escape_leaves_the_search_and_shows_every_row_again() {
             "Windows icon files",
             "Windows symbol font",
             "Compact view",
+            "Column header style",
             "Hide expand arrows in the sidebar",
             "Show more items in the navigation pane",
             "Show more items in the tab menu",
             "Right-click menu",
             "Buttons in the right-click menu",
             "Shift+F10 opens the classic menu",
+            "F6 moves like Windows",
             "Sidebar and column widths"
         ]
     );
@@ -829,6 +835,31 @@ fn the_shift_f10_switch_is_off_and_saves_the_choice() {
     });
 }
 
+/// "F6 moves like Windows" sits with the keyboard's Shift+F10 row, is off
+/// by default, as F6's own cycle (ACC-015) was designed, and saves the
+/// choice, which the open window then takes up.
+///
+/// parity: ACC-015
+#[gtk::test]
+fn the_f6_like_windows_switch_is_off_and_saves_the_choice() {
+    let settings = SettingsTest::open();
+    let row = settings.row("F6 moves like Windows");
+    let switch = switch_of(&row);
+    assert!(!switch.is_active(), "off by default");
+
+    switch.set_active(true);
+    wait_until("the choice to be saved", || {
+        settings.saved_preferences().f6_like_windows
+    });
+    wait_until("the window to follow", || {
+        settings.test.context.settings_data().preferences.f6_like_windows
+    });
+    switch.set_active(false);
+    wait_until("the choice to be saved off", || {
+        !settings.saved_preferences().f6_like_windows
+    });
+}
+
 /// The Compact view switch is off by default and saves the choice
 /// (VIEW-067), which the open window then takes up.
 ///
@@ -932,6 +963,65 @@ fn the_replaced_files_switch_is_on_by_default_and_saves_only_its_turning_off() {
         !stored.contains("recycleReplacedFiles"),
         "stored only when off: {stored}"
     );
+}
+
+/// "Restore over the original (Windows)" is in Files & folders, off by
+/// default (the owner's choice), and saves only its turning on, which
+/// Previous Versions' Restore follows.
+///
+/// parity: PROP-025
+#[gtk::test]
+fn the_restore_over_the_original_switch_is_off_by_default_and_saves_only_its_turning_on() {
+    let settings = SettingsTest::open();
+    let switch = switch_of(&settings.row("Restore over the original (Windows)"));
+    assert!(!switch.is_active(), "off by default");
+    assert!(!settings.test.window.restores_over_original());
+
+    switch.set_active(true);
+    wait_until("the choice to be saved", || {
+        settings.saved_preferences().restore_over_original
+    });
+    let stored = std::fs::read_to_string(settings.test.settings_directory().join("settings.json")).unwrap();
+    assert!(stored.contains("restoreOverOriginal"), "stored when on: {stored}");
+    wait_until("the window to follow", || {
+        settings.test.window.restores_over_original()
+    });
+
+    switch.set_active(false);
+    wait_until("the choice to be saved", || {
+        !settings.saved_preferences().restore_over_original
+    });
+    let stored = std::fs::read_to_string(settings.test.settings_directory().join("settings.json")).unwrap();
+    assert!(
+        !stored.contains("restoreOverOriginal"),
+        "stored only when on: {stored}"
+    );
+}
+
+/// Settings > Search > "Match words at the start of file extensions (like
+/// Windows)" is off by default, the owner's rule, and the searches started
+/// after it is turned on match words from an extension's start.
+///
+/// parity: SRCH-004
+#[gtk::test]
+fn the_extension_word_switch_is_off_by_default_and_reaches_the_searches() {
+    let settings = SettingsTest::open();
+    let title = "Match words at the start of file extensions (like Windows)";
+    let switch = switch_of(&settings.row_in(Category::Search, title));
+    assert!(!switch.is_active(), "off by default");
+    let finds_docx = || ox_core::search::NamePattern::new("doc").matches("report.docx");
+    assert!(!finds_docx());
+
+    switch.set_active(true);
+    wait_until("the choice to be saved", || {
+        settings.saved_preferences().extension_word_starts
+    });
+    wait_until("the searches to follow", finds_docx);
+    let stored = std::fs::read_to_string(settings.test.settings_directory().join("settings.json")).unwrap();
+    assert!(stored.contains("extensionWordStarts"), "stored when on: {stored}");
+
+    switch.set_active(false);
+    wait_until("the searches to follow", || !finds_docx());
 }
 
 /// "Show thumbnails in network folders" is off by default, as Windows 11
@@ -1247,6 +1337,46 @@ fn windows_folder_option_words_find_their_settings() {
     }
 }
 
+/// A search of several words shows the settings that every word names,
+/// in their titles, keywords or controls: "hidden files" no longer also
+/// shows Indexed folders, whose note says "hidden" and whose description
+/// says "files", and "status bar" no longer shows the Update button row,
+/// whose description mentions the status bar. Words that only a
+/// description has still find its setting.
+///
+/// parity: SET-019
+#[gtk::test]
+fn several_words_find_the_settings_they_all_name() {
+    let settings = SettingsTest::open();
+    let cases: [(&str, &str, &str); 2] = [
+        (
+            "hidden files",
+            "Show hidden files, folders, and drives",
+            "Indexed folders",
+        ),
+        (
+            "status bar",
+            "Folder Options",
+            "Show the Update button in the command bar",
+        ),
+    ];
+    for (typed, found, left_out) in cases {
+        settings.page.search(typed);
+        let shown = settings.shown_rows();
+        assert!(shown.contains(&found), "{typed:?} finds {found:?}: {shown:?}");
+        assert!(
+            !shown.contains(&left_out),
+            "{typed:?} leaves out {left_out:?}: {shown:?}"
+        );
+    }
+    settings.page.search("unpinning removes");
+    let shown = settings.shown_rows();
+    assert!(
+        shown.contains(&"Index pinned folders automatically"),
+        "a description's words: {shown:?}"
+    );
+}
+
 /// Files & folders > Folder views shows and changes the hidden files and
 /// the file name extensions that Ctrl+H, View > Show and Folder Options
 /// change, in step with them, and its Open Folder Options button opens
@@ -1450,6 +1580,104 @@ fn the_dragging_help_says_alt_creates_shortcuts() {
     assert!(!text.contains("Alt to choose"), "{text}");
 }
 
+/// The category list is one Tab stop, as Windows 11 Settings' list is:
+/// real Tab from a category goes on to "Back to files" and Shift+Tab back
+/// to the search, without opening another category. GTK's list box took
+/// Tab as Down, so each Tab opened the next category until the list
+/// ended.
+///
+/// parity: ACC-016
+#[gtk::test]
+fn tab_leaves_the_category_list_without_opening_another_category() {
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    // Before the window opens, which a new pointer would put away.
+    let mut pointer = crate::test_support::pointer::Pointer::connect();
+    test.activate("settings", None);
+    let page = settings_page_of(&test);
+    let list = page.imp().category_list.get();
+    wait_until("Settings shows", || list.is_mapped());
+    let chosen = list.selected_row().expect("a category is chosen");
+    chosen.grab_focus();
+    let (x, y) = crate::test_support::pointer::screen_point(&mut pointer, &test.window, (4.0, 4.0), (8, 8));
+    // The keyboard follows the pointer on the private display. It rests on
+    // the window's edge, where no widget has a tooltip: left over a row, it
+    // stayed where later tests' windows show the navigation pane's
+    // tooltips.
+    pointer.move_to(x, y);
+    wait_until("the category has the keyboard", || chosen.has_focus());
+
+    pointer.tap_key(gtk::gdk::Key::Tab);
+    let back = page.back_to_files_button();
+    wait_until("Tab moves on to Back to files", || back.has_focus());
+    assert_eq!(
+        list.selected_row().as_ref(),
+        Some(&chosen),
+        "no other category opened"
+    );
+
+    chosen.grab_focus();
+    pointer.hold_key(gtk::gdk::Key::Shift_L);
+    pointer.tap_key(gtk::gdk::Key::Tab);
+    pointer.let_go_key(gtk::gdk::Key::Shift_L);
+    let search = page.imp().search_entry.get();
+    wait_until("Shift+Tab goes back to the search", || {
+        search.has_focus() || search.focus_child().is_some()
+    });
+    assert_eq!(
+        list.selected_row().as_ref(),
+        Some(&chosen),
+        "no other category opened"
+    );
+}
+
+/// Real Tab leaves the theme cards from the chosen one, as a radio group
+/// is one Tab stop, and the real Right arrow moves to the next card and
+/// chooses it. GTK's flow box kept Tab on the cards (it claimed the key
+/// though the next card's radio declined it) and took the arrow keys for
+/// a cursor no card could hold, so the theme could not be changed from the
+/// keyboard.
+///
+/// parity: SET-019, ACC-016
+#[gtk::test]
+fn tab_leaves_the_theme_cards_and_the_arrows_still_choose() {
+    let _theme = ThemeGuard::keep();
+    let settings = SettingsTest::open();
+    // Before the page shows, which a new pointer would put away.
+    let mut pointer = crate::test_support::pointer::Pointer::connect();
+    settings
+        .page
+        .show_view(SettingsView::Category(Category::Appearance));
+    let system = settings.theme_radio("System");
+    let light = settings.theme_radio("Light");
+    let dark = settings.theme_radio("Dark");
+    system.activate();
+    wait_until("the cards to be laid out", || dark.width() > 0);
+    assert!(system.grab_focus());
+    let (x, y) =
+        crate::test_support::pointer::screen_point(&mut pointer, &settings.test.window, (4.0, 4.0), (8, 8));
+    // The keyboard follows the pointer on the private display. It rests on
+    // the window's edge, where no widget has a tooltip.
+    pointer.move_to(x, y);
+    let radios = [&system, &light, &dark];
+    let in_cards = || radios.iter().any(|radio| radio.has_focus());
+
+    pointer.tap_key(gtk::gdk::Key::Tab);
+    wait_until("Tab leaves the theme cards", || !in_cards());
+    assert!(system.is_active(), "the choice is kept");
+
+    pointer.hold_key(gtk::gdk::Key::Shift_L);
+    pointer.tap_key(gtk::gdk::Key::Tab);
+    pointer.let_go_key(gtk::gdk::Key::Shift_L);
+    wait_until("Shift+Tab comes back to the chosen card", || system.has_focus());
+
+    pointer.tap_key(gtk::gdk::Key::Right);
+    wait_until("Right moves to the next card", || light.has_focus());
+    assert!(light.is_active(), "and chooses it");
+    pointer.tap_key(gtk::gdk::Key::Tab);
+    wait_until("Tab leaves the theme cards from the new choice", || !in_cards());
+}
+
 /// "Icons from Windows icon files" is off by default with no file chosen;
 /// turned on with chosen files, it saves both, says how many icons the
 /// files gave, and the navigation pane draws them. The files are
@@ -1551,53 +1779,19 @@ fn icons_from_windows_icon_files_are_off_until_chosen() {
 /// Windows icon files are on, and Clear forgets it. The font is
 /// synthetic; the file dialog itself is GTK's and is not driven.
 ///
-/// parity: LOOK-031
+
+/// "Run installed apps' launchers on double-click" is off, as opening never
+/// runs anything by default (OPEN-007), and saves the choice.
+///
+/// parity: OPEN-029
 #[gtk::test]
-fn the_windows_symbol_font_row_saves_the_path_and_counts_the_glyphs() {
-    use ox_core::windows_glyphs::synthetic::SyntheticFont;
-
-    use crate::icons::user_glyphs;
-
+fn the_run_installed_launchers_switch_is_off_and_saves_the_choice() {
     let settings = SettingsTest::open();
-    let row = settings.row("Windows symbol font");
-    assert_eq!(row.shown_description(), "No font chosen");
-    let clear = row
-        .controls()
-        .into_iter()
-        .filter_map(|control| control.downcast::<gtk::Button>().ok())
-        .find(|button| button.label().as_deref() == Some("Clear"))
-        .expect("a Clear button");
-    assert!(!clear.is_sensitive());
+    let switch = switch_of(&settings.row("Run installed apps' launchers on double-click"));
+    assert!(!switch.is_active(), "off by default");
 
-    let folder = tempfile::tempdir().expect("a temporary folder");
-    let font = folder.path().join("SegoeIcons.ttf");
-    std::fs::write(&font, SyntheticFont::with_codepoints(&[0xE710, 0xE72B]).build()).expect("written");
-    settings
-        .page
-        .save_preferences(ox_core::settings::PreferencesUpdate {
-            symbol_font: Some(font.display().to_string()),
-            ..ox_core::settings::PreferencesUpdate::default()
-        });
-    wait_until("the font to be saved", || {
-        settings.saved_preferences().symbol_font.is_some()
-    });
-    wait_until("the row to say it waits for the switch", || {
-        row.shown_description() == "SegoeIcons.ttf · used while Icons from Windows icon files is on"
-    });
-    switch_of(&settings.row("Icons from Windows icon files")).set_active(true);
-    let expected = format!("SegoeIcons.ttf · 2 of {} glyphs", user_glyphs::glyph_count());
-    wait_until("the glyphs to be counted", || row.shown_description() == expected);
-    assert!(clear.is_sensitive());
-
-    clear.emit_clicked();
-    wait_until("the font to be forgotten", || {
-        settings.saved_preferences().symbol_font.is_none()
-    });
-    wait_until("the row to say so", || {
-        row.shown_description() == "No font chosen"
-    });
-    switch_of(&settings.row("Icons from Windows icon files")).set_active(false);
-    wait_until("the switch to be saved off", || {
-        !settings.saved_preferences().use_icon_files
+    switch.set_active(true);
+    wait_until("the choice to be saved", || {
+        settings.saved_preferences().run_installed_launchers
     });
 }

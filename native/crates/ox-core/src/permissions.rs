@@ -14,6 +14,13 @@
 //! lists the choices.
 
 mod accounts;
+pub mod hidden_list;
+
+/// Reads `text` as `/etc/passwd` or `/etc/group`, for the fuzz targets.
+#[cfg(feature = "fuzzing")]
+pub(crate) fn fuzz_accounts(text: &str) {
+    accounts::fuzz_database(text);
+}
 
 pub use accounts::{current_user_is_superuser, group_choices, user_choices, Account};
 

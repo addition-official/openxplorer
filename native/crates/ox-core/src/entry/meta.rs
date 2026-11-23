@@ -3,7 +3,7 @@
 //! the owner, the permissions and a link's target, which the Sort menu
 //! offers as Dolphin's further sort roles (VIEW-019).
 
-use super::attributes::{string_attribute, time_attribute};
+use super::attributes::{signed_time_attribute, string_attribute};
 
 /// The permission bits of a Unix mode, without the file type.
 const PERMISSION_BITS: u32 = 0o7777;
@@ -13,9 +13,9 @@ const PERMISSION_BITS: u32 = 0o7777;
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct EntryMeta {
     /// Creation time, seconds since the Unix epoch.
-    pub created: Option<u64>,
+    pub created: Option<i64>,
     /// Last access time, seconds since the Unix epoch.
-    pub accessed: Option<u64>,
+    pub accessed: Option<i64>,
     /// The owner's user name.
     pub owner: Option<String>,
     /// The owning group's name.
@@ -29,6 +29,10 @@ pub struct EntryMeta {
     /// name is a hash of it. Kept only when it normalises to a real
     /// location, never a virtual one.
     pub recent_target: Option<String>,
+    /// For an item in the Recycle Bin (`trash:`), the local file that
+    /// holds it in the trash folder, as `GVfs` names it in
+    /// `standard::target-uri`; `None` for any other item.
+    pub trash_file: Option<String>,
     /// For a photo listed in Gallery, when it was taken: its EXIF
     /// `DateTimeOriginal` in local time, seconds since the Unix epoch.
     /// `None` everywhere else, and for a photo without one.
@@ -46,8 +50,8 @@ impl EntryMeta {
             .has_attribute("unix::mode")
             .then(|| info.attribute_uint32("unix::mode") & PERMISSION_BITS);
         Self {
-            created: time_attribute(info, "time::created"),
-            accessed: time_attribute(info, "time::access"),
+            created: signed_time_attribute(info, "time::created"),
+            accessed: signed_time_attribute(info, "time::access"),
             owner: string_attribute(info, "owner::user"),
             group: string_attribute(info, "owner::group"),
             permissions,
@@ -58,6 +62,7 @@ impl EntryMeta {
                 .flatten()
                 .map(|target| target.display().to_string()),
             recent_target: None,
+            trash_file: None,
             taken: None,
             pixel_size: None,
         }

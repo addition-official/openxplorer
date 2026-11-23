@@ -18,7 +18,7 @@ use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
 use ox_core::entry::{self, Entry, EntryError, EntryKind};
 use ox_core::integration;
-use ox_core::location::VirtualPlace;
+use ox_core::location::{typed_address, VirtualPlace};
 use ox_core::ops::is_recycle_bin_item;
 
 use crate::dialog::Dialog;
@@ -34,7 +34,10 @@ use super::slow_location::OpeningKind;
 use super::window_action::WindowAction;
 use super::{BrowserWindow, ButtonStyle};
 
+mod broken_shortcut;
 mod outcome;
+
+pub(super) use broken_shortcut::BrokenShortcut;
 
 /// Why an item cannot be opened (`activation_kind` in activation.py).
 const NOT_OPENABLE: &str = crate::i18n::message_id("This item is not a regular file or a readable folder.");
@@ -51,6 +54,9 @@ enum Resolved {
     /// The file a Recent row stands for is no longer there: "Item Not
     /// Found" says so.
     Gone,
+    /// A shortcut that leads nowhere: "Problem with Shortcut" asks about
+    /// it (OPEN-028).
+    BrokenShortcut(BrokenShortcut),
 }
 
 /// What activating an item does.
@@ -146,7 +152,12 @@ pub(super) fn desktop_link(entry: &Entry) -> Option<Result<LinkTarget, String>> 
         return None;
     }
     let path = gio::File::for_uri(&entry.uri).path()?;
-    let target = link_target_of_file(&path)?;
+    // Read on a worker thread for at most a moment: a link on a share that
+    // stopped answering is opened as the file it is.
+    let target = crate::bounded_io::wait_for(&entry.uri, crate::bounded_io::MAIN_THREAD_WAIT, move || {
+        link_target_of_file(&path)
+    })
+    .flatten()?;
     Some(target.map_err(str::to_owned))
 }
 
@@ -367,23 +378,43 @@ impl BrowserWindow {
     /// is not there any more.
     async fn resolve_activation(&self, entry: &Entry) -> Result<Resolved, String> {
         let stands_for_a_file = entry.meta.recent_target.is_some();
-        let fresh = match self.read_again(entry.opened_uri()).await {
+        let mut fresh = match self.read_again(entry.opened_uri()).await {
             Ok(fresh) => fresh,
             Err(ReadAgain::Gone(_)) if stands_for_a_file => return Ok(Resolved::Gone),
             Err(failure) => return Err(failure.to_string()),
         };
+        // A shortcut opens its target at the target's own address, and a
+        // link to nothing is a broken shortcut (OPEN-027, OPEN-028).
+        match broken_shortcut::link_destination(&fresh).await {
+            Some(ox_core::ops::ShortcutDestination::Found(path)) if fresh.is_shortcut() => {
+                let target = ox_core::location::file_uri(&path);
+                fresh = self
+                    .read_again(&target)
+                    .await
+                    .map_err(|failure| failure.to_string())?;
+            }
+            Some(ox_core::ops::ShortcutDestination::Found(_)) | None => {}
+            Some(destination) => {
+                return Ok(Resolved::BrokenShortcut(broken_shortcut::broken(
+                    &fresh,
+                    destination,
+                )));
+            }
+        }
         // In a file dialog, activating a file chooses it (INT-032).
         if self.is_picking() && matches!(activation_for(&fresh), Activation::File | Activation::Archive) {
             self.pick_activated(&fresh);
             return Ok(Resolved::Opened);
         }
         match activation_for(&fresh) {
-            Activation::Folder(uri) => Ok(Resolved::Folder(uri)),
+            // An SFTP server opens at the account's home, as it was just
+            // mounted (B6).
+            Activation::Folder(uri) => Ok(Resolved::Folder(super::loading::at_remote_home(uri).await)),
             Activation::Archive => Ok(Resolved::Archive(Box::new(fresh))),
             Activation::Refused(message) => Err(message.to_owned()),
             Activation::File => {
                 if let Some(target) = desktop_link(&fresh) {
-                    return self.follow_link(target?).await;
+                    return self.follow_link(&fresh, target?).await;
                 }
                 match self.run_or_open(&fresh).await {
                     RunChoice::Open => {}
@@ -400,17 +431,29 @@ impl BrowserWindow {
         }
     }
 
-    /// Goes where a `.desktop` link points: a folder in the tab, a web
-    /// page or mail address in the desktop's handler (OPEN-009).
-    async fn follow_link(&self, target: LinkTarget) -> Result<Resolved, String> {
+    /// Goes where the `.desktop` link `link` points: a folder in the tab,
+    /// a web page or mail address in the desktop's handler (OPEN-009). A
+    /// folder of this computer that is gone makes it a broken shortcut
+    /// (OPEN-028).
+    async fn follow_link(&self, link: &Entry, target: LinkTarget) -> Result<Resolved, String> {
         match target {
-            LinkTarget::Location(uri) => Ok(Resolved::Folder(uri)),
+            LinkTarget::Location(uri) => match broken_shortcut::location_destination(&uri).await {
+                Some(ox_core::ops::ShortcutDestination::Found(_)) | None => Ok(Resolved::Folder(uri)),
+                Some(destination) => Ok(Resolved::BrokenShortcut(broken_shortcut::broken(
+                    link,
+                    destination,
+                ))),
+            },
             LinkTarget::Web(url) => {
-                gtk::UriLauncher::new(&url)
+                match gtk::UriLauncher::new(&url)
                     .launch_future(Some(self.upcast_ref::<gtk::Window>()))
                     .await
-                    .map_err(|error| error.to_string())?;
-                Ok(Resolved::Opened)
+                {
+                    Err(error) if !error.matches(gtk::DialogError::Dismissed) => {
+                        Err(ox_core::system_error::message_of(&error))
+                    }
+                    _ => Ok(Resolved::Opened),
+                }
             }
         }
     }
@@ -425,11 +468,12 @@ impl BrowserWindow {
             self,
             async move {
                 let outcome = match target {
-                    Ok(target) => window.follow_link(target).await,
+                    Ok(target) => window.follow_link(&entry, target).await,
                     Err(reason) => Err(reason),
                 };
                 match outcome {
                     Ok(Resolved::Folder(uri)) => window.open_tab_or_report(&uri, TabPlacement::Background),
+                    Ok(Resolved::BrokenShortcut(broken)) => window.report_broken_shortcut(broken).await,
                     Ok(Resolved::Archive(_) | Resolved::Opened | Resolved::Gone) => {}
                     Err(reason) => window.report_open_failure(&reason, &entry),
                 }
@@ -535,26 +579,42 @@ impl BrowserWindow {
 
     /// Opens the address `text`, given as `source` says.
     fn open_address(&self, text: &str, source: AddressSource) {
+        if source == AddressSource::Typed {
+            self.focus_first_item_when_listed();
+        }
         let typed = text.trim();
-        if is_web_address(typed) {
+        // As in Windows' address bar, a path may come between double
+        // quotes, as Copy as path copies it, and %NAME% (or $NAME) stands
+        // for an environment variable; the history keeps what was typed.
+        let expanded = typed_address(typed, |name| std::env::var(name).ok());
+        let address = expanded.trim();
+        if is_web_address(address) {
             self.accept_address(typed, source);
-            self.open_web_address(typed);
+            self.open_web_address(address);
             return;
         }
         let current = self.current_uri();
-        let place = self.place_titled(typed);
+        let place = self.place_titled(address);
         let unchanged_page = place.is_some() && place == current;
         // The Recycle Bin's, Recent's and Recent locations' own addresses
         // open them as the pages' do (SIDE-034).
-        let is_page_uri = locations::is_home_alias(typed)
-            || Page::from_uri(typed).is_some()
-            || super::navigation::listed_place(VirtualPlace::from_uri(typed)).is_some();
+        let is_page_uri = locations::is_home_alias(address)
+            || Page::from_uri(address).is_some()
+            || super::navigation::listed_place(VirtualPlace::from_uri(address)).is_some();
         if unchanged_page || is_page_uri {
             self.accept_address(typed, source);
-            self.navigate_or_report(typed);
+            self.navigate_or_report(address);
             return;
         }
-        let folder = match self.resolve_relative(text) {
+        // A standard folder's name opens it from any folder, before a
+        // folder of that name in the current one, as typing "Documents"
+        // in Windows 11 File Explorer opens the user's Documents.
+        if let Some(standard) = self.standard_folder_titled(address) {
+            self.accept_address(typed, source);
+            self.navigate_or_report(&standard);
+            return;
+        }
+        let folder = match self.resolve_relative(address) {
             Ok(folder) => folder,
             Err(error) => {
                 match place {
@@ -704,7 +764,7 @@ impl BrowserWindow {
         let on_error = glib::clone!(
             #[weak(rename_to = window)]
             self,
-            move |error: glib::Error| window.show_message(&error.to_string())
+            move |error: glib::Error| window.show_message(&ox_core::system_error::message_of(&error))
         );
         self.context().open_uri(address, self.upcast_ref(), on_error);
         self.show_message(&ox_core::i18n::format_message(
@@ -828,8 +888,9 @@ impl BrowserWindow {
             IncomingTab::Active => self.navigate(uri),
             IncomingTab::New => self.add_tab(uri),
         };
-        if let Err(error) = opened {
-            self.show_message(&error.to_string());
+        match opened {
+            Ok(()) => self.focus_first_item_when_listed(),
+            Err(error) => self.show_message(&error.to_string()),
         }
     }
 }
@@ -892,5 +953,21 @@ mod tests {
             activation_for(&share),
             Activation::Folder("smb://nas/media".into())
         );
+    }
+
+    /// A `.desktop` link on a mount that stopped answering is not read on
+    /// the main thread: it is taken as no link, at once.
+    #[test]
+    fn a_link_on_a_stalled_mount_is_given_up_at_once() {
+        let folder = tempfile::tempdir().expect("a temporary folder");
+        let path = folder.path().join("Site.desktop");
+        std::fs::write(&path, "[Desktop Entry]\nType=Link\nURL=https://example.com/\n").expect("written");
+        let mut entry = file_entry("Site.desktop");
+        entry.uri = gio::File::for_path(&path).uri().to_string();
+        assert!(matches!(desktop_link(&entry), Some(Ok(LinkTarget::Web(_)))));
+        let _stalled = crate::bounded_io::stall::stall(folder.path());
+        let started = std::time::Instant::now();
+        assert_eq!(desktop_link(&entry), None);
+        assert!(started.elapsed() < std::time::Duration::from_secs(2));
     }
 }

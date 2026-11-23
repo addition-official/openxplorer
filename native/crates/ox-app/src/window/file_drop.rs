@@ -56,7 +56,7 @@ pub(crate) use action::DragOrigin;
 pub(in crate::window) use action::DropRun;
 use action::{drop_run_action, is_in_folder};
 pub(crate) use action::{DropAction, FirstOffer, PendingDrop};
-pub(super) use program::{query_program, ProgramChecks, ProgramTarget};
+pub(super) use program::{query_program, ProgramChecks, ProgramKind, ProgramTarget};
 pub(super) use targets::{scroll_step, DragScroll, DropLabels, DropZone, SCROLL_TICK};
 
 /// The most items one drop brings: as many as one transfer takes. Windows
@@ -322,6 +322,7 @@ impl BrowserWindow {
         self.attach_file_drop_zone(self.address_bar(), DropZone::Breadcrumbs);
         self.attach_file_drop_zone(self.tab_strip(), DropZone::Tabs);
         self.attach_sidebar_file_drag();
+        self.attach_crumb_file_drag();
     }
 
     /// Runs `action` on the dropped `uris` in the folder at `position` of
@@ -590,6 +591,7 @@ impl BrowserWindow {
                 self.spawn_links(LinkRequest {
                     uris,
                     destination_folder: folder,
+                    names: self.shortcut_names(),
                 });
                 return Ok(());
             }

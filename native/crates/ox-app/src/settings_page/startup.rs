@@ -40,8 +40,8 @@ const HOME_QUICK_ACCESS: RowText = RowText {
 
 const RESTORE_SESSION: RowText = RowText {
     title: "Reopen my tabs when OpenXplorer starts",
-    description: "Starting OpenXplorer without a folder reopens the tabs and split panes the last \
-                  window had.",
+    description: "Starting OpenXplorer without a folder reopens every window with the tabs and split \
+                  panes it had.",
     keywords: "restore previous tabs at startup session remember reopen restore tabs last time \
                startup logon restore previous folder windows at logon",
 };
@@ -67,7 +67,13 @@ pub(super) fn startup_folder_for(typed: &str, base: Option<&str>) -> Result<Stri
         return Err(ox_core::i18n::gettext("Settings cannot be the startup folder."));
     }
     // A share is checked when it is listed, which may ask for a sign-in.
-    let is_missing = gio::File::for_uri(&uri).path().is_some_and(|path| !path.is_dir());
+    // A path may be a mount of a share that stopped answering: it is looked
+    // at on a worker thread for a moment, and one that does not answer is
+    // accepted, as a share is.
+    let is_missing = gio::File::for_uri(&uri).path().is_some_and(|path| {
+        crate::bounded_io::wait_for(&uri, crate::bounded_io::MAIN_THREAD_WAIT, move || !path.is_dir())
+            .unwrap_or(false)
+    });
     if is_missing {
         return Err(ox_core::i18n::format_message(
             "“{typed}” is not a folder that exists.",
@@ -123,7 +129,10 @@ fn startup_folder_row(page: &SettingsPage) -> SettingRow {
     let field = gtk::Entry::builder()
         .placeholder_text(ox_core::i18n::gettext("Home"))
         .hexpand(true)
-        .width_chars(36)
+        // 36 characters when there is room, down to 12 at a large text
+        // size in a narrow window, rather than widening the page.
+        .width_chars(12)
+        .max_width_chars(36)
         .build();
     field.update_property(&[gtk::accessible::Property::Label(STARTUP_FOLDER.title)]);
     page.follow_preferences(glib::clone!(
@@ -198,5 +207,17 @@ mod tests {
         assert_eq!(startup_folder_for("  ", None), Ok(String::new()));
         let message = missing.expect_err("a missing folder is refused");
         assert!(message.ends_with("is not a folder that exists."), "{message}");
+    }
+
+    /// A folder on a mount that stopped answering is accepted at once, as
+    /// a share is, instead of freezing Settings.
+    #[test]
+    fn a_folder_on_a_stalled_mount_is_accepted_at_once() {
+        let folder = tempfile::tempdir().expect("a temporary folder");
+        let path = folder.path().to_str().expect("a UTF-8 path");
+        let _stalled = crate::bounded_io::stall::stall(folder.path());
+        let started = std::time::Instant::now();
+        assert!(startup_folder_for(&format!("{path}/Projects"), None).is_ok());
+        assert!(started.elapsed() < std::time::Duration::from_secs(2));
     }
 }

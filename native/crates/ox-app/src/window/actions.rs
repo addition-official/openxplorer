@@ -33,6 +33,19 @@ pub(super) fn plain_action(
         .build()
 }
 
+impl BrowserWindow {
+    /// Runs `run`, which moves the keyboard into the address bar or the
+    /// search box, unless a dialog is shown over the window: as a Windows
+    /// dialog keeps Alt+D, Ctrl+L, F4 and Ctrl+F from the window behind it,
+    /// those keys no longer turn the dimmed address bar into a selected
+    /// field behind the dialog.
+    fn unless_dialog_shown(&self, run: impl Fn(&Self)) {
+        if self.dialog_layer().shown().is_none() {
+            run(self);
+        }
+    }
+}
+
 /// An action whose target is a string (a location or a volume id).
 pub(super) fn text_action(
     window_action: WindowAction,
@@ -227,14 +240,26 @@ impl BrowserWindow {
                 })
                 .build(),
             plain_action(WindowAction::Refresh, BrowserWindow::refresh),
-            plain_action(WindowAction::Location, BrowserWindow::edit_address),
-            plain_action(
-                WindowAction::AddressHistory,
-                BrowserWindow::edit_address_from_history,
-            ),
+            plain_action(WindowAction::Location, |window| {
+                window.unless_dialog_shown(BrowserWindow::edit_address);
+            }),
+            plain_action(WindowAction::AddressHistory, |window| {
+                window.unless_dialog_shown(BrowserWindow::edit_address_from_history);
+            }),
             plain_action(WindowAction::CopyAddress, BrowserWindow::copy_address),
             plain_action(WindowAction::PasteAddress, BrowserWindow::paste_address),
-            plain_action(WindowAction::Search, BrowserWindow::focus_search),
+            text_action(WindowAction::CopyAddressOf, BrowserWindow::copy_address_of),
+            text_action(
+                WindowAction::CopyAddressAsText,
+                BrowserWindow::copy_address_as_text,
+            ),
+            plain_action(
+                WindowAction::DeleteAddressHistory,
+                BrowserWindow::delete_address_history,
+            ),
+            plain_action(WindowAction::Search, |window| {
+                window.unless_dialog_shown(BrowserWindow::focus_search);
+            }),
             text_action(WindowAction::GoTo, BrowserWindow::navigate_or_report),
             text_action(WindowAction::MountVolume, BrowserWindow::mount_volume),
         ]);
@@ -268,6 +293,14 @@ impl BrowserWindow {
             plain_action(WindowAction::Share, BrowserWindow::share),
             plain_action(WindowAction::About, BrowserWindow::show_about),
             plain_action(WindowAction::Help, BrowserWindow::show_help),
+            plain_action(
+                WindowAction::NetworkDiscoveryHelp,
+                BrowserWindow::show_network_discovery_help,
+            ),
+            plain_action(
+                WindowAction::DismissNetworkInfoBar,
+                BrowserWindow::dismiss_network_info_bar,
+            ),
             plain_action(
                 WindowAction::KeyboardShortcuts,
                 BrowserWindow::show_keyboard_shortcuts,
@@ -425,21 +458,32 @@ impl BrowserWindow {
 
     /// The user chose `view`: shows it and saves it as the view of every
     /// tab and new window (`changeView` in app.js), or of the folder when
-    /// each folder keeps its own (VIEW-020). As in Windows Explorer, the
-    /// item with the list's keyboard focus, else the first selected one,
-    /// stays in view, and keeps the keyboard when the list had it; with
-    /// neither, the new view shows from the top.
+    /// each folder keeps its own (VIEW-020). As in Windows 11, the new view
+    /// shows from the top, and only a selected item that would be out of
+    /// sight there scrolls it, just far enough to show the first one. When
+    /// the list had the keyboard, the first selected item takes it, else
+    /// the first item, without scrolling: GTK scrolled to the item that
+    /// had it last, selected or not, so a switch with nothing selected
+    /// could open the new view part way down.
     fn change_view(&self, view: FolderView) {
         let pane = self.folder_pane();
         let had_keyboard = pane.view_has_focus();
         let selected = pane.model().selected_positions();
-        let current = pane.focused_position().or_else(|| selected.first().copied());
         self.show_view(view);
-        let Some(position) = current else {
-            pane.restore_scroll_position(0.0);
+        // The new view takes the keyboard on its first selected item, else
+        // its first item, without scrolling: GTK would otherwise scroll to
+        // the item that last had it there, selected or not.
+        if had_keyboard {
+            let first_shown = || pane.first_shown_position();
+            if let Some(target) = selected.first().copied().or_else(first_shown) {
+                pane.focus_item(target);
+            }
+        }
+        pane.restore_scroll_position(0.0);
+        if selected.is_empty() {
             self.remember_style();
             return;
-        };
+        }
         // Once the new view has its items laid out.
         glib::idle_add_local_once(glib::clone!(
             #[weak(rename_to = window)]
@@ -449,16 +493,12 @@ impl BrowserWindow {
                 // Something else came first: another selection, or a text
                 // field such as a rename in place took the keyboard.
                 let typing = GtkWindowExt::focus(&window).is_some_and(|focus| focus.is::<gtk::Text>());
-                if position >= pane.model().n_items()
-                    || pane.model().selected_positions() != selected
-                    || typing
-                {
+                let count = pane.model().n_items();
+                if pane.model().selected_positions() != selected || typing {
                     return;
                 }
-                if had_keyboard {
-                    pane.reveal(position);
-                } else {
-                    pane.scroll_into_view(position);
+                if let Some(first) = selected.first().copied().filter(|first| *first < count) {
+                    pane.scroll_into_view(first);
                 }
             }
         ));

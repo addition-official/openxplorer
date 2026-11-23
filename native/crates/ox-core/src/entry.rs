@@ -43,7 +43,8 @@ pub use info::entry_from_info;
 pub use inspect::{inspect, pin_target, verify_pin, PinTarget};
 pub use meta::EntryMeta;
 pub use thumbnail::{
-    cached_thumbnail, thumbnail_file, thumbnail_path, CachedThumbnail, ThumbnailFlavor, THUMBNAIL_ATTRIBUTES,
+    cached_thumbnail, cached_thumbnail_for, thumbnail_file, thumbnail_path, CachedThumbnail, ThumbnailFlavor,
+    THUMBNAIL_ATTRIBUTES,
 };
 
 use std::path::PathBuf;
@@ -159,10 +160,10 @@ pub struct Entry {
     pub type_label: String,
     /// MIME type, when known.
     pub content_type: Option<String>,
-    /// `time::modified` in seconds since the Unix epoch; `None` when the
-    /// backend reports no time, or 0, which the Python app also showed as
-    /// unknown.
-    pub modified: Option<u64>,
+    /// `time::modified` in seconds since the Unix epoch, signed as GIO
+    /// keeps it, so 1 January 1970 and earlier dates show as Windows shows
+    /// them; `None` when the backend reports no time.
+    pub modified: Option<i64>,
     /// Hidden by name, by the folder's `.hidden` list or by the backend
     /// (`standard::is-hidden`).
     pub is_hidden: bool,
@@ -172,7 +173,7 @@ pub struct Entry {
     pub trash_orig_path: Option<PathBuf>,
     /// For items in `trash:///`: when they were deleted, in seconds since
     /// the Unix epoch.
-    pub trash_deletion_date: Option<u64>,
+    pub trash_deletion_date: Option<i64>,
     /// `access::can-rename`; `None` when the backend does not report it.
     pub can_rename: Option<bool>,
     /// `access::can-trash`; `None` when the backend does not report it.
@@ -188,6 +189,11 @@ pub struct Entry {
     /// boxed, as most code never reads them.
     pub meta: Box<EntryMeta>,
 }
+
+/// The themed icon a computer Network lists carries.
+const COMPUTER_ICON: &str = "computer";
+/// The themed icon a service inside a computer carries.
+const SERVICE_ICON: &str = "network-server";
 
 impl Entry {
     /// Whether the item is a shortcut, as Windows Explorer has them
@@ -242,7 +248,9 @@ impl Entry {
             size: if is_dir { None } else { size },
             type_label,
             content_type,
-            modified: modified.filter(|&seconds| seconds > 0),
+            modified: modified
+                .filter(|&seconds| seconds > 0)
+                .and_then(|seconds| i64::try_from(seconds).ok()),
             is_symlink: false,
             trash_orig_path: None,
             trash_deletion_date: None,
@@ -264,8 +272,34 @@ impl Entry {
     /// of shared folders, called `name`, of the type "Computer", as
     /// Windows Explorer's Network calls one. No file command acts on it.
     pub fn network_computer(uri: String, name: String) -> Self {
-        let folder_type = classify::FolderType::Computer;
-        let serialized_icon = gio::prelude::IconExt::serialize(&gio::ThemedIcon::new("network-server"));
+        Self::network_shortcut(uri, name, classify::FolderType::Computer, COMPUTER_ICON)
+    }
+
+    /// A service a computer on the network advertises besides its shares,
+    /// such as its SFTP server, as the computer's listing shows it: a
+    /// shortcut to `uri` called `name` ("Harbor Files (SFTP)"), of the type
+    /// "Network location". No file command acts on it.
+    pub fn network_service(uri: String, name: String) -> Self {
+        Self::network_shortcut(uri, name, classify::FolderType::NetworkLocation, SERVICE_ICON)
+    }
+
+    /// Whether the item is a computer Network lists
+    /// ([`Entry::network_computer`]).
+    pub fn is_network_computer(&self) -> bool {
+        self.kind == EntryKind::Shortcut
+            && self.is_virtual
+            && self
+                .serialized_icon
+                .as_ref()
+                .and_then(gio::Icon::deserialize)
+                .and_then(|icon| icon.downcast::<gio::ThemedIcon>().ok())
+                .is_some_and(|icon| icon.names().first().map(glib::GString::as_str) == Some(COMPUTER_ICON))
+    }
+
+    /// A virtual shortcut to `uri` on the network, of `folder_type`, with
+    /// the themed icon `icon`.
+    fn network_shortcut(uri: String, name: String, folder_type: classify::FolderType, icon: &str) -> Self {
+        let serialized_icon = gio::prelude::IconExt::serialize(&gio::ThemedIcon::new(icon));
         let type_label = type_label::type_label(Some(folder_type), None, &name);
         Self {
             target_uri: Some(uri.clone()),
