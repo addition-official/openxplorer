@@ -593,7 +593,7 @@ mod tests {
         let larger = css_at(150);
         for rule in [
             "window.compact-density columnview.files > listview > row \
-             { min-height: 34px; margin-top: 0; margin-bottom: -1px; }",
+             { min-height: 32px; margin-top: 0; margin-bottom: -1px; }",
             "window.compact-density columnview.files > header > button { min-height: 37px; }",
             "window.compact-density .sidebar list.places > row { min-height: 33px; }",
             ".sidebar list.places > row { min-height: 41px; }",
@@ -602,7 +602,7 @@ mod tests {
             assert!(larger.contains(rule), "{rule}");
         }
         assert!(larger.contains(
-            "window.compact-density gridview.files.tiles > child > .item-cell:not(.group-slot) { min-height: 72px;"
+            "window.compact-density gridview.files.tiles > child > .item-cell:not(.group-slot) { min-height: 76px;"
         ));
         assert!(larger.contains(
             "window.compact-density gridview.files.tiles > child .item-lines label { line-height: 24px; }"

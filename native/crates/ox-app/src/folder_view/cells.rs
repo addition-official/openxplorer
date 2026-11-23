@@ -39,10 +39,8 @@ use crate::window::widget_tree::toggle_class;
 use heading_span::HeadingSpan;
 use marks::marked_words;
 
-/// Gap between a row's icon and its name: 5 pixels, so the name starts
-/// 21 pixels after the icon's left edge, as in Windows 11's Details
-/// (measured on its capture at 100%; the web app's `.name-cell` had 11).
-const ROW_ICON_GAP: i32 = 5;
+/// Gap between a row's icon and its name (`.name-cell{gap:11px}`).
+const ROW_ICON_GAP: i32 = 11;
 
 /// Width of a row's check box: 14 pixels and its border
 /// (`.files checkbutton.item-check > check`).

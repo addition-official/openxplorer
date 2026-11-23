@@ -287,15 +287,16 @@ pub(crate) const TILES_CHROME: i32 = 8 + 8 + 3 + 3;
 /// and 6 below, and the 1-pixel line under it (VIEW-071).
 pub(crate) const CONTENT_CHROME: i32 = 6 + 6 + 1;
 
-/// A Tiles cell at `text_size`: 256 pixels wide at 100%, about the 250 of
-/// Windows 11's tiles and the gap to the next, so three fit in 1000
-/// pixels, growing with the text; as tall as its three lines of text
+/// A Tiles cell at `text_size`: 254 pixels wide at 100%, Windows 11's
+/// tile and the gap to the next, growing with the text; as tall as its three lines of text
 /// (name, type and size, a pixel apart) or its icon, with its padding and
 /// margins, 75 pixels at 100%.
 pub(crate) fn tiles_cell(text_size: TextSize) -> CellSize {
     let scale = text_size::metrics(text_size).scale;
     CellSize {
-        width: text_size::ceil_pixels(198.0 * scale + 56.0).max(254),
+        // 254 pixels apart at 100%, as Windows 11's tiles, and as much more
+        // as the text is larger, as Windows' scaling grows them.
+        width: windows_scaled(254.0, scale),
         height: text_size::ceil_pixels(3.0 * text_line(scale) + 2.0).max(TILES_ICON) + TILES_CHROME,
     }
 }
@@ -305,15 +306,24 @@ pub(crate) fn tiles_cell(text_size: TextSize) -> CellSize {
 /// Windows 11's rows are, with room for the 32-pixel icon.
 pub(crate) fn content_row(text_size: TextSize) -> i32 {
     let scale = text_size::metrics(text_size).scale;
-    text_size::ceil_pixels(2.0 * text_line(scale) + 1.0).max(CONTENT_ICON) + CONTENT_CHROME
+    let fitted = text_size::ceil_pixels(2.0 * text_line(scale) + 1.0).max(CONTENT_ICON) + CONTENT_CHROME;
+    // Larger text spaces the rows as far apart as Windows' scaling does.
+    fitted.max(windows_scaled(48.0, scale))
+}
+
+/// `pixels` of Windows 11's layout at 100%, scaled as its display scaling
+/// scales them, to the nearest pixel, at `scale` or 1 when smaller: the
+/// steps below 100% keep the 100% spacing.
+fn windows_scaled(pixels: f64, scale: f64) -> i32 {
+    text_size::ceil_pixels(pixels * scale.max(1.0) - 0.5)
 }
 
 /// The distance from one Details row to the next in Compact view
 /// (VIEW-067) at `text_size`: 21 pixels at 100%, as Windows 11's Compact
-/// view spaces them, growing with the text.
+/// view spaces them, and as many times that as the text is larger.
 pub(crate) fn compact_density_details_row(text_size: TextSize) -> i32 {
     let scale = text_size::metrics(text_size).scale;
-    text_size::ceil_pixels(24.0 * scale - 3.0).max(21)
+    windows_scaled(21.0, scale)
 }
 
 /// Pixels of a Tiles cell beside its content in Compact view: 4 pixels of
@@ -335,7 +345,8 @@ pub(crate) fn compact_density_line(text_size: TextSize) -> i32 {
 /// A row of Tiles in Compact view at `text_size`: three lines on a
 /// 16-pixel pitch beside the 48-pixel icon, with [`COMPACT_TILES_CHROME`].
 pub(crate) fn compact_density_tiles_row(text_size: TextSize) -> i32 {
-    (3 * compact_density_line(text_size)).max(TILES_ICON) + COMPACT_TILES_CHROME
+    let fitted = (3 * compact_density_line(text_size)).max(TILES_ICON) + COMPACT_TILES_CHROME;
+    fitted.max(windows_scaled(57.0, text_size::metrics(text_size).scale))
 }
 
 /// Pixels of a group heading's row in Tiles beside its title in Compact
