@@ -563,4 +563,3 @@ fn redraw_images() {
         }
     }
 }
-

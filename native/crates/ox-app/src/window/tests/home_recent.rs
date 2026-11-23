@@ -369,4 +369,3 @@ fn drag_tile(pointer: &mut Pointer, test: &TestWindow, from: &str, onto: &str, a
     pointer.release(Button::Primary);
     wait_for_frames(&test.window, 3);
 }
-

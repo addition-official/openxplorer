@@ -143,4 +143,3 @@ fn applications_are_listed_by_name() {
 
     assert_eq!(ids(&offered), ["m.desktop", "z.desktop", "a.desktop"]);
 }
-

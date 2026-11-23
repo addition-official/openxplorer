@@ -683,4 +683,3 @@ fn names_with_a_line_break_or_latin1_bytes_go_on_the_clipboard_escaped() {
         "no name holds NUL"
     );
 }
-

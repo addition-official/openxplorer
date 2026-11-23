@@ -53,4 +53,3 @@ fn every_volume_monitor_signal_refreshes_every_window() {
         }
     }
 }
-
