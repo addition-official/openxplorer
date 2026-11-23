@@ -473,10 +473,15 @@ fn menu_rules(scale: f64) -> String {
     )
 }
 
-/// GTK's multiple of the font's own line height (17 pixels for Noto Sans
-/// at 13) that sets an icon's name's lines 14.5 pixels apart at 100%
-/// (`icon_size::tile_name_line`), as Windows 11 sets them.
-const TILE_NAME_LINE_HEIGHT: f64 = 0.85;
+/// Pixels between two lines of an icon's name at 100%, as Windows 11 sets
+/// them in Extra large, Large and Medium icons (measured on its captures:
+/// 235, 250, 265, 280). Set in pixels, not as a share of the font's own
+/// line height, which differs from font to font.
+const ICON_NAME_LINE: f64 = 15.0;
+
+/// Pixels between an icon item's box and its name's widest line, as
+/// Windows 11 leaves them.
+const NAME_INSET_IN_BOX: i32 = 5;
 
 /// A tile's size for icons of `icon_size` at `text_size`: its cell is a
 /// row of Windows 11's height ([`grid::cell_size`]), and the item's box
@@ -495,12 +500,18 @@ fn tile_rule(icon_size: IconSize, text_size: TextSize) -> String {
     let (left, right) = icon_size::icon_side_margins(icon_size);
     let beside = icon_size::icon_side_padding(icon_size);
     let pad = icon_size::TILE_BOX_PADDING;
+    // The name may run wider than the icon, to 5 pixels inside the box,
+    // as Windows 11's (59 pixels of a Medium name in a 70-pixel box).
+    let wider = (beside - NAME_INSET_IN_BOX).max(0);
+    let line = text_size::ceil_pixels(ICON_NAME_LINE * text_size::metrics(text_size).scale - 0.5);
+    let below = pad + 1;
     format!(
         "gridview.files.{class} > child {{ min-width: {width}px; min-height: {row}px; }}\n\
          gridview.files.{class} > child.heading-row {{ min-height: 0; }}\n\
          gridview.files.{class} > child > box:not(.group-slot) {{ margin: 0 {right}px 0 {left}px; \
-         padding: {pad}px {beside}px; }}\n\
-         gridview.files.{class} > child label {{ line-height: {TILE_NAME_LINE_HEIGHT}; }}"
+         padding: {pad}px {beside}px {below}px; }}\n\
+         gridview.files.{class} > child .icon-name {{ margin: 0 -{wider}px; }}\n\
+         gridview.files.{class} > child label {{ line-height: {line}px; }}"
     )
 }
 
@@ -664,8 +675,9 @@ mod tests {
             "gridview.files.icons-large > child { min-width: 96px; min-height: 129px; }\n\
              gridview.files.icons-large > child.heading-row { min-height: 0; }\n\
              gridview.files.icons-large > child > box:not(.group-slot) { margin: 0 4px 0 4px; \
-             padding: 2px 2px; }\n\
-             gridview.files.icons-large > child label { line-height: 0.85; }"
+             padding: 2px 2px 3px; }\n\
+             gridview.files.icons-large > child .icon-name { margin: 0 -0px; }\n\
+             gridview.files.icons-large > child label { line-height: 15px; }"
         ));
         assert!(css.contains("gridview.files.icons-small > child { min-width: 306px; min-height: 25px; }"));
         // Small icons' columns, 310 pixels apart at 100%, grow with the text.

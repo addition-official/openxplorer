@@ -539,7 +539,7 @@ gridview.files.icon-groups > child:active,
 gridview.files.icon-groups > child:selected,
 gridview.files.icon-groups > child:selected:hover { background: none; }
 gridview.files.icon-groups.keyboard-in > child:focus:not(:focus-visible):not(.file-drop-active),
-gridview.files.icon-groups > child:focus-visible { outline: none; }
+gridview.files.icon-groups > child:focus-visible { outline: none; box-shadow: none; }
 gridview.files.icon-groups > child > box:not(.group-slot) {
   border-radius: 4px;
   transition: background-color 83ms linear;
@@ -555,6 +555,9 @@ gridview.files.icon-groups.keyboard-in > child:focus:not(:focus-visible):not(.fi
 gridview.files.icon-groups > child:focus-visible > box:not(.group-slot) {
   outline: 2px solid @ox_item_focus_outer;
   outline-offset: -2px;
+  /* The focus ring's inner line on the box too, not on the taller cell,
+     so one ring hugs the icon and its name as in Windows 11. */
+  box-shadow: inset 0 0 0 3px @ox_item_focus_inner;
 }
 /* A heading's row acts as one, as Windows 11's does (VIEW-022): the
    pointer anywhere over it lights the whole row in the items' hover
