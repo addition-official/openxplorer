@@ -2241,7 +2241,8 @@ fn a_file_without_snapshots_explains_that_none_were_found() {
             .any(|text| text == "There are no previous versions available.")
     });
     assert!(versions.texts().iter().any(|text| text == "File versions:"));
-    assert!(versions
+    // A file on this computer has no server to mention, as in Windows.
+    assert!(!versions
         .texts()
         .iter()
         .any(|text| text.starts_with("No matching previous versions were found")));

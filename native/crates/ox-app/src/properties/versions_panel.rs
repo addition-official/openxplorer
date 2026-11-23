@@ -349,15 +349,16 @@ impl VersionsPanel {
             }
         };
         if found.versions.is_empty() {
-            // An item on this computer has no server to mention; Windows
-            // says only that there are none.
+            // An item on this computer has no server to mention: Windows
+            // says only that there are no previous versions, as the heading
+            // does; a share keeps the note about its server.
             let is_local = self.imp().uri.borrow().starts_with("file:");
             let message = if is_local {
-                ox_core::i18n::gettext("There are no previous versions available.")
+                ""
             } else {
-                found.message().unwrap_or_default().to_owned()
+                found.message().unwrap_or_default()
             };
-            show_empty(&list, &message);
+            show_empty(&list, message);
         } else {
             self.show_versions(&list, &found);
         }
