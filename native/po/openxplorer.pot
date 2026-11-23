@@ -3339,6 +3339,14 @@ msgid "Everything in it is deleted permanently."
 msgstr ""
 
 #: crates/ox-app/src/settings_page/confirmations.rs
+msgid "Launchers"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/confirmations.rs
+msgid "Like Windows: a shortcut to an installed app starts it. Off: it opens in its editor. Other launchers still ask before they run."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/confirmations.rs
 msgid "Moving items to the Recycle Bin"
 msgstr ""
 
@@ -3348,6 +3356,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/confirmations.rs
 msgid "Off: opening one shows it in its viewer or editor, and nothing runs."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/confirmations.rs
+msgid "Run installed apps' launchers on double-click"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/confirmations.rs
@@ -3376,6 +3388,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/confirmations.rs
 msgid "ask whether to run programs and scripts confirm execute run program script executable launcher open"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/confirmations.rs
+msgid "run installed apps launchers double click desktop entry shortcut application start execute trust windows"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/default_apps.rs
