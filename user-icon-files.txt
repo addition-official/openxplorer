@@ -1,6 +1,46 @@
 STATUS: DONE
-HEAD: user-icon-files 1c37a0bc (632c6175 merges upstream 2.0.21; b8011241 adds the Windows symbol font; 1c37a0bc draws its glyphs at Windows' em)
-QUESTION: The PR text has no "CLA: I agree" line. The last request to add it was relayed by another session; agreeing to a CLA is a legal statement in the user's name, so I'm leaving that line for the user to add or confirm directly.
+HEAD: user-icon-files 8f070e7e (3ee41e44 draws chevrons at WinUI's 8 px em and the menus' X as Cancel; 8f070e7e is a Clippy-only follow-up: identical match arms merged, `WinUI` quoted in docs)
+QUESTION: The PR text still has no "CLA: I agree" line. Agreeing to a CLA is a legal statement in the user's name and the request reached me through another session, so the user should add it or confirm it to me directly.
+NOTE: Round 5, deb 51 "only some of the icons are normal sized". Size audit of every glyph and icon at 1x, built-in and with the font, in the table below. Per the new rule: no full run, no 3x runs, no new per-icon tests; only the touched modules' tests and the captures (chat only, not on this branch).
+NOTE: Merge check: `git merge-tree --write-tree origin/test-combined-51 8f070e7e` exits 0 (tree 1c72b10e), so the branch merges cleanly onto test-combined-51. The branch stays icon-scoped; it does not carry test-combined-51's other commits.
+
+SIZE AUDIT, 1x (box = the square the place gives the icon; em = the font size the glyph is drawn at. "Built-in" is the bundled SVG in the same box.)
+Windows 11 target: 16 px for command, navigation, menu and place icons; about 8 px for chevrons, dropdown arrows and submenu chevrons.
+area | icon | box | built-in | font em before | font em now | Windows 1x | change
+title bar | minimize / maximize / close | 12 | 12 | 12 | 12 | outside the 16/8 rule | unchanged (owner's caption size)
+tab strip | tab's place icon | 16 | 16 | 16 | 16 | 16 | ok
+tab strip | tab close X | 12 | 12 | 12 | 12 | small X, outside the 16/8 rule | glyph ChromeClose -> Cancel (Windows' thin X)
+tab strip | scroll left / right chevrons | 12 | 12 | 12 | 8 | ~8 | FIXED (em 12 -> 8)
+tab strip | new tab + | 14 | 14 | 14 | 14 | outside the 16/8 rule | unchanged
+address bar | Back, Forward, Up, Refresh | 16 | 16 | 16 | 16 | 16 | ok
+address bar | place icon (folder, Home, drive) | 16 | 16 | 16 | 16 | 16 | ok
+address bar | breadcrumb dividers (CSS, ltr and rtl) | 12 | 12 | 12 | 8 | ~8 | FIXED (em 12 -> 8)
+address bar | history dropdown chevron | 12 | 12 | 12 | 8 | ~8 | FIXED (em 12 -> 8)
+address bar | search magnifier | 15 | 15 | 15 | 15 | outside the 16/8 rule | unchanged
+command bar | New, Cut, Copy, Paste, Rename, Share, Delete, Sort, View, See more, Details, Settings | 17 | 16 | 16 | 16 | 16 | ok (16 em in the 17 box)
+command bar | New / Sort / View dropdown chevrons | 16 | 16 | 16 | 8 | ~8 | FIXED (em 16 -> 8)
+navigation pane | every place and glyph (Home, Gallery, folders, This PC, drives, Network, Recent) | 16 | 16 | 16 | 16 | 16 | ok
+navigation pane | pin marks | 16 | 16 | 16 | 16 | 16 | ok
+navigation pane | tree expanders | 9 (CSS 16) | 9 | 9 / 16 | 8 | ~8 | FIXED (em -> 8)
+file list | column sort arrow (CSS) | 10 | 10 | 10 | 8 | ~8 | FIXED (em 10 -> 8)
+status bar | Details / Tiles view buttons | 16 | 16 | 16 | 16 | 16 | ok
+Details pane header | icons | 16 | 16 | 16 | 16 | 16 | ok
+Preview pane header | icons | 16 | 16 | 16 | 16 | 16 | ok
+menus (all) | compact strip (Cut, Copy, Rename, Delete) | 16 | 16 | 16 | 16 | 16 | ok
+menus (all) | row icons and check / radio marks | 16 | 16 | 16 | 16 | 16 | ok
+menus (all) | submenu chevron (Compress to, Send to, Group by, Open with) | 16 | 16 | 16 | 8 | ~8 | FIXED (em 16 -> 8)
+menus | "Remove from list", tab menu's Close | 16 | 16 | 16 | 16 | 16 | glyph ChromeClose -> Cancel
+The menu rows, strip and submenu chevrons share one widget (menu ROW_GLYPH 16), so the compact menu, "Show more options", New, Sort, View, Group by, See more, Open with, the address-bar, tab, navigation-pane, Recycle Bin, ZIP and This PC menus all get the same sizes.
+Built-in icons: every built-in box already matched the 16/8 target or was outside it, so no built-in size changed. The mismatch was the font: its chevrons were drawn at the box's full em instead of WinUI's 8 px. Each chevron now has its own icon per box (ox-win-<name>-box<N>-symbolic) with the glyph at 8 px in the middle.
+NOT CHANGED: New's circled plus. Windows 11's New uses a different glyph than the plain Add; drawing it needs a new bundled icon outside the owner-approved set, and the candidate codepoint (U+ECC8 AddTo) is not verified as the circled plus.
+CAPTURED (chat only, 1x, light and dark, built-in and with a synthetic full-em font next to each other): the window (title bar, tabs, address bar, command bar, navigation pane, file list, status bar), the compact menu, Show more options, New, Sort, Sort > Group by, View, See more, and the tab menu.
+NOT CAPTURED: the address-bar, navigation-pane, Recycle Bin, ZIP and This PC menus and Open with. The snapshot hook has no scene step that opens them, so there is no picture of them. They use the same menu row widget as the captured menus.
+
+PASS round 5 on 8f070e7e: cargo fmt; cargo clippy -p ox-app -p ox-core --all-targets -D warnings; python3 native/parity/check.py; ox-app icons:: 67/67, windows_icon_files 3/3, settings_page:: 117/117 (with OX_PYTHON_APP from v2.0.0:desktop); ox-core windows_ 45/45.
+NOT RUN round 5: the full suite (stopped by the user's rule), 3x runs, Microsoft's own fonts (never here by design).
+
+EARLIER ROUNDS
+
 NOTE: Round 3 after the deb 46 test.
 (1) Merged upstream main 5336b108 (OpenXplorer 2.0.21) with a merge commit, no rebase or force-push. #366 landed squashed (4689b74e); the conflicting files were merged with its PR head b80e9b0a as base, so only the owner's final File icons changes met mine, and none conflicted. The branch no longer depends on an open PR.
 (2) Windows symbol font (LOOK-031). Settings > Appearance > File icons now ends with three rows: Icons from Windows icon files (the switch), Windows icon files, and Windows symbol font (Choose font... / Clear). Only the path is stored (symbolFont). The font is read with a small bounds-checked TrueType reader in ox-core (cmap formats 4 and 12, simple and composite glyf, every offset checked, counts capped, PostScript-outline fonts refused). Each glyph the app uses is written as a symbolic SVG into ~/.cache/winspace/windows-glyphs/<key>/hicolor/scalable/actions/, and that folder joins GTK's icon theme search path. The font is never installed, copied or registered with fontconfig, so no FFI or unsafe code is needed. GTK recolors only themed -symbolic icons, hence the hicolor layout. icons::set_icon draws drawn_name(icon), so every symbolic glyph comes from the font at the same size and in the same CSS color (it follows the theme). The skin's CSS chevrons follow through a generated stylesheet that repeats only the -gtk-icontheme declarations with the font's names. A glyph the font lacks keeps the built-in Fluent icon; a damaged font gives none; turning the switch off restores every bundled glyph at once. Codepoints are Microsoft's published Segoe Fluent Icons table (learn.microsoft.com, version 1.56), read for this round, with names as in the table. Segoe MDL2 Assets shares most of them, but Microsoft's page does not say so; glyphs missing from segmdl2.ttf simply fall back. No crate added; cargo-sources.json unchanged.
