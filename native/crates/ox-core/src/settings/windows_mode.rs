@@ -91,6 +91,10 @@ pub const WINDOWS_SETTINGS: &[WindowsSetting] = &[
     like_windows!("deleteRemovablePermanently", delete_removable_permanently, true, "Delete files on removable drives permanently (like Windows)"),
     like_windows!("pastePicturesAsFiles", paste_pictures_as_files, false, "Paste pictures as new files"),
     like_windows!("copyPathsAsText", copy_paths_as_text, false, "Also copy paths as text"),
+    like_windows!("f6LikeWindows", f6_like_windows, true, "F6 moves like Windows"),
+    like_windows!("runInstalledLaunchers", run_installed_launchers, true, "Run installed apps' launchers on double-click"),
+    like_windows!("restoreOverOriginal", restore_over_original, true, "Restore over the original (Windows)"),
+    like_windows!("extensionWordStarts", extension_word_starts, true, "Match words at the start of file extensions (like Windows)"),
 ];
 
 /// A change of the switch, as an update carries it.
