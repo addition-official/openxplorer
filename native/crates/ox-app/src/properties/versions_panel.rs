@@ -349,7 +349,15 @@ impl VersionsPanel {
             }
         };
         if found.versions.is_empty() {
-            show_empty(&list, found.message().unwrap_or_default());
+            // An item on this computer has no server to mention; Windows
+            // says only that there are none.
+            let is_local = self.imp().uri.borrow().starts_with("file:");
+            let message = if is_local {
+                ox_core::i18n::gettext("There are no previous versions available.")
+            } else {
+                found.message().unwrap_or_default().to_owned()
+            };
+            show_empty(&list, &message);
         } else {
             self.show_versions(&list, &found);
         }

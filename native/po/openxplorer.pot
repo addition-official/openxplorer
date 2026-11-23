@@ -4542,6 +4542,10 @@ msgstr ""
 msgid "Frequent"
 msgstr ""
 
+#: crates/ox-app/src/settings_page/indexed_folders/root_row.rs
+msgid "Indexed, some folders could not be read"
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/settings_page/indexed_folders/root_row.rs
 msgid "Last full refresh: {value1}"
