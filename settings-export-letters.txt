@@ -1,7 +1,100 @@
 STATUS: DONE
-HEAD: claude/settings-export-letters 19d1dfefabb383d4826710ace04983f192d83f88
+HEAD: test-combined-55 26de5e7b (export/import end-to-end check); claude/settings-export-letters 19d1dfef
 QUESTION: none
-NOTE: Settings > General > Back up settings (Export settings… / Import settings…) and Settings > Appearance > Layout > "Show letters on mapped network folders" (on by default), on top of test-combined-54. The letters setting is not in the Behave like Windows Explorer registry and needs no exception there: its guard only flags titles containing "(like Windows)" or "(Windows)". Merging with claude/windows-mode-switch conflicts only in generated files (markdown.json, openxplorer.pot) and the added_since list of settings_page/tests/redesign.rs (keep both sides, then rerun tools/sync-docs.py and native/tools/i18n.py extract). Exported "behaveLikeWindows" comes along once that branch is in, since the export takes every preference except a short list of this-computer keys.
+NOTE: Export/Import proven end to end in the real app built from test-combined-55 (26de5e7b), with real mouse and keyboard input (xdotool) on a private Xvfb display, an unprivileged account, a throwaway HOME and XDG dirs under /tmp, and test files only. Captures are in ours-export/ on this branch.
+
+END-TO-END EXPORT/IMPORT (test-combined-55 26de5e7b)
+Steps: 1) changed the settings below by hand in Settings and the file list; 2) Export settings… through GTK's Save dialog (no portal on the private bus), saved as "OpenXplorer settings.json" (0600); 3) quit, deleted settings.json, restarted: every setting below back at its default (after-reset-*.png); 4) Import settings… through the Open dialog, chose the file, the question "Replace your OpenXplorer settings with the ones in OpenXplorer settings.json?" appeared, clicked Replace ("Settings imported from OpenXplorer settings.json."); 5) quit and restarted, then checked each setting on screen and in settings.json.
+PASS Column header style = Windows (Settings > Appearance > Layout shows Windows; Details headers drawn in Windows style)
+PASS Show letters on mapped network folders = off (switch off; the test share shows as "Projects", not "Projects (Z:)", in the navigation pane)
+PASS Compact view = on (switch on; tighter rows in the Details window)
+PASS File name extensions shown (Hide extensions for known file types off; budget-demo.txt and notes-demo.txt show .txt)
+PASS Behave like Windows Explorer = on (switch on, no "Custom"; its 16 remembered earlier values came back too)
+PASS Pin "Plans" in the navigation pane (pinned at the end of Quick access, in the same order)
+PASS Whole file: after the import and restart, pins, shares, hiddenQuick, quickOrder and every exported preference equal the exported file (compared key by key, 0 mismatches)
+PASS Broken file (broken-test.json, cut-off JSON): "Could not import settings from broken-test.json: This is not an OpenXplorer settings file. Nothing was changed." shown without asking; settings.json byte-identical (bad-import-broken.png)
+PASS Other app's JSON (other-app-test.json, {"name": "some other app", "version": 3, "theme": "light"}): same message without asking; settings.json byte-identical (bad-import-other-app.png)
+Captures: before-settings-general, before-settings-appearance-layout, before-details-window; after-reset-*; after-import-*; export-save-dialog, export-done, import-open-dialog, import-replace-question, import-done; bad-import-broken, bad-import-other-app
+Seed: settings.json started with one fictional saved share (smb://nas.invalid/projects, "Projects (Z:)") so the letters setting had something to show; deleting settings.json in step 3 removed it, and the import brought it back.
+No other tests were run for this check.
+
+EXPORTED FILE (test data only)
+{
+  "kind": "openxplorer-settings",
+  "format": 1,
+  "exportedBy": "OpenXplorer 2.0.23",
+  "pins": [
+    {
+      "label": "Plans",
+      "uri": "file:///tmp/oxlive/home/Plans"
+    }
+  ],
+  "shares": [
+    {
+      "label": "Projects (Z:)",
+      "uri": "smb://nas.invalid/projects"
+    }
+  ],
+  "hiddenQuick": [],
+  "quickOrder": [
+    "file:///tmp/oxlive/home/Desktop",
+    "file:///tmp/oxlive/home/Downloads",
+    "file:///tmp/oxlive/home/Documents",
+    "file:///tmp/oxlive/home/Pictures",
+    "file:///tmp/oxlive/home/Music",
+    "file:///tmp/oxlive/home/Videos",
+    "file:///tmp/oxlive/home/Plans"
+  ],
+  "preferences": {
+    "autoIndex": false,
+    "behaveLikeWindows": {
+      "columnHeaderStyle": "windows",
+      "columnTitleLine": true,
+      "copyPathsAsText": true,
+      "ctrlPlusMinusTextSize": true,
+      "deleteRemovablePermanently": false,
+      "extensionWordStarts": false,
+      "f6LikeWindows": false,
+      "hideExpandArrows": false,
+      "homeQuickAccess": false,
+      "moreNavigationPaneItems": true,
+      "moreTabMenuItems": true,
+      "nameColumnWindowsWidth": false,
+      "pastePicturesAsFiles": true,
+      "recycleReplacedFiles": true,
+      "restoreOverOriginal": false,
+      "runInstalledLaunchers": false
+    },
+    "columnHeaderStyle": "windows",
+    "columnTitleLine": false,
+    "compactView": true,
+    "contextMenu": "win11",
+    "copyPathsAsText": false,
+    "ctrlPlusMinusTextSize": false,
+    "deleteRemovablePermanently": true,
+    "details": false,
+    "extensionWordStarts": true,
+    "f6LikeWindows": true,
+    "hideExpandArrows": true,
+    "homeQuickAccess": true,
+    "moreNavigationPaneItems": false,
+    "moreTabMenuItems": false,
+    "nameColumnWindowsWidth": true,
+    "networkInterval": 60,
+    "pastePicturesAsFiles": false,
+    "recycleReplacedFiles": false,
+    "restoreOverOriginal": true,
+    "runInstalledLaunchers": true,
+    "showDriveLetters": false,
+    "showExtensions": true,
+    "showHidden": false,
+    "textSize": 100,
+    "theme": "system",
+    "view": "details"
+  }
+}
+
+EARLIER RESULTS (claude/settings-export-letters 19d1dfef on test-combined-54)
 
 PASS ox-core settings::backup (8) and location::drive_letters (2), including the round trip export_change_everything_import_and_everything_is_back (every Preferences field set to a non-default value; fails if a new field is left out)
 PASS ox-app settings_page::, dialogs::network_map, places::, window::sidebar::, window::landing: 166 passed; 4 failed only because OX_PYTHON_APP is unset (the v2.0.0 tag with the Python app is not reachable from this fork); every_preference_switch_saves_persists_and_turns_back_exactly timed out once in the batch, passed in the next batch and 3 times alone
