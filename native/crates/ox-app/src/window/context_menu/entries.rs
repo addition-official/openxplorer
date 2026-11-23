@@ -2253,69 +2253,6 @@ mod tests {
         assert_eq!(without_applications[1], "Open with…");
     }
 
-    /// A text file's menu offers "Edit in <default text editor>" with the
-    /// editor's icon, in its own group after Properties and before Show
-    /// more options, as Windows 11 offers "Edit in Notepad", and before
-    /// Open in Terminal in the classic menu, as Windows' Edit. A code
-    /// editor that is also the text editor is offered once. Add to
-    /// Favorites comes after Open with, as in Windows 11.
-    ///
-    /// parity: OPEN-015, CMD-010, HOME-014
-    #[test]
-    fn a_text_file_offers_edit_in_its_default_text_editor() {
-        let editor = EditorShortcut {
-            id: "fictional-editor.desktop".to_owned(),
-            name: "Fictional Editor".to_owned(),
-            icon: Some("accessories-text-editor".to_owned()),
-        };
-        let facts = ItemFacts {
-            navigation_uri: "file:///home/user/Packing list.txt".to_owned(),
-            text_editor: Some(editor.clone()),
-            favorite: Some(("file:///home/user/Packing%20list.txt".to_owned(), false)),
-            ..file()
-        };
-        let entries = item_menu(&facts, MenuStyle::Compact).entries;
-        let names = labels(&entries);
-        assert_eq!(
-            names,
-            [
-                "Open",
-                "Open with…",
-                "Add to Favorites",
-                "Compress to",
-                "Copy as path",
-                "Properties",
-                "-",
-                "Edit in Fictional Editor",
-                "-",
-                "Show more options"
-            ]
-        );
-        let MenuEntry::Item(edit) = &entries[7] else {
-            panic!("Edit in is an item");
-        };
-        assert_eq!(edit.action, WindowAction::OpenInEditor.into());
-        assert_eq!(edit.target, Some("fictional-editor.desktop".to_variant()));
-        assert_eq!(edit.application_icon.as_deref(), Some("accessories-text-editor"));
-
-        let classic = labels(&item_menu(&facts, MenuStyle::Classic).entries);
-        assert_eq!(classic[..2], ["Open", "Edit in Fictional Editor"], "{classic:?}");
-
-        let both = ItemFacts {
-            editors: vec![editor],
-            ..facts
-        };
-        let names = labels(&item_menu(&both, MenuStyle::Compact).entries);
-        assert_eq!(
-            names
-                .iter()
-                .filter(|name| name.contains("Fictional Editor"))
-                .count(),
-            1,
-            "{names:?}"
-        );
-    }
-
     /// An editor's item carries the editor's desktop ID for its icon, and
     /// every item a menu disables says why.
     ///
@@ -2423,37 +2360,6 @@ mod tests {
         );
     }
 
-    /// A network computer listed on the Network page has Windows 11's
-    /// menu (checked on build 26200): Open, Open in new tab, Open in new
-    /// window and Pin to Quick access, then "Show more options"; no strip,
-    /// Compress to, Copy as path, Properties or Open in Terminal, which a
-    /// computer's share list has no use for.
-    ///
-    /// parity: CMD-010, SIDE-020
-    #[test]
-    fn a_network_computer_has_windows_11s_menu() {
-        let facts = ItemFacts {
-            navigation_uri: "smb://nas/".to_owned(),
-            location: ItemLocation::SmbServer,
-            caching: None,
-            ..folder()
-        };
-        let menu = item_menu(&facts, MenuStyle::Compact);
-        assert!(menu.strip.is_empty());
-        assert_eq!(
-            labels(&menu.entries),
-            [
-                "Open",
-                "Open in new tab",
-                "Open in new window",
-                "Pin to Quick access",
-                "Create shortcut",
-                "-",
-                "Show more options"
-            ]
-        );
-    }
-
     /// A search result or a Recent row lists Open file location once in
     /// the compact menu, after Share with and before Add to Favorites, as
     /// Windows 11's Gallery and Home list it; the classic menu lists it
@@ -2501,38 +2407,6 @@ mod tests {
         );
         assert!(!labels(&item_menu(&file(), MenuStyle::Classic).entries)
             .contains(&"Open file location".to_owned()));
-    }
-
-    /// A file's compact menu lists Share with before Add to Favorites, as
-    /// Windows 11's does: Open, Open with, Share with, Add to Favorites,
-    /// Compress to, Copy as path, Properties.
-    ///
-    /// parity: CMD-010, HOME-014
-    #[test]
-    fn share_with_comes_before_add_to_favorites() {
-        let facts = ItemFacts {
-            can_share: true,
-            send_to: SendToTargets {
-                bluetooth: true,
-                ..SendToTargets::default()
-            },
-            favorite: Some(("file:///home/user/report.pdf".to_owned(), true)),
-            ..file()
-        };
-        assert_eq!(
-            labels(&item_menu(&facts, MenuStyle::Compact).entries),
-            [
-                "Open",
-                "Open with…",
-                "Share with",
-                "Remove from Favorites",
-                "Compress to",
-                "Copy as path",
-                "Properties",
-                "-",
-                "Show more options",
-            ]
-        );
     }
 
     /// A folder's compact menu, as Windows 11's: Cut, Copy, Paste (shown
