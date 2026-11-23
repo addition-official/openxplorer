@@ -1,6 +1,16 @@
 STATUS: DONE
-HEAD: user-icon-files da81802a (f550ffa8 ems from the real font's ink; da81802a drive and network groups)
-QUESTION: The ours-54 captures (32 screens from test-combined-54 c063d9b7, audit clean) are made but not pushed: this session's permission check refused pushing PNGs to the status branch, and a peer session cannot lift that; the user has to allow it here, or I send them in the chat. Still unchecked on the sheet: Home 51380, Gallery 51586 and the Settings tab 16826 (shell32), Script 68, Shortcut 15.
+HEAD: user-icon-files fb1ba943 (Local Disk back to the plain drive, 32)
+QUESTION: Please check on the user's sheet whether any other group in use carries a Windows logo or Microsoft branding; I cannot see the pictures here. The ones not yet looked at for branding: Home (shell32 51380), Gallery (shell32 51586), the Settings tab (shell32 16826), Script (imageres 68), Program and Shortcut (imageres 15), This PC (imageres 109, which also draws network computers). Also: ours-55 (34 captures from 26de5e7b, audit clean) is committed locally on the status branch but this session's permission check refused the push twice; the user has to allow pushing PNGs to the status branch here.
+NOTE: Round 13, from the PC manager workflow: Local Disk must not show the drive with the Windows logo (imageres 36) on a system that is not Windows; the icon files make the app Windows-like, not Windows-branded. Every fixed drive, Local Disk included, is the plain fixed drive (imageres 32). The root keeps its own art (SystemDrive) and draws as the plain drive; the separate role for it is removed, so the role table and the cache key are as before round 12 apart from the other round 12 groups.
+NOTE: Other branding in the table, as far as the names go: the groups in use are folders, drives, a monitor, network places, the Recycle Bin and plain file pages; none is a Windows or Microsoft logo as checked so far (see QUESTION for the ones not yet looked at). The symbol font's glyphs are interface symbols; the app maps no logo glyph (Segoe's WindowsLogo and similar are not in the glyph table).
+NOTE: Merge check: `git merge-tree --write-tree origin/test-combined-55 fb1ba943` exits 0.
+
+GROUPS (Windows icon files on), as now: Folder 3; Desktop 183; Downloads 184; Documents 112; Pictures 113; Music 108; Videos 189; Home shell32 51380; Gallery shell32 51586; This PC 109; Network 25; Network computer 109; Network share 143; Mapped drive 33; Mapped drive disconnected 31; Fixed drive, Local Disk too, 32; Removable drive 35; Optical drive (with its disc) 56; Recycle Bin empty 55 / full 54; ZIP and archives 174; Text 102; Picture 132; Audio 131; Video 133; Program 15; Shortcut 15; Script 68; Generic 2; Settings tab shell32 16826.
+
+PASS round 13 on fb1ba943: cargo fmt; cargo clippy -p ox-app --all-targets --no-deps -D warnings (only test-combined-53's two leftovers); python3 native/parity/check.py (LOOK-030's note says the plain drive for every fixed drive); ox-core windows_ 38/38; ox-app user_icons 2/2, windows_icon_files 3/3.
+NOT RUN round 13: the full suite.
+
+ROUND 12
 NOTE: Round 12, from the PC manager workflow's real-font ink table (SegoeIcons.ttf, every em 6 to 20) and its check of the groups against the user's extracted imageres.
 NOTE: Merge check: `git merge-tree --write-tree origin/test-combined-54 da81802a` exits 0.
 
