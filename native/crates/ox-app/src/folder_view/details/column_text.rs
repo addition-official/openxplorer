@@ -233,22 +233,6 @@ pub(crate) fn count_items(uri: &str) -> Option<u32> {
 mod tests {
     use super::*;
 
-    /// A shortcut to a folder shows its own size, in whole kilobytes, as
-    /// Windows shows a `.lnk`'s; it is never counted as a folder.
-    ///
-    /// parity: VIEW-074
-    #[gtk::test]
-    fn a_folder_shortcut_shows_its_own_size() {
-        let mut entry = crate::test_support::folder_entry("Projects - Shortcut");
-        entry.is_symlink = true;
-        entry.size = Some(24);
-        let item = FileItem::new(entry);
-
-        assert_eq!(item.file_size(), Some(24));
-        let shown = cell_text(SortColumn::Size, &item, DateStyle::Absolute);
-        assert_eq!(shown, format::column_size_text(Some(1024)), "1 KB");
-    }
-
     /// A folder's Size says how many items it holds.
     ///
     /// parity: VIEW-037

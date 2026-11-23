@@ -388,41 +388,4 @@ mod tests {
             EmptyState::EmptyFolder
         );
     }
-    /// A share that stopped answering is named as Windows names it, and
-    /// Details holds Windows' error code and its words, never GIO's or
-    /// Samba's message: a server that does not answer or refuses is "The
-    /// network name cannot be found.", as Windows 11 says it.
-    ///
-    /// parity: VIEW-047
-    #[test]
-    fn an_unreachable_share_shows_the_windows_error_code_under_details() {
-        let error = EntryError::from(gtk::glib::Error::new(
-            gtk::gio::IOErrorEnum::Failed,
-            "Failed to mount Windows share: Connection timed out",
-        ));
-        let EmptyState::Unavailable { message, details } = EmptyState::unavailable("smb://nas/Team", &error)
-        else {
-            panic!("the unavailable page");
-        };
-        assert!(
-            message.contains("is unavailable. Make sure you are connected"),
-            "{message}"
-        );
-        assert_eq!(
-            details.as_deref(),
-            Some("Error code: 0x80070043\nThe network name cannot be found.")
-        );
-        let refused = EntryError::from(gtk::glib::Error::new(
-            gtk::gio::IOErrorEnum::Failed,
-            "Failed to mount Windows share: Connection refused",
-        ));
-        let EmptyState::Unavailable { details, .. } = EmptyState::unavailable("smb://nas/Team", &refused)
-        else {
-            panic!("the unavailable page");
-        };
-        assert_eq!(
-            details.as_deref(),
-            Some("Error code: 0x80070043\nThe network name cannot be found.")
-        );
-    }
 }

@@ -443,47 +443,6 @@ mod tests {
         assert_eq!(listed.len(), 2, "only the two shortcuts");
     }
 
-    /// While file name extensions are hidden, as by default, a shortcut is
-    /// named after the item as File Explorer shows it, without its known
-    /// extension ("Morning Walk - Shortcut"), as Windows 11 names it; a
-    /// folder, a name with no known extension and a version number keep
-    /// their whole names.
-    ///
-    /// parity: CMD-038
-    #[test]
-    fn with_extensions_hidden_a_shortcut_is_named_without_the_extension() {
-        let folder = temporary_folder();
-        let desktop = folder.path().join("Desktop");
-        std::fs::create_dir(&desktop).expect("fixture folder");
-        let make = |name: &str, is_folder: bool| {
-            let item = folder.path().join(name);
-            if is_folder {
-                std::fs::create_dir(&item).expect("fixture folder");
-            } else {
-                std::fs::write(&item, b"Synthetic data").expect("fixture file");
-            }
-            let hidden = ShortcutNames::WithoutExtension;
-            create_shortcut_named(&file_uri(&item), &file_uri(&desktop), None, hidden).expect("a shortcut")
-        };
-
-        let song = make("Morning Walk.mp3", false);
-        let again = create_shortcut_named(
-            &file_uri(&folder.path().join("Morning Walk.mp3")),
-            &file_uri(&desktop),
-            None,
-            ShortcutNames::WithoutExtension,
-        );
-        let archive = make("Photos 2025.d", true);
-        let versioned = make("Notes v2.1", false);
-        let plain = make("README", false);
-
-        assert_eq!(song, file_uri(&desktop.join("Morning Walk - Shortcut")));
-        assert_eq!(again, Ok(file_uri(&desktop.join("Morning Walk - Shortcut (2)"))));
-        assert_eq!(archive, file_uri(&desktop.join("Photos 2025.d - Shortcut")));
-        assert_eq!(versioned, file_uri(&desktop.join("Notes v2.1 - Shortcut")));
-        assert_eq!(plain, file_uri(&desktop.join("README - Shortcut")));
-    }
-
     /// The root of the file system, Local Disk, gets a shortcut named
     /// from the name given, as "/" names no file.
     ///

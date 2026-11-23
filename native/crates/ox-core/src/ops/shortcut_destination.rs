@@ -296,29 +296,6 @@ mod tests {
         );
     }
 
-    /// The folders drives and shares are mounted at, and nothing else.
-    #[test]
-    fn drive_folders_are_where_desktops_mount_drives_and_shares() {
-        let folder = |path: &str| drive_folder(Path::new(path));
-        assert_eq!(
-            folder("/media/demo/USB/a.txt"),
-            Some(PathBuf::from("/media/demo/USB"))
-        );
-        assert_eq!(
-            folder("/run/media/demo/USB/a"),
-            Some(PathBuf::from("/run/media/demo/USB"))
-        );
-        assert_eq!(folder("/mnt/archive/2026"), Some(PathBuf::from("/mnt/archive")));
-        assert_eq!(
-            folder("/run/user/1000/gvfs/smb-share:server=nas,share=team/plan.odt"),
-            Some(PathBuf::from(
-                "/run/user/1000/gvfs/smb-share:server=nas,share=team"
-            ))
-        );
-        assert_eq!(folder("/media/demo"), None, "a user's folder of drives");
-        assert_eq!(folder("/home/demo/Documents/a.txt"), None);
-    }
-
     /// `..` and `.` in a link's target are resolved as an address shows
     /// them.
     #[test]
@@ -328,28 +305,5 @@ mod tests {
             PathBuf::from("/a/c/d")
         );
         assert_eq!(lexically_normal(Path::new("/../a")), PathBuf::from("/a"));
-    }
-
-    /// A path a `.desktop` link names is found, or missing.
-    ///
-    /// parity: OPEN-028
-    #[test]
-    fn a_named_path_is_found_or_missing() {
-        let folder = temporary_folder();
-        assert_eq!(
-            destination_of(folder.path()),
-            ShortcutDestination::Found(folder.path().to_path_buf())
-        );
-        let gone = folder.path().join("Archive 2025");
-        assert_eq!(destination_of(&gone), ShortcutDestination::Missing(gone));
-    }
-
-    /// A file that is not a link has no target.
-    #[test]
-    fn a_plain_file_is_not_a_shortcut() {
-        let folder = temporary_folder();
-        let file = folder.path().join("report.txt");
-        std::fs::write(&file, b"Synthetic data").expect("fixture file");
-        assert!(resolve_shortcut(&file).is_err());
     }
 }

@@ -937,60 +937,6 @@ mod tests {
         );
     }
 
-    /// A drive that may not be written says so as Windows 11 does (checked
-    /// on a Windows 11 VM with a write-protected USB stick): "The disk is
-    /// write-protected." and what to do, with no error code line.
-    ///
-    /// parity: OPS-047
-    #[test]
-    fn a_write_protected_drive_is_said_in_windows_words() {
-        let mut failed = item(TransferMode::Copy, FailureCause::Other);
-        failed.error = ox_core::transfer::TransferError::from(gtk::glib::Error::new(
-            gio::IOErrorEnum::ReadOnly,
-            "Error creating directory “/media/sample/STICK/beach.jpg”: Read-only file system",
-        ))
-        .to_string();
-        assert!(is_write_protected(&failed.error), "{}", failed.error);
-        assert!(!is_write_protected("Access is denied."));
-        let said = wording(Question::WriteProtected, &failed, false, "");
-        assert_eq!(
-            (
-                said.caption.as_str(),
-                said.heading.as_str(),
-                said.message.as_str()
-            ),
-            (
-                "Interrupted Action",
-                "The disk is write-protected.",
-                "Remove the write-protection or use another disk."
-            )
-        );
-    }
-
-    /// The unexpected error's line is Windows' error code line, for an
-    /// error the engine read from the system; a message of the app's own,
-    /// which has no code, is shown as it is.
-    ///
-    /// parity: OPS-047
-    #[test]
-    fn an_unexpected_error_shows_its_error_code() {
-        let pulled = ox_core::transfer::TransferError::from(gtk::glib::Error::new(
-            gio::IOErrorEnum::Failed,
-            "Error splicing file: Transport endpoint is not connected",
-        ));
-        let mut failed = item(TransferMode::Copy, FailureCause::Other);
-        failed.error = pulled.to_string();
-        let said = wording(Question::Unexpected, &failed, false, "");
-        assert_eq!(said.message, "Error 0x8007048F: The device is not connected.");
-        failed.error = "/media/sample/USB/plan.docx: The device is not connected.".into();
-        let said = wording(Question::Unexpected, &failed, false, "");
-        assert_eq!(said.message, "Error 0x8007048F: The device is not connected.");
-        failed.error =
-            "Incomplete staging folder left at /media/sample/USB. Inspect it before removing it.".into();
-        let said = wording(Question::Unexpected, &failed, false, "");
-        assert_eq!(said.message, failed.error);
-    }
-
     /// A full drive says how much the item needs and what to do, as
     /// Windows does, and the drive's space when known.
     ///

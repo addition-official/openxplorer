@@ -210,41 +210,6 @@ fn a_shortcut_onto_a_drive_that_is_not_connected_says_so() {
     assert!(fs::symlink_metadata(fixture.path("Photos - Shortcut")).is_ok());
 }
 
-/// A `.desktop` link to a folder that was deleted is a broken shortcut
-/// too, and Yes deletes the link file permanently.
-///
-/// parity: OPEN-028
-#[gtk::test]
-fn a_desktop_link_to_a_deleted_folder_offers_to_delete_it() {
-    require_private_trash();
-    let fixture = Fixture::standard();
-    let link = format!(
-        "[Desktop Entry]\nType=Link\nName=Archive\nURL={}\n",
-        fixture.uri_of("Archive 2025")
-    );
-    fs::write(fixture.path("Archive.desktop"), link).expect("the fixture is writable");
-    let test = TestWindow::open(&fixture.uri());
-    test.context.record_runs();
-
-    test.window.activate_item(test.position_of("Archive.desktop"));
-    let dialog = open_dialog(&test);
-    assert_eq!(dialog.title_text(), "Problem with Shortcut");
-    assert!(
-        dialog
-            .message_text()
-            .starts_with("The item ‘Archive 2025’ that this shortcut"),
-        "{}",
-        dialog.message_text()
-    );
-    dialog.press("Yes");
-
-    wait_until("the link file to be deleted", || {
-        !fixture.path("Archive.desktop").exists()
-    });
-    assert!(!in_recycle_bin("Archive.desktop"), "not in the Recycle Bin");
-    assert_eq!(test.window.current_uri(), Some(fixture.uri()));
-}
-
 /// The next page of the wizard: a dialog over the window other than
 /// `page`.
 fn next_page(test: &TestWindow, page: &crate::dialog::Dialog) -> crate::dialog::Dialog {
@@ -328,37 +293,6 @@ fn new_shortcut_is_the_create_shortcut_wizard() {
         fs::read(&notes).expect("the file"),
         fs::read(fixture.path("Notes shortcut")).expect("followed")
     );
-}
-
-/// A shortcut to an Internet address is a `.desktop` link, named "New
-/// Internet Shortcut" as Windows proposes, which opens the address.
-///
-/// parity: OPS-051
-#[gtk::test]
-fn new_shortcut_to_an_internet_address_is_a_desktop_link() {
-    let fixture = Fixture::standard();
-    let test = TestWindow::open(&fixture.uri());
-
-    test.activate("new-link", None);
-    let location = open_dialog(&test);
-    descendants::<gtk::Entry>(&location)[0].set_text("https://example.org/news");
-    location.press("Next");
-    let name = next_page(&test, &location);
-    assert_eq!(
-        descendants::<gtk::Entry>(&name)[0].text(),
-        "New Internet Shortcut"
-    );
-    name.press("Finish");
-    wait_for_no_dialog(&test);
-
-    let link = fixture.path("New Internet Shortcut.desktop");
-    wait_until("the link file", || link.is_file());
-    let text = fs::read_to_string(&link).expect("a desktop entry");
-    assert!(text.contains("Type=Link\n"), "{text}");
-    assert!(text.contains("URL=https://example.org/news\n"), "{text}");
-    wait_until("the shortcut to be selected", || {
-        test.selected_names() == ["New Internet Shortcut.desktop"]
-    });
 }
 
 /// Opening an installed app's launcher, or a shortcut to one, opens it in

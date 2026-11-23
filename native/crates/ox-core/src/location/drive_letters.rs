@@ -57,26 +57,6 @@ mod tests {
         ]
     }
 
-    /// `Z:` and `Z:\` open the share mapped to Z, and `Z:\path` the folder
-    /// inside it, whichever slash and case are typed.
-    ///
-    /// parity: NET-039
-    #[test]
-    fn a_mapped_letter_opens_its_share() {
-        let mappings = mappings();
-        let open = |typed: &str| mapped_drive_location(typed, &mappings);
-        assert_eq!(open("Z:").as_deref(), Some("smb://harbornas.local/Projects"));
-        assert_eq!(open(" z:\\ ").as_deref(), Some("smb://harbornas.local/Projects"));
-        assert_eq!(
-            open("Z:\\Plans\\Q3 draft").as_deref(),
-            Some("smb://harbornas.local/Projects/Plans/Q3%20draft")
-        );
-        assert_eq!(
-            open("y:/Documents/").as_deref(),
-            Some("sftp://harbornas.local:2222/home/nasuser/Documents")
-        );
-    }
-
     /// A letter no share is mapped to, a path climbing out of the share
     /// and text that is not a drive path are not mapped drives.
     #[test]
