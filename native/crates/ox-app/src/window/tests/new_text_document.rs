@@ -245,6 +245,9 @@ type NewMenuFile = (
 /// parity: OPS-002, OPS-003, OPS-010, CMD-004
 #[gtk::test]
 fn the_other_new_files_are_made_at_once_and_renamed_in_place() {
+    // Windows lists Rich Text Document only with WordPad.
+    let _rtf =
+        crate::window::file_ops::pretend_document_applications(&[("application/rtf", "x-office-document")]);
     let _template = UserTemplate::add("Letter.odt", b"letter");
     let fixture = Fixture::standard();
     let test = TestWindow::open(&fixture.uri());
@@ -1100,11 +1103,9 @@ fn the_opendocument_types_are_offered_while_an_application_opens_them() {
         [
             "Folder",
             "Shortcut",
-            "-",
             "Bitmap image",
             "OpenDocument Spreadsheet",
             "OpenDocument Text",
-            "Rich Text Document",
             "Text Document",
             "Compressed (zipped) Folder",
         ]
@@ -1158,5 +1159,48 @@ fn the_opendocument_types_are_offered_while_an_application_opens_them() {
     assert!(
         !fixture.path("New OpenDocument Presentation.odp").exists(),
         "a type no application opens is not made"
+    );
+}
+
+/// As in Windows 11 (VM check 2026-11-22): New Text Document made as
+/// "New Text Document (2).txt" and renamed "Garden plan.txt"; the first
+/// Undo gives it back its "(2)" name, the second moves it to the Recycle
+/// Bin without a question.
+///
+/// parity: OPS-029, OPS-002
+#[gtk::test]
+fn undo_after_new_and_rename_gives_back_the_name_then_the_file_goes_without_a_question() {
+    require_private_trash();
+    let fixture = Fixture::standard();
+    fs::write(fixture.path("New Text Document.txt"), b"").expect("a taken name");
+    let test = TestWindow::open(&fixture.uri());
+    super::support::show_file_name_extensions(&test);
+    let field = make_new_text_document(&test);
+    assert_eq!(field.text(), "New Text Document (2).txt");
+    field.set_text("Garden plan.txt");
+    field.emit_activate();
+    // The rename has ended, been recorded and listed once the renamed
+    // file is selected and Undo can run.
+    wait_until("the rename", || {
+        test.selected_names() == ["Garden plan.txt"]
+            && !is_renaming_in_place(&test)
+            && is_enabled(&test, "undo")
+    });
+
+    test.activate("undo", None);
+    wait_until("the name to come back", || {
+        fixture.path("New Text Document (2).txt").exists()
+    });
+    assert!(!fixture.path("Garden plan.txt").exists());
+    wait_until("the next Undo", || is_enabled(&test, "undo"));
+    test.activate("undo", None);
+    wait_until("the file to go", || {
+        !fixture.path("New Text Document (2).txt").exists()
+    });
+    settle();
+    assert!(dialog_over(&test).is_none(), "no question");
+    assert!(
+        fixture.path("New Text Document.txt").exists(),
+        "the other file stays"
     );
 }

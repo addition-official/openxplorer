@@ -388,6 +388,9 @@ pub(crate) enum WindowAction {
     /// Opens the Format dialog for the drive mounted at the string
     /// target.
     FormatDrive,
+    /// Renames the drive mounted at the string target: sets its volume
+    /// label, as Windows' Rename of a drive does.
+    RenameDrive,
     /// Attaches the disk image whose URI is the string target, read-only.
     MountDiskImage,
     /// Opens a disk-usage analyser at the folder whose URI is the string
@@ -527,6 +530,10 @@ pub(crate) enum WindowAction {
     /// Send to ▸ Desktop (create shortcut): a shortcut to each selected
     /// item on the Desktop.
     SendToDesktop,
+    /// Create shortcut, in the classic menu: a shortcut to each selected
+    /// item beside it, or on the Desktop where the folder takes none
+    /// (CMD-040).
+    CreateShortcut,
     /// Send to ▸ Bluetooth device: the desktop's Bluetooth sender with the
     /// selected files.
     SendToBluetooth,
@@ -729,6 +736,7 @@ impl WindowAction {
             WindowAction::SafelyRemove => "safely-remove",
             WindowAction::OpenInDisks => "open-in-disks",
             WindowAction::FormatDrive => "format-drive",
+            WindowAction::RenameDrive => "rename-drive",
             WindowAction::MountDiskImage => "mount-disk-image",
             WindowAction::AnalyseDiskUsage => "analyse-disk-usage",
             WindowAction::CacheFolder => "cache-folder",
@@ -782,6 +790,7 @@ impl WindowAction {
             WindowAction::CompressTo => "compress-to",
             WindowAction::SendTo => "send-to",
             WindowAction::SendToDesktop => "send-to-desktop",
+            WindowAction::CreateShortcut => "create-shortcut",
             WindowAction::SendToBluetooth => "send-to-bluetooth",
             WindowAction::OpenWith => "open-with",
             WindowAction::ChangeApp => "change-app",

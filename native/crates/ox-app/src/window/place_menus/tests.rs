@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::test_support::{studio_nas_mapped_drive, studio_nas_server};
-use crate::window::menu_popover::{ItemAvailability, ItemCheck};
+use crate::window::menu_popover::{ItemAvailability, ItemCheck, MenuAction};
 
 /// The labels of `menu`, a divider as `-`, for a place that is not
 /// cached for search.
@@ -141,6 +141,7 @@ fn a_drive_opens_and_offers_what_it_allows_and_a_volume_mounts() {
         can_stop: true,
         can_open_in_disks: true,
         can_format: true,
+        is_optical: false,
     };
     let drive = PlaceMenu::Drive {
         uri: "file:///media/demo/USB".into(),
@@ -330,7 +331,7 @@ fn drives_and_shares_offer_to_cache_their_folder() {
 }
 
 /// The compact menu of a drive is Windows 11's (checked on Windows 11,
-/// 2026-11-07): Copy and Rename in the strip, greyed out, then Open, Open
+/// 2026-11-07): Copy and Rename in the strip, then Open, Open
 /// in new tab, Open in new window, Format… and Eject where the drive
 /// allows them, Pin to Quick access (Unpin while pinned) and Properties;
 /// Open in Terminal and the cache item wait in the classic menu.
@@ -347,6 +348,7 @@ fn a_drive_menu_follows_windows_11_in_the_compact_style() {
             can_stop: false,
             can_open_in_disks: true,
             can_format: true,
+            is_optical: false,
         },
     };
     let local_disk = PlaceMenu::Drive {
@@ -387,8 +389,8 @@ fn a_drive_menu_follows_windows_11_in_the_compact_style() {
         .collect();
     assert_eq!(
         strip,
-        [("Copy".to_owned(), false), ("Rename".to_owned(), true)],
-        "Copy copies the drive for a paste to make a shortcut to it; Rename is greyed out"
+        [("Copy".to_owned(), false), ("Rename".to_owned(), false)],
+        "Copy copies the drive for a paste to make a shortcut to it; Rename changes its label"
     );
     let pinned = PlaceFacts {
         pinned: true,
@@ -407,4 +409,63 @@ fn a_drive_menu_follows_windows_11_in_the_compact_style() {
     );
     let finished = finish_menu(entries, MenuStyle::Compact, WindowAction::PlaceMoreOptions);
     assert_eq!(names(&finished)[5..], ["-", "Show more options"]);
+}
+
+/// Rename on a removable drive changes its volume label, as Windows'
+/// Rename of a USB drive does: enabled in the strip and the classic menu,
+/// it opens the app's Rename dialog for the drive (win.rename-drive).
+/// Local Disk and drives the app cannot relabel keep it grayed out,
+/// saying why.
+///
+/// parity: HOME-003, SIDE-017, DEV-012
+#[test]
+fn rename_changes_a_removable_drives_label() {
+    let usb = PlaceMenu::Drive {
+        uri: "file:///media/demo/USB".into(),
+        kind: VolumeKind::Drive,
+        controls: MountControls {
+            can_unmount: true,
+            can_eject: true,
+            can_stop: true,
+            can_open_in_disks: false,
+            can_format: true,
+            is_optical: false,
+        },
+    };
+    let local_disk = PlaceMenu::Drive {
+        uri: "file:///".into(),
+        kind: VolumeKind::Drive,
+        controls: MountControls::FIXED,
+    };
+    let facts = PlaceFacts {
+        caching: Some(Caching::Disabled),
+        pinned: false,
+    };
+    let rename_of = |items: Vec<MenuItem>| {
+        items
+            .into_iter()
+            .find(|item| item.label == "Rename")
+            .expect("a Rename item")
+    };
+
+    let (_, strip) = usb.styled(facts, MenuStyle::Compact);
+    let rename = rename_of(strip);
+    assert_eq!(rename.availability, ItemAvailability::FollowsAction);
+    assert_eq!(rename.action, MenuAction::Window(WindowAction::RenameDrive));
+    assert_eq!(
+        rename.target.as_ref().and_then(gtk::glib::Variant::str),
+        Some("file:///media/demo/USB")
+    );
+    let (classic, _) = usb.styled(facts, MenuStyle::Classic);
+    let classic: Vec<MenuItem> = classic
+        .into_iter()
+        .filter_map(|entry| match entry {
+            MenuEntry::Item(item) => Some(item),
+            MenuEntry::Divider => None,
+        })
+        .collect();
+    assert_eq!(rename_of(classic).availability, ItemAvailability::FollowsAction);
+
+    let (_, strip) = local_disk.styled(facts, MenuStyle::Compact);
+    assert_eq!(rename_of(strip).availability, ItemAvailability::Disabled);
 }

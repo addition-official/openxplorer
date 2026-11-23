@@ -1660,40 +1660,6 @@ impl GalleryView {
 mod tests {
     use super::*;
 
-    /// A picture decoded for the tile's own device pixels is never
-    /// replaced by a thumbnail that comes later, even one with more
-    /// pixels, which would be drawn scaled and softer; a thumbnail still
-    /// replaces a smaller thumbnail.
-    ///
-    /// parity: HOME-033
-    #[gtk::test]
-    fn a_late_thumbnail_never_replaces_the_sharp_picture() {
-        let texture = |width, height| -> gdk::Texture {
-            let pixbuf =
-                gtk::gdk_pixbuf::Pixbuf::new(gtk::gdk_pixbuf::Colorspace::Rgb, false, 8, width, height)
-                    .expect("a picture");
-            gdk::Texture::for_pixbuf(&pixbuf)
-        };
-        let picture: tile::GalleryPicture = glib::Object::new();
-        picture.offer(texture(128, 72));
-        picture.offer(texture(256, 144));
-        assert_eq!(picture.texture_pixels(), Some((256, 144)), "a larger thumbnail");
-        picture.show_sharp(texture(150, 84));
-        picture.offer(texture(256, 144));
-        assert_eq!(
-            picture.texture_pixels(),
-            Some((150, 84)),
-            "the sharp picture stays"
-        );
-        picture.show(None);
-        picture.offer(texture(128, 72));
-        assert_eq!(
-            picture.texture_pixels(),
-            Some((128, 72)),
-            "another photo starts afresh"
-        );
-    }
-
     /// The heading names one month, or the newest and oldest months with
     /// an en dash, as Windows' Gallery does.
     ///

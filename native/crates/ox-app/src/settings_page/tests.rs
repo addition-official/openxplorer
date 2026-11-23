@@ -25,6 +25,7 @@ use crate::test_support::python::{python_preference, python_saves_preferences};
 use crate::text_size::TextSize;
 use crate::window::WindowAction;
 
+mod column_header;
 mod indexing;
 mod moved_from_more;
 mod passwordless;
@@ -554,7 +555,13 @@ fn escape_leaves_the_search_and_shows_every_row_again() {
             "Music icon",
             "Code icon",
             "File name endings",
+            "Icons from Windows icon files",
+            "Windows icon files",
+            "Windows symbol font",
             "Compact view",
+            "Column header style",
+            "Show a line under column titles",
+            "Name column starts at Windows' width (256 px)",
             "Hide expand arrows in the sidebar",
             "Show more items in the navigation pane",
             "Show more items in the tab menu",
@@ -635,8 +642,11 @@ fn every_setting_of_the_python_page_has_a_row() {
 
 /// Rows that work but disable their button while there is nothing for it
 /// to do, as Restore previous with no handler recorded (INT-030), or the
-/// Super+E switch outside KDE Plasma (INT-033).
-const ROWS_FOLLOWING_THEIR_STATE: [&str; 4] = [
+/// Super+E switch outside KDE Plasma (INT-033), or Clear while no Windows
+/// icon file is chosen (LOOK-030).
+const ROWS_FOLLOWING_THEIR_STATE: [&str; 6] = [
+    "Windows icon files",
+    "Windows symbol font",
     "Restore the previous file handlers",
     "Give ZIP files back to the previous app",
     "Open ZIP files from other apps with OpenXplorer",
@@ -1485,4 +1495,198 @@ fn the_dragging_help_says_alt_creates_shortcuts() {
     assert!(text.contains("Shift to move"), "{text}");
     assert!(text.contains("Ctrl to copy"), "{text}");
     assert!(!text.contains("Alt to choose"), "{text}");
+}
+
+/// The category list is one Tab stop, as Windows 11 Settings' list is:
+/// real Tab from a category goes on to "Back to files" and Shift+Tab back
+/// to the search, without opening another category. GTK's list box took
+/// Tab as Down, so each Tab opened the next category until the list
+/// ended.
+///
+/// parity: ACC-016
+#[gtk::test]
+fn tab_leaves_the_category_list_without_opening_another_category() {
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    // Before the window opens, which a new pointer would put away.
+    let mut pointer = crate::test_support::pointer::Pointer::connect();
+    test.activate("settings", None);
+    let page = settings_page_of(&test);
+    let list = page.imp().category_list.get();
+    wait_until("Settings shows", || list.is_mapped());
+    let chosen = list.selected_row().expect("a category is chosen");
+    chosen.grab_focus();
+    let (x, y) = crate::test_support::pointer::screen_point(&mut pointer, &test.window, (4.0, 4.0), (8, 8));
+    // The keyboard follows the pointer on the private display. It rests on
+    // the window's edge, where no widget has a tooltip: left over a row, it
+    // stayed where later tests' windows show the navigation pane's
+    // tooltips.
+    pointer.move_to(x, y);
+    wait_until("the category has the keyboard", || chosen.has_focus());
+
+    pointer.tap_key(gtk::gdk::Key::Tab);
+    let back = page.back_to_files_button();
+    wait_until("Tab moves on to Back to files", || back.has_focus());
+    assert_eq!(
+        list.selected_row().as_ref(),
+        Some(&chosen),
+        "no other category opened"
+    );
+
+    chosen.grab_focus();
+    pointer.hold_key(gtk::gdk::Key::Shift_L);
+    pointer.tap_key(gtk::gdk::Key::Tab);
+    pointer.let_go_key(gtk::gdk::Key::Shift_L);
+    let search = page.imp().search_entry.get();
+    wait_until("Shift+Tab goes back to the search", || {
+        search.has_focus() || search.focus_child().is_some()
+    });
+    assert_eq!(
+        list.selected_row().as_ref(),
+        Some(&chosen),
+        "no other category opened"
+    );
+}
+
+/// Real Tab leaves the theme cards from the chosen one, as a radio group
+/// is one Tab stop, and the real Right arrow moves to the next card and
+/// chooses it. GTK's flow box kept Tab on the cards (it claimed the key
+/// though the next card's radio declined it) and took the arrow keys for
+/// a cursor no card could hold, so the theme could not be changed from the
+/// keyboard.
+///
+/// parity: SET-019, ACC-016
+#[gtk::test]
+fn tab_leaves_the_theme_cards_and_the_arrows_still_choose() {
+    let _theme = ThemeGuard::keep();
+    let settings = SettingsTest::open();
+    // Before the page shows, which a new pointer would put away.
+    let mut pointer = crate::test_support::pointer::Pointer::connect();
+    settings
+        .page
+        .show_view(SettingsView::Category(Category::Appearance));
+    let system = settings.theme_radio("System");
+    let light = settings.theme_radio("Light");
+    let dark = settings.theme_radio("Dark");
+    system.activate();
+    wait_until("the cards to be laid out", || dark.width() > 0);
+    assert!(system.grab_focus());
+    let (x, y) =
+        crate::test_support::pointer::screen_point(&mut pointer, &settings.test.window, (4.0, 4.0), (8, 8));
+    // The keyboard follows the pointer on the private display. It rests on
+    // the window's edge, where no widget has a tooltip.
+    pointer.move_to(x, y);
+    let radios = [&system, &light, &dark];
+    let in_cards = || radios.iter().any(|radio| radio.has_focus());
+
+    pointer.tap_key(gtk::gdk::Key::Tab);
+    wait_until("Tab leaves the theme cards", || !in_cards());
+    assert!(system.is_active(), "the choice is kept");
+
+    pointer.hold_key(gtk::gdk::Key::Shift_L);
+    pointer.tap_key(gtk::gdk::Key::Tab);
+    pointer.let_go_key(gtk::gdk::Key::Shift_L);
+    wait_until("Shift+Tab comes back to the chosen card", || system.has_focus());
+
+    pointer.tap_key(gtk::gdk::Key::Right);
+    wait_until("Right moves to the next card", || light.has_focus());
+    assert!(light.is_active(), "and chooses it");
+    pointer.tap_key(gtk::gdk::Key::Tab);
+    wait_until("Tab leaves the theme cards from the new choice", || !in_cards());
+}
+
+/// "Icons from Windows icon files" is off by default with no file chosen;
+/// turned on with chosen files, it saves both, says how many icons the
+/// files gave, and the navigation pane draws them. The files are
+/// synthetic, built in the test; the file dialog itself is GTK's and is
+/// not driven, so the chosen paths are saved as its answer would be.
+///
+/// parity: LOOK-030
+#[gtk::test]
+fn icons_from_windows_icon_files_are_off_until_chosen() {
+    use ox_core::windows_icons::synthetic::SyntheticIconFile;
+    use ox_core::windows_icons::IconRole;
+
+    use crate::icons::{user_icons, Art, ArtImage};
+
+    let settings = SettingsTest::open();
+    let row = settings.row("Icons from Windows icon files");
+    let switch = switch_of(&row);
+    assert!(!switch.is_active(), "off by default");
+    assert_eq!(row.shown_description(), "Off: OpenXplorer's own icons");
+    let files_row = settings.row("Windows icon files");
+    assert_eq!(files_row.shown_description(), "No files chosen");
+    // Both close the File icons group (LOOK-029), one more source of the
+    // same icons.
+    let file_icons = settings
+        .page
+        .category_section(Category::Appearance)
+        .groups()
+        .into_iter()
+        .find(|group| group.heading_text().trim() == "File icons")
+        .expect("Appearance has File icons");
+    let titles: Vec<&str> = file_icons.rows().iter().map(|row| row.text().title).collect();
+    assert_eq!(
+        titles[titles.len() - 3..],
+        [
+            "Icons from Windows icon files",
+            "Windows icon files",
+            "Windows symbol font"
+        ]
+    );
+    let font_row = settings.row("Windows symbol font");
+    assert_eq!(font_row.shown_description(), "No font chosen");
+    let clear = files_row
+        .controls()
+        .into_iter()
+        .filter_map(|control| control.downcast::<gtk::Button>().ok())
+        .find(|button| button.label().as_deref() == Some("Clear"))
+        .expect("a Clear button");
+    assert!(!clear.is_sensitive(), "nothing to clear");
+    assert!(!settings.saved_preferences().use_icon_files);
+
+    let folder = tempfile::tempdir().expect("a temporary folder");
+    let imageres = folder.path().join("imageres.dll.mun");
+    std::fs::write(&imageres, SyntheticIconFile::with_groups(&[3, 32]).build()).expect("written");
+    switch.set_active(true);
+    wait_until("the switch to be saved", || {
+        settings.saved_preferences().use_icon_files
+    });
+    assert_eq!(row.shown_description(), "On, but no file is chosen yet");
+    settings
+        .page
+        .save_preferences(ox_core::settings::PreferencesUpdate {
+            icon_files: Some(vec![imageres.display().to_string()]),
+            ..ox_core::settings::PreferencesUpdate::default()
+        });
+    wait_until("the files to be saved", || {
+        !settings.saved_preferences().icon_files.is_empty()
+    });
+    wait_until("the files to be read", || {
+        user_icons::status() == user_icons::Status::Ready { found: 2 }
+    });
+    wait_until("the row to say so", || {
+        row.shown_description() == format!("2 of {} icons come from the chosen files", IconRole::ALL.len())
+    });
+    assert_eq!(files_row.shown_description(), "imageres.dll.mun");
+    assert!(clear.is_sensitive());
+    let sidebar_drive = descendants::<ArtImage>(&settings.test.window)
+        .into_iter()
+        .find(|image| image.art() == Some(Art::Glyph(crate::icons::Icon::HardDrive)))
+        .expect("the navigation pane shows Local Disk");
+    wait_until("Local Disk to show the file's icon", || {
+        sidebar_drive.shows_user_icon()
+    });
+
+    clear.emit_clicked();
+    wait_until("the files to be forgotten", || {
+        settings.saved_preferences().icon_files.is_empty()
+    });
+    wait_until("the app's own icons to return", || {
+        !sidebar_drive.shows_user_icon()
+    });
+    switch.set_active(false);
+    wait_until("the switch to be saved off", || {
+        !settings.saved_preferences().use_icon_files
+    });
 }

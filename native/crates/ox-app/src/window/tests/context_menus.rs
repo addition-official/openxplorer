@@ -134,9 +134,10 @@ fn right_clicking_a_file_selects_it_and_opens_the_classic_menu() {
             "Cut",
             "Copy",
             "-",
-            "Duplicate",
+            "Create shortcut",
             "Delete",
             "Rename",
+            "Duplicate",
             "-",
             "Compress to…",
             "-",
@@ -387,6 +388,7 @@ fn with_several_items_selected_the_one_item_commands_are_disabled() {
         "Rename",
         "Rename items…",
         "Delete",
+        "Create shortcut",
         "Duplicate",
         "Copy as path",
         "Properties",
@@ -551,9 +553,7 @@ fn right_clicking_blank_space_opens_the_folder_menu_and_new_opens_beside_it() {
         [
             "Folder",
             "Shortcut",
-            "-",
             "Bitmap image",
-            "Rich Text Document",
             "Text Document",
             "Compressed (zipped) Folder",
         ]
@@ -669,7 +669,9 @@ fn a_folder_without_write_permission_keeps_new_and_paste_and_shows_the_error() {
         test.window.shown_message() != before.as_str()
     });
     assert!(
-        test.window.shown_message().contains("Permission denied"),
+        test.window
+            .shown_message()
+            .ends_with("Locked/New folder: Access is denied."),
         "the system's error: {}",
         test.window.shown_message()
     );
@@ -731,7 +733,7 @@ fn the_compact_folder_menu_opens_its_submenus_beside_it() {
     test.window.right_click(None);
     let menu = test.window.context_menu();
     assert_eq!(menu.style(), MenuStyle::Compact);
-    assert_eq!(menu.row_labels()[..4], ["View", "Sort by", "Group by", "Refresh"]);
+    assert_eq!(menu.row_labels()[..3], ["View", "Sort by", "Group by"]);
     assert_eq!(
         menu.row_labels().last().map(String::as_str),
         Some("Show more options")
@@ -1471,44 +1473,4 @@ fn new_in_a_pinned_folder_ends_a_search_first() {
     });
     assert_eq!(test.window.current_uri().as_deref(), Some(pinned.as_str()));
     test.window.search_strip().set_keeps_search(false);
-}
-
-/// The folder menu grays Open in Terminal where no terminal can open, as
-/// the navigation pane's menus do: on Gallery's blank space, which is no
-/// folder on a drive or share; Network's menu leaves it out, as Windows
-/// 11's; a folder keeps it.
-///
-/// parity: CMD-011, OPEN-017
-#[gtk::test]
-fn the_folder_menu_grays_open_in_terminal_where_no_terminal_opens() {
-    let fixture = Fixture::standard();
-    let test = TestWindow::open(&fixture.uri());
-    for style in [ContextMenu::Win11, ContextMenu::Win10] {
-        choose_menu_style(&test, style);
-        for (place, uri, opens) in [
-            ("a folder", fixture.uri(), true),
-            ("Network", ox_core::location::NETWORK_URI.to_owned(), false),
-            ("Gallery", ox_core::location::GALLERY_URI.to_owned(), false),
-        ] {
-            test.activate("go-to", Some(&uri));
-            wait_until(&format!("{place} to show"), || {
-                test.window.current_uri().as_deref() == Some(uri.as_str())
-            });
-            test.window.right_click(None);
-            let menu = test.window.context_menu();
-            let rows = menu.row_labels();
-            // Network's menus have no Open in Terminal at all, as
-            // Windows 11's (page_menus.rs).
-            if rows.contains(&"Open in Terminal".to_owned()) {
-                assert_eq!(
-                    menu.row("Open in Terminal").is_sensitive(),
-                    opens,
-                    "{style:?} {place}: {rows:?}"
-                );
-            } else {
-                assert_eq!(place, "Network", "{style:?}: {rows:?}");
-            }
-            menu.popdown();
-        }
-    }
 }

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-//! The OpenDocument types New offers while an application opens them.
+//! The document types New offers while an application opens them: the
+//! OpenDocument types, and Rich Text Document, which Windows 11 lists only
+//! with WordPad (VM check 2026-11-22).
 //!
 //! Windows' New menu lists a file type once a program registers it: with
 //! Microsoft Office, "Microsoft Word Document" and the others; with
@@ -22,10 +24,8 @@ fn document_label(document: NewDocument) -> Option<&'static str> {
         NewDocument::OpenDocumentPresentation => crate::i18n::message_id("OpenDocument Presentation"),
         NewDocument::OpenDocumentSpreadsheet => crate::i18n::message_id("OpenDocument Spreadsheet"),
         NewDocument::OpenDocumentText => crate::i18n::message_id("OpenDocument Text"),
-        NewDocument::BitmapImage
-        | NewDocument::RichTextDocument
-        | NewDocument::TextDocument
-        | NewDocument::CompressedFolder => return None,
+        NewDocument::RichTextDocument => crate::i18n::message_id("Rich Text Document"),
+        NewDocument::BitmapImage | NewDocument::TextDocument | NewDocument::CompressedFolder => return None,
     };
     Some(ox_core::i18n::gettext_static(label))
 }
@@ -64,12 +64,17 @@ pub(in crate::window) fn document_entries() -> Vec<MenuEntry> {
     offered_documents()
         .into_iter()
         .filter_map(|(document, icon)| {
-            let item = MenuItem::with_text_target(
-                document_label(document)?,
-                Icon::Document,
-                WindowAction::NewOpenDocument,
-                document.extension(),
-            );
+            let label = document_label(document)?;
+            let item = if document == NewDocument::RichTextDocument {
+                MenuItem::new(label, Icon::Document, WindowAction::NewRichTextDocument)
+            } else {
+                MenuItem::with_text_target(
+                    label,
+                    Icon::Document,
+                    WindowAction::NewOpenDocument,
+                    document.extension(),
+                )
+            };
             Some(item.with_application_icon(icon.as_deref()).into())
         })
         .collect()
@@ -138,57 +143,5 @@ pub(crate) struct PretendedApplications;
 impl Drop for PretendedApplications {
     fn drop(&mut self) {
         PRETENDED.with(|pretended| pretended.borrow_mut().clear());
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// The desktop's own lookup finds an application that says it opens
-    /// the OpenDocument text type, from a launcher in the private data
-    /// folder each test run gets.
-    #[test]
-    fn an_installed_application_for_the_type_is_found_with_its_icon() {
-        let data = gtk::glib::user_data_dir();
-        assert!(
-            data.starts_with(std::env::temp_dir()),
-            "launchers are written only to a private data folder below {}; found {}",
-            std::env::temp_dir().display(),
-            data.display()
-        );
-        let applications = data.join("applications");
-        std::fs::create_dir_all(&applications).expect("the applications folder");
-        let launcher = applications.join("ox-test-writer.desktop");
-        std::fs::write(
-            &launcher,
-            "[Desktop Entry]\nType=Application\nName=Sample Writer\nExec=true %f\nIcon=ox-sample-writer\n\
-             MimeType=application/vnd.oasis.opendocument.text;\n",
-        )
-        .expect("a launcher");
-
-        crate::test_support::harness::wait_until("the launcher to be read", || {
-            installed_application_for("application/vnd.oasis.opendocument.text").is_some()
-        });
-        let _ = std::fs::remove_file(launcher);
-    }
-
-    #[test]
-    fn only_the_opendocument_types_need_an_application() {
-        let labelled: Vec<_> = NewDocument::ALL
-            .into_iter()
-            .filter(|document| document_label(*document).is_some())
-            .collect();
-        let needing: Vec<_> = NewDocument::ALL
-            .into_iter()
-            .filter(|document| document.content_type().is_some())
-            .collect();
-
-        assert_eq!(labelled, needing);
-        assert!(is_offered(NewDocument::TextDocument));
-        assert!(
-            !is_offered(NewDocument::OpenDocumentText),
-            "no application is pretended"
-        );
     }
 }

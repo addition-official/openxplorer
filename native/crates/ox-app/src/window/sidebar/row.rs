@@ -45,10 +45,13 @@ const PIN_DROP_TAIL_CLASS: &str = "quick-drop-tail";
 /// (SIDE-012).
 fn row_icon(icon: Art, chosen_size: u32) -> ArtImage {
     let (size, class) = match icon {
-        Art::Glyph(_) | Art::TintedGlyph(..) => (GLYPH_SIZE, "side-glyph"),
-        Art::Folder | Art::ZipFolder | Art::ZipDocument | Art::File(_) | Art::Network(_) => {
-            (ART_SIZE, "side-art")
-        }
+        Art::Glyph(_) | Art::TintedGlyph(..) | Art::RemovableDrive(_) => (GLYPH_SIZE, "side-glyph"),
+        Art::Folder
+        | Art::StandardFolder(_)
+        | Art::ZipFolder
+        | Art::ZipDocument
+        | Art::File(_)
+        | Art::Network(_) => (ART_SIZE, "side-art"),
     };
     let size = i32::try_from(chosen_size)
         .ok()
@@ -273,11 +276,19 @@ pub(super) fn sidebar_row(entry: &SidebarEntry, look: RowLook, collapsed: bool) 
         .child(&overlay)
         .tooltip_text(&entry.tooltip)
         .css_classes(placement_classes(entry))
+        .accessible_role(gtk::AccessibleRole::TreeItem)
         .build();
     // The visible label names the row; the address is its description.
+    // GTK 4.16 and later send the level to screen readers; 4.14 does not.
+    let level = match entry.level {
+        RowLevel::Place | RowLevel::Group => 1,
+        RowLevel::Child => 2,
+        RowLevel::Grandchild => 3,
+    };
     row.update_property(&[
         gtk::accessible::Property::Label(&entry.label),
         gtk::accessible::Property::Description(&entry.tooltip),
+        gtk::accessible::Property::Level(level),
     ]);
     match entry.level {
         RowLevel::Place => {}

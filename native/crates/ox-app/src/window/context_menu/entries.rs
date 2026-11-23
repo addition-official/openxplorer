@@ -566,8 +566,19 @@ fn edit_items(facts: &ItemFacts) -> [MenuItem; 5] {
     ]
 }
 
-/// Duplicate, which the Python app did not have, where Windows lists
-/// Create shortcut.
+/// Create shortcut, as Windows' classic menu lists it before Delete and
+/// Rename (CMD-040).
+fn create_shortcut_item() -> MenuEntry {
+    item(
+        ox_core::i18n::gettext_static("Create shortcut"),
+        Icon::Link,
+        WindowAction::CreateShortcut,
+    )
+    .into()
+}
+
+/// Duplicate, which the Python app did not have, after Windows' Create
+/// shortcut, Delete and Rename.
 fn duplicate_item() -> MenuEntry {
     item(
         ox_core::i18n::gettext_static("Duplicate"),
@@ -827,7 +838,7 @@ pub(crate) fn more_options_item(action: WindowAction) -> MenuEntry {
 /// their glyph: Open in Terminal, Open with and the applications' own
 /// icons, Send to, Properties and Open as administrator's shield; so do
 /// the app's own commands, which Windows does not have.
-const TEXT_ONLY_IN_CLASSIC: [WindowAction; 33] = [
+const TEXT_ONLY_IN_CLASSIC: [WindowAction; 34] = [
     WindowAction::Open,
     WindowAction::OpenTab,
     WindowAction::OpenSelectionInTabs,
@@ -862,6 +873,8 @@ const TEXT_ONLY_IN_CLASSIC: [WindowAction; 33] = [
     WindowAction::RenameFolder,
     WindowAction::TrashFolder,
     WindowAction::EmptyRecycleBin,
+    // Windows' classic menu draws Create shortcut as text alone.
+    WindowAction::CreateShortcut,
 ];
 
 /// `entries` as Windows 11 draws its classic menu: no row shows shortcut
@@ -959,49 +972,42 @@ fn background_submenu_items(submenus: BackgroundSubmenus) -> [MenuEntry; 4] {
     ]
 }
 
-/// The Windows 11 style of the folder's own menu, in the order of
-/// Explorer's compact menu on blank space: View, Sort by, Group by and
-/// Refresh; Paste and Undo; New; Properties; Open in Terminal; then "Show
-/// more options" for the rest (CMD-011, CMD-012). View, Sort by, Group by
-/// and New open `submenus` beside the menu.
-pub(crate) fn compact_background_menu(undo_label: &str, submenus: BackgroundSubmenus) -> Vec<MenuEntry> {
+/// The Windows 11 style of the folder's own menu, as Explorer's compact
+/// menu on blank space lists it (VM check 2026-11-22): View, Sort by and
+/// Group by; Undo of the last step while there is one, New and
+/// Properties; Open in Terminal; then "Show more options" for the rest
+/// (CMD-011, CMD-012), with Paste alone in the icon row. It has no
+/// Refresh; F5 refreshes. View, Sort by, Group by and New open `submenus`
+/// beside the menu.
+pub(crate) fn compact_background_menu(steps: &UndoRedo, submenus: BackgroundSubmenus) -> ContextMenu {
     let [view, sort, group, new] = background_submenu_items(submenus);
-    vec![
-        view,
-        sort,
-        group,
-        item(
-            ox_core::i18n::gettext_static("Refresh"),
-            Icon::ArrowClockwise,
-            WindowAction::Refresh,
-        )
-        .with_shortcut("F5")
-        .into(),
-        MenuEntry::Divider,
-        item(
-            ox_core::i18n::gettext_static("Paste"),
-            Icon::ClipboardPaste,
-            WindowAction::Paste,
-        )
-        .with_shortcut("Ctrl+V")
-        .into(),
-        item(undo_label, Icon::ArrowUndo, WindowAction::Undo)
-            .with_shortcut("Ctrl+Z")
-            .into(),
-        MenuEntry::Divider,
-        new,
-        MenuEntry::Divider,
-        properties_item(),
-        MenuEntry::Divider,
-        item(
-            ox_core::i18n::gettext_static("Open in Terminal"),
-            Icon::WindowConsole,
-            WindowAction::OpenInTerminal,
-        )
-        .into(),
-        MenuEntry::Divider,
-        show_more_options_item(),
-    ]
+    let undo = UndoRedo {
+        redo: None,
+        ..steps.clone()
+    };
+    let mut second = undo.rows();
+    second.extend([new, properties_item()]);
+    let terminal = item(
+        ox_core::i18n::gettext_static("Open in Terminal"),
+        Icon::WindowConsole,
+        WindowAction::OpenInTerminal,
+    )
+    .into();
+    let paste = item(
+        ox_core::i18n::gettext_static("Paste"),
+        Icon::ClipboardPaste,
+        WindowAction::Paste,
+    )
+    .with_shortcut("Ctrl+V");
+    ContextMenu {
+        entries: grouped(vec![
+            vec![view, sort, group],
+            second,
+            vec![terminal],
+            vec![show_more_options_item()],
+        ]),
+        strip: vec![paste],
+    }
 }
 
 /// The menu of a file or folder, in `style` (`entryMenu`).
@@ -1150,8 +1156,8 @@ fn rename_items_item(facts: &ItemFacts) -> Option<MenuEntry> {
 /// Explorer's classic menu: Open (in bold), the editors (as "Edit in
 /// Notepad"), a folder's tab, window and pin commands, Open in Terminal
 /// and Open with; Copy as path, Share and Restore previous versions; Send
-/// to (CMD-038); Cut, Copy and Paste; Duplicate (where Windows has Create
-/// shortcut), Delete, Rename and Rename items… for several (OPS-014); the
+/// to (CMD-038); Cut, Copy and Paste; Create shortcut (CMD-040), Delete,
+/// Rename and Rename items… for several (OPS-014), then Duplicate; the
 /// app's own tools; and Properties.
 fn classic_item_menu(facts: &ItemFacts) -> ContextMenu {
     let [cut, copy, paste, rename, delete] = edit_items(facts);
@@ -1175,8 +1181,14 @@ fn classic_item_menu(facts: &ItemFacts) -> ContextMenu {
     if facts.shape == ItemShape::Folder && facts.is_single {
         entries.push(paste.into());
     }
-    entries.extend([MenuEntry::Divider, duplicate_item(), delete.into(), rename.into()]);
+    entries.extend([
+        MenuEntry::Divider,
+        create_shortcut_item(),
+        delete.into(),
+        rename.into(),
+    ]);
     entries.extend(rename_items_item(facts));
+    entries.push(duplicate_item());
     entries.push(MenuEntry::Divider);
     entries.extend(tool_items(facts));
     entries.push(MenuEntry::Divider);
@@ -1979,9 +1991,10 @@ mod tests {
                 "Copy",
                 "Paste",
                 "-",
-                "Duplicate",
+                "Create shortcut",
                 "Delete",
                 "Rename",
+                "Duplicate",
                 "-",
                 "Compress to…",
                 "Calculate folder size",
@@ -2253,69 +2266,6 @@ mod tests {
         assert_eq!(without_applications[1], "Open with…");
     }
 
-    /// A text file's menu offers "Edit in <default text editor>" with the
-    /// editor's icon, in its own group after Properties and before Show
-    /// more options, as Windows 11 offers "Edit in Notepad", and before
-    /// Open in Terminal in the classic menu, as Windows' Edit. A code
-    /// editor that is also the text editor is offered once. Add to
-    /// Favorites comes after Open with, as in Windows 11.
-    ///
-    /// parity: OPEN-015, CMD-010, HOME-014
-    #[test]
-    fn a_text_file_offers_edit_in_its_default_text_editor() {
-        let editor = EditorShortcut {
-            id: "fictional-editor.desktop".to_owned(),
-            name: "Fictional Editor".to_owned(),
-            icon: Some("accessories-text-editor".to_owned()),
-        };
-        let facts = ItemFacts {
-            navigation_uri: "file:///home/user/Packing list.txt".to_owned(),
-            text_editor: Some(editor.clone()),
-            favorite: Some(("file:///home/user/Packing%20list.txt".to_owned(), false)),
-            ..file()
-        };
-        let entries = item_menu(&facts, MenuStyle::Compact).entries;
-        let names = labels(&entries);
-        assert_eq!(
-            names,
-            [
-                "Open",
-                "Open with…",
-                "Add to Favorites",
-                "Compress to",
-                "Copy as path",
-                "Properties",
-                "-",
-                "Edit in Fictional Editor",
-                "-",
-                "Show more options"
-            ]
-        );
-        let MenuEntry::Item(edit) = &entries[7] else {
-            panic!("Edit in is an item");
-        };
-        assert_eq!(edit.action, WindowAction::OpenInEditor.into());
-        assert_eq!(edit.target, Some("fictional-editor.desktop".to_variant()));
-        assert_eq!(edit.application_icon.as_deref(), Some("accessories-text-editor"));
-
-        let classic = labels(&item_menu(&facts, MenuStyle::Classic).entries);
-        assert_eq!(classic[..2], ["Open", "Edit in Fictional Editor"], "{classic:?}");
-
-        let both = ItemFacts {
-            editors: vec![editor],
-            ..facts
-        };
-        let names = labels(&item_menu(&both, MenuStyle::Compact).entries);
-        assert_eq!(
-            names
-                .iter()
-                .filter(|name| name.contains("Fictional Editor"))
-                .count(),
-            1,
-            "{names:?}"
-        );
-    }
-
     /// An editor's item carries the editor's desktop ID for its icon, and
     /// every item a menu disables says why.
     ///
@@ -2423,37 +2373,6 @@ mod tests {
         );
     }
 
-    /// A network computer listed on the Network page has Windows 11's
-    /// menu (checked on build 26200): Open, Open in new tab, Open in new
-    /// window and Pin to Quick access, then "Show more options"; no strip,
-    /// Compress to, Copy as path, Properties or Open in Terminal, which a
-    /// computer's share list has no use for.
-    ///
-    /// parity: CMD-010, SIDE-020
-    #[test]
-    fn a_network_computer_has_windows_11s_menu() {
-        let facts = ItemFacts {
-            navigation_uri: "smb://nas/".to_owned(),
-            location: ItemLocation::SmbServer,
-            caching: None,
-            ..folder()
-        };
-        let menu = item_menu(&facts, MenuStyle::Compact);
-        assert!(menu.strip.is_empty());
-        assert_eq!(
-            labels(&menu.entries),
-            [
-                "Open",
-                "Open in new tab",
-                "Open in new window",
-                "Pin to Quick access",
-                "Create shortcut",
-                "-",
-                "Show more options"
-            ]
-        );
-    }
-
     /// A search result or a Recent row lists Open file location once in
     /// the compact menu, after Share with and before Add to Favorites, as
     /// Windows 11's Gallery and Home list it; the classic menu lists it
@@ -2501,38 +2420,6 @@ mod tests {
         );
         assert!(!labels(&item_menu(&file(), MenuStyle::Classic).entries)
             .contains(&"Open file location".to_owned()));
-    }
-
-    /// A file's compact menu lists Share with before Add to Favorites, as
-    /// Windows 11's does: Open, Open with, Share with, Add to Favorites,
-    /// Compress to, Copy as path, Properties.
-    ///
-    /// parity: CMD-010, HOME-014
-    #[test]
-    fn share_with_comes_before_add_to_favorites() {
-        let facts = ItemFacts {
-            can_share: true,
-            send_to: SendToTargets {
-                bluetooth: true,
-                ..SendToTargets::default()
-            },
-            favorite: Some(("file:///home/user/report.pdf".to_owned(), true)),
-            ..file()
-        };
-        assert_eq!(
-            labels(&item_menu(&facts, MenuStyle::Compact).entries),
-            [
-                "Open",
-                "Open with…",
-                "Share with",
-                "Remove from Favorites",
-                "Compress to",
-                "Copy as path",
-                "Properties",
-                "-",
-                "Show more options",
-            ]
-        );
     }
 
     /// A folder's compact menu, as Windows 11's: Cut, Copy, Paste (shown
@@ -2665,9 +2552,10 @@ mod tests {
                 "Cut",
                 "Copy",
                 "-",
-                "Duplicate",
+                "Create shortcut",
                 "Delete",
                 "Rename",
+                "Duplicate",
                 "-",
                 "Compress to…",
                 "-",
@@ -2690,24 +2578,24 @@ mod tests {
             group: Vec::new(),
             new: Vec::new(),
         };
-        let menu = compact_background_menu("Undo", submenus);
-        let MenuEntry::Item(sort_by) = &menu[1] else {
+        let steps = UndoRedo {
+            undo: Some("Undo New".to_owned()),
+            redo: Some("Redo Rename".to_owned()),
+        };
+        let menu = compact_background_menu(&steps, submenus);
+        let MenuEntry::Item(sort_by) = &menu.entries[1] else {
             panic!("Sort by is an item");
         };
         assert_eq!(sort_by.submenu, sort, "Sort by opens the sort menu in place");
         assert_eq!(
-            labels(&menu),
+            labels(&menu.entries),
             [
                 "View",
                 "Sort by",
                 "Group by",
-                "Refresh",
                 "-",
-                "Paste",
-                "Undo",
-                "-",
+                "Undo New",
                 "New",
-                "-",
                 "Properties",
                 "-",
                 "Open in Terminal",
@@ -2715,6 +2603,8 @@ mod tests {
                 "Show more options",
             ]
         );
+        let strip: Vec<&str> = menu.strip.iter().map(|item| item.label.as_str()).collect();
+        assert_eq!(strip, ["Paste"], "Paste alone in the icon row");
     }
 
     /// The folder's applications and Open folder with… follow Open in

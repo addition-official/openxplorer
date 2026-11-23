@@ -89,12 +89,12 @@ fn the_file_list_its_items_and_every_icon_button_are_named() {
         gtk::AccessibleRole::Status,
         "a live region"
     );
+    // Buttons that sort: GTK's column-header role reaches no screen
+    // reader as one (tests/screen_reader.rs).
     let titles = crate::folder_view::column_titles::title_buttons(&details);
     let roles: Vec<gtk::AccessibleRole> = titles.iter().map(AccessibleExt::accessible_role).collect();
     assert!(
-        roles
-            .iter()
-            .all(|role| *role == gtk::AccessibleRole::ColumnHeader),
+        roles.iter().all(|role| *role == gtk::AccessibleRole::Button),
         "{roles:?}"
     );
     let resizers = descendants::<ResizerControl>(&details);
@@ -159,7 +159,7 @@ fn f6_moves_focus_round_the_regions_and_back_to_the_same_item() {
     let selected = test.window.folder_pane().model().selected_items().len();
 
     let mut visited = Vec::new();
-    for _ in 0..7 {
+    for _ in 0..8 {
         visited.push(
             test.window
                 .focus_next_region(false)
@@ -171,6 +171,7 @@ fn f6_moves_focus_round_the_regions_and_back_to_the_same_item() {
         visited,
         [
             Region::Details,
+            Region::StatusBar,
             Region::Tabs,
             Region::Address,
             Region::Search,
@@ -207,7 +208,7 @@ fn f6_into_the_tab_row_focuses_the_tab_in_front() {
     test.window.folder_pane().focus_view();
 
     let mut region = None;
-    for _ in 0..7 {
+    for _ in 0..8 {
         region = test.window.focus_next_region(false);
         if region == Some(Region::Tabs) {
             break;
@@ -570,7 +571,7 @@ fn large_text_grows_rows_and_dialogs_still_fit_800_by_600() {
 /// At 200% text, the columns nobody resized and the navigation pane at
 /// its default width grow with the text, so dates, types and folder names
 /// are not cut short; back at 100% they return to their default widths.
-/// A width the user dragged is kept.
+/// A width the user dragged grows with the text too, as Windows grows it.
 ///
 /// parity: ACC-012, VIEW-028
 #[gtk::test]
@@ -620,7 +621,10 @@ fn large_text_widens_default_columns_and_the_navigation_pane() {
         "the list scrolls sideways: {header_width}"
     );
     assert_eq!(back, (176, 135, 210));
-    assert_eq!(dragged, 150, "a width the user chose stays");
+    assert_eq!(
+        dragged, 300,
+        "a width the user chose grows with the text, as in Windows"
+    );
 }
 
 /// A folder opened at 200% text starts with the wide defaults; Ctrl+0

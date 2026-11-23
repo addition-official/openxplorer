@@ -11,6 +11,10 @@
 //! screen scale changes.
 
 mod cell_owners;
+mod content_columns;
+mod tile_lines;
+use content_columns::ContentColumns;
+use tile_lines::TileLines;
 mod custom_icon;
 mod expander;
 mod folder_picture;
@@ -57,8 +61,9 @@ pub(crate) fn row_check_room(after_arrows: bool) -> f64 {
     f64::from(ROW_CHECK_WIDTH + ROW_ICON_GAP + shift)
 }
 
-/// Gap between a tile's icon and its name (`.file-tile{gap:8px}`).
-const TILE_ICON_GAP: i32 = 8;
+/// Gap between a tile's icon and its name: 4 pixels, as Windows 11 sets
+/// the name under the icon (the web app's `.file-tile` had 8).
+const TILE_ICON_GAP: i32 = 4;
 
 /// Gap between a compact item's icon and its name.
 const COMPACT_ICON_GAP: i32 = 6;
@@ -74,16 +79,23 @@ const COMPACT_NAME_CHARS: i32 = 28;
 /// when it is wider.
 const SMALL_ICONS_NAME_CHARS: i32 = 1;
 
+/// A tile's name while it runs onto a second line (folder-views.css).
+const WRAPPED_NAME_CLASS: &str = "wrapped-name";
+
 /// Lines of name a tile shows (`.tile-name{max-height:33px}` at a 1.35
 /// line height).
 const TILE_NAME_LINES: i32 = 2;
 
-/// Gap between the icon and the text of Tiles and Content (VIEW-071).
-const LINES_ICON_GAP: i32 = 10;
+/// Gap between a tile's icon and its text: Windows 11's text starts 58
+/// pixels into the tile, 6 after its 48-pixel icon (VIEW-071).
+const LINES_ICON_GAP: i32 = 6;
+
+/// Gap between Content's icon and its name: Windows 11 starts the name
+/// 11 pixels right of a folder icon's ink.
+const CONTENT_ICON_GAP: i32 = 7;
 
 /// How wide Content's date modified is, in characters, so its column of
-/// date modified and size starts at the same place on every row, as
-/// Windows 11 sets these properties at the right of each row.
+/// date modified and size is as wide on every row.
 const CONTENT_DATE_CHARS: i32 = 20;
 
 /// The list item behind a factory object (column cells are list items too).
@@ -119,6 +131,18 @@ fn dim_cell_label_with(text: &str) -> gtk::Label {
     label
 }
 
+/// The width and height of the picture at `uri`, read from its header,
+/// for a file on this computer; `None` elsewhere, where reading could
+/// wait on a network, or when the header says nothing.
+fn picture_dimensions(uri: &str) -> Option<(i32, i32)> {
+    let path = gtk::gio::File::for_uri(uri).path()?;
+    if path.components().any(|part| part.as_os_str() == "gvfs") {
+        return None;
+    }
+    let (_, width, height) = gtk::gdk_pixbuf::Pixbuf::file_info(&path)?;
+    Some((width, height))
+}
+
 /// Where a [`FileCell`] is shown.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum CellLayout {
@@ -140,6 +164,11 @@ pub(crate) enum CellLayout {
     /// the right, each after its caption (VIEW-071).
     ContentRow,
 }
+
+/// The CSS class of an item's icon, custom icon or folder picture: what
+/// fades while a cut has the item on the clipboard, as Windows 11 fades a
+/// cut item's icon and keeps its name and details (CLIP-002).
+const ITEM_ART_CLASS: &str = "item-art";
 
 /// The CSS class of a cell that shows a grid slot with no item: a group's
 /// heading, its line or a blank (VIEW-071).
@@ -193,6 +222,17 @@ pub(crate) struct ItemLines {
     pub modified: String,
 }
 
+/// Whether Windows 11 shows `item` as a folder in Tiles and Content: a
+/// folder, or a ZIP archive, which it opens as a compressed folder.
+fn opens_as_folder(item: &FileItem) -> bool {
+    let entry = item.entry();
+    (entry.is_dir && !entry.is_shortcut())
+        || entry
+            .content_type
+            .as_deref()
+            .is_some_and(|kind| kind == "application/zip")
+}
+
 impl ItemLines {
     /// The lines for `item`, written as Windows 11's Tiles and Content
     /// write them: the type's name, the size with three significant digits
@@ -200,7 +240,7 @@ impl ItemLines {
     /// time.
     pub(crate) fn of(item: &FileItem) -> Self {
         let entry = item.entry();
-        let size = if entry.is_dir {
+        let size = if entry.is_dir && !entry.is_shortcut() {
             String::new()
         } else {
             item.file_size()
@@ -286,6 +326,15 @@ mod imp {
         /// Content's "Date modified:" and "Size:" lines, each hidden while
         /// it has nothing to say.
         pub(super) properties: RefCell<Vec<gtk::Box>>,
+        /// Content's column of those lines.
+        pub(super) properties_column: gtk::Box,
+        /// Content's column of a picture's "Type:" and "Dimensions:",
+        /// hidden for other items.
+        pub(super) picture_column: gtk::Box,
+        /// A picture's type, in [`Self::picture_column`].
+        pub(super) picture_kind: gtk::Label,
+        /// A picture's width and height, in [`Self::picture_column`].
+        pub(super) picture_dimensions: gtk::Label,
         /// Whether the cell shows [`super::ItemLines`].
         pub(super) shows_item_lines: Cell<bool>,
         /// Whether the cell is a Content row, which shows no type under a
@@ -320,6 +369,14 @@ mod imp {
             self.parent_constructed();
             let cell = self.obj();
             self.icon_frame.set_child(Some(&self.image));
+            // The art a cut fades, and nothing else of the item (CLIP-002).
+            for art in [
+                self.image.upcast_ref::<gtk::Widget>(),
+                self.custom_icon.upcast_ref(),
+                self.folder_picture.upcast_ref(),
+            ] {
+                art.add_css_class(super::ITEM_ART_CLASS);
+            }
             self.custom_icon.set_content_fit(gtk::ContentFit::Contain);
             self.custom_icon.set_visible(false);
             self.icon_frame.add_overlay(&self.custom_icon);
@@ -666,14 +723,20 @@ impl FileCell {
         // and Content's date and size line up at its right on every row.
         self.set_hexpand(true);
         self.set_orientation(gtk::Orientation::Horizontal);
-        self.set_spacing(LINES_ICON_GAP);
+        self.set_spacing(if content { CONTENT_ICON_GAP } else { LINES_ICON_GAP });
         self.put_check_before_icon();
         imp.icon_frame.set_valign(gtk::Align::Center);
         // The name moves into the lines beside the icon.
         self.remove(&imp.label);
         let lines = &imp.lines;
         lines.set_orientation(gtk::Orientation::Vertical);
-        lines.set_valign(gtk::Align::Center);
+        // Content keeps the name on the row's first line, level with its
+        // date, whether a line follows it or not, as Windows 11 does.
+        lines.set_valign(if content {
+            gtk::Align::Start
+        } else {
+            gtk::Align::Center
+        });
         lines.set_hexpand(true);
         lines.add_css_class("item-lines");
         let label = &imp.label;
@@ -688,15 +751,48 @@ impl FileCell {
             line.add_css_class("cell-dim");
         }
         lines.append(&imp.kind);
-        self.append(lines);
         if !content {
+            // A tile's name runs onto a second line and is cut with "..."
+            // after it, as Windows 11's Tiles; the size then gives way, so
+            // a tile keeps three lines (measured on its capture).
+            label.set_single_line_mode(false);
+            label.set_wrap(true);
+            label.set_wrap_mode(pango::WrapMode::WordChar);
+            label.set_lines(TILE_NAME_LINES);
             lines.append(&imp.size);
+            let cell = self.downgrade();
+            let frame = TileLines::new(lines, move || {
+                if let Some(cell) = cell.upgrade() {
+                    cell.make_room_for_a_long_tile_name();
+                }
+            });
+            frame.set_hexpand(true);
+            frame.set_valign(gtk::Align::Center);
+            self.append(&frame);
             return;
         }
-        let properties = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        properties.set_valign(gtk::Align::Center);
-        // Only the name's lines take the room to spare, which keeps the
-        // date and size at the row's right.
+        let pictures = &imp.picture_column;
+        pictures.set_orientation(gtk::Orientation::Vertical);
+        pictures.set_valign(gtk::Align::Start);
+        pictures.add_css_class("item-properties");
+        pictures.set_visible(false);
+        for (caption, value) in [
+            (ox_core::i18n::gettext("Type:"), &imp.picture_kind),
+            (ox_core::i18n::gettext("Dimensions:"), &imp.picture_dimensions),
+        ] {
+            let line = gtk::Box::new(gtk::Orientation::Horizontal, 4);
+            line.append(&dim_cell_label_with(&caption));
+            value.set_xalign(0.0);
+            value.set_ellipsize(pango::EllipsizeMode::End);
+            value.set_single_line_mode(true);
+            line.append(value);
+            pictures.append(&line);
+        }
+        let properties = &imp.properties_column;
+        properties.set_orientation(gtk::Orientation::Vertical);
+        properties.set_valign(gtk::Align::Start);
+        // ContentColumns places the column; only the name takes the room
+        // to spare.
         properties.set_hexpand(false);
         properties.add_css_class("item-properties");
         let mut captioned = Vec::new();
@@ -716,7 +812,10 @@ impl FileCell {
         // same place on each.
         imp.modified.set_width_chars(CONTENT_DATE_CHARS);
         imp.modified.set_max_width_chars(CONTENT_DATE_CHARS);
-        self.append(&properties);
+        // Content's columns start where Windows 11 starts them.
+        let columns = ContentColumns::new(lines, pictures, properties);
+        columns.set_hexpand(true);
+        self.append(&columns);
         imp.properties.replace(captioned);
     }
 
@@ -802,11 +901,46 @@ impl FileCell {
         imp.label.set_text(&item.entry().name);
         if imp.shows_item_lines.get() {
             let mut lines = ItemLines::of(item);
-            if imp.is_content_row.get() && item.entry().is_dir {
-                // Windows 11's Content rows give a folder its name alone.
+            let folder_like = opens_as_folder(item);
+            if imp.is_content_row.get() {
+                self.show_picture_column(item, &lines.kind);
+                // Windows 11's Content rows put nothing under a name that
+                // has no author or tags to show, and give a folder or a
+                // ZIP archive its date alone (measured on its capture).
                 lines.kind.clear();
+                if folder_like {
+                    lines.size.clear();
+                }
+            } else if folder_like {
+                // Its Tiles give a folder or a ZIP archive its name alone.
+                lines.kind.clear();
+                lines.size.clear();
             }
             self.show_item_lines(&lines);
+        }
+    }
+
+    /// Shows a picture's type, `kind`, and its dimensions in Content's
+    /// middle column, as Windows 11 does; hides the column for other items.
+    fn show_picture_column(&self, item: &FileItem, kind: &str) {
+        let imp = self.imp();
+        let entry = item.entry();
+        let is_picture = !entry.is_dir
+            && entry
+                .content_type
+                .as_deref()
+                .is_some_and(|kind| kind.starts_with("image/"));
+        imp.picture_column.set_visible(is_picture);
+        if !is_picture {
+            return;
+        }
+        imp.picture_kind.set_text(kind);
+        let dimensions = picture_dimensions(&entry.uri)
+            .map(|(width, height)| format!("{width} x {height}"))
+            .unwrap_or_default();
+        imp.picture_dimensions.set_text(&dimensions);
+        if let Some(line) = imp.picture_dimensions.parent() {
+            line.set_visible(!dimensions.is_empty());
         }
     }
 
@@ -837,6 +971,29 @@ impl FileCell {
                 .is_some_and(|value| value.is_visible());
             line.set_visible(shows);
         }
+    }
+
+    /// Hides a tile's size while its name takes two lines, so the tile
+    /// keeps the three lines Windows 11's has: name, name, type. GTK has
+    /// just laid the name out ([`TileLines`]); the size changes after this
+    /// allocation.
+    fn make_room_for_a_long_tile_name(&self) {
+        let imp = self.imp();
+        let wraps = imp.label.layout().line_count() > 1;
+        let shows_size = !wraps && !imp.size.text().is_empty();
+        if imp.size.is_visible() == shows_size && imp.label.has_css_class(WRAPPED_NAME_CLASS) == wraps {
+            return;
+        }
+        let label = imp.label.downgrade();
+        let size = imp.size.downgrade();
+        glib::idle_add_local_once(move || {
+            if let Some(size) = size.upgrade() {
+                size.set_visible(shows_size);
+            }
+            if let Some(label) = label.upgrade() {
+                toggle_class(&label, WRAPPED_NAME_CLASS, wraps);
+            }
+        });
     }
 
     /// The type, size and date modified the cell shows beside the name,
@@ -977,14 +1134,6 @@ impl FileCell {
         self.imp().label.text().to_string()
     }
 
-    /// The icon's frame and the name label, for tests of where a view
-    /// draws them.
-    #[cfg(test)]
-    pub(crate) fn icon_and_name(&self) -> (gtk::Widget, gtk::Widget) {
-        let imp = self.imp();
-        (imp.icon_frame.clone().upcast(), imp.label.clone().upcast())
-    }
-
     /// The art the icon shows, for tests.
     #[cfg(test)]
     pub(crate) fn art(&self) -> Option<Art> {
@@ -1056,6 +1205,7 @@ pub(crate) fn connect_mapped_file_cells(
             // it shows the name.
             let name = bind_owners.shown_name(&item);
             list_item.set_accessible_label(&name);
+            list_item.set_accessible_description(&row_tooltip::spoken_infotip(&item));
             cell.bind(&item);
             cell.show_name(&name, &bind_owners.marked_words());
             cell.show_item_check(bind_owners.shows_item_checks());

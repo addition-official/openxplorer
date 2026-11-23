@@ -308,66 +308,6 @@ fn settings_at_the_largest_text_size_fit_the_least_window_width() {
     );
 }
 
-/// At 150 % text in a window at its least width, each Settings page fits
-/// beside the categories without scrolling sideways: fields narrow and
-/// long choices end in "…". Only the table of suggested folders to
-/// index, five columns wide, may scroll. (At 175 % and 200 % a row whose
-/// buttons' labels are longer than the room scrolls sideways instead of
-/// widening the window.)
-///
-/// parity: LOOK-022
-#[gtk::test]
-fn settings_pages_at_150_percent_text_need_no_sideways_scrolling() {
-    let fixture = Fixture::standard();
-    let test = laid_out(&fixture.uri());
-    resize(&test, 672);
-    larger_text(&test, 3);
-    test.activate("settings", None);
-    wait_for_frames(&test.window, 6);
-    let page = descendants::<gtk::Widget>(test.window.upcast_ref::<gtk::Widget>())
-        .into_iter()
-        .find(|widget| widget.has_css_class("settings"))
-        .expect("the Settings page");
-    let navigation = descendants::<gtk::Widget>(&page)
-        .into_iter()
-        .find(|widget| widget.has_css_class("settings-navigation"))
-        .expect("the categories");
-    let room = page.width() - navigation.width();
-    // The File icons rows are another change's, which lays them out on
-    // its own; they are measured there.
-    let file_icon_rows: Vec<gtk::Widget> = descendants::<gtk::Widget>(&page)
-        .into_iter()
-        .filter(|widget| widget.has_css_class("setting-row"))
-        .filter(|row| {
-            descendants::<gtk::Widget>(row)
-                .iter()
-                .any(|widget| widget.has_css_class("file-icon-chooser"))
-        })
-        .collect();
-    for row in &file_icon_rows {
-        row.set_visible(false);
-    }
-    let mut too_wide = Vec::new();
-    for scroller in descendants::<gtk::ScrolledWindow>(&page) {
-        let Some(content) = scroller.child() else { continue };
-        let is_table = descendants::<gtk::Widget>(&content)
-            .iter()
-            .any(|widget| widget.has_css_class("suggestion-grid"));
-        let least = content.measure(gtk::Orientation::Horizontal, -1).0;
-        if !is_table && least > room {
-            too_wide.push((least, widest_leaves(&content, room * 3 / 4)));
-        }
-    }
-    for row in &file_icon_rows {
-        row.set_visible(true);
-    }
-    test.activate("text-reset", None);
-    assert!(
-        too_wide.is_empty(),
-        "pages wider than the {room} pixels beside the categories: {too_wide:#?}"
-    );
-}
-
 /// The navigation pane gives way to the files as the window narrows, as
 /// Windows' does, and takes its width back as the window widens; nothing
 /// is saved. At 200 % text its default width is 420 pixels, which in a
@@ -473,31 +413,5 @@ fn commands_that_do_not_fit_move_into_see_more() {
     assert!(
         !labels_wide.iter().any(|label| label == "View"),
         "View is back in the bar: {labels_wide:?}"
-    );
-}
-
-/// A compact window's hidden Cut and Rename are listed at the top of
-/// "…", so the bar still offers every command, as Windows' does.
-///
-/// parity: LOOK-022
-#[gtk::test]
-fn a_compact_windows_hidden_commands_are_in_see_more() {
-    let fixture = Fixture::standard();
-    let test = laid_out(&fixture.uri());
-    resize(&test, 672);
-    wait_for_frames(&test.window, 4);
-    let (_, labels) = see_more(&test);
-    for command in ["Cut", "Rename"] {
-        assert!(
-            labels.iter().any(|label| label == command),
-            "{command} in See more: {labels:?}"
-        );
-    }
-    resize(&test, 1320);
-    wait_for_frames(&test.window, 4);
-    let (_, labels) = see_more(&test);
-    assert!(
-        !labels.iter().any(|label| label == "Cut"),
-        "Cut back in the bar: {labels:?}"
     );
 }

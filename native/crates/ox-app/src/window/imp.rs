@@ -90,6 +90,9 @@ pub(crate) struct BrowserWindow {
     pub(super) sidebar_show_all: Cell<bool>,
     /// How many items the Recycle Bin holds, as its sidebar row shows.
     pub(super) trash_items: Cell<u32>,
+    /// The folder last asked whether its drive may be written, and the
+    /// answer: true when its file system is read-only (New is greyed).
+    pub(super) read_only_drive: RefCell<(String, bool)>,
     /// The generation of the icons chosen in File icons (LOOK-029) the
     /// details pane last showed.
     pub(super) file_icons_shown: Cell<u32>,
@@ -292,6 +295,10 @@ pub(crate) struct BrowserWindow {
     /// after Settings hides; see
     /// [`super::BrowserWindow::focus_new_file_list`].
     pub(super) file_list_awaits_focus: Cell<bool>,
+    /// The item a folder opened from outside or typed into the address bar
+    /// rang without selecting it, until the next key in the file list:
+    /// Up or Down then moves on from it, as in Windows 11 (SEL-020).
+    pub(super) ringed_item: Cell<Option<u32>>,
     /// Folder Options' "Always search file names and contents" as the
     /// window last followed it; `None` until it first did.
     pub(super) searches_contents: Cell<Option<bool>>,

@@ -20,6 +20,7 @@
 //! being formatted and the quick writes, which wait for each other in
 //! every window ([`write_holds`]).
 
+mod clipboard_keeper;
 mod default_open;
 mod desktop_bookmarks;
 mod external_open;
@@ -163,6 +164,14 @@ mod imp {
         /// The progress window of the running file operations, while one
         /// is open.
         pub(super) progress_window: RefCell<Option<crate::window::ProgressWindow>>,
+        /// Keeps the application running while it owns the desktop's
+        /// clipboard, so what Copy and Cut put there outlives the last
+        /// window (CLIP-010).
+        pub(super) clipboard_keeper: RefCell<Option<super::clipboard_keeper::Keeper>>,
+        /// The items pastes of the latest cut moved, and that cut's token:
+        /// a clipboard manager that puts the cut back offers no cut
+        /// (CLIP-008).
+        pub(super) moved_cut: RefCell<super::clipboard_keeper::MovedCut>,
         /// GNOME's privacy settings, which say what may be remembered of
         /// the files opened, when the desktop has them.
         pub(super) privacy: RefCell<Option<gtk::gio::Settings>>,
@@ -242,6 +251,7 @@ impl AppContext {
         context.watch_known_folders(folder_locations);
         context.read_saved_searches();
         context.follow_recent_privacy();
+        context.follow_icon_files();
         context
     }
 
@@ -555,6 +565,22 @@ impl AppContext {
             callback();
             None
         })
+    }
+
+    /// Draws the icons of the Windows icon files the user chose, when that
+    /// is on, now and whenever the settings change (LOOK-030).
+    fn follow_icon_files(&self) {
+        crate::icons::user_icons::remember_standard_folders(&self.known_folders());
+        crate::icons::user_icons::follow_preferences(&self.settings_data().preferences);
+        crate::icons::user_glyphs::follow_preferences(&self.settings_data().preferences);
+        let context = self.downgrade();
+        self.connect_places_changed(move || {
+            if let Some(context) = context.upgrade() {
+                crate::icons::user_icons::remember_standard_folders(&context.known_folders());
+                crate::icons::user_icons::follow_preferences(&context.settings_data().preferences);
+                crate::icons::user_glyphs::follow_preferences(&context.settings_data().preferences);
+            }
+        });
     }
 
     /// Tells every window to redraw its sidebar and landing page.

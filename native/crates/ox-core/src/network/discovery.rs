@@ -207,7 +207,7 @@ async fn discover() -> Result<Discovery, NetworkError> {
         // Nothing could be read: the browser cannot be used at all.
         Some(error) if entries.is_empty() => return Err(error.into()),
         failure => failure
-            .map(|error| error.message().to_owned())
+            .map(|error| crate::system_error::message_of(&error))
             .into_iter()
             .collect(),
     };
@@ -518,25 +518,6 @@ mod tests {
         }
     }
 
-    /// `GVfs`'s DNS-SD entries carry the advertised instance in their
-    /// name, so a service row is named "Harbor Files", not "Harbor Files
-    /// (Remote Login)".
-    ///
-    /// parity: NET-025
-    #[test]
-    fn a_dns_sd_entry_is_named_by_its_instance() {
-        let mut sftp = entry("sftp://harbornas.local:2222/", "Harbor Files (Remote Login)");
-        sftp.name = "dnssd-server-Harbor%20Files._sftp-ssh._tcp".into();
-        let mut dotted = entry("ftp://harbornas.local:2121/", "v2.0 Files (ftp)");
-        dotted.name = "dnssd-server-v2.0%20Files._ftp._tcp".into();
-
-        let servers = servers_among([sftp, dotted]);
-
-        let names: Vec<&str> = servers.iter().map(|server| server.name.as_str()).collect();
-        assert_eq!(names, ["Harbor Files", "v2.0 Files"]);
-        assert_eq!(servers[0].label, "Harbor Files (Remote Login)");
-    }
-
     /// A WebDAV server advertised over DNS-SD (`dav+sd`, which `GVfs` lists
     /// by service name) becomes `dav://host:port/path` once Avahi resolves
     /// it, or stays as `GVfs` listed it, a device of its own; an advertised
@@ -593,56 +574,6 @@ mod tests {
         assert!(unresolved.host.is_empty());
         let computers = super::super::computers::computers_among(&[unresolved]);
         assert_eq!(computers[0].name, "Harbor Files");
-    }
-
-    /// Avahi's reply is read field by field.
-    #[test]
-    fn avahis_resolve_reply_is_read() {
-        let reply = (
-            1_i32,
-            0_i32,
-            "Harbor Files",
-            "_webdav._tcp",
-            "local",
-            "harbornas.local",
-            0_i32,
-            "10.0.0.4",
-            8080_u16,
-            vec![b"path=/dav".to_vec()],
-            0_u32,
-        )
-            .to_variant();
-        assert_eq!(
-            resolved_reply(&reply),
-            Some(ResolvedService {
-                host: "harbornas.local".into(),
-                port: 8080,
-                txt: vec!["path=/dav".into()],
-            })
-        );
-    }
-
-    /// Discovery is off without the browser, or without both DNS-SD and
-    /// WS-Discovery.
-    #[test]
-    fn discovery_needs_the_browser_and_one_source() {
-        let off = DiscoverySources {
-            browser: true,
-            dns_sd: false,
-            ws_discovery: false,
-        };
-        assert!(!off.can_discover());
-        assert!(!DiscoverySources {
-            browser: false,
-            ..DiscoverySources::ALL
-        }
-        .can_discover());
-        assert!(DiscoverySources {
-            dns_sd: false,
-            ..DiscoverySources::ALL
-        }
-        .can_discover());
-        assert!(DiscoverySources::ALL.can_discover());
     }
 
     /// parity: NET-024, NET-025

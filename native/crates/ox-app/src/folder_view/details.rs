@@ -167,6 +167,8 @@ fn text_factory(
 struct CellContext {
     owners: Rc<CellOwners>,
     dates: Rc<Cell<DateStyle>>,
+    /// The day relative dates were last written from (year, month, day).
+    dates_day: Cell<Option<(i32, i32, i32)>>,
     tree: FolderTree,
     positions: PositionMap,
 }
@@ -188,6 +190,11 @@ impl CellContext {
             _ => text_factory(column, &self.owners, &self.dates, &self.positions),
         }
     }
+}
+
+/// Today's date on the clock the date cells and groups count from.
+fn today() -> Option<(i32, i32, i32)> {
+    crate::folder_view::groups::local_now().map(|now| now.ymd())
 }
 
 /// A resizable column showing `column`, sorted by its header.
@@ -327,6 +334,9 @@ mod imp {
         /// widens the default column widths; 0 until a text size is set,
         /// which counts as 1 ([`super::DetailsView::text_scale`]).
         pub(super) text_scale: Cell<f64>,
+        /// Whether Name starts at Windows' width rather than filling the
+        /// room ([`super::DetailsView::set_name_starts_at_windows_width`]).
+        pub(super) name_windows_width: Cell<bool>,
         /// What the cells share, set by [`super::DetailsView::new`].
         pub(super) cells: OnceCell<super::CellContext>,
         /// The folder's selection model, while the view shows it.
@@ -512,6 +522,7 @@ impl DetailsView {
         let cells = CellContext {
             owners: Rc::clone(owners),
             dates: Rc::default(),
+            dates_day: Cell::new(today()),
             tree: model.tree().clone(),
             positions: Rc::new(move |row| match grouping.borrow().as_ref() {
                 Some(grouped) => grouped.item_at(row),
@@ -556,6 +567,15 @@ impl DetailsView {
     fn describe_rows(&self, model: &FolderModel) {
         let column_view = self.column_view();
         cells::label_view(column_view.upcast_ref());
+        // Its list of rows takes the keyboard while there is no row, and a
+        // screen reader reads it on its own: it is named the same.
+        let rows = std::iter::successors(column_view.first_child(), WidgetExt::next_sibling)
+            .find(ObjectExt::is::<gtk::ListView>);
+        if let Some(rows) = rows {
+            rows.update_property(&[gtk::accessible::Property::Label(&ox_core::i18n::gettext(
+                cells::ITEMS_VIEW_NAME,
+            ))]);
+        }
         let rows = gtk::SignalListItemFactory::new();
         // A heading row's name follows its heading's title: the grouped
         // model retitles a heading in place when the groups change, and GTK
@@ -563,6 +583,7 @@ impl DetailsView {
         let titles: HeadingTitles = Rc::default();
         let unbind_titles = Rc::clone(&titles);
         let owners = Rc::clone(&self.cells().owners);
+        let view = self.downgrade();
         rows.connect_bind(move |_, object| {
             if let Some(row) = object.downcast_ref::<gtk::ColumnViewRow>() {
                 forget_heading_title(&titles, row);
@@ -571,6 +592,9 @@ impl DetailsView {
                     // Named as the Name column shows it, without a hidden
                     // extension.
                     owners.name_detail_row(row, item);
+                    if let Some(view) = view.upgrade() {
+                        row.set_accessible_description(&view.row_description(item));
+                    }
                     row.set_selectable(true);
                     row.set_activatable(true);
                 } else if let Some(heading) = item.and_downcast_ref::<GroupSlot>() {
@@ -622,6 +646,34 @@ impl DetailsView {
         self.imp().scroller.vadjustment()
     }
 
+    /// What a screen reader hears after an item's name: the other columns
+    /// shown, in the order shown, each after its title ("Date modified:
+    /// 9/14/2026 09:30, Type: Text Document, Size: 1 KB"), leaving out
+    /// empty cells. Orca heard only the name, while the list shows its
+    /// type, size and date beside it.
+    pub(crate) fn row_description(&self, item: &FileItem) -> String {
+        let dates = self.date_style();
+        let counts = self.counts_items();
+        self.column_order()
+            .into_iter()
+            .filter(|column| *column != SortColumn::Name)
+            .filter_map(|column| {
+                let view_column = self.column(column).filter(gtk::ColumnViewColumn::is_visible)?;
+                let text = shown_cell_text(column, item, dates, counts);
+                let text = text.trim();
+                if text.is_empty() {
+                    return None;
+                }
+                let title = view_column.title().unwrap_or_default();
+                Some(ox_core::i18n::format_message(
+                    "{column}: {value}",
+                    &[("column", title.as_str()), ("value", text)],
+                ))
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
     /// What `column` shows for the first `limit` items the view lists.
     pub(crate) fn cell_texts(&self, column: SortColumn, limit: u32) -> Vec<String> {
         let Some(items) = self.column_view().model() else {
@@ -661,9 +713,26 @@ impl DetailsView {
     /// shown.
     pub(crate) fn set_date_style(&self, style: DateStyle) {
         if self.cells().dates.replace(style) != style {
-            for column in [SortColumn::Modified, SortColumn::Created, SortColumn::Deleted] {
-                self.redraw_column(column);
-            }
+            self.redraw_dates();
+        }
+    }
+
+    /// Writes relative dates from the new day once the day has changed
+    /// since they were written: "Today at …" becomes "Yesterday at …" at
+    /// midnight without the folder being opened again (VIEW-022). On the
+    /// same day, or with dates written in full, nothing is drawn again.
+    pub(crate) fn follow_the_day(&self) {
+        let today = today();
+        let changed = self.cells().dates_day.replace(today) != today;
+        if changed && self.date_style() == DateStyle::Relative {
+            self.redraw_dates();
+        }
+    }
+
+    /// Binds the date cells shown again.
+    fn redraw_dates(&self) {
+        for column in [SortColumn::Modified, SortColumn::Created, SortColumn::Deleted] {
+            self.redraw_column(column);
         }
     }
 
@@ -779,6 +848,9 @@ impl DetailsView {
         let scale = self.text_scale();
         for (column, view_column) in self.view_columns() {
             let mut width = column_widths::start_width_at(column, saved, scale);
+            if column == SortColumn::Name && width.is_none() {
+                width = self.windows_name_width(scale);
+            }
             // Size starts wide enough for its text in the list's font, also
             // from a saved width narrower than that.
             if column == SortColumn::Size {
@@ -789,6 +861,45 @@ impl DetailsView {
         }
         // Applying widths is not a resize by the user: reporting it would
         // save widths the user never set.
+        self.cancel_resize_report();
+    }
+
+    /// Name's width at `scale` while it starts at Windows' width, else
+    /// `None`: it fills the room.
+    fn windows_name_width(&self, scale: f64) -> Option<u32> {
+        self.imp()
+            .name_windows_width
+            .get()
+            .then(|| column_widths::scaled_width(column_widths::WINDOWS_NAME_WIDTH, scale))
+    }
+
+    /// Starts Name at Windows' 256 pixels (times the text size) when `on`,
+    /// so the rows, their selection and their hover end after the last
+    /// column as in Windows 11; else Name fills the room again. A width
+    /// the user gave Name stays either way.
+    pub(crate) fn set_name_starts_at_windows_width(&self, on: bool) {
+        let imp = self.imp();
+        if imp.name_windows_width.replace(on) == on {
+            return;
+        }
+        let Some(name) = self.column(SortColumn::Name) else {
+            return;
+        };
+        let scale = self.text_scale();
+        let windows = column_widths::fixed_width(
+            SortColumn::Name,
+            Some(column_widths::scaled_width(
+                column_widths::WINDOWS_NAME_WIDTH,
+                scale,
+            )),
+        );
+        if on && name.expands() {
+            name.set_expand(false);
+            name.set_fixed_width(windows);
+        } else if !on && name.fixed_width() == windows {
+            name.set_fixed_width(column_widths::fixed_width(SortColumn::Name, None));
+            name.set_expand(true);
+        }
         self.cancel_resize_report();
     }
 
@@ -805,7 +916,8 @@ impl DetailsView {
     /// Draws the list's text `scale` times its 100% size: each column
     /// still at its default width for the old size takes its default for
     /// the new one, so larger text is not cut short (ACC-012); a width the
-    /// user chose stays. Not a resize by the user, so nothing is saved.
+    /// user chose grows by as much as the text, as Windows' scaling grows
+    /// it. Not a resize by the user, so nothing is saved.
     pub(crate) fn set_text_scale(&self, scale: f64) {
         let old = self.text_scale();
         self.imp().text_scale.set(scale);
@@ -819,9 +931,20 @@ impl DetailsView {
             }
             let at_default =
                 column_widths::fixed_width(column, column_widths::scaled_default_width(column, old));
-            if view_column.fixed_width() >= 0 && view_column.fixed_width() == at_default {
+            let fixed = view_column.fixed_width();
+            if fixed >= 0 && fixed == at_default {
                 let width = column_widths::scaled_default_width(column, scale);
                 view_column.set_fixed_width(column_widths::fixed_width(column, width));
+            } else if let Some(shown) = column_widths::saved_width(column, fixed) {
+                // A width the user chose grows and shrinks with the text.
+                #[expect(
+                    clippy::cast_possible_truncation,
+                    clippy::cast_sign_loss,
+                    reason = "widths are small and positive"
+                )]
+                let at_100 = (shown / old).round() as u32;
+                let width = column_widths::scaled_width(at_100, scale);
+                view_column.set_fixed_width(column_widths::fixed_width(column, Some(width)));
             }
         }
         self.cancel_resize_report();
@@ -898,15 +1021,17 @@ impl DetailsView {
         }
     }
 
-    /// The widths the user set, in the form settings save them. Name
-    /// counts only once it has a width of its own.
+    /// The widths the user set, in the form settings save them: as wide as
+    /// at 100% text, whatever the text size now. Name counts only once it
+    /// has a width of its own.
     pub(crate) fn widths_to_save(&self) -> Vec<ColumnWidth> {
         let listing = self.imp().listing.get();
+        let scale = self.text_scale();
         let saved = self
             .view_columns()
             .filter(|(column, _)| saves_width(*column, listing));
         let widths = saved.filter_map(|(column, view_column)| {
-            let pixels = column_widths::saved_width(column, view_column.fixed_width())?;
+            let pixels = (column_widths::saved_width(column, view_column.fixed_width())? / scale).round();
             let column = column_widths::settings_column(column);
             Some(ColumnWidth { column, pixels })
         });

@@ -80,6 +80,9 @@ mod imp {
         pub(super) theme: Cell<Theme>,
         /// The desktop's colour scheme, which [`Theme::System`] follows.
         pub(super) desktop_appearance: Cell<Appearance>,
+        /// What the user's GTK theme asked for before the skin put GTK's
+        /// default theme under itself.
+        pub(super) theme_contrast: Cell<Contrast>,
     }
 
     #[glib::object_subclass]
@@ -118,7 +121,17 @@ impl Skin {
     pub(crate) fn install(display: &gdk::Display) -> Self {
         icons::register(display);
         cursor_theme::follow(display);
-        Self::with_providers(Providers::install(display))
+        // Read before the providers force GTK's default theme.
+        let theme_contrast = contrast::theme_contrast(display);
+        let skin = Self::with_providers(Providers::install(display));
+        skin.imp().theme_contrast.set(theme_contrast);
+        skin
+    }
+
+    /// What the user's GTK theme asked for when the skin was installed: a
+    /// `HighContrast` theme asks for more contrast.
+    pub(crate) fn theme_contrast(&self) -> Contrast {
+        self.imp().theme_contrast.get()
     }
 
     /// A skin on no display, for tests that watch what windows connect to
@@ -326,6 +339,12 @@ pub(crate) const INTERFACE_SCHEMA: &str = "org.gnome.desktop.interface";
 /// The host desktop's settings under `schema_id`, when that schema is
 /// installed with `key`. `None` inside Flatpak, where the schema holds only
 /// the runtime's defaults, not the desktop's.
+/// The skin's rules, for the stylesheet that draws its chevrons from the
+/// Windows symbol font ([`crate::icons::user_glyphs`]).
+pub(crate) fn skin_rules() -> &'static str {
+    stylesheets::RULES
+}
+
 pub(crate) fn host_desktop_key(schema_id: &str, key: &str) -> Option<gio::Settings> {
     if ox_core::integration::Sandbox::detect().is_flatpak() {
         return None;

@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! Appearance: the theme, the text size and font, the compact view, the
-//! navigation pane's arrows, the app's extra navigation pane rows and tab
-//! menu items, the right-click menu, the pane widths and the icons of
-//! kinds of item ([`super::file_icons`], LOOK-029).
+//! Details view's column header style, the navigation pane's arrows, the
+//! app's extra navigation pane rows and tab menu items, the right-click
+//! menu, the pane widths and the icons of kinds of item
+//! ([`super::file_icons`], LOOK-029), including icons from Windows icon
+//! files the user chooses (LOOK-030).
 //!
 //! Ports the "Appearance & layout" section of `renderSettingsPage`,
 //! `textSizeControls` and `menuPreferenceControls` in
@@ -13,21 +15,23 @@
 //! of three, and the arrow keys move between them. Text size changes at
 //! once too, through the shared skin.
 
-use gtk::glib;
 use gtk::prelude::*;
-use ox_core::settings::{ContextMenu, PreferencesUpdate, StripPosition, Theme};
+use gtk::{gio, glib};
+use ox_core::settings::{ColumnHeaderStyle, ContextMenu, PreferencesUpdate, StripPosition, Theme};
 
 use super::bindings::{position_u32, Choice, PreferenceBinding};
 use super::choice_list::ChoiceButton;
 use super::group::SettingsGroup;
 use super::pages::Category;
 use super::parts;
+use super::radio_cards::RadioCards;
 use super::row::{ControlName, RowLayout, SettingRow};
 use super::search::RowText;
 use super::section::{PageKind, SettingsSection};
 use super::SettingsPage;
-use crate::icons::Icon;
+use crate::icons::{user_glyphs, user_icons, Icon};
 use crate::text_size::TextSize;
+use crate::window::ButtonStyle;
 use crate::window::WindowAction;
 
 const THEME: RowText = RowText {
@@ -105,6 +109,58 @@ const MORE_TAB_MENU_ITEMS: RowText = RowText {
     keywords: "tab menu right-click move tab new window open windows extra more items windows",
 };
 
+const COLUMN_TITLE_LINE: RowText = RowText {
+    title: "Show a line under column titles",
+    description: "In the details view, a thin line separates the column titles from the list. \
+                  Windows 11 draws none.",
+    keywords: "column header title line border separator underline divider details view windows",
+};
+
+const NAME_COLUMN_WINDOWS_WIDTH: RowText = RowText {
+    title: "Name column starts at Windows' width (256 px)",
+    description: "In the details view, Name starts 256 pixels wide, so the rows and their selection \
+                  end after the last column, as in Windows 11. Off: Name fills the room the other \
+                  columns leave.",
+    keywords: "name column width wide fill details view selection row windows 256",
+};
+
+const COLUMN_HEADER_STYLE: RowText = RowText {
+    title: "Column header style",
+    description: "How the Details view marks the sorted column. OpenXplorer puts an arrow after its \
+                  title and colors a sort other than Name ascending; Windows shows only a small gray \
+                  arrow above the title, as Windows 11 does.",
+    keywords: "column header title sort sorted arrow chevron caret accent underline details view \
+               windows 11 style look",
+};
+
+const ICON_FILES: RowText = RowText {
+    title: "Icons from Windows icon files",
+    description: "Shows folders, the standard folders, drives, Home, Gallery, This PC, Network, the \
+                  Recycle Bin, Settings and common file types with the icons of Windows icon files you choose, for example \
+                  imageres.dll.mun and shell32.dll.mun from a Windows installation. OpenXplorer includes \
+                  no Windows icons: it reads the files you choose while it runs and keeps their pictures \
+                  only in your cache folder. Anything the files do not have keeps OpenXplorer's own icon.",
+    keywords: "windows icons icon files imageres shell32 dll mun exe resources folder drive recycle bin \
+               this pc home gallery look classic original",
+};
+
+const CHOSEN_ICON_FILES: RowText = RowText {
+    title: "Windows icon files",
+    description: "The .dll, .mun or .exe files the icons are read from. Only where they are is saved, \
+                  never the icons. Choosing files again replaces the list.",
+    keywords: "windows icons icon files choose browse imageres shell32 dll mun exe clear remove",
+};
+
+const SYMBOL_FONT: RowText = RowText {
+    title: "Windows symbol font",
+    description: "The Segoe Fluent Icons font (SegoeIcons.ttf) or Segoe MDL2 Assets (segmdl2.ttf) from a \
+                  Windows installation, whose glyphs then draw the command bar, menus, navigation buttons \
+                  and address bar, in your theme's colors. Only where the font is is saved; it is read, \
+                  never installed. Glyphs it lacks keep OpenXplorer's own.",
+    keywords: "windows symbol font glyphs segoe fluent icons mdl2 assets segoeicons segmdl2 ttf command bar \
+               menu buttons",
+};
+
 const PANE_WIDTHS: RowText = RowText {
     title: "Sidebar and column widths",
     description: "Restore the default widths in every window.",
@@ -120,6 +176,18 @@ const MENU_STYLES: [Choice<ContextMenu>; 2] = [
     Choice {
         value: ContextMenu::Win11,
         label: crate::i18n::message_id("Windows 11 · Compact actions (default)"),
+    },
+];
+
+/// The column header styles, the app's own first, as the default.
+const HEADER_STYLES: [Choice<ColumnHeaderStyle>; 2] = [
+    Choice {
+        value: ColumnHeaderStyle::OpenXplorer,
+        label: crate::i18n::message_id("OpenXplorer (default)"),
+    },
+    Choice {
+        value: ColumnHeaderStyle::Windows,
+        label: crate::i18n::message_id("Windows"),
     },
 ];
 
@@ -234,8 +302,8 @@ fn language_status(picked: Option<&str>, asked: &[String]) -> String {
 }
 
 /// The three theme cards, in a row that wraps in a narrow window, their
-/// radio buttons one group.
-fn theme_cards() -> gtk::FlowBox {
+/// radio buttons one group and one Tab stop ([`RadioCards`]).
+fn theme_cards() -> RadioCards {
     let cards = gtk::FlowBox::builder()
         .selection_mode(gtk::SelectionMode::None)
         .max_children_per_line(3)
@@ -245,6 +313,7 @@ fn theme_cards() -> gtk::FlowBox {
         .css_classes(["theme-cards"])
         .build();
     let mut first_radio: Option<gtk::CheckButton> = None;
+    let mut radios = Vec::new();
     for card in THEME_CARDS {
         let radio = theme_radio(&card, first_radio.as_ref());
         let child = gtk::FlowBoxChild::builder()
@@ -252,9 +321,10 @@ fn theme_cards() -> gtk::FlowBox {
             .focusable(false)
             .build();
         cards.append(&child);
-        first_radio.get_or_insert(radio);
+        first_radio.get_or_insert_with(|| radio.clone());
+        radios.push(radio);
     }
-    cards
+    RadioCards::new(&cards, radios)
 }
 
 /// The radio button under a card, "System", "Light" or "Dark", in the
@@ -334,6 +404,259 @@ fn theme_preview() -> gtk::Box {
     preview
 }
 
+/// The rows of icons from Windows icon files the user chooses, off until
+/// turned on (LOOK-030), which close the File icons group as one more
+/// source of the same icons: a choice above wins over them. The first
+/// row's switch turns them on and says how many of the icons the files
+/// gave; the second chooses the files.
+pub(super) fn icon_files_rows(page: &SettingsPage) -> [SettingRow; 3] {
+    let use_files = SettingRow::new(ICON_FILES);
+    let switch = page.preference_switch(PreferenceBinding {
+        read: |preferences| preferences.use_icon_files,
+        write: |on| PreferencesUpdate {
+            use_icon_files: Some(on),
+            ..PreferencesUpdate::default()
+        },
+    });
+    use_files.add_control(&switch, ControlName::RowTitle);
+    let context = page.context().clone();
+    let row = use_files.downgrade();
+    user_icons::follow_status(move |status| {
+        let Some(row) = row.upgrade() else {
+            return false;
+        };
+        row.set_description(&icon_files_status(&context.settings_data().preferences, status));
+        true
+    });
+    page.follow_preferences(glib::clone!(
+        #[weak]
+        use_files,
+        move |preferences| use_files.set_description(&icon_files_status(preferences, user_icons::status()))
+    ));
+    [use_files, chosen_icon_files_row(page), symbol_font_row(page)]
+}
+
+/// "Windows symbol font": the chosen font's name and how many of the
+/// glyphs it gave, Choose font… to pick it in a file dialog and Clear to
+/// forget it (LOOK-031). The switch above turns it on with the icon files.
+fn symbol_font_row(page: &SettingsPage) -> SettingRow {
+    let row = SettingRow::new(SYMBOL_FONT);
+    let choose = parts::button(&ox_core::i18n::gettext("Choose font…"), ButtonStyle::Bordered);
+    let clear = parts::button(&ox_core::i18n::gettext("Clear"), ButtonStyle::Bordered);
+    choose.connect_clicked(glib::clone!(
+        #[weak]
+        page,
+        move |_| choose_symbol_font(&page)
+    ));
+    clear.connect_clicked(glib::clone!(
+        #[weak]
+        page,
+        move |_| {
+            page.save_preferences(PreferencesUpdate {
+                symbol_font: Some(String::new()),
+                ..PreferencesUpdate::default()
+            });
+        }
+    ));
+    let context = page.context().clone();
+    let weak_row = row.downgrade();
+    user_glyphs::follow_status(move |status| {
+        let Some(row) = weak_row.upgrade() else {
+            return false;
+        };
+        row.set_description(&symbol_font_text(&context.settings_data().preferences, status));
+        true
+    });
+    page.follow_preferences(glib::clone!(
+        #[weak]
+        row,
+        #[weak]
+        clear,
+        move |preferences| {
+            row.set_description(&symbol_font_text(preferences, user_glyphs::status()));
+            clear.set_sensitive(preferences.symbol_font.is_some());
+        }
+    ));
+    row.add_control(&choose, ControlName::OwnLabel);
+    row.add_control(&clear, ControlName::OwnLabel);
+    row
+}
+
+/// What the symbol font's row says: the font's name and whether its
+/// glyphs are in use, being read, or how many of them it has.
+fn symbol_font_text(preferences: &ox_core::settings::Preferences, status: user_glyphs::Status) -> String {
+    let Some(font) = &preferences.symbol_font else {
+        return ox_core::i18n::gettext("No font chosen");
+    };
+    let name = font.rsplit('/').next().unwrap_or(font);
+    let state = match status {
+        _ if !preferences.use_icon_files => {
+            ox_core::i18n::gettext("used while Icons from Windows icon files is on")
+        }
+        user_glyphs::Status::Off | user_glyphs::Status::Reading => ox_core::i18n::gettext("reading…"),
+        user_glyphs::Status::Ready { found: 0, .. } => {
+            ox_core::i18n::gettext("it has none of these glyphs, so OpenXplorer's own are shown")
+        }
+        user_glyphs::Status::Ready { found, wanted } => ox_core::i18n::format_message(
+            "{found} of {wanted} glyphs",
+            &[("found", &found.to_string()), ("wanted", &wanted.to_string())],
+        ),
+    };
+    ox_core::i18n::format_message("{name} · {state}", &[("name", name), ("state", &state)])
+}
+
+/// Asks for the Windows symbol font and saves its path.
+fn choose_symbol_font(page: &SettingsPage) {
+    let filter = gtk::FileFilter::new();
+    filter.set_name(Some(&ox_core::i18n::gettext("Fonts")));
+    for pattern in ["*.ttf", "*.otf", "*.TTF", "*.OTF"] {
+        filter.add_pattern(pattern);
+    }
+    let filters = gio::ListStore::new::<gtk::FileFilter>();
+    filters.append(&filter);
+    let picker = gtk::FileDialog::builder()
+        .title(ox_core::i18n::gettext("Choose the Windows symbol font"))
+        .modal(true)
+        .filters(&filters)
+        .default_filter(&filter)
+        .build();
+    let window = page.root().and_downcast::<gtk::Window>();
+    picker.open(
+        window.as_ref(),
+        gio::Cancellable::NONE,
+        glib::clone!(
+            #[weak]
+            page,
+            move |chosen| {
+                let Some(path) = chosen.ok().and_then(|file| file.path()) else {
+                    return;
+                };
+                if let Some(path) = path.to_str() {
+                    page.save_preferences(PreferencesUpdate {
+                        symbol_font: Some(path.to_owned()),
+                        ..PreferencesUpdate::default()
+                    });
+                }
+            }
+        ),
+    );
+}
+
+/// What the switch's row says: whether the icons are on, being read, or
+/// how many the chosen files gave.
+fn icon_files_status(preferences: &ox_core::settings::Preferences, status: user_icons::Status) -> String {
+    if !preferences.use_icon_files {
+        return ox_core::i18n::gettext("Off: OpenXplorer's own icons");
+    }
+    match status {
+        _ if preferences.icon_files.is_empty() => ox_core::i18n::gettext("On, but no file is chosen yet"),
+        user_icons::Status::Off | user_icons::Status::Reading => {
+            ox_core::i18n::gettext("Reading the chosen files…")
+        }
+        user_icons::Status::Ready { found: 0 } => ox_core::i18n::gettext(
+            "The chosen files have none of these icons, so OpenXplorer's own are shown",
+        ),
+        user_icons::Status::Ready { found } => ox_core::i18n::format_message(
+            "{found} of {total} icons come from the chosen files",
+            &[
+                ("found", &found.to_string()),
+                ("total", &ox_core::windows_icons::IconRole::ALL.len().to_string()),
+            ],
+        ),
+    }
+}
+
+/// "Windows icon files": the chosen files' names, Choose files… to pick
+/// them in a file dialog and Clear to forget them.
+fn chosen_icon_files_row(page: &SettingsPage) -> SettingRow {
+    let row = SettingRow::new(CHOSEN_ICON_FILES);
+    let choose = parts::button(&ox_core::i18n::gettext("Choose files…"), ButtonStyle::Bordered);
+    let clear = parts::button(&ox_core::i18n::gettext("Clear"), ButtonStyle::Bordered);
+    choose.connect_clicked(glib::clone!(
+        #[weak]
+        page,
+        move |_| choose_icon_files(&page)
+    ));
+    clear.connect_clicked(glib::clone!(
+        #[weak]
+        page,
+        move |_| {
+            page.save_preferences(PreferencesUpdate {
+                icon_files: Some(Vec::new()),
+                ..PreferencesUpdate::default()
+            });
+        }
+    ));
+    page.follow_preferences(glib::clone!(
+        #[weak]
+        row,
+        #[weak]
+        clear,
+        move |preferences| {
+            row.set_description(&chosen_icon_files_text(&preferences.icon_files));
+            clear.set_sensitive(!preferences.icon_files.is_empty());
+        }
+    ));
+    row.add_control(&choose, ControlName::OwnLabel);
+    row.add_control(&clear, ControlName::OwnLabel);
+    row
+}
+
+/// The chosen files' names, or that none is chosen.
+fn chosen_icon_files_text(files: &[String]) -> String {
+    if files.is_empty() {
+        return ox_core::i18n::gettext("No files chosen");
+    }
+    let names: Vec<&str> = files
+        .iter()
+        .map(|path| path.rsplit('/').next().unwrap_or(path))
+        .collect();
+    names.join(", ")
+}
+
+/// Asks for Windows icon files and saves the paths of those chosen.
+fn choose_icon_files(page: &SettingsPage) {
+    let filter = gtk::FileFilter::new();
+    filter.set_name(Some(&ox_core::i18n::gettext("Windows icon files")));
+    for pattern in ["*.dll", "*.mun", "*.exe", "*.DLL", "*.MUN", "*.EXE"] {
+        filter.add_pattern(pattern);
+    }
+    let filters = gio::ListStore::new::<gtk::FileFilter>();
+    filters.append(&filter);
+    let picker = gtk::FileDialog::builder()
+        .title(ox_core::i18n::gettext("Choose Windows icon files"))
+        .modal(true)
+        .filters(&filters)
+        .default_filter(&filter)
+        .build();
+    let window = page.root().and_downcast::<gtk::Window>();
+    picker.open_multiple(
+        window.as_ref(),
+        gio::Cancellable::NONE,
+        glib::clone!(
+            #[weak]
+            page,
+            move |chosen| {
+                let Ok(chosen) = chosen else {
+                    return;
+                };
+                let paths: Vec<String> = chosen
+                    .iter::<gio::File>()
+                    .filter_map(Result::ok)
+                    .filter_map(|file| file.path())
+                    .filter_map(|path| path.to_str().map(str::to_owned))
+                    .collect();
+                if !paths.is_empty() {
+                    page.save_preferences(PreferencesUpdate {
+                        icon_files: Some(paths),
+                        ..PreferencesUpdate::default()
+                    });
+                }
+            }
+        ),
+    );
+}
+
 /// "Right-click menu": the menu's style.
 fn right_click_menu_row(page: &SettingsPage) -> SettingRow {
     let menu = SettingRow::new(RIGHT_CLICK_MENU);
@@ -366,6 +689,25 @@ fn menu_buttons_row(page: &SettingsPage) -> SettingRow {
     };
     row.add_control(
         &page.preference_choice(&STRIP_POSITIONS, binding),
+        ControlName::RowTitle,
+    );
+    row
+}
+
+/// "Column header style": how the Details view draws its sorted column's
+/// title, which every window follows at once
+/// (`src/window/column_header_style.rs`).
+fn column_header_style_row(page: &SettingsPage) -> SettingRow {
+    let row = SettingRow::new(COLUMN_HEADER_STYLE);
+    let binding = PreferenceBinding {
+        read: |preferences| preferences.column_header_style,
+        write: |style| PreferencesUpdate {
+            column_header_style: Some(style),
+            ..PreferencesUpdate::default()
+        },
+    };
+    row.add_control(
+        &page.preference_choice(&HEADER_STYLES, binding),
         ControlName::RowTitle,
     );
     row
@@ -462,12 +804,33 @@ fn choose_text_size(page: &SettingsPage, size: TextSize) {
     });
 }
 
-/// The compact view, the navigation pane's arrows, the app's extra
-/// navigation pane rows and tab menu items, the right-click menu,
-/// Shift+F10's menu and the pane widths.
+/// The compact view, the column header style and line, Name's width, the navigation pane's
+/// arrows, the app's extra navigation pane rows and tab menu items, the
+/// right-click menu, Shift+F10's menu and the pane widths.
 fn layout_group(page: &SettingsPage) -> SettingsGroup {
     let group = SettingsGroup::new(&ox_core::i18n::gettext("Layout"));
     group.add_row(&super::files_folders::compact_view_row(page));
+    group.add_row(&column_header_style_row(page));
+    let title_line = SettingRow::new(COLUMN_TITLE_LINE);
+    let switch = page.preference_switch(PreferenceBinding {
+        read: |preferences| preferences.column_title_line,
+        write: |on| PreferencesUpdate {
+            column_title_line: Some(on),
+            ..PreferencesUpdate::default()
+        },
+    });
+    title_line.add_control(&switch, ControlName::RowTitle);
+    group.add_row(&title_line);
+    let name_width = SettingRow::new(NAME_COLUMN_WINDOWS_WIDTH);
+    let switch = page.preference_switch(PreferenceBinding {
+        read: |preferences| preferences.name_column_windows_width,
+        write: |on| PreferencesUpdate {
+            name_column_windows_width: Some(on),
+            ..PreferencesUpdate::default()
+        },
+    });
+    name_width.add_control(&switch, ControlName::RowTitle);
+    group.add_row(&name_width);
     let arrows = SettingRow::new(HIDE_EXPAND_ARROWS);
     let binding = PreferenceBinding {
         read: |preferences| preferences.hide_expand_arrows,

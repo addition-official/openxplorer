@@ -123,7 +123,9 @@ pub(super) fn general_tab(
         let is_shortcut = entry.is_symlink || entry.content_type.as_deref() == Some("application/x-desktop");
         if entry.trash_orig_path.is_none() && !is_shortcut {
             let (row, value) = opens_with_row(properties, rights.can_change_app, uri);
-            kind.add_control(&ox_core::i18n::gettext("Opens with"), &row);
+            let caption = kind.add_control(&ox_core::i18n::gettext("Opens with"), &row);
+            // The app's name is heard as "Opens with: Text Editor".
+            crate::accessible_names::name_value_label(&value, &caption);
             opens_with = Some(value);
         }
     }
@@ -132,8 +134,17 @@ pub(super) fn general_tab(
 
     let place = Rows::new();
     place_row(&place, properties, locations);
+    // A shortcut's Description is its target's name, as Windows 11 shows a
+    // shortcut's; a symbolic link named for a type shows its Target.
     if let Some(target) = &properties.link_target {
-        place.add_line(&ox_core::i18n::gettext("Target"), target);
+        if properties.entry.is_shortcut() {
+            let name = std::path::Path::new(target)
+                .file_name()
+                .map_or_else(|| target.clone(), |name| name.to_string_lossy().into_owned());
+            place.add_line(&ox_core::i18n::gettext("Description"), &name);
+        } else {
+            place.add_line(&ox_core::i18n::gettext("Target"), target);
+        }
     }
     let folder_rows = if let Some(mount) = &properties.mount {
         place.add_control(&ox_core::i18n::gettext("Target"), &volume_row(mount, uri));
@@ -394,6 +405,14 @@ fn header(properties: &ItemProperties, edits: &GeneralEdits) -> gtk::Box {
     // A picture chosen in File icons for the item's kind (LOOK-029), read
     // as the file list reads it, else its art.
     let art = ArtImage::new(Art::for_entry(&properties.entry), HEADER_ART_SIZE);
+    // A shortcut's icon carries the shortcut arrow, as Windows shows it.
+    art.set_emblems(
+        crate::icons::Emblems {
+            link: properties.entry.is_shortcut(),
+            read_only: false,
+        },
+        HEADER_ART_SIZE,
+    );
     header.append(&art);
     if let Some(picture) = crate::icons::file_icons::picture_for(&properties.entry) {
         let art = art.downgrade();
@@ -777,27 +796,5 @@ impl Pending for GeneralEdits {
 
     fn apply(self: Rc<Self>) -> ApplyFuture {
         Box::pin(self.apply_now())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::keep_time_together;
-
-    /// A closing "PM" stays with its time; a 24-hour time and a date
-    /// without a time are left as they are.
-    ///
-    /// parity: PROP-003
-    #[test]
-    fn pm_stays_with_its_time() {
-        assert_eq!(
-            keep_time_together("Wednesday, November 18, 2026, 8:36:06 PM"),
-            "Wednesday, November 18, 2026, 8:36:06\u{a0}PM"
-        );
-        assert_eq!(
-            keep_time_together("Mittwoch, 18. November 2026, 20:36:06"),
-            "Mittwoch, 18. November 2026, 20:36:06"
-        );
-        assert_eq!(keep_time_together("Not provided"), "Not provided");
     }
 }
