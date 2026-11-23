@@ -202,7 +202,8 @@ fn the_windows_glyphs_come_from_the_chosen_symbol_font() {
         |result| result.expect("saved"),
     );
     wait_until("the font to be read", || {
-        matches!(user_glyphs::status(), user_glyphs::Status::Ready { found: 3, .. })
+        // Cancel (E711) draws both X glyphs.
+        matches!(user_glyphs::status(), user_glyphs::Status::Ready { found: 4, .. })
     });
     let shown = |name: &str| {
         descendants::<gtk::Image>(&test.window)

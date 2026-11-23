@@ -314,14 +314,22 @@ impl Font {
         let metric = usize::from(glyph.min(self.metric_count - 1));
         let advance = f32::from(u16_at(hmtx, metric * 4)?);
         let units_per_em = f32::from(self.units_per_em);
+        let size = size.max(1);
+        let em = em.clamp(1, size);
         #[expect(clippy::cast_precision_loss, reason = "pixel sizes are small")]
-        let side = units_per_em * size.max(1) as f32 / em.clamp(1, size.max(1)) as f32;
-        // The em's left edge, so the advance sits in the middle, and its
-        // baseline, so the em's top and bottom are the middle of the line's
-        // ascender and descender (the ascender itself when the line is one
-        // em high).
-        let left = (side - advance) / 2.0;
-        let baseline = side / 2.0 + f32::midpoint(f32::from(self.ascender), f32::from(self.descender));
+        let (side, margin) = (
+            units_per_em * size as f32 / em as f32,
+            units_per_em * ((size - em) / 2) as f32 / em as f32,
+        );
+        // The em sits in the middle of the square, moved up and left to a
+        // whole pixel so its edges are not blurred across two (a 16-pixel
+        // em in a 17-pixel square starts 0 pixels in, not half of one).
+        // The advance sits in the middle of the em, and the em's top and
+        // bottom are the middle of the line's ascender and descender (the
+        // ascender itself when the line is one em high).
+        let left = margin + (units_per_em - advance) / 2.0;
+        let baseline =
+            margin + units_per_em / 2.0 + f32::midpoint(f32::from(self.ascender), f32::from(self.descender));
         let mut path = String::new();
         for contour in &contours {
             let placed: Vec<Point> = contour

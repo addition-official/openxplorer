@@ -76,8 +76,9 @@ fn every_icon_has_its_windows_counterpart_recorded() {
         (Icon::ArrowRight, 0xE72A),
         (Icon::ArrowUp, 0xE74A),
         (Icon::ArrowClockwise, 0xE72C),
-        (Icon::ChevronRight16, 0xE970),
-        (Icon::ChevronDown16, 0xE96E),
+        (Icon::ChevronRight16, 0xE76C),
+        (Icon::ChevronDown16, 0xE70D),
+        (Icon::Dismiss, 0xE711),
         (Icon::Search, 0xE721),
         (Icon::Dismiss16, 0xE711),
         (Icon::Checkmark, 0xE73E),
@@ -115,7 +116,7 @@ fn the_fonts_glyphs_replace_the_bundled_ones_and_go_away_again() {
     let _reset = Reset;
     let folder = tempfile::tempdir().expect("a temporary folder");
     let font = folder.path().join("SegoeIcons.ttf");
-    let codepoints = [0xE710, 0xE72B, 0xE970, 0xE96E];
+    let codepoints = [0xE710, 0xE72B, 0xE76C, 0xE70D];
     std::fs::write(&font, SyntheticFont::with_codepoints(&codepoints).build()).expect("written");
     let window = gtk::Window::new();
     let column = gtk::Box::new(gtk::Orientation::Vertical, 0);
@@ -129,8 +130,9 @@ fn the_fonts_glyphs_replace_the_bundled_ones_and_go_away_again() {
     wait_until_read();
     assert_eq!(
         status(),
+        // E70D draws both chevrons down.
         Status::Ready {
-            found: 4,
+            found: 5,
             wanted: glyph_count()
         }
     );
@@ -209,18 +211,33 @@ fn a_damaged_font_keeps_the_bundled_glyphs() {
 #[gtk::test]
 fn the_skins_chevrons_follow_through_an_override_stylesheet() {
     let rules = crate::theme::skin_rules();
-    let drawn = |icon: Icon| -> &'static str {
-        match icon {
-            Icon::ChevronRight16 => "ox-win-chevron-right-16-symbolic",
-            Icon::ChevronDown16 => "ox-win-chevron-down-16-symbolic",
-            other => other.name(),
+    // The names the squares give, so each rule shows which square it took.
+    let drawn = |icon: Icon, square: i32| -> &'static str {
+        match (icon, square) {
+            (Icon::ChevronRight16, 12) => "ox-win-chevron-right-16-box12-symbolic",
+            (Icon::ChevronLeft16, 12) => "ox-win-chevron-left-16-box12-symbolic",
+            (Icon::ChevronDown16, 16) => "ox-win-chevron-down-16-symbolic",
+            (Icon::ChevronDown16, 10) => "ox-win-chevron-down-16-box10-symbolic",
+            (other, _) => other.name(),
         }
     };
     let stylesheet = chevron_stylesheet(rules, drawn);
-    assert!(stylesheet.contains(".address .crumb-divider { background-image: -gtk-icontheme(\"ox-win-chevron-right-16-symbolic\"); }"), "{stylesheet}");
+    let has = |text: &str| stylesheet.contains(text);
     assert!(
-        stylesheet.contains("-gtk-icon-source: -gtk-icontheme(\"ox-win-chevron-down-16-symbolic\")"),
-        "{stylesheet}"
+        has(".address .crumb-divider { background-image: -gtk-icontheme(\"ox-win-chevron-right-16-box12-symbolic\"); }"),
+        "the divider's 12-pixel square: {stylesheet}"
+    );
+    assert!(
+        has(".address .crumb-divider:dir(rtl) { background-image: -gtk-icontheme(\"ox-win-chevron-left-16-box12-symbolic\"); }"),
+        "the right-to-left divider takes the divider's square: {stylesheet}"
+    );
+    assert!(
+        has("-gtk-icon-source: -gtk-icontheme(\"ox-win-chevron-down-16-symbolic\")"),
+        "the expander's 16-pixel square: {stylesheet}"
+    );
+    assert!(
+        has("-gtk-icontheme(\"ox-win-chevron-down-16-box10-symbolic\")"),
+        "the sort arrow's 10-pixel square: {stylesheet}"
     );
     assert!(!stylesheet.contains("min-width"), "only the icon declarations");
     assert!(
@@ -229,7 +246,7 @@ fn the_skins_chevrons_follow_through_an_override_stylesheet() {
     );
     let provider = gtk::CssProvider::new();
     provider.load_from_string(&stylesheet);
-    assert!(chevron_stylesheet(rules, Icon::name).is_empty());
+    assert!(chevron_stylesheet(rules, |icon, _| icon.name()).is_empty());
 }
 
 /// The rows and columns of `texture` any ink covers: its inked bounding
@@ -383,4 +400,48 @@ fn a_larger_square_draws_the_glyph_at_a_16_pixel_em() {
     assert_eq!(image.pixel_size(), 20, "the square keeps its size");
     let ink = painted_box(&image, &name, 20).expect("ink");
     assert_eq!(ink, (2, 2, 17, 17), "16 pixels of em in the middle of 20");
+}
+
+/// Chevrons are drawn at the ems measured on Windows 11 at 1x: 12 in a
+/// 16-pixel square (a submenu's arrow), 10 in a 12-pixel one (a
+/// breadcrumb separator) and 8 elsewhere; a drop-down button's caret in
+/// the command bar's 17-pixel square inks 8 whole pixels, not the 16 of
+/// the glyphs beside it, and not 9 blurred across a half pixel.
+///
+/// parity: LOOK-031
+#[gtk::test]
+fn chevrons_are_drawn_at_windows_ems() {
+    use ox_core::windows_glyphs::synthetic::SyntheticGlyph;
+
+    for (size, em) in [(12, 10), (16, 12), (17, 8), (20, 8), (10, 8), (8, 8)] {
+        assert_eq!(em_of(Icon::ChevronRight16, size), em, "{size}");
+    }
+    for size in [12, 17] {
+        assert_eq!(em_of(Icon::ChevronDown, size), 8, "the caret in {size}");
+    }
+    assert_eq!(em_of(Icon::Cut, 17), 16);
+    let _reset = Reset;
+    let folder = tempfile::tempdir().expect("a temporary folder");
+    let font_path = folder.path().join("SegoeIcons.ttf");
+    let font = SyntheticFont {
+        glyphs: vec![SyntheticGlyph::Simple(vec![vec![
+            (0, 0, true),
+            (1024, 0, true),
+            (1024, 1024, true),
+            (0, 1024, true),
+        ]])],
+        mapping: vec![(0xE70D, 1)],
+        format_12: false,
+    };
+    std::fs::write(&font_path, font.build()).expect("written");
+    follow_preferences(&with_font(&font_path));
+    wait_until_read();
+    let image = crate::icons::image(Icon::ChevronDown, 17);
+    let name = image.icon_name().expect("a name").to_string();
+    assert_eq!(name, "ox-win-chevron-down-20-box17-symbolic");
+    assert_eq!(
+        painted_box(&image, &name, 17),
+        Some((4, 4, 11, 11)),
+        "an 8-pixel em on whole pixels in 17"
+    );
 }
