@@ -240,12 +240,15 @@ fn chosen_files_draw_their_roles_at_the_best_size() {
         }
     );
     // The navigation pane's 16 pixels, at 1x and 2x; the lists' 32 and 48;
-    // a large view's 96 and 256.
+    // a zoomed view's 80; a large view's 256: each exactly the device
+    // pixels it is drawn at, resampled from the next larger image, so no
+    // renderer scales it.
     assert_eq!(texture_edge(IconRole::Home, 16, 1), Some(16));
     assert_eq!(texture_edge(IconRole::Home, 16, 2), Some(32));
-    assert_eq!(texture_edge(IconRole::Folder, 20, 1), Some(32));
+    assert_eq!(texture_edge(IconRole::Folder, 20, 1), Some(20));
     assert_eq!(texture_edge(IconRole::Folder, 32, 1), Some(32));
-    assert_eq!(texture_edge(IconRole::Folder, 48, 1), Some(256));
+    assert_eq!(texture_edge(IconRole::Folder, 48, 1), Some(48));
+    assert_eq!(texture_edge(IconRole::Folder, 80, 1), Some(80));
     assert_eq!(texture_edge(IconRole::RecycleBinFull, 256, 1), Some(256));
 
     assert!(folder_image.shows_user_icon(), "a shown image follows");
@@ -328,7 +331,8 @@ fn a_role_image_shows_the_file_icon_or_its_glyph() {
     assert!(tile.icon_name().is_none());
     assert_eq!(
         tile.paintable().map(|paintable| paintable.intrinsic_width()),
-        Some(256)
+        Some(48),
+        "resampled to the tile's 48 pixels"
     );
 
     follow_preferences(&Preferences::default());
