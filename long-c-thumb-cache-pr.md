@@ -8,6 +8,16 @@ Model: claude-opus-5-5
 
 CLA: I agree
 
+## Merge with test-combined-51 (486bb16c, c7bf3def)
+
+test-combined-51 is merged, so the branch contains long-d-doc-previews and every branch of deb 51. long-d's office documents take the cache's path:
+
+- A document in a small row keeps its type icon, and nothing is looked up for it.
+- Its thumbnail is read from the cache first, in batches, where GNOME's fail marks do not count for documents but the app's own do.
+- One the service or the desktop's thumbnailers could not draw goes to LibreOffice, one at a time, tiles on the screen first, and is written with the cache's keys and shown without reading it back.
+- Batched cache reads use the passes' check that an idle decoder still runs.
+- c7bf3def answers Clippy 1.92 in three files that came identical from test-combined-51.
+
 ## Merge with the passes (efb363f1, a365af0f)
 
 origin/pass-19-a11y (passes 1–19 and network-like-windows) is merged, with one memory design:
