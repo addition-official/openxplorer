@@ -12,15 +12,6 @@
 use crate::i18n::message_id;
 use crate::text_size::{self, TextSize};
 
-/// The icon edge the web's 135 × 130 grid cell was made for: its Large
-/// icons, 56 pixels. Cells for other icons grow or shrink from it.
-const WEB_TILE_ICON: i32 = 56;
-
-/// A web tile's width beyond its icon: the 135-pixel `gridWidth` less
-/// [`WEB_TILE_ICON`]. Larger icons widen the tile by as much as the icon
-/// grows.
-const TILE_WIDTH_BEYOND_ICON: i32 = 135 - WEB_TILE_ICON;
-
 /// One zoom level: its icon edge, its action key and CSS class, and the
 /// Layout menu's name for it.
 #[derive(Debug)]
@@ -194,12 +185,66 @@ pub(crate) fn cell_size(size: IconSize, text_size: TextSize) -> CellSize {
             height: compact_row(text_size) - 1,
         };
     }
-    let icon_growth = size.pixels() - WEB_TILE_ICON;
-    let width_for_icon = size.pixels() + TILE_WIDTH_BEYOND_ICON;
+    let (pitch, _) = windows_spacing(size.pixels());
     CellSize {
-        width: metrics.grid_width.max(width_for_icon),
-        height: metrics.grid_row + icon_growth,
+        width: text_size::ceil_pixels(pitch * metrics.scale.max(1.0)),
+        // The icon, two lines of name and the box's 2 pixels above and
+        // below: 289 pixels from one row to the next in Extra large at
+        // 100%, as Windows 11 spaces them.
+        height: size.pixels()
+            + text_size::ceil_pixels(2.0 * tile_name_line(metrics.scale))
+            + 2 * TILE_BOX_PADDING,
     }
+}
+
+/// Pixels between an icon item's box and its icon above, and its name
+/// below, as Windows 11 draws them.
+pub(crate) const TILE_BOX_PADDING: i32 = 2;
+
+/// The distance between two lines of an icon's name at `scale`: 14.5
+/// pixels at 100%, so a box with a two-line name stands 289 pixels high
+/// in Extra large, as Windows 11 spaces its rows.
+pub(crate) fn tile_name_line(scale: f64) -> f64 {
+    14.5 * scale
+}
+
+/// Windows 11's distance from one icon column to the next, and the gap
+/// between two items' boxes, at 100%, for icons `pixels` wide: measured
+/// on its Extra large (291 and 24), Large (109 and 8) and Medium (75 and
+/// 5) captures at 1920x1080, and in between and below drawn on the line
+/// through them. Windows keeps that distance whatever the window's
+/// width, with the rest of the width left free at the right.
+pub(crate) fn windows_spacing(pixels: i32) -> (f64, f64) {
+    const MEASURED: [(f64, f64, f64); 3] = [(48.0, 75.0, 5.0), (96.0, 109.0, 8.0), (256.0, 291.0, 24.0)];
+    let pixels = f64::from(pixels);
+    let (low, high) = if pixels <= MEASURED[1].0 {
+        (MEASURED[0], MEASURED[1])
+    } else {
+        (MEASURED[1], MEASURED[2])
+    };
+    let along = (pixels - low.0) / (high.0 - low.0);
+    let pitch = low.1 + along * (high.1 - low.1);
+    let gap = (low.2 + along * (high.2 - low.2)).max(4.0);
+    (pitch.max(pixels + gap), gap)
+}
+
+/// The padding left and right of an icon item's content in its box:
+/// what Windows 11's box holds beside the icon (267 pixels for 256 in
+/// Extra large, 101 for 96 in Large, 70 for 48 in Medium), at least 2.
+pub(crate) fn icon_side_padding(size: IconSize) -> i32 {
+    let (pitch, gap) = windows_spacing(size.pixels());
+    #[expect(clippy::cast_possible_truncation, reason = "a box of a few hundred pixels")]
+    let beside = ((pitch - gap - f64::from(size.pixels())) / 2.0).floor() as i32;
+    beside.max(2)
+}
+
+/// The margins left and right of an icon item's box, which
+/// make Windows 11's gap between two boxes ([`windows_spacing`]).
+pub(crate) fn icon_side_margins(size: IconSize) -> (i32, i32) {
+    let (_, gap) = windows_spacing(size.pixels());
+    #[expect(clippy::cast_possible_truncation, reason = "a gap of a few pixels")]
+    let gap = gap.round() as i32;
+    (gap / 2, gap - gap / 2)
 }
 
 /// Pixels from one Small icons column to the next at 100%, as Windows 11
@@ -250,7 +295,7 @@ pub(crate) const CONTENT_CHROME: i32 = 6 + 6 + 1;
 pub(crate) fn tiles_cell(text_size: TextSize) -> CellSize {
     let scale = text_size::metrics(text_size).scale;
     CellSize {
-        width: text_size::ceil_pixels(200.0 * scale + 56.0).max(256),
+        width: text_size::ceil_pixels(198.0 * scale + 56.0).max(254),
         height: text_size::ceil_pixels(3.0 * text_line(scale) + 2.0).max(TILES_ICON) + TILES_CHROME,
     }
 }
@@ -360,41 +405,38 @@ mod tests {
         assert_eq!(IconSize::at_index(99), IconSize::LARGEST);
     }
 
-    /// 56-pixel tiles keep the web's grid cells; Large icons' 96-pixel
-    /// ones are 40 pixels wider and taller.
+    /// The icon sizes stand as far apart as Windows 11's, measured on its
+    /// Extra large, Large and Medium captures at 100% (1920x1080): 291,
+    /// 109 and 75 pixels from column to column, their boxes 24, 8 and 5
+    /// pixels apart, and rows as tall as the icon, two lines of name and
+    /// 2 pixels above and below (289 in Extra large). Larger text widens
+    /// and heightens them.
     ///
     /// parity: VIEW-005
     #[test]
-    fn large_icon_cells_are_the_web_grid_cells() {
-        let web_icons = IconSize::nearest(56);
-        let cell = cell_size(web_icons, TextSize::from_percent(100));
-        assert_eq!(
-            cell,
-            CellSize {
-                width: 135,
-                height: 130
-            }
-        );
-        let larger_text = cell_size(web_icons, TextSize::from_percent(150));
-        assert_eq!(
-            larger_text,
-            CellSize {
-                width: 180,
-                height: 153
-            }
-        );
-        assert_eq!(
-            cell_size(IconSize::LARGE, TextSize::from_percent(100)),
-            CellSize {
-                width: 175,
-                height: 170
-            }
-        );
-        assert!(cell_size(IconSize::EXTRA_LARGE, TextSize::from_percent(100)).width > cell.width);
+    fn icon_cells_are_spaced_as_windows_11_spaces_them() {
+        let normal = TextSize::from_percent(100);
+        let widths: Vec<i32> = [IconSize::EXTRA_LARGE, IconSize::LARGE, IconSize::MEDIUM]
+            .iter()
+            .map(|size| cell_size(*size, normal).width)
+            .collect();
+        assert_eq!(widths, [291, 109, 75]);
+        assert_eq!(cell_size(IconSize::EXTRA_LARGE, normal).height, 289);
+        let margins: Vec<(i32, i32)> = [IconSize::EXTRA_LARGE, IconSize::LARGE, IconSize::MEDIUM]
+            .iter()
+            .map(|size| icon_side_margins(*size))
+            .collect();
+        assert_eq!(margins, [(12, 12), (4, 4), (2, 3)]);
+        let larger = TextSize::from_percent(150);
+        assert!(cell_size(IconSize::LARGE, larger).width > 109);
+        assert!(cell_size(IconSize::LARGE, larger).height > cell_size(IconSize::LARGE, normal).height);
+        // The sizes between follow the line through the measured ones.
+        let (pitch, gap) = windows_spacing(64);
+        assert!(pitch > 75.0 && pitch < 109.0 && (5.0..=8.0).contains(&gap));
     }
 
-    /// Tiles are 256 pixels wide at 100%, about Windows 11's 250 and the
-    /// gap, and hold three lines of text; Content's rows are 48 pixels
+    /// Tiles are 254 pixels apart at 100%, as Windows 11's (246-pixel boxes
+    /// 8 pixels apart, measured on its Tiles capture), and hold three lines of text; Content's rows are 48 pixels
     /// tall, as Windows 11's; both grow with the text.
     ///
     /// parity: VIEW-071
@@ -405,11 +447,11 @@ mod tests {
         assert_eq!(
             tiles_cell(normal),
             CellSize {
-                width: 256,
+                width: 254,
                 height: 75
             }
         );
-        assert!(tiles_cell(larger).width > 256 && tiles_cell(larger).height > 75);
+        assert!(tiles_cell(larger).width > 254 && tiles_cell(larger).height > 75);
         assert_eq!(tiles_cell(normal).columns_in(1000), 3);
         assert_eq!(content_row(normal), 48);
         assert!(content_row(larger) > 48);
@@ -424,27 +466,27 @@ mod tests {
     /// parity: VIEW-005
     #[test]
     fn grid_columns_follow_the_width_as_render_rows_counts_them() {
-        let large_icon_cell = cell_size(IconSize::nearest(56), TextSize::from_percent(100));
-        assert_eq!(large_icon_cell.width, 135, "the web's gridWidth");
+        let large_icon_cell = cell_size(IconSize::LARGE, TextSize::from_percent(100));
+        assert_eq!(large_icon_cell.width, 109, "Windows 11's Large icons");
         let cases = [
             ColumnCase {
                 pane_width: 0,
                 columns: 1,
             },
             ColumnCase {
-                pane_width: 134,
+                pane_width: 108,
                 columns: 1,
             },
             ColumnCase {
-                pane_width: 270,
+                pane_width: 218,
                 columns: 2,
             },
             ColumnCase {
-                pane_width: 944,
+                pane_width: 762,
                 columns: 6,
             },
             ColumnCase {
-                pane_width: 962,
+                pane_width: 763,
                 columns: 7,
             },
         ];

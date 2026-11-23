@@ -434,7 +434,7 @@ gridview.files.icons-small.icon-groups > child > .item-cell.group-slot.heading-r
    of the grid too, and show none (src/folder_view/grid/grouped.rs).
    Tiles: the icon left of its name, type and size, 8px apart across and
    6px down, as Windows 11 spaces them. Content: one row per item across
-   the width, 16px in from each side, with a thin line under each. Their
+   the width, 34px in at the left and 16px at the right, with a thin line under each. Their
    heights follow the text size (src/theme/fonts.rs). */
 gridview.files.tiles > child, gridview.files.content > child {
   padding: 0;
@@ -458,7 +458,8 @@ gridview.files.tiles > child > .item-cell:not(.group-slot) {
   transition: background-color 83ms linear;
 }
 gridview.files.content > child > .item-cell:not(.group-slot) {
-  padding: 6px 16px;
+  /* Windows 11 sets the icon's ink 36px in from the row's edge. */
+  padding: 6px 16px 6px 34px;
   border-bottom: 1px solid @ox_border;
   transition: background-color 83ms linear;
 }
@@ -495,6 +496,10 @@ gridview.files.content.keyboard-in > child:focus:not(:focus-visible):not(.file-d
 gridview.files.tiles > child box, gridview.files.content > child box { margin: 0; }
 gridview.files > child .item-lines { border-spacing: 1px; }
 gridview.files > child .item-properties { border-spacing: 1px; margin: 0 8px 0 24px; }
+/* Content's name and date stand on the row's first line, 2 pixels lower
+   than the top in the usual view, where two lines used to center them. */
+window:not(.compact-density) gridview.files.content > child .item-lines,
+window:not(.compact-density) gridview.files.content > child .item-properties { margin-top: 2px; margin-bottom: -2px; }
 gridview.files > child .item-properties > box { border-spacing: 4px; }
 /* A group's heading, as the details view draws it (VIEW-022): the
    title over the items' left edge, with no line after it; the heading
