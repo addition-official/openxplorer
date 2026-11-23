@@ -421,23 +421,52 @@ msgstr[1] ""
 msgid "{name} — Compressed folder"
 msgstr ""
 
-#. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-app/src/archive_view/compress.rs
-msgid "Compressed {item_count} items into {name}."
-msgstr ""
-
 #: crates/ox-app/src/archive_view/compress.rs
 msgid "Compression stopped"
 msgstr ""
 
-#. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/archive_view/compress.rs
-msgid "{compressed} {skipped_count} links or special files were left out."
+msgid "Some items were not compressed"
+msgstr ""
+
+#: crates/ox-app/src/archive_view/compress.rs
+msgid "a link on a server or device"
+msgstr ""
+
+#: crates/ox-app/src/archive_view/compress.rs
+msgid "a link to a folder that holds it"
+msgstr ""
+
+#: crates/ox-app/src/archive_view/compress.rs
+msgid "a link whose target cannot be found"
+msgstr ""
+
+#: crates/ox-app/src/archive_view/compress.rs
+msgid "a name that is not valid text"
+msgstr ""
+
+#: crates/ox-app/src/archive_view/compress.rs
+msgid "a special file, which holds no data"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/archive_view/compress.rs
 msgid "{error}\n\nNo existing file was replaced."
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/archive_view/compress.rs
+msgid "{name} ({reason})"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/archive_view/compress.rs
+msgid "{name} was created without these items:\n\n{items}"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/archive_view/compress.rs
+msgid "…and {count} more."
 msgstr ""
 
 #: crates/ox-app/src/archive_view/extract_dialog.rs crates/ox-app/src/window/compress_dialog.rs crates/ox-app/src/window/file_ops/links.rs crates/ox-app/src/window/place_editor.rs
