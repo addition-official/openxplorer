@@ -216,10 +216,11 @@ impl Controls {
             card,
             make_default,
             // Show in folder on and ZIP files off, as the Python check
-            // boxes started (INT-009); Open and Save dialogs on, so Make
-            // default covers every route a browser takes (INT-032).
+            // boxes started (INT-009); Open and Save dialogs off, as the
+            // project keeps native actions opt-in (INT-032, #132): Make
+            // default takes them only when asked.
             include_show_in_folder: switch_starting(true),
-            include_file_dialogs: switch_starting(true),
+            include_file_dialogs: switch_starting(false),
             include_zip: switch_starting(false),
             folders: parts::value_label(ox_core::i18n::gettext_static(CHECKING)),
             smb_links: parts::value_label(ox_core::i18n::gettext_static(CHECKING)),

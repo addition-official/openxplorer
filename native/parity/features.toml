@@ -16215,7 +16215,7 @@ python_tests = [
 ]
 bridge = ["desktopDefault", "desktopRestore"]
 native = "done"
-native_note = "native/crates/ox-core/tests/integration_default_apps.rs (making_the_folder_default_leaves_zip_files_alone, including_zip_takes_over_every_zip_alias). native/crates/ox-app/src/settings_page/default_apps/tests.rs (making_openxplorer_the_default_can_be_undone): \"Include Show in folder\" starts on and \"Also open ZIP files\" off; both are read when Make default is clicked (native/crates/ox-app/src/integration/changes.rs). Native addition: a third option, \"Also handle Open and Save dialogs\", starts on and makes Make default enable INT-032 too, without restarting the portal, and Restore previous gives the dialogs back (make_default_also_takes_open_and_save_dialogs)."
+native_note = "native/crates/ox-core/tests/integration_default_apps.rs (making_the_folder_default_leaves_zip_files_alone, including_zip_takes_over_every_zip_alias). native/crates/ox-app/src/settings_page/default_apps/tests.rs (making_openxplorer_the_default_can_be_undone): \"Include Show in folder\" starts on and \"Also open ZIP files\" off; both are read when Make default is clicked (native/crates/ox-app/src/integration/changes.rs). Native addition: a third option, \"Also handle Open and Save dialogs\", starts off (native actions stay opt-in; #132) and, turned on, makes Make default enable INT-032 too, without restarting the portal, and Restore previous gives the dialogs back (make_default_also_takes_open_and_save_dialogs)."
 
 [[feature]]
 id = "INT-010"

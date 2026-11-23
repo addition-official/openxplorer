@@ -4,7 +4,7 @@ Make explicit changes, with a way back.
 
 ## Set folder and SMB handlers
 
-Settings → Default apps → Make OpenXplorer default changes the per-user folder and SMB associations and records previous handlers. With Also handle Open and Save dialogs, which starts on, it also sends other apps’ file pickers, such as Brave’s uploads and Save dialogs, to OpenXplorer (see Open and Save dialogs below); click Apply now beside Open and Save dialogs, or log out and back in, for them to follow. If the card says OpenXplorer is your default file explorer, except for Open and Save dialogs, click Make OpenXplorer default again with that option on. Installing the package does not do this for you.
+Settings → Default apps → Make OpenXplorer default changes the per-user folder and SMB associations and records previous handlers. With Also handle Open and Save dialogs, which starts off, it also sends other apps’ file pickers, such as Brave’s uploads and Save dialogs, to OpenXplorer (see Open and Save dialogs below); click Apply now beside Open and Save dialogs, or log out and back in, for them to follow. If the card says OpenXplorer is your default file explorer, except for Open and Save dialogs, click Make OpenXplorer default again with that option on. Installing the package does not do this for you.
 
 ## Brave: Show in folder
 
