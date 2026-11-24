@@ -6,6 +6,7 @@
 - 24 px rows (was 32), 1 px separators in (62,62,62) inset 5 px, 20 px from the text above and 11 px to the text below, as in Windows.
 - 1 px #a0a0a0 border, square corners, no shadow and no slide-in motion; background #2c2c2c in dark.
 - Icon 11 px and text 36 to 37 px from the menu's edge; the submenu arrow 14 px from the right edge; the menu is as wide as its longest label plus Windows' 76 px.
+- Icons only where Windows draws them: an application's own icon (as Edit in Notepad) and Share; every other row is text alone, with the icon column kept so the text lines up. Submenus keep their icons.
 - Hover fills the whole row (#414141 dark, #dadada light). The light colors follow Windows 10's immersive light menu until a light reference exists.
 
 ### Behavior
@@ -20,7 +21,7 @@
 
 ### Captures and checks
 - Before/now captures for a file, a folder, empty space and a drive (1x, dark and light) are on the status branch under `ours-classic-menu/`, with the measured before/now/Windows table in `status/classic-menu-windows.txt`.
-- Menu tests: 222 passed; 2 failures come from the test environment (tests run as root, and one settings test needs the Python app sources).
+- Menu tests: 154 passed; the 1 failure comes from the test environment (tests run as root, which ignores a read-only folder).
 - rustfmt, Clippy on the changed code, `native/parity/check.py` and `tools/sync-docs.py --check` pass.
 - New snapshot scene steps `right-click=` and `place-menu=` open menus as a right-click does, for captures.
 
