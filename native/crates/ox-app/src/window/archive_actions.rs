@@ -195,7 +195,8 @@ impl BrowserWindow {
                 move |member: String| window.open_archive_member(uri.clone(), member)
             )),
         };
-        let frame = archive_dialog(&archive, browser, &shown_path, actions);
+        let hyphen = self.context().settings_data().preferences.hyphen_in_window_titles;
+        let frame = archive_dialog(&archive, browser, &shown_path, actions, hyphen);
         self.present_window_dialog(&frame);
     }
 

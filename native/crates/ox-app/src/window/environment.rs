@@ -134,6 +134,8 @@ impl BrowserWindow {
         self.follow_item_preferences();
         // And the window's frame (LOOK-032).
         self.follow_window_decorations();
+        // And its title's separator (LOOK-033).
+        self.render_title();
         if self.current_uri().as_deref() == Some(ox_core::location::RECENT_LOCATIONS_URI) {
             self.refresh();
         }

@@ -452,6 +452,13 @@ pub struct Preferences {
     /// `neutralSelectionColors`, only when on.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub neutral_selection_colors: bool,
+    /// Window titles put a hyphen between the location and the app's name
+    /// (`Documents - OpenXplorer`), as Windows 11 writes "Documents - File
+    /// Explorer". Off by default, the owner's choice: an em dash
+    /// (`Documents — OpenXplorer`). Stored as `hyphenInWindowTitles`, only
+    /// when on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub hyphen_in_window_titles: bool,
     /// The navigation pane shows Recent files while it shows more items
     /// than Windows 11's. On by default, the owner's choice; Windows 11
     /// shows recent files on Home only. Stored as
@@ -836,6 +843,7 @@ impl Default for Preferences {
             extension_word_starts: false,
             show_all_search_matches: false,
             neutral_selection_colors: false,
+            hyphen_in_window_titles: false,
             recent_files_in_navigation_pane: true,
             connect_external_shares: false,
             modal_dialogs_on_gnome: false,
@@ -981,6 +989,7 @@ impl Preferences {
             &mut self.neutral_selection_colors,
             update.neutral_selection_colors,
         );
+        replace_if_some(&mut self.hyphen_in_window_titles, update.hyphen_in_window_titles);
         replace_if_some(
             &mut self.recent_files_in_navigation_pane,
             update.recent_files_in_navigation_pane,
@@ -1391,6 +1400,8 @@ pub struct PreferencesUpdate {
     pub show_all_search_matches: Option<bool>,
     /// See [`Preferences::neutral_selection_colors`].
     pub neutral_selection_colors: Option<bool>,
+    /// See [`Preferences::hyphen_in_window_titles`].
+    pub hyphen_in_window_titles: Option<bool>,
     /// See [`Preferences::recent_files_in_navigation_pane`].
     pub recent_files_in_navigation_pane: Option<bool>,
     /// See [`Preferences::connect_external_shares`].
@@ -1594,6 +1605,7 @@ impl PreferencesUpdate {
             extension_word_starts: flag("extensionWordStarts"),
             show_all_search_matches: flag("showAllSearchMatches"),
             neutral_selection_colors: flag("neutralSelectionColors"),
+            hyphen_in_window_titles: flag("hyphenInWindowTitles"),
             recent_files_in_navigation_pane: flag("recentFilesInNavigationPane"),
             connect_external_shares: flag("connectExternalShares"),
             modal_dialogs_on_gnome: flag("modalDialogsOnGnome"),

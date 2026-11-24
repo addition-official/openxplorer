@@ -29,6 +29,19 @@ use super::BrowserWindow;
 /// The "+" glyph of the new-tab button (`.newtab svg{width:14px}`).
 const NEW_TAB_GLYPH: i32 = 14;
 
+/// A browsing window's title for `place`: `Documents — OpenXplorer`, the
+/// owner's choice, or with `hyphen` `Documents - OpenXplorer`, as Windows
+/// 11 writes `Documents - File Explorer` (LOOK-033, "Separate window
+/// titles with a hyphen (like Windows)").
+pub(crate) fn window_title(place: &str, hyphen: bool) -> String {
+    let pattern = if hyphen {
+        ox_core::i18n::gettext("{place} - OpenXplorer")
+    } else {
+        ox_core::i18n::gettext("{place} — OpenXplorer")
+    };
+    pattern.replace("{place}", place)
+}
+
 impl BrowserWindow {
     /// Chooses the frame before the window is shown: the desktop's title
     /// bar and borders when Settings or the window menu ask for them
@@ -364,5 +377,45 @@ mod tests {
             .filter(glib::object::ObjectExt::is::<gtk::GestureClick>)
             .count();
         assert_eq!(own_clicks, 0, "the blank area leaves its clicks to the handle");
+    }
+
+    /// A window is titled `Documents — OpenXplorer` by default, the
+    /// owner's choice; with "Separate window titles with a hyphen (like
+    /// Windows)", which "Behave like Windows Explorer" turns on, it reads
+    /// `Documents - OpenXplorer`, as Windows 11 writes "Documents - File
+    /// Explorer". An open window retitles at once.
+    ///
+    /// parity: LOOK-033
+    #[gtk::test]
+    fn window_titles_take_a_hyphen_like_windows_when_asked() {
+        use ox_core::settings::PreferencesUpdate;
+
+        use crate::test_support::harness::wait_until;
+
+        let fixture = Fixture::standard();
+        let test = TestWindow::open(&fixture.uri_of("Documents"));
+        let before = test.window.title().map(|title| title.to_string());
+        test.context.update_preferences(
+            PreferencesUpdate {
+                hyphen_in_window_titles: Some(true),
+                ..PreferencesUpdate::default()
+            },
+            |result| result.expect("fixture settings are writable"),
+        );
+        wait_until("the open window to retitle", || {
+            test.window.title().as_deref() == Some("Documents - OpenXplorer")
+        });
+
+        assert_eq!(before.as_deref(), Some("Documents — OpenXplorer"));
+        assert_eq!(super::window_title("Settings", true), "Settings - OpenXplorer");
+        assert_eq!(super::window_title("Settings", false), "Settings — OpenXplorer");
+        assert_eq!(
+            crate::archive_view::compressed_folder_title("Photos.zip", true),
+            "Photos.zip - Compressed folder"
+        );
+        assert_eq!(
+            crate::archive_view::compressed_folder_title("Photos.zip", false),
+            "Photos.zip — Compressed folder"
+        );
     }
 }

@@ -15998,6 +15998,23 @@ native = "done"
 native_note = "native/crates/ox-app/src/window/title_bar.rs (configure_window_decorations, follow_window_decorations, lay_out_window_decorations): GTK asks the desktop for a frame (KDE's server decoration protocol on KWin Wayland, the window manager's hints on X11) only as it makes a window's surface, so a shown window is hidden, unrealized, laid out again and presented, maximized or full screen as it was, keyboard focus back where it was; a window whose tabs are being dragged switches once they land; places_changed (environment.rs) runs it in every window when the settings change. native/crates/ox-app/src/window/title_bar_menu.rs: the window menu on a capture-phase secondary click of the tab row's GtkWindowHandle that is not on a tab or a button; Move and Size ask an X11 window manager for its keyboard move or size (button 0), and on Wayland, where a compositor starts them only from a button held down, the next press in the window starts them under the move or resize pointer (Escape gives up). Checked with real input on KWin 5.27 Wayland (nested, X11 windowed backend) and Mutter 46 nested Wayland, light and dark: the switch both ways on a normal and a maximized window, the menu's enabled items, Move on X11 (Openbox) and on KWin Wayland. Tests: native/crates/ox-app/src/window/tests/window_decorations.rs (an_open_window_follows_the_system_decorations_choice_at_once, a_right_click_on_the_empty_title_bar_opens_the_window_menu with a real XTEST pointer, the_window_menus_check_item_turns_system_decorations_on), native/crates/ox-app/src/window/title_bar_menu.rs (the_window_menu_is_windows_with_the_system_title_bar_choice), native/crates/ox-app/src/settings_page/tests/window_decorations.rs (system_window_decorations_are_searchable_and_apply_to_open_and_new_windows)."
 
 [[feature]]
+id = "LOOK-033"
+area = "LOOK"
+title = "Window titles with Windows' hyphen"
+behaviour = "Browsing windows are titled '<location> — OpenXplorer' (an em dash, the owner's choice since 2.0.0), Settings 'Settings — OpenXplorer', and an archive's window '<name> — Compressed folder'. Settings > Appearance > Layout > 'Separate window titles with a hyphen (like Windows)' (off by default, set by 'Behave like Windows Explorer') titles them with a hyphen and spaces, '<location> - OpenXplorer' and '<name> - Compressed folder', as Windows 11 writes 'Documents - File Explorer'. Open windows retitle at once."
+origin = ["openxplorer"]
+priority = "could"
+openxplorer = "missing"
+sources = [
+  "Owner request, 2026-11-24 (deb 59): KDE's title bar, the taskbar and Alt+Tab show the em dash; Windows uses ' - '",
+  "Windows 11: File Explorer's window title 'Documents - File Explorer'",
+]
+python_tests = []
+bridge = []
+native = "done"
+native_note = "native/crates/ox-app/src/window/title_bar.rs (window_title), location_view.rs (render_title), archive_view/browser.rs (compressed_folder_title); the preference hyphenInWindowTitles (ox-core settings/preferences.rs), a line of WINDOWS_SETTINGS (ox-core settings/windows_mode.rs), its row in settings_page/window_decorations.rs (hyphen_row); places_changed (window/environment.rs) retitles open windows. Properties titles ('<name> Properties') and the other dialogs have no dash and are unchanged. Tests: native/crates/ox-app/src/window/title_bar.rs (window_titles_take_a_hyphen_like_windows_when_asked), ox-core settings/windows_mode.rs (every_line_reads_and_writes_the_same_setting)."
+
+[[feature]]
 id = "INT-001"
 area = "INT"
 title = "Single-instance application"
