@@ -309,6 +309,10 @@ msgstr ""
 msgid "The application did not accept this file."
 msgstr ""
 
+#: crates/ox-app/src/app_context/previous_versions.rs crates/ox-app/src/window/file_ops/availability.rs
+msgid "Google Drive and OneDrive are read-only for now. Copy items to this PC to change them."
+msgstr ""
+
 #: crates/ox-app/src/application.rs
 msgid "OpenXplorer is already running with hardware rendering. To use software rendering, run: openxplorer --restart --software-rendering"
 msgstr ""
@@ -5294,6 +5298,18 @@ msgstr ""
 msgid "Zorin + Brave setup and troubleshooting"
 msgstr ""
 
+#: crates/ox-app/src/settings_page/window_decorations.rs
+msgid "Use system window decorations"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/window_decorations.rs
+msgid "Use your desktop's title bar and window buttons, with the tabs below them. Applies to windows opened after the change. Where the desktop draws no title bars, GTK draws a standard one."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/window_decorations.rs
+msgid "appearance layout frame border titlebar title bar desktop native system decorations KDE KWin GNOME Wayland X11 CSD SSD minimize maximize close"
+msgstr ""
+
 #: crates/ox-app/src/settings_page/windows_mode.rs
 msgid "Behave like Windows Explorer"
 msgstr ""
@@ -10205,6 +10221,10 @@ msgid "Only local paths, smb:// locations and connected devices are supported in
 msgstr ""
 
 #: crates/ox-core/src/location/normalise.rs
+msgid "Open a folder on the drive first, then select files or folders inside it. The drive itself cannot be renamed, moved, copied or trashed here."
+msgstr ""
+
+#: crates/ox-core/src/location/normalise.rs
 msgid "Open a folder on the server first, then select files or folders inside it. The server itself cannot be renamed, moved, copied or trashed here."
 msgstr ""
 
@@ -10226,6 +10246,10 @@ msgstr ""
 
 #: crates/ox-core/src/location/normalise.rs
 msgid "Windows drive letters are not Linux paths. Use /home/… or \\\\server\\share."
+msgstr ""
+
+#: crates/ox-core/src/location/normalise/cloud.rs
+msgid "Enter the account of the drive, for example google-drive://alice@example.com/."
 msgstr ""
 
 #: crates/ox-core/src/location/normalise.rs crates/ox-core/src/location/normalise/remote.rs
@@ -11889,6 +11913,10 @@ msgid "Adds item check boxes as in Windows 11 and a redesigned Settings page wit
 msgstr ""
 
 #: packaging/data/io.winspace.Development.Native.metainfo.xml packaging/data/io.winspace.Development.metainfo.xml
+msgid "An item's Properties window can now be made larger from its edges and corners, and Previous Versions' list grows with it, so more versions show at once. Releases are also published in a signed Flatpak repository, so a Flatpak install updates through the software centre or flatpak update."
+msgstr ""
+
+#: packaging/data/io.winspace.Development.Native.metainfo.xml packaging/data/io.winspace.Development.metainfo.xml
 msgid "Brave's downloads, its Save page as and Save as PDF, and its upload dialogs can open OpenXplorer's own Open and Save dialogs, also when the desktop portal reads its settings from a different folder, and the Brave sync can make Brave ask where to save each download. A Save dialog names the file for the type chosen in it. By default, an unselected item's check box shows on hover only while Ctrl is held, as in Windows Explorer, and an experimental, off-by-default option indexes frequently opened folders for instant search. Compressed archives, launcher previews during a drag and search results now have memory limits, and the share mount helper only rolls back what its own setup changed. Large cached folders, fast file operations and custom folder icons take less time."
 msgstr ""
 
@@ -11918,6 +11946,10 @@ msgstr ""
 
 #: packaging/data/io.winspace.Development.Native.metainfo.xml packaging/data/io.winspace.Development.metainfo.xml
 msgid "Gallery looks and works as in Windows 11, with justified photo rows, a date scrubber, Rotate left and Rotate right, and a choice of folders. The search box understands Windows search syntax: quoted phrases, AND, OR and NOT, and name:, ext:, date: and size:, and a tab shows a progress ring while its search or folder loads. Folders of 100,000 items stay responsive, emptying a large Recycle Bin takes seconds, and network folders show type icons by default, as in Windows 11, with a setting to show their thumbnails. Password-protected ZIPs ask for their password, large ZIPs and 7z archives can be made, and every Properties window fits one size, with a Shortcut tab for links and launchers. Settings and Folder Options use Windows' names and access keys, the keyboard no longer gets lost in dialogs, menus and panes, and Alt at a drop makes shortcuts."
+msgstr ""
+
+#: packaging/data/io.winspace.Development.Native.metainfo.xml packaging/data/io.winspace.Development.metainfo.xml
+msgid "Google Drive and OneDrive accounts signed in under GNOME Online Accounts show as drives on This PC and in the navigation pane. Their files can be browsed, opened and copied to this PC, and Google Docs, Sheets and Slides open in the browser; the drives are read-only for now. The system's own window title bar can also be turned on instead of the app's."
 msgstr ""
 
 #: packaging/data/io.winspace.Development.Native.metainfo.xml packaging/data/io.winspace.Development.metainfo.xml

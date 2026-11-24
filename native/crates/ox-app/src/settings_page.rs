@@ -55,6 +55,7 @@ mod section;
 mod startup;
 mod status_card;
 mod troubleshooting;
+mod window_decorations;
 mod windows_mode;
 mod wrap_layout;
 

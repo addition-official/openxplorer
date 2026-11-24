@@ -33,6 +33,10 @@ pub struct EntryMeta {
     /// holds it in the trash folder, as `GVfs` names it in
     /// `standard::target-uri`; `None` for any other item.
     pub trash_file: Option<String>,
+    /// For a Google Docs, Sheets or Slides file on Google Drive, which has
+    /// no file to download, the `https:` page `GVfs` names in
+    /// `standard::target-uri`, where the browser opens it (DEV-013).
+    pub web_target: Option<String>,
     /// For a photo listed in Gallery, when it was taken: its EXIF
     /// `DateTimeOriginal` in local time, seconds since the Unix epoch.
     /// `None` everywhere else, and for a photo without one.
@@ -63,6 +67,7 @@ impl EntryMeta {
                 .map(|target| target.display().to_string()),
             recent_target: None,
             trash_file: None,
+            web_target: None,
             taken: None,
             pixel_size: None,
         }

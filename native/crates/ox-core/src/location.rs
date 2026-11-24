@@ -9,10 +9,12 @@
 //! `deviceRoot`, `breadcrumbSegments`, `networkLocation`, `sameLocation`,
 //! `writableLocation`, `readonlyLocation`, `titleFor`).
 //!
-//! Folder locations are always absolute URIs: `file://`, `smb://`, or a
-//! connected device (`mtp://`, `gphoto2://`, `afc://`). Their canonical
-//! form is byte-for-byte what the Python app produces, because both apps
-//! share `~/.config/winspace/settings.json` and compare URIs as strings.
+//! Folder locations are always absolute URIs: `file://`, `smb://`, another
+//! network protocol (`sftp://`, ...), an online-account drive
+//! (`google-drive://`, `onedrive://`) or a connected device (`mtp://`,
+//! `gphoto2://`, `afc://`). Their canonical form is byte-for-byte what the
+//! Python app produces, because both apps share
+//! `~/.config/winspace/settings.json` and compare URIs as strings.
 //!
 //! Besides folders, the window can show the places in [`VirtualPlace`]:
 //!
@@ -44,10 +46,12 @@
 //! | `names` | File names, "Keep both" names and sidebar labels |
 //! | `display` | Titles, address bar text, breadcrumbs and Up |
 //! | `classify` | Writable, snapshot and network folders, SMB share roots |
+//! | `cloud_names` | The names of Google Drive folders, whose addresses hold IDs |
 //! | `typed` | Quotes and environment variables in typed addresses |
 
 mod archive_location;
 mod classify;
+mod cloud_names;
 mod device_uri;
 mod display;
 mod drive_letters;
@@ -64,6 +68,7 @@ pub(crate) use text::{
 
 pub use archive_location::{is_archive_location, ArchiveLocation, ARCHIVE_SCHEME};
 pub use classify::{is_network_filesystem, is_smb_share_root};
+pub use cloud_names::{names_items_by_id, remember_cloud_name, unnamed_cloud_folders};
 pub use display::{crumb_divider, device_root, parent_location, same_location, DeviceLabel, LocationContext};
 pub use drive_letters::{mapped_drive_location, without_drive_letter};
 pub use names::{
@@ -75,7 +80,9 @@ pub use normalise::{
     file_uri, is_smb_server, normalise, normalise_item, normalise_location, require_item_uri, require_share,
     typed_local_path, without_user,
 };
-pub use parts::{canonical_remote_scheme, split_location, LocationKind, LocationParts, REMOTE_SCHEMES};
+pub use parts::{
+    canonical_remote_scheme, split_location, LocationKind, LocationParts, CLOUD_SCHEMES, REMOTE_SCHEMES,
+};
 pub use text::{breaks_a_line, without_line_breaks};
 pub use typed::typed_address;
 pub use virtual_place::{
@@ -160,11 +167,20 @@ pub fn is_remote_location(uri: &str) -> bool {
     location_kind(uri) == LocationKind::Remote
 }
 
-/// True for any server location: SMB or another network protocol. Such
-/// locations are listed under Network, get the network icon and have no
-/// Recycle Bin.
+/// True for Google Drive and `OneDrive` locations (DEV-013).
+pub fn is_cloud_location(uri: &str) -> bool {
+    location_kind(uri) == LocationKind::Cloud
+}
+
+/// True for any server location: SMB, another network protocol or an
+/// online-account drive. Such locations are listed under Network, get the
+/// network icon, are mounted before they are read and have no Recycle
+/// Bin.
 pub fn is_server_location(uri: &str) -> bool {
-    matches!(location_kind(uri), LocationKind::Smb | LocationKind::Remote)
+    matches!(
+        location_kind(uri),
+        LocationKind::Smb | LocationKind::Remote | LocationKind::Cloud
+    )
 }
 
 /// True for phones, cameras and iOS devices (`mtp:`, `gphoto2:`, `afc:`).

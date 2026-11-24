@@ -30,6 +30,7 @@ mod indexing;
 mod moved_from_more;
 mod passwordless;
 mod redesign;
+mod window_decorations;
 mod windows_mode;
 
 /// A window on the standard fixture with Settings open in front.
@@ -561,6 +562,7 @@ fn escape_leaves_the_search_and_shows_every_row_again() {
             "Icons from Windows icon files",
             "Windows icon files",
             "Windows symbol font",
+            "Use system window decorations",
             "Compact view",
             "Column header style",
             "Show a line under column titles",

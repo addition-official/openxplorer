@@ -240,6 +240,7 @@ fn every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages() {
         "Icons from Windows icon files",
         "Windows icon files",
         "Windows symbol font",
+        "Use system window decorations",
         "Open Quick access on Home",
         "Show hidden files, folders, and drives",
         "Hide extensions for known file types",

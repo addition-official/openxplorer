@@ -16,6 +16,7 @@
 
 use std::path::PathBuf;
 
+use super::cloud_names::cloud_name;
 use super::device_uri::DeviceUriMatch;
 use super::normalise::{file_uri, without_user};
 use super::parts::{split_location, split_scheme, LocationKind, LocationParts};
@@ -104,6 +105,9 @@ impl LocationContext {
         let Some(parts) = location_parts(uri) else {
             return uri.to_string();
         };
+        if let Some(name) = cloud_name(uri) {
+            return name;
+        }
         let last_component = parts.path.split('/').rfind(|component| !component.is_empty());
         let Some(name) = decode_uri_component(last_component.unwrap_or_default()) else {
             return uri.to_string();
@@ -145,7 +149,8 @@ impl LocationContext {
     /// Text for the editable address bar and tooltips: a plain path for
     /// local folders, `\\server\share\...` for SMB, `Device / path` for
     /// devices, `Recycle Bin / path` inside virtual folders, the URL with
-    /// its path readable for SFTP, FTP, WebDAV and NFS, else the URI.
+    /// its path readable for SFTP, FTP, WebDAV, NFS, Google Drive and
+    /// `OneDrive`, else the URI.
     pub fn display_location(&self, uri: &str) -> String {
         if let Some(place) = VirtualPlace::from_uri(uri) {
             return place.title().to_string();
@@ -178,7 +183,7 @@ impl LocationContext {
             LocationKind::Local => path,
             LocationKind::Smb => format!("\\\\{}{}", parts.authority, path.replace('/', "\\")),
             LocationKind::Device => with_subpath(self.device_name(uri), path.trim_matches('/')),
-            LocationKind::Remote => format!(
+            LocationKind::Remote | LocationKind::Cloud => format!(
                 "{}://{}{}",
                 parts.scheme,
                 parts.authority,
@@ -241,6 +246,10 @@ impl LocationContext {
         }
         if parts.is_device() {
             self.device_name(uri).to_string()
+        } else if parts.is_cloud() {
+            // A drive is named by its account, as GNOME Online Accounts
+            // names it (DEV-013).
+            parts.authority
         } else if let Some((_, host)) = parts.authority.rsplit_once('@') {
             // A tab names a server without the account (SAFE-010).
             host.to_owned()
@@ -271,8 +280,11 @@ impl LocationContext {
         };
         crumbs.push(root);
         for component in parts.path.split('/').filter(|component| !component.is_empty()) {
-            let label = decode_uri_component(component)?;
             crumb_uri = format!("{crumb_uri}/{component}");
+            let label = match cloud_name(&crumb_uri) {
+                Some(name) => name,
+                None => decode_uri_component(component)?,
+            };
             crumbs.push(Crumb::new(label, crumb_uri.clone()));
         }
         Some(crumbs)
@@ -287,7 +299,7 @@ impl LocationContext {
                 let name = self.computer_name(uri).unwrap_or(&parts.authority);
                 Some(Crumb::new(name, root_uri(parts)))
             }
-            LocationKind::Remote => Some(Crumb::new(&parts.authority, root_uri(parts))),
+            LocationKind::Remote | LocationKind::Cloud => Some(Crumb::new(&parts.authority, root_uri(parts))),
             LocationKind::Device => Some(Crumb::new(self.device_name(uri), root_uri(parts))),
             LocationKind::Other if parts.scheme == "admin" => Some(Crumb::new("Administrator", "admin:///")),
             LocationKind::Other => None,

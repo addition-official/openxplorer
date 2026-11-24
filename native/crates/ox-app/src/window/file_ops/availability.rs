@@ -29,7 +29,7 @@
 
 use gtk::gio::prelude::FileExt;
 use gtk::subclass::prelude::*;
-use ox_core::location::{is_archive_location, same_location, LocationContext, TRASH_URI};
+use ox_core::location::{is_archive_location, is_cloud_location, same_location, LocationContext, TRASH_URI};
 use ox_core::ops::JournalDirection;
 
 use crate::folder_view::item::FileItem;
@@ -163,6 +163,8 @@ pub(crate) struct FolderFacts {
     /// Its drive's file system may not be written, as a write-protected
     /// USB stick's.
     pub(crate) is_on_read_only_drive: bool,
+    /// It is on Google Drive or `OneDrive`, read-only for now (DEV-013).
+    pub(crate) is_cloud: bool,
 }
 
 /// Everything the rules read.
@@ -280,6 +282,9 @@ impl CommandFacts {
             FileCommand::New | FileCommand::Paste if folder.is_zip => {
                 ox_core::i18n::gettext_static("An archive is read-only. Extract it to add items.")
             }
+            FileCommand::New | FileCommand::Paste if folder.is_cloud => ox_core::i18n::gettext_static(
+                "Google Drive and OneDrive are read-only for now. Copy items to this PC to change them.",
+            ),
             FileCommand::New => ox_core::i18n::gettext_static("This folder is read-only."),
             FileCommand::Paste if !selection.has_inoperable => {
                 ox_core::i18n::gettext_static("This folder is read-only.")
@@ -307,6 +312,9 @@ impl CommandFacts {
             }
             _ if selection.has_read_only && folder.is_zip => ox_core::i18n::gettext_static(
                 "Items in an archive are read-only. Copy them out or use Extract all.",
+            ),
+            _ if selection.has_read_only && folder.is_cloud => ox_core::i18n::gettext_static(
+                "Google Drive and OneDrive are read-only for now. Copy items to this PC to change them.",
             ),
             _ if selection.has_read_only => ox_core::i18n::gettext_static("A previous version is read-only."),
             _ => ox_core::i18n::gettext_static("Rename one item at a time."),
@@ -408,6 +416,7 @@ impl BrowserWindow {
                 let known = self.imp().read_only_drive.borrow();
                 known.1 && known.0 == folder_uri
             },
+            is_cloud: is_cloud_location(&folder_uri),
         };
         let operations = self.imp().file_operations.borrow();
         let context = self.context();

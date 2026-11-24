@@ -146,6 +146,12 @@ Only the application text and needed row spacing change; desktop scaling and fil
 
 In a narrow window or at a large text size, the command bar commands that do not fit move into See more (…), from the right, as in Windows 11; Sort and View open there as submenus. The navigation pane narrows to leave your files room and widens back as the window grows, without changing the width you chose. Settings rows put their buttons under each other instead of widening the window.
 
+## Use your desktop's window frame
+
+Settings → Appearance → Layout → Use system window decorations uses your desktop's title bar and window buttons, with the tabs in a separate row below. It is off by default, preserving the integrated Explorer-style title bar. On desktops without system decorations, GTK provides a standard title bar instead.
+
+The choice is saved across restarts and applies to windows opened after the change. Windows already open keep their frame until you close them, so changing it never interrupts a file operation.
+
 ## Open in Terminal
 
 Right-click a folder, sidebar pin or the file-list background and choose Open in Terminal. Right-click a regular file to open its containing folder. Both context-menu styles include the command.
@@ -180,4 +186,4 @@ The website tour shows pictures and cannot drag files. Compatibility with a part
 
 ---
 
-OpenXplorer 2.0.23. Project-authored documentation: AGPL-3.0-only.
+OpenXplorer 2.0.25. Project-authored documentation: AGPL-3.0-only.
