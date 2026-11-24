@@ -1,0 +1,82 @@
+STATUS: RUNNING (merged and pushed; GitHub Actions builds the deb)
+HEAD: test-combined-57 30414a501c2b175c24e83d5acc010165428d0fbc
+
+BRANCH: test-combined-57, started from deb 56's test-combined-56 a1082704, with only the new tips merged; each tip was current when pushed.
+
+MERGES (in the order given):
+- claude/owner-audit-fixes 346a746c -> ec0ab1cd: no conflicts.
+- claude/windows-mode-switch 8adac1ae -> 9c16f28e: generated files only. It brings upstream main 0fed5d4a (#387, and #390 before it), so upstream main was not merged separately.
+- claude/review-6-fixes 0e2794c1 -> 38468707: no conflicts.
+- claude/classic-menu-windows 8f596d15 -> 48b378cf: no conflicts.
+- pass-12-details-status 29abcdb4 -> f91b6809: no conflicts.
+- pass-7-views 25b68846 -> bcccd573: no conflicts.
+- long-c-thumb-cache 1538cd20 -> 41b33f73. thumbnails/folder_preview.rs, 3 blocks: long-c's side (one straight picture; BODY_TOP_Y gone). The conflicts came only from deb 56's formatting commit a1082704 on the older code. .pot regenerated.
+- 30414a50 style: rustfmt on long-c's folder_preview.rs and cells/folder_contents.rs again, which its new tip carries unformatted; formatting only.
+
+SKIPPED: none.
+
+TESTS RUN HERE (the switch, isolated under Xvfb): ox-core settings::windows_mode 4 of 4 passed; ox-app settings_page::windows_mode (the guard every_setting_titled_like_windows_is_in_the_registry and the_guard_matches_the_word_windows_in_any_case), settings_page::tests::windows_mode and settings_page::tests::redesign 13 of 13 passed. WINDOWS_SETTINGS has 24 lines, none twice.
+
+CHECKS HERE: cargo check of the workspace (and of all targets): no errors or warnings; rustfmt clean; i18n check and sync-docs --check pass. Commits: 650 on top of main 5d21fd3e: 646 by addition-official <239187859+addition-official@users.noreply.github.com> (author and committer), the owner's 2 #366 commits by AKolenda, and upstream main's 2 new commits by AKolenda (committed by GitHub): 95ea4003 (#390) and 0fed5d4a (#387). No trailers. No status/*.txt or status/*.md in the tree. No release build or long checks here.
+
+CHANGES (non-merge, non-test commits from test-combined-56 a1082704 to test-combined-57, oldest first; 8 test commits left out; upstream's marked):
+- 95ea4003 (upstream, AKolenda) docs(readme): Show the project's star history (#390)
+- 1538cd20 Peek out one straight picture, and use imageres 162 for a folder of files
+- a8729467 fix(look): Draw the view toggles and the open pane's Details button as Windows 11 does
+- 4261aae9 fix(commands): Offer Share and Set as background where Windows does, and say why they fail
+- 924396e2 fix(details-pane): Keep each Details value on one line, cut with an ellipsis
+- 0e2794c1 fix(details-pane): Draw the preview in Windows 11's box with a band around a picture
+- 25b68846 fix(views): Show up to four lines of an icon's name as Windows 11 does
+- 8f596d15 feat(menus): Draw the classic menu as Windows 11's Win32 menu
+- 0fed5d4a (upstream, AKolenda) fix(properties): Let an item's Properties window be made larger (#387)
+- daf157fe feat(settings): Add "Ask for a GitHub star", off in Behave like Windows Explorer, and keep the star prompt out of file dialogs
+- 8adac1ae feat(settings): Add "Keep Properties windows a fixed size (like Windows)"
+- 7f6b4213 style: Clear three Clippy findings of the combined branch
+- 8edb99f5 fix(clipboard): Decode a pasted file list off the main thread
+- 03d9c794 fix(open): Read a .desktop link without holding the main loop
+- 6aee06cd fix(network): Forget only the signed-out server's saved credentials
+- 54da2814 fix(format): Add Allocation unit size and Restore device defaults
+- 8c8257da feat(settings): Offer Windows' way for owner choices, and Windows' search options
+- b3d91292 feat(search): Show every cached match too while showing all matches
+- 3b936a65 fix(defaults): Start "Also handle Open and Save dialogs" off
+- 346a746c fix(dialogs): Set GTK_USE_PORTAL through a packaged generator, not a home file
+- 30414a50 style: Format long-c's folder-contents preview code with rustfmt
+
+NEW TEXT (msgids added or changed in native/po/openxplorer.pot from test-combined-56 to test-combined-57; \n is a line break):
+- Allocation unit size
+- Default allocation size
+- Restore device defaults
+- WARNING: Formatting will erase ALL data on this disk.\nTo format the disk, click OK. To quit, click CANCEL.
+- {size} bytes
+- {size} kilobytes
+- GTK 3 apps keep GTK's dialog: ~/.config/winspace/file-dialogs/gtk-apps is not OpenXplorer's, so it was left alone.
+- After a few starts, a card asks once a session whether you would star OpenXplorer on GitHub, until you dismiss it. Off: the card never shows.
+- Ask for a GitHub star
+- github star prompt card ask rate enjoying nag popup reminder dismiss
+- Hover and selection in the file list and the navigation pane keep Windows' colors whatever your accent color, as in Windows 11. Off, your accent color tints them.
+- Lists Recent files in the navigation pane while it shows more items. Off, recent files are on Home only, as in Windows 11.
+- Neutral selection colors (like Windows)
+- Show Recent files in the navigation pane
+- recent files navigation pane sidebar history row hide windows home
+- selection hover highlight color colour accent tint neutral blue grey file list windows look
+- Connect to shares opened by other apps right away (like Windows)
+- Keep Open/Save dialogs modal on GNOME (like Windows)
+- On GNOME, another app's Open or Save dialog stays modal, so that app waits until the dialog closes, as in Windows. GNOME then moves the dialog with that app's window. Off, the dialog moves on its own and the app stays usable.
+- Requests from other apps
+- When another app opens a folder or item on a network share that is not connected, OpenXplorer connects to it at once, as Windows does. Off, the tab waits until you click Try again.
+- connect share smb network mount other apps show folders show items d-bus request automatically windows
+- open save dialog file picker modal attached gnome mutter zorin wayland move window windows
+- Allow Linux file name characters when renaming
+- Item check boxes stay out of the way until you hold Ctrl to pick several items. Turn this off to show them whenever you point at an item, as in Windows.
+- Names you type may contain : * ? " < > | as Linux allows, when renaming in place, in the Rename dialog and in Properties alike. Such a name cannot be copied to a Windows share or a USB drive as it is. Off, these are refused as in Windows.
+- rename name characters colon asterisk question mark quote pipe forbidden invalid linux windows balloon
+- Every Properties window, for a file, a folder, a drive, a shortcut or several items, opens at the same size and cannot be resized, as in Windows. Off: it opens at that size and can be made larger.
+- Keep Properties windows a fixed size (like Windows)
+- properties window size fixed resize resizable larger same size dialog windows 380 520
+- A search shows every match, as in Windows, adding them while you keep working. Off, it shows the first 500 and asks you to narrow your search.
+- Show all search matches (like Windows)
+- search results matches all limit 500 first more cap live folder windows
+- Include compressed files (ZIP, 7Z, TAR...)
+- Include system directories
+- This desktop has no way for apps to set its background: its desktop portal has no wallpaper service. Set the background in the desktop's own settings.
+- This desktop has no way to send files by email: no email app is set up, or its desktop portal has no email service. Set up an email app, then share again.
