@@ -1,5 +1,5 @@
 STATUS: DONE
-HEAD: claude/classic-menu-windows 981c68236d21017ac28ae3deab775d0a014070f5 (from origin/test-combined-55 26de5e7b)
+HEAD: claude/classic-menu-windows 415f2801 (fast-forwarded to origin/test-combined-58 6776789d, then the submenu fix)
 QUESTION: The light classic menu colors are Windows 10's immersive light menu (background #eeeeee, border #a0a0a0, separator #bdbdbd, hover #dadada). There is no light Windows 11 reference. Could a light ref-05 be captured so they can be measured?
 QUESTION: The reference shows no hover highlight (the pointer is on Copy but the row is not filled). Ours uses #414141 (dark) and #dadada (light) from Windows 10's immersive menu. Could a capture with a hovered row be added?
 NOTE: Measured by script (menu_metrics.py/table.py, kept out of the repo) on reference/ref-05-menu-file-classic.png and on our 1x captures of the same state (RefTest-like fictional folder under /home/demo, 1920x1032 window). Every geometry value below is within 1 px of Windows.
@@ -79,3 +79,15 @@ PASS recaptured now-*: file, folder, empty space, drive, Recycle Bin, keyboard a
 PASS rustfmt, clippy (changed code), native/parity/check.py
 PASS menu tests (context_menu, menu_popover, place_menus, theme::fonts::tests, submenu_hover, shift_f10, recycle_bin): 154 passed, 1 failed (a_folder_without_write_permission_keeps_new_and_paste_and_shows_the_error, root ignores 0555 in this container, as before). Updated the existing test the_classic_menu_shows_no_shortcut_text_bolds_open_and_lines_up_text_only_rows: Properties is now text alone.
 NOTE: the earlier status-branch merge commit 71eab5b4 carries the default "Claude" identity; rewriting it needs a force push, which was not allowed here.
+
+SUBMENU CLOSES WHEN THE POINTER LEAVES (415f2801, the user's Windows 11 VM check of 2026-11-24)
+PASS removed pass-6's keep-open behavior (0e94eeba "Keep a hover-opened submenu open after the pointer leaves every menu") by bringing back its close-on-leave timer, now in every style: compact menu, classic menu and the command bar's menus (all are MenuPopover)
+PASS pointer off every menu, from the row or from inside the submenu: the submenu closes after SUBMENU_DELAY (400 ms, Windows' MenuShowDelay); each submenu up the chain closes the same way
+PASS the menu the submenu opens from stays open until a click outside or Escape
+PASS moving onto the submenu, or back onto any menu within the delay, keeps it open; the safe triangle is unchanged
+PASS moving onto another row of the parent switches to that row (and its submenu) after the delay (unchanged; check_submenus "hover on another row closes")
+NOTE: a submenu the keyboard opened, or that holds the keyboard with focus shown, stays open when the pointer leaves, as before
+PASS real pointer (XTEST on check.py's private Xvfb): moving_away_from_an_open_submenu_closes_it_after_the_delay now checks compact and classic: off the menus from the row, into the submenu (stays), off and back within the delay (stays), off for good (closes), menu still open. It FAILS on test-combined-58's menu_popover.rs ("Win11: the submenu closes once the pointer has left the menus") and passes with the fix. Existing test changed, none added.
+PASS rustfmt, clippy (changed code), native/parity/check.py; parity CMD-010 text updated
+PASS menu tests (context_menu, menu_popover, place_menus, theme::fonts::tests, submenu_hover, shift_f10, recycle_bin, command_bar, kept_menus): 212 passed, 1 failed (a_folder_without_write_permission_keeps_new_and_paste_and_shows_the_error: root ignores 0555 here, as before); submenu_hover alone: 10 passed
+NOT RUN on Wayland: XTEST has no Wayland counterpart; the timer uses only enter/leave events and the pointer position check falls back to them there

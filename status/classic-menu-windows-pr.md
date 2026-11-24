@@ -11,7 +11,8 @@
 
 ### Behavior
 - Access keys use Windows' letters ("Cu&t", "P&roperties", ...). They are underlined when the keyboard opened the menu (Shift+F10, the Menu key, or Show more options chosen with the keyboard) and hidden when the mouse opened it. They work either way; a shared letter moves between its rows.
-- Up/Down wrap, Right opens a submenu, Left/Esc close one level, and submenus open after Windows' 400 ms hover delay and stay open while the pointer heads for them (existing behavior, unchanged).
+- Up/Down wrap, Right opens a submenu, Left/Esc close one level, and submenus open after Windows' 400 ms hover delay and stay open while the pointer heads for them.
+- As in Windows 11, a submenu closes 400 ms after the pointer leaves every menu, in the compact, classic and command bar menus; the menu it opens from stays open until a click outside or Escape.
 
 ### Items
 - File: the open group first (Open, Edit in <editor> where installed, Add to Favorites, Open with…), then Copy as path, Share, Restore previous versions; Send to; Cut, Copy; Create shortcut, Delete, Rename; the app's own commands (Duplicate, Open containing folder in Terminal, Compress to…, service actions) above Properties.
