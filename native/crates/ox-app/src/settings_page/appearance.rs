@@ -120,6 +120,21 @@ const MORE_NAVIGATION_PANE_ITEMS: RowText = RowText {
                usage bar extra more rows windows",
 };
 
+const RECENT_FILES_IN_NAVIGATION_PANE: RowText = RowText {
+    title: "Show Recent files in the navigation pane",
+    description: "Lists Recent files in the navigation pane while it shows more items. Off, recent \
+                  files are on Home only, as in Windows 11.",
+    keywords: "recent files navigation pane sidebar history row hide windows home",
+};
+
+const NEUTRAL_SELECTION_COLORS: RowText = RowText {
+    title: "Neutral selection colors (like Windows)",
+    description: "Hover and selection in the file list and the navigation pane keep Windows' colors \
+                  whatever your accent color, as in Windows 11. Off, your accent color tints them.",
+    keywords: "selection hover highlight color colour accent tint neutral blue grey file list \
+               windows look",
+};
+
 const DRIVE_LETTERS: RowText = RowText {
     title: "Show letters on mapped network folders",
     description: "Names a network folder mapped to a drive letter with its letter, as in Projects (Z:). \
@@ -295,6 +310,7 @@ fn theme_group(page: &SettingsPage) -> SettingsGroup {
     keys.add_control(&page.preference_switch(binding), ControlName::RowTitle);
     group.add_row(&keys);
     group.add_row(&desktop_font_row(page));
+    group.add_row(&neutral_selection_colors_row(page));
     group.add_row(&language_row());
     group
 }
@@ -801,6 +817,27 @@ fn desktop_font_row(page: &SettingsPage) -> SettingRow {
     row
 }
 
+/// "Neutral selection colors (like Windows)": off by default, the owner's
+/// choice, so a custom accent tints hover and selection; on, they keep
+/// Windows' colors (#227). The skin draws the saved choice in every
+/// window, as it draws the desktop font.
+fn neutral_selection_colors_row(page: &SettingsPage) -> SettingRow {
+    let row = SettingRow::new(NEUTRAL_SELECTION_COLORS);
+    let switch = page.preference_switch(PreferenceBinding {
+        read: |preferences| preferences.neutral_selection_colors,
+        write: |on| PreferencesUpdate {
+            neutral_selection_colors: Some(on),
+            ..PreferencesUpdate::default()
+        },
+    });
+    let skin = page.context().skin().clone();
+    page.follow_preferences(move |preferences| {
+        skin.set_neutral_selection_colors(preferences.neutral_selection_colors);
+    });
+    row.add_control(&switch, ControlName::RowTitle);
+    row
+}
+
 /// The text sizes of text-size.js, 100% marked as the default. The skin
 /// draws the chosen size in every window at once, and the choice is
 /// saved; a size changed with Ctrl+plus shows here too.
@@ -904,6 +941,17 @@ fn layout_group(page: &SettingsPage) -> SettingsGroup {
     };
     pane_items.add_control(&page.preference_switch(binding), ControlName::RowTitle);
     group.add_row(&pane_items);
+    // On by default, the owner's choice; off, as in Windows 11 (#273).
+    let recent_files = SettingRow::new(RECENT_FILES_IN_NAVIGATION_PANE);
+    let binding = PreferenceBinding {
+        read: |preferences| preferences.recent_files_in_navigation_pane,
+        write: |on| PreferencesUpdate {
+            recent_files_in_navigation_pane: Some(on),
+            ..PreferencesUpdate::default()
+        },
+    };
+    recent_files.add_control(&page.preference_switch(binding), ControlName::RowTitle);
+    group.add_row(&recent_files);
     let letters = SettingRow::new(DRIVE_LETTERS);
     let binding = PreferenceBinding {
         read: |preferences| preferences.show_drive_letters,

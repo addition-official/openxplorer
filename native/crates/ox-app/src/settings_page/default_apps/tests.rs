@@ -142,11 +142,10 @@ impl DefaultAppsTest {
             .join("config/xdg-desktop-portal/kde-portals.conf")
     }
 
-    /// The environment file that makes GTK 3 apps ask the portal.
+    /// The opt-in mark for which the packages' generator makes GTK 3 apps
+    /// ask the portal.
     fn gtk_env_file(&self) -> std::path::PathBuf {
-        self.root
-            .path()
-            .join("config/environment.d/60-openxplorer-file-dialogs.conf")
+        self.root.path().join("winspace/file-dialogs/gtk-apps")
     }
 
     fn wait_for_status(&self, what: &str) {
@@ -273,15 +272,15 @@ fn the_dialog_buttons_wait_while_a_change_runs() {
 /// Folders alone do not make `OpenXplorer` the default for everything:
 /// the card says when other apps' Open and Save dialogs, such as Brave's
 /// uploads, still use the desktop's, and Make default with its dialogs
-/// option, on by default, sends them to `OpenXplorer` too. Restore
-/// previous gives them back with the handlers.
+/// option, off by default and turned on here, sends them to `OpenXplorer`
+/// too. Restore previous gives them back with the handlers.
 ///
 /// parity: INT-009, INT-032
 #[gtk::test]
 fn make_default_also_takes_open_and_save_dialogs() {
     let default_apps = DefaultAppsTest::open();
     let dialogs = default_apps.switch_of(super::ALSO_FILE_DIALOGS.title);
-    assert!(dialogs.is_active(), "on by default");
+    assert!(!dialogs.is_active(), "off by default: native actions stay opt-in");
     assert!(dialogs.is_sensitive(), "the opt-in works outside Flatpak");
     default_apps
         .switch_of(super::INCLUDE_SHOW_IN_FOLDER.title)
@@ -359,6 +358,10 @@ fn restore_previous_keeps_dialogs_the_user_enabled_on_their_own() {
     default_apps
         .switch_of(super::INCLUDE_SHOW_IN_FOLDER.title)
         .set_active(false);
+    // Make default is asked to take the dialogs too, which are on already.
+    default_apps
+        .switch_of(super::ALSO_FILE_DIALOGS.title)
+        .set_active(true);
     default_apps
         .button_in(super::FILE_DIALOGS.title, "Enable")
         .emit_clicked();
@@ -413,6 +416,10 @@ fn make_default_adds_the_kde_login_script_to_dialogs_enabled_before() {
     default_apps
         .switch_of(super::INCLUDE_SHOW_IN_FOLDER.title)
         .set_active(false);
+    // Off by default; this test makes the dialogs default too.
+    default_apps
+        .switch_of(super::ALSO_FILE_DIALOGS.title)
+        .set_active(true);
     default_apps.button("Make OpenXplorer default").emit_clicked();
     wait_until("the card to say so", || {
         default_apps.card_title() == "OpenXplorer is your default file explorer"
@@ -449,6 +456,10 @@ fn make_default_adds_the_gtk_environment_file_to_dialogs_enabled_before() {
     default_apps
         .switch_of(super::INCLUDE_SHOW_IN_FOLDER.title)
         .set_active(false);
+    // Off by default; this test makes the dialogs default too.
+    default_apps
+        .switch_of(super::ALSO_FILE_DIALOGS.title)
+        .set_active(true);
     default_apps.button("Make OpenXplorer default").emit_clicked();
     wait_until("the card to say so", || {
         default_apps.card_title() == "OpenXplorer is your default file explorer"
@@ -491,6 +502,10 @@ fn make_default_reports_a_gtk_environment_file_it_cannot_write() {
     default_apps
         .switch_of(super::INCLUDE_SHOW_IN_FOLDER.title)
         .set_active(false);
+    // Off by default; this test makes the dialogs default too.
+    default_apps
+        .switch_of(super::ALSO_FILE_DIALOGS.title)
+        .set_active(true);
     default_apps.button("Make OpenXplorer default").emit_clicked();
     wait_until("the card to say so", || {
         default_apps.card_title() == "OpenXplorer is your default file explorer"
@@ -525,6 +540,10 @@ fn restore_previous_reports_dialogs_it_could_not_give_back() {
     default_apps
         .switch_of(super::INCLUDE_SHOW_IN_FOLDER.title)
         .set_active(false);
+    // Off by default; this test makes the dialogs default too.
+    default_apps
+        .switch_of(super::ALSO_FILE_DIALOGS.title)
+        .set_active(true);
     default_apps.button("Make OpenXplorer default").emit_clicked();
     wait_until("the card to say so", || {
         default_apps.card_title() == "OpenXplorer is your default file explorer"

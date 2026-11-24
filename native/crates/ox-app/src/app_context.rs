@@ -477,6 +477,7 @@ impl AppContext {
                 let skin = context.skin();
                 skin.set_theme(preferences.theme);
                 skin.set_uses_desktop_font(preferences.desktop_font);
+                skin.set_neutral_selection_colors(preferences.neutral_selection_colors);
                 skin.set_text_size(crate::text_size::TextSize::from_percent(preferences.text_size));
             }
             let missing =
@@ -627,7 +628,9 @@ impl AppContext {
     }
 
     /// Makes the searches started from now on match words in extensions as
-    /// Settings > Search says (`extension_word_starts`).
+    /// Settings > Search says (`extension_word_starts`), and the name
+    /// fields refuse characters as Settings says
+    /// (`allow_linux_name_characters`).
     fn follow_search_preferences(&self) {
         let mode = if self.settings_data().preferences.extension_word_starts {
             ox_core::search::ExtensionWords::FromStart
@@ -635,6 +638,9 @@ impl AppContext {
             ox_core::search::ExtensionWords::WholeOnly
         };
         ox_core::search::set_extension_words(mode);
+        crate::window::allow_linux_name_characters(
+            self.settings_data().preferences.allow_linux_name_characters,
+        );
     }
 
     /// Calls `callback` whenever the places may have changed.
