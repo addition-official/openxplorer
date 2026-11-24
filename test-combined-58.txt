@@ -1,0 +1,44 @@
+STATUS: RUNNING (merged and pushed; GitHub Actions builds the deb)
+HEAD: test-combined-58 6776789d096d3f3ee4161756fee8ff581474de4f
+
+BRANCH: test-combined-58, started from deb 57's test-combined-57 30414a50.
+
+MERGES (in the order given):
+- claude/classic-menu-windows 981c6823 ("Show icons in the classic menu only where Windows does") -> 13eea08a: no conflicts.
+- upstream main 1bda07a0 (AKolenda/openxplorer main, OpenXplorer 2.0.25; fetched from the upstream repository, where it is the tip) -> 3c4e0e86. 4 new upstream commits: 2.0.24 (#391), opt-in system window decorations (#389), read-only Google Drive and OneDrive (#392), 2.0.25 (#393). Resolved so both sides work:
+  - icons/icon.rs: upstream's new Icon::Cloud (ox-cloud-20-symbolic) added to the enum, its name and ALL_ICONS (now 126), keeping the tree's COMMAND_ROLES and ALL_ICONS doc. Upstream's Icon::Code is left out: pass-5's address menu, which the tree has, no longer uses it and removed its SVG; upstream uses it only in its own older address menu.
+  - window/activation.rs: upstream's Google Docs/Sheets/Slides web target opens in the browser first, then the tree's asynchronous .desktop link reading; both through the tree's follow_link(&entry, target).
+  - window/sidebar/entries.rs: the tree's drive_entry (row.art(), which already draws VolumeKind::Cloud with Icon::Cloud).
+  - window/file_ops/availability.rs, ox-core entry/info.rs and entry/meta.rs: both sides' new fields and helpers (is_on_read_only_drive and is_cloud; trash_file and web_target).
+  - ox-core location/display.rs: the tree's SMB crumb (the computer's name), with upstream's Cloud joining Remote. location.rs: both doc rows.
+  - ox-core settings/preferences.rs: upstream's apply_appearance helper (desktop font, system window decorations, Shift+F10 classic) plus the tree's f6_like_windows line.
+  - settings_page.rs, window/tests.rs, settings_page/tests.rs, settings_page/tests/redesign.rs: both sides' modules, tests and rows.
+  - Generated files (.pot, markdown.json, docs Markdown) regenerated.
+- 6776789d fix(merge): what the merge needed to build and pass:
+  - ox-core location.rs re-exports has_control_character again: a branch had dropped it from the list once nothing used it, and upstream's web target uses it.
+  - icons/user_glyphs.rs gives Icon::Cloud its Segoe Fluent glyph (U+E753 "Cloud"); the table is exhaustive.
+  - ox-core settings/backup.rs: the settings-export round trip (settings-export-letters) changes upstream's new systemWindowDecorations too; without it the test counted 102 of 103 preferences.
+
+SKIPPED: none.
+
+TESTS RUN HERE (isolated under Xvfb): ox-core lib tests matching location, entry:: and settings:: 340 of 340 passed (the round trip failed before 6776789d, 102 of 103). ox-app lib tests matching icons::, settings_page:: (the Behave like Windows Explorer guard and upstream's window decorations row included), window::tests::window_decorations, window::tests::sidebar, window::tests::address_bar and window::sidebar: 252 of 252 passed.
+
+CHECKS HERE: cargo check of the workspace (and of all targets): no errors or warnings; rustfmt clean; parity check, i18n check and sync-docs --check pass. Commits: 658 on top of main 5d21fd3e. On top of upstream main 1bda07a0 (what the Actions author check reads): 652 commits, 650 by addition-official <239187859+addition-official@users.noreply.github.com> (author and committer) and the owner's 2 #366 commits by AKolenda; no trailers in this session's commits. Upstream main itself adds commits by AKolenda and one by another contributor (#389, which carries upstream's own Co-authored-by lines); those are upstream's history, not this branch's. No status/*.txt or status/*.md in the tree. No release build or long checks here.
+
+CHANGES (non-merge, non-test commits from test-combined-57 30414a50 to test-combined-58, oldest first; no test commits; upstream's marked):
+- 0090ca9b (upstream) chore(release): Release OpenXplorer 2.0.24 (#391)
+- 2d6be73d (upstream) feat(appearance): Add opt-in system window decorations (#389)
+- 981c6823 fix(menus): Show icons in the classic menu only where Windows does
+- a67cda2d (upstream) feat(drives): Browse Google Drive and OneDrive read-only, as GNOME Files does (#392)
+- 1bda07a0 (upstream) chore(release): Release OpenXplorer 2.0.25 (#393)
+- 6776789d fix(merge): Give upstream's Google Drive and window decorations what the branches changed
+
+NEW TEXT (msgids added or changed in native/po/openxplorer.pot from test-combined-57 to test-combined-58; the address in one is upstream's fictional example):
+- Google Drive and OneDrive are read-only for now. Copy items to this PC to change them.
+- Use system window decorations
+- Use your desktop's title bar and window buttons, with the tabs below them. Applies to windows opened after the change. Where the desktop draws no title bars, GTK draws a standard one.
+- appearance layout frame border titlebar title bar desktop native system decorations KDE KWin GNOME Wayland X11 CSD SSD minimize maximize close
+- Open a folder on the drive first, then select files or folders inside it. The drive itself cannot be renamed, moved, copied or trashed here.
+- Enter the account of the drive, for example google-drive://alice@example.com/.
+- An item's Properties window can now be made larger from its edges and corners, and Previous Versions' list grows with it, so more versions show at once. Releases are also published in a signed Flatpak repository, so a Flatpak install updates through the software centre or flatpak update.
+- Google Drive and OneDrive accounts signed in under GNOME Online Accounts show as drives on This PC and in the navigation pane. Their files can be browsed, opened and copied to this PC, and Google Docs, Sheets and Slides open in the browser; the drives are read-only for now. The system's own window title bar can also be turned on instead of the app's.
