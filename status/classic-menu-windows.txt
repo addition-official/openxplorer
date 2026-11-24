@@ -1,5 +1,5 @@
 STATUS: DONE
-HEAD: claude/classic-menu-windows 8f596d15b4e7c64f9914a5267eecd1f3156792a6 (from origin/test-combined-55 26de5e7b)
+HEAD: claude/classic-menu-windows 981c68236d21017ac28ae3deab775d0a014070f5 (from origin/test-combined-55 26de5e7b)
 QUESTION: The light classic menu colors are Windows 10's immersive light menu (background #eeeeee, border #a0a0a0, separator #bdbdbd, hover #dadada). There is no light Windows 11 reference. Could a light ref-05 be captured so they can be measured?
 QUESTION: The reference shows no hover highlight (the pointer is on Copy but the row is not filled). Ours uses #414141 (dark) and #dadada (light) from Windows 10's immersive menu. Could a capture with a hovered row be added?
 NOTE: Measured by script (menu_metrics.py/table.py, kept out of the repo) on reference/ref-05-menu-file-classic.png and on our 1x captures of the same state (RefTest-like fictional folder under /home/demo, 1920x1032 window). Every geometry value below is within 1 px of Windows.
@@ -15,7 +15,7 @@ MEASURED: before / now / Windows (file menu "Meeting notes.txt", dark, 1x; relat
 | Row pitch | 32 | 24 | 24 |
 | Separator | 1px (55,55,55), 9..254, block 9 | 1px (62,62,62), inset 5, cap->line 20, line->cap 11 | 1px (62,62,62), inset 5, cap->line 20, line->cap 11 |
 | First text cap y | 15 | 12 | 12 |
-| Icon x (ink) | 17 | 11 | 11 to 13 |
+| Icon x (ink) | 17 | 11 where a row has one (Share, an application's icon); none in the RefTest file menu | 11 to 13 |
 | Text x (ink) | 43 | 36 to 37 | 37 |
 | Submenu arrow ink from right edge | 21 | 14 | 14 |
 | Border | 1px (26,26,26) | 1px (160,160,160) | 1px (160,160,160) |
@@ -69,3 +69,13 @@ NOT DONE / NOTES
 NOTE: Peer note "the menu runs past the window's bottom edge": our classic menu is now 443 px instead of 583 px for this file, so it fits in the 1032 px window here. GTK already keeps menus on the monitor (height.rs); it does not shift a menu to stay inside the app window, and Windows limits to the screen too. Not changed further.
 NOTE: Place and This PC heading menus decide the underlines from the window's focus-visible state (no direct keyboard/mouse signal there); the file list and navigation pane rows use the exact opener.
 NOTE: Updated existing tests for the new order: entries.rs (file, folder, background, Recycle Bin, zip on a share, Open with), tests/context_menus.rs, tests/recycle_bin.rs. No test added.
+
+ICONS (981c6823, from the deb 57 test)
+PASS the classic right-click menu draws an icon only on a row that opens a specific application (its own icon, as Windows' "Edit in Notepad"), on Share, and as a check mark; every other row is text alone: Open, Add to Favorites, Open with…, Copy as path, Restore previous versions, Send to, Cut, Copy, Create shortcut, Delete, Rename, Duplicate, Open containing folder in Terminal, Compress to…, Configure service actions…, Open as administrator…, Properties and the drive and empty-space rows.
+PASS the empty icon column keeps its 16 px + 10 px, so text stays 36 to 37 px in on every row (file, folder, empty space, drive; measured).
+NOTE: submenus (Send to, New, View) keep their icons, as Windows draws them; not visible in captures (snapshot hook limitation noted above).
+NOTE: the classic style's drop-down menus keep their glyphs; only the legacy right-click menu changed.
+PASS recaptured now-*: file, folder, empty space, drive, Recycle Bin, keyboard and hover, 1x dark and light; side by side with ref-05 in ours-classic-menu/classic-menu-1x-dark-next-to-ref-05.png. Audit: no issues; reviewed by eye.
+PASS rustfmt, clippy (changed code), native/parity/check.py
+PASS menu tests (context_menu, menu_popover, place_menus, theme::fonts::tests, submenu_hover, shift_f10, recycle_bin): 154 passed, 1 failed (a_folder_without_write_permission_keeps_new_and_paste_and_shows_the_error, root ignores 0555 in this container, as before). Updated the existing test the_classic_menu_shows_no_shortcut_text_bolds_open_and_lines_up_text_only_rows: Properties is now text alone.
+NOTE: the earlier status-branch merge commit 71eab5b4 carries the default "Claude" identity; rewriting it needs a force push, which was not allowed here.
