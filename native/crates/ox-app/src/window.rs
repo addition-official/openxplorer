@@ -180,6 +180,7 @@ mod tab_moves;
 mod tab_order;
 mod tab_strip;
 mod title_bar;
+mod title_bar_menu;
 mod toast;
 mod transfer_panel;
 mod type_applications;
@@ -271,6 +272,7 @@ impl BrowserWindow {
         window.install_archive_actions();
         window.install_send_to_actions();
         window.install_input();
+        window.install_title_bar_menu();
         window.connect_signals();
         window.connect_settings_page();
         window.watch_environment();

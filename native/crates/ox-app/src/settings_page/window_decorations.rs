@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-//! The opt-in desktop frame, applied only before a new window is shown.
+//! The opt-in desktop frame, which every open window takes at once
+//! (LOOK-032), as the title bar's window menu also offers it.
 
 use ox_core::settings::PreferencesUpdate;
 
@@ -10,11 +11,11 @@ use super::SettingsPage;
 
 const SYSTEM_WINDOW_DECORATIONS: RowText = RowText {
     title: "Use system window decorations",
-    description: "Use your desktop's title bar and window buttons, with the tabs below them. Applies \
-                  to windows opened after the change. Where the desktop draws no title bars, GTK draws \
-                  a standard one.",
-    keywords: "appearance layout frame border titlebar title bar desktop native system decorations \
-               KDE KWin GNOME Wayland X11 CSD SSD minimize maximize close",
+    description: "Use your desktop's title bar and window buttons, with the tabs below them. Open \
+                  windows change at once. Where the desktop draws no title bars, GTK draws a standard \
+                  one.",
+    keywords: "appearance layout frame border borders titlebar title bar desktop native system \
+               decorations KDE KWin GNOME Wayland X11 CSD SSD minimize maximize close",
 };
 
 /// The searchable, keyboard-accessible Appearance > Layout switch.

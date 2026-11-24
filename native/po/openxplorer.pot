@@ -365,7 +365,7 @@ msgstr ""
 msgid "Browse without extracting the entire archive."
 msgstr ""
 
-#: crates/ox-app/resources/ui/update-dialog.ui crates/ox-app/src/archive_view/browser.rs crates/ox-app/src/dialog/frame.rs crates/ox-app/src/dialog/window.rs crates/ox-app/src/properties/window.rs crates/ox-app/src/window/help.rs crates/ox-app/src/window/network_info_bar.rs crates/ox-app/src/window/shortcuts_window.rs crates/ox-app/src/window/type_applications.rs
+#: crates/ox-app/resources/ui/update-dialog.ui crates/ox-app/src/archive_view/browser.rs crates/ox-app/src/dialog/frame.rs crates/ox-app/src/dialog/window.rs crates/ox-app/src/properties/window.rs crates/ox-app/src/window/help.rs crates/ox-app/src/window/network_info_bar.rs crates/ox-app/src/window/shortcuts_window.rs crates/ox-app/src/window/title_bar_menu.rs crates/ox-app/src/window/type_applications.rs
 msgid "Close"
 msgstr ""
 
@@ -1119,7 +1119,7 @@ msgstr ""
 msgid "Original location"
 msgstr ""
 
-#: crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/properties/general_tab.rs crates/ox-app/src/properties/selection_view.rs crates/ox-app/src/search/info_strip.rs crates/ox-app/src/window/command_bar/menus.rs crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-core/src/grouping.rs crates/ox-core/src/search/facets.rs
+#: crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/properties/general_tab.rs crates/ox-app/src/properties/selection_view.rs crates/ox-app/src/search/info_strip.rs crates/ox-app/src/window/command_bar/menus.rs crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-app/src/window/title_bar_menu.rs crates/ox-core/src/grouping.rs crates/ox-core/src/search/facets.rs
 msgid "Size"
 msgstr ""
 
@@ -2959,7 +2959,7 @@ msgstr ""
 msgid "Previous versions come from snapshot and backup folders."
 msgstr ""
 
-#: crates/ox-app/src/properties/versions_panel.rs crates/ox-app/src/window/caption_buttons.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-core/src/ops/undo.rs
+#: crates/ox-app/src/properties/versions_panel.rs crates/ox-app/src/window/caption_buttons.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/title_bar_menu.rs crates/ox-core/src/ops/undo.rs
 msgid "Restore"
 msgstr ""
 
@@ -5303,11 +5303,11 @@ msgid "Use system window decorations"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/window_decorations.rs
-msgid "Use your desktop's title bar and window buttons, with the tabs below them. Applies to windows opened after the change. Where the desktop draws no title bars, GTK draws a standard one."
+msgid "Use your desktop's title bar and window buttons, with the tabs below them. Open windows change at once. Where the desktop draws no title bars, GTK draws a standard one."
 msgstr ""
 
 #: crates/ox-app/src/settings_page/window_decorations.rs
-msgid "appearance layout frame border titlebar title bar desktop native system decorations KDE KWin GNOME Wayland X11 CSD SSD minimize maximize close"
+msgid "appearance layout frame border borders titlebar title bar desktop native system decorations KDE KWin GNOME Wayland X11 CSD SSD minimize maximize close"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/windows_mode.rs
@@ -5685,11 +5685,11 @@ msgstr ""
 msgid "Close window"
 msgstr ""
 
-#: crates/ox-app/src/window/caption_buttons.rs
+#: crates/ox-app/src/window/caption_buttons.rs crates/ox-app/src/window/title_bar_menu.rs
 msgid "Maximize"
 msgstr ""
 
-#: crates/ox-app/src/window/caption_buttons.rs
+#: crates/ox-app/src/window/caption_buttons.rs crates/ox-app/src/window/title_bar_menu.rs
 msgid "Minimize"
 msgstr ""
 
@@ -8724,6 +8724,14 @@ msgstr ""
 msgid "Reopen {value1}"
 msgstr ""
 
+#: crates/ox-app/src/window/title_bar_menu.rs crates/ox-core/src/ops/undo.rs
+msgid "Move"
+msgstr ""
+
+#: crates/ox-app/src/window/title_bar_menu.rs
+msgid "Use system title bar and borders"
+msgstr ""
+
 #: crates/ox-app/src/window/transfer_panel.rs
 msgid "Cancelling…"
 msgstr ""
@@ -10841,10 +10849,6 @@ msgstr ""
 
 #: crates/ox-core/src/ops/undo.rs
 msgid "Link"
-msgstr ""
-
-#: crates/ox-core/src/ops/undo.rs
-msgid "Move"
 msgstr ""
 
 #: crates/ox-core/src/ops/undo.rs

@@ -1065,7 +1065,9 @@ fn keeps_type_icon(request: &PreviewRequest) -> bool {
 /// Whether `request` is for an office document ([`documents::is_document`]).
 fn is_document(request: &PreviewRequest) -> bool {
     let name = request.uri.rsplit('/').next().unwrap_or_default();
-    let name = glib::Uri::unescape_string(name, None::<&str>).map_or_else(|| name.to_owned(), Into::into);
+    // A name that is not UTF-8 keeps U+FFFD for its bytes; only the
+    // extension matters here.
+    let name = ox_core::location::unquote_lossy(name);
     documents::is_document(&request.content_type, &name)
 }
 
@@ -1399,6 +1401,38 @@ mod tests {
         let command = [script.to_str().expect("a path"), "%i", "%o", "%s"];
         let thumbnailer = thumbnailers::Thumbnailer::for_test(&command, &["image/png"]);
         (Catalogue::for_test(vec![thumbnailer]), started)
+    }
+
+    /// A file whose name is not valid UTF-8 (`%FF` in its URI) is still
+    /// told apart as a document or not by its extension, and never makes
+    /// a string of the bytes: `GLib`'s unescaped text there is not UTF-8,
+    /// which glib-rs asserts on in a debug build and a release build
+    /// would carry on as an invalid `String`. A folder holding such a file
+    /// panicked as soon as its icons were shown.
+    ///
+    /// parity: VIEW-057
+    #[test]
+    fn a_name_that_is_not_utf8_is_read_without_a_panic() {
+        let request = |uri: &str, content_type: &str| PreviewRequest {
+            uri: uri.to_owned(),
+            content_type: content_type.to_owned(),
+            modified: Some(1_700_000_000),
+            size: None,
+            pixels: 16,
+            local_only: false,
+            target_uri: None,
+            on_network: false,
+            on_screen: OnScreen::default(),
+        };
+        let text = request("file:///srv/Plans/bad%FFname.txt", "text/plain");
+        let document = request(
+            "file:///srv/Plans/bad%FFname.odt",
+            "application/vnd.oasis.opendocument.text",
+        );
+
+        assert!(!is_document(&text));
+        assert!(is_document(&document));
+        assert!(keeps_type_icon(&document), "a small tile keeps the type's icon");
     }
 
     /// The request for the file at `path`, of `content_type` at the normal

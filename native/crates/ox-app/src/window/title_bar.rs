@@ -30,30 +30,107 @@ use super::BrowserWindow;
 const NEW_TAB_GLYPH: i32 = 14;
 
 impl BrowserWindow {
-    /// Chooses the frame before the window is realized. GTK may need a new
-    /// native surface to change decoration modes, so existing windows keep
-    /// their frame until closed; changing the preference never interrupts
-    /// a transfer, a tab drag, a file dialog or keyboard focus.
+    /// Chooses the frame before the window is shown: the desktop's title
+    /// bar and borders when Settings or the window menu ask for them
+    /// ([`Self::follow_window_decorations`] switches an open window).
     pub(super) fn configure_window_decorations(&self) {
-        if !self
+        if self
             .context()
             .settings_data()
             .preferences
             .system_window_decorations
         {
+            self.lay_out_window_decorations(true);
+        }
+    }
+
+    /// Switches an open window to the frame the settings ask for now, as
+    /// Chrome's "Use system title bar and borders" does at once. GTK asks
+    /// the desktop for a frame (xdg-decoration or KDE's server decoration
+    /// protocol on Wayland, the window manager's hints on X11) only as it
+    /// makes the window's surface, so a shown window is hidden, gets a new
+    /// surface in the new layout and is shown again, maximized or full
+    /// screen as it was, with keyboard focus where it was. Its tabs,
+    /// listings and file operations go on: they belong to the window, not
+    /// to its surface. A file dialog keeps the frame it opened with, and a
+    /// window whose tabs are being dragged switches once they land.
+    pub(super) fn follow_window_decorations(&self) {
+        let wanted = self
+            .context()
+            .settings_data()
+            .preferences
+            .system_window_decorations;
+        if wanted == self.uses_system_decorations() || self.is_picking() {
             return;
         }
+        let tabs_move = self.imp().outgoing_tab.borrow().is_some()
+            || self.tab_strip().is_following()
+            || self.tab_strip().live_tab().is_some();
+        if tabs_move {
+            glib::timeout_add_local_once(
+                std::time::Duration::from_millis(250),
+                glib::clone!(
+                    #[weak(rename_to = window)]
+                    self,
+                    move || window.follow_window_decorations()
+                ),
+            );
+            return;
+        }
+        if !self.is_realized() {
+            self.lay_out_window_decorations(wanted);
+            return;
+        }
+        let shown = self.is_visible();
+        let maximized = self.is_maximized();
+        let fullscreen = self.is_fullscreen();
+        let (width, height) = (self.width(), self.height());
+        let focus = GtkWindowExt::focus(self);
+        self.set_visible(false);
+        WidgetExt::unrealize(self);
+        self.lay_out_window_decorations(wanted);
+        if width > 0 && height > 0 && !maximized && !fullscreen {
+            self.set_default_size(width, height);
+        }
+        if maximized {
+            self.maximize();
+        }
+        if fullscreen {
+            self.fullscreen();
+        }
+        if shown {
+            self.present();
+        }
+        if let Some(focus) = focus.filter(|focus| focus.is_ancestor(self)) {
+            focus.grab_focus();
+        }
+    }
+
+    /// Puts the tab row where the frame wants it: with `system`, the first
+    /// row of the content under the desktop's title bar, without the app's
+    /// caption buttons; else the window's own title bar. The same handle
+    /// and strip (and their drag and click controllers) serve either
+    /// layout. With no title bar of the app's GTK negotiates the desktop's
+    /// frame, or draws its standard header where the desktop draws none.
+    fn lay_out_window_decorations(&self, system: bool) {
         let imp = self.imp();
-        // Keep the same handle and strip (and their drag controllers) in
-        // either layout. With no custom titlebar GTK negotiates the desktop
-        // frame, or supplies its standard header on CSD-only compositors.
         let bar = imp.tab_bar.get();
-        self.set_titlebar(None::<&gtk::Widget>);
-        bar.remove_css_class("titlebar");
-        imp.content_box.prepend(&bar);
-        imp.start_caption_buttons.set_visible(false);
-        imp.end_caption_buttons.set_visible(false);
-        self.add_css_class("system-window-decorations");
+        if system {
+            self.set_titlebar(None::<&gtk::Widget>);
+            bar.remove_css_class("titlebar");
+            if bar.parent().is_none() {
+                imp.content_box.prepend(&bar);
+            }
+            self.add_css_class("system-window-decorations");
+        } else {
+            if bar.parent().is_some_and(|parent| parent == *imp.content_box) {
+                imp.content_box.remove(&bar);
+            }
+            self.set_titlebar(Some(&bar));
+            self.remove_css_class("system-window-decorations");
+        }
+        imp.start_caption_buttons.set_visible(!system);
+        imp.end_caption_buttons.set_visible(!system);
     }
 
     /// True when the desktop draws this window's frame and its tabs are

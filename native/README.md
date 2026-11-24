@@ -79,11 +79,16 @@ the check driver fails while the template is out of date.
 Settings > Appearance > Layout > **Use system window decorations** opts in to
 the desktop's standard title bar, with tabs below it and no duplicate app
 caption buttons. The default remains the integrated Explorer-style title bar.
-The saved `systemWindowDecorations` preference applies to newly opened browsing
-windows (including file-picker windows); existing windows keep their frame until
-closed, so changing it never recreates a live surface or interrupts an operation.
-On Wayland compositors without server-side decorations GTK supplies its standard
-header instead. No process-wide `GTK_CSD` override or window-manager rule is used.
+A right-click on the empty part of the title bar opens Windows' window menu
+(Restore, Move, Size, Minimize, Maximize, Close), with **Use system title bar
+and borders** under it, which toggles the same saved
+`systemWindowDecorations` preference. Every open browsing window follows the
+choice at once: GTK asks the desktop for a frame only as it makes a window's
+surface, so a shown window is hidden, gets a new surface in the new layout and
+is shown again, maximized as it was; its tabs and file operations go on. A
+file dialog keeps the frame it opened with. On Wayland compositors without
+server-side decorations GTK supplies its standard header instead. No
+process-wide `GTK_CSD` override or window-manager rule is used.
 
 ## Checks
 

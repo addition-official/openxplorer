@@ -148,9 +148,9 @@ In a narrow window or at a large text size, the command bar commands that do not
 
 ## Use your desktop's window frame
 
-Settings → Appearance → Layout → Use system window decorations uses your desktop's title bar and window buttons, with the tabs in a separate row below. It is off by default, preserving the integrated Explorer-style title bar. On desktops without system decorations, GTK provides a standard title bar instead.
+Settings → Appearance → Layout → Use system window decorations uses your desktop's title bar and window buttons, with the tabs in a separate row below. It is off by default, preserving the integrated Explorer-style title bar. On desktops without system decorations, GTK provides a standard title bar instead. Open windows change at once. A right-click on the empty part of the title bar opens the window menu (Restore, Move, Size, Minimize, Maximize, Close) with Use system title bar and borders under it, which turns the same setting on or off.
 
-The choice is saved across restarts and applies to windows opened after the change. Windows already open keep their frame until you close them, so changing it never interrupts a file operation.
+The choice is saved across restarts and applies to every open window at once, as Chrome's does: each window is shown again in the new frame, maximized if it was, and its tabs and any file operation go on. A file dialog keeps the frame it opened with.
 
 ## Open in Terminal
 

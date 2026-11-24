@@ -135,8 +135,8 @@ pub fn suggested_name(location: &ShortcutLocation) -> String {
             let parts = crate::location::split_location(uri).ok();
             let share = parts.as_ref().and_then(|parts| {
                 let last = parts.path.trim_end_matches('/').rsplit('/').next()?;
-                let name = glib::Uri::unescape_string(last, None::<&str>)?;
-                (!name.is_empty()).then(|| name.to_string())
+                let name = crate::location::unquote_lossy(last);
+                (!name.is_empty()).then_some(name)
             });
             let server = parts
                 .map(|parts| parts.authority)
@@ -362,6 +362,16 @@ mod tests {
 
     fn context() -> OperationContext {
         OperationContext::new(WriteProtection::unrestricted())
+    }
+
+    /// A share whose name is not UTF-8 names its shortcut with U+FFFD in
+    /// place of the bytes, rather than an invalid string.
+    ///
+    /// parity: DND-019
+    #[test]
+    fn a_share_name_that_is_not_utf8_names_its_shortcut_readably() {
+        let location = ShortcutLocation::Address("smb://fileserver/Team%FFFiles".to_owned());
+        assert_eq!(suggested_name(&location), "Team\u{fffd}Files");
     }
 
     /// parity: DND-019
