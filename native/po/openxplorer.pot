@@ -422,6 +422,11 @@ msgstr[1] ""
 
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/archive_view/browser.rs
+msgid "{name} - Compressed folder"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/archive_view/browser.rs
 msgid "{name} — Compressed folder"
 msgstr ""
 
@@ -5299,6 +5304,14 @@ msgid "Zorin + Brave setup and troubleshooting"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/window_decorations.rs
+msgid "Separate window titles with a hyphen (like Windows)"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/window_decorations.rs
+msgid "Titles a window \"Documents - OpenXplorer\", as Windows writes \"Documents - File Explorer\", instead of \"Documents — OpenXplorer\"."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/window_decorations.rs
 msgid "Use system window decorations"
 msgstr ""
 
@@ -5308,6 +5321,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/window_decorations.rs
 msgid "appearance layout frame border borders titlebar title bar desktop native system decorations KDE KWin GNOME Wayland X11 CSD SSD minimize maximize close"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/window_decorations.rs
+msgid "window title caption taskbar alt tab hyphen dash em dash separator windows explorer"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/windows_mode.rs
@@ -7782,11 +7799,6 @@ msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/location_view.rs
-msgid "{place} — OpenXplorer"
-msgstr ""
-
-#. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-app/src/window/location_view.rs
 msgid "{query} - {results}"
 msgstr ""
 
@@ -8722,6 +8734,16 @@ msgstr ""
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/title_bar.rs
 msgid "Reopen {value1}"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/title_bar.rs
+msgid "{place} - OpenXplorer"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/title_bar.rs
+msgid "{place} — OpenXplorer"
 msgstr ""
 
 #: crates/ox-app/src/window/title_bar_menu.rs crates/ox-core/src/ops/undo.rs

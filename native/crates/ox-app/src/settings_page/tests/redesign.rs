@@ -241,6 +241,7 @@ fn every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages() {
         "Windows icon files",
         "Windows symbol font",
         "Use system window decorations",
+        "Separate window titles with a hyphen (like Windows)",
         "Open Quick access on Home",
         "Show hidden files, folders, and drives",
         "Hide extensions for known file types",

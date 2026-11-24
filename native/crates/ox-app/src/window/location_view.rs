@@ -522,10 +522,8 @@ impl BrowserWindow {
         } else {
             locations.title_for(&uri)
         };
-        self.set_title(Some(&ox_core::i18n::format_message(
-            "{place} — OpenXplorer",
-            &[("place", &place)],
-        )));
+        let hyphen = self.context().settings_data().preferences.hyphen_in_window_titles;
+        self.set_title(Some(&super::title_bar::window_title(&place, hyphen)));
     }
 
     fn active_location(&self) -> Option<ActiveLocation> {

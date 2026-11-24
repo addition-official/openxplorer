@@ -563,6 +563,7 @@ fn escape_leaves_the_search_and_shows_every_row_again() {
             "Windows icon files",
             "Windows symbol font",
             "Use system window decorations",
+            "Separate window titles with a hyphen (like Windows)",
             "Compact view",
             "Column header style",
             "Show a line under column titles",

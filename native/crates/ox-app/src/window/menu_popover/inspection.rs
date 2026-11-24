@@ -203,10 +203,104 @@ impl MenuPopover {
             .collect()
     }
 
+    /// Each row's label and the character its label underlines, if any,
+    /// as drawn, for tests.
+    pub(crate) fn underlined_keys(&self) -> Vec<(String, Option<char>)> {
+        self.rows()
+            .iter()
+            .filter_map(|row| {
+                let label = row_label_widget(row)?;
+                let text = label.text().to_string();
+                let underlined = label.attributes().and_then(|attributes| {
+                    attributes
+                        .attributes()
+                        .into_iter()
+                        .find(|attribute| attribute.type_() == gtk::pango::AttrType::Underline)
+                        .and_then(|attribute| {
+                            let start = usize::try_from(attribute.start_index()).ok()?;
+                            text.get(start..)?.chars().next()
+                        })
+                });
+                Some((text, underlined))
+            })
+            .collect()
+    }
+
+    /// The labels of the rows drawn in bold, for tests.
+    pub(crate) fn bold_row_labels(&self) -> Vec<String> {
+        self.rows()
+            .iter()
+            .filter_map(row_label_widget)
+            .filter(|label| {
+                label.attributes().is_some_and(|attributes| {
+                    attributes
+                        .attributes()
+                        .into_iter()
+                        .any(|attribute| attribute.type_() == gtk::pango::AttrType::Weight)
+                })
+            })
+            .map(|label| label.text().to_string())
+            .collect()
+    }
+
+    /// The labels of the rows drawn highlighted: the row with the
+    /// keyboard, or a grayed first row a system menu highlights, for tests.
+    pub(crate) fn highlighted_row_labels(&self) -> Vec<String> {
+        self.rows()
+            .iter()
+            .filter(|row| row.has_focus() || row.has_css_class(super::FIRST_ROW_HIGHLIGHT))
+            .filter_map(row_label)
+            .collect()
+    }
+
+    /// The shortcut texts drawn in bold, for tests.
+    pub(crate) fn bold_shortcut_texts(&self) -> Vec<String> {
+        self.rows()
+            .iter()
+            .filter_map(ListBoxRowExt::child)
+            .flat_map(|content| crate::window::widget_tree::descendants::<gtk::Label>(&content))
+            .filter(|label| label.has_css_class("shortcut"))
+            .filter(|label| {
+                label.attributes().is_some_and(|attributes| {
+                    attributes
+                        .attributes()
+                        .into_iter()
+                        .any(|attribute| attribute.type_() == gtk::pango::AttrType::Weight)
+                })
+            })
+            .map(|label| label.text().to_string())
+            .collect()
+    }
+
+    /// The labels of a legacy menu's rows that draw a glyph (not an empty
+    /// column or a check mark), for tests.
+    pub(crate) fn legacy_glyph_labels(&self) -> Vec<String> {
+        self.rows()
+            .iter()
+            .filter(|row| {
+                row.child().is_some_and(|content| {
+                    crate::window::widget_tree::children(&content)
+                        .filter(|child| child.has_css_class("legacy-glyph"))
+                        .any(|child| {
+                            child.is::<gtk::Image>()
+                                || !crate::window::widget_tree::descendants::<gtk::Image>(&child).is_empty()
+                        })
+                })
+            })
+            .filter_map(row_label)
+            .collect()
+    }
+
     /// The classic or compact look, for tests.
     pub(in crate::window) fn style(&self) -> MenuStyle {
         self.imp().style.get()
     }
+}
+
+/// The label widget of `row`, for tests.
+fn row_label_widget(row: &gtk::ListBoxRow) -> Option<gtk::Label> {
+    let content = row.child()?;
+    crate::window::widget_tree::children(&content).find_map(|child| child.downcast::<gtk::Label>().ok())
 }
 
 /// The label of `row`, for tests: the first label after its mark and

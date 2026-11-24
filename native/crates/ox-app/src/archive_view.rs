@@ -35,6 +35,8 @@ use ox_core::archive::{
 use crate::icons::Art;
 
 #[cfg(test)]
+pub(crate) use browser::compressed_folder_title;
+#[cfg(test)]
 pub(crate) use browser::ArchiveBrowserView;
 pub(crate) use browser::{archive_dialog, listing_notice, ArchiveDialogActions};
 pub(crate) use compress::{

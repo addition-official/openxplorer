@@ -94,6 +94,10 @@ pub(in crate::window) enum ItemAvailability {
 
 /// One menu item.
 #[derive(Debug, Clone, PartialEq)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is a separate, independent part of how the row is drawn"
+)]
 pub(in crate::window) struct MenuItem {
     /// The visible and accessible name.
     pub label: String,
@@ -131,6 +135,13 @@ pub(in crate::window) struct MenuItem {
     /// Draws its glyph; false for a row with only its mark and label, as
     /// Windows 11's Sort menu draws every row.
     pub shows_glyph: bool,
+    /// The character, counted from the label's start, that a legacy menu
+    /// underlines as the row's access key, where it differs from the
+    /// classic menu's own (the window menu's Restore underlines R).
+    pub access_key_at: Option<usize>,
+    /// Draws its glyph, small, in a legacy menu too, as Windows' window
+    /// menu draws Restore, Minimize, Maximize and Close.
+    pub legacy_glyph: bool,
 }
 
 /// How a menu item's glyph is drawn: as the bundled file draws it, or
@@ -161,6 +172,8 @@ impl MenuItem {
             glyph_look: GlyphLook::default(),
             dot_mark: false,
             shows_glyph: true,
+            access_key_at: None,
+            legacy_glyph: false,
         }
     }
 
@@ -259,6 +272,31 @@ impl MenuItem {
     }
 
     /// The same item showing `shortcut`.
+    /// Underlines the label's character `at` (counted from its start) as
+    /// its access key in a legacy menu.
+    pub(in crate::window) fn with_access_key(self, at: usize) -> Self {
+        Self {
+            access_key_at: Some(at),
+            ..self
+        }
+    }
+
+    /// Draws the glyph, small, in a legacy menu too.
+    pub(in crate::window) fn with_legacy_glyph(self) -> Self {
+        Self {
+            legacy_glyph: true,
+            ..self
+        }
+    }
+
+    /// Shows the label in bold, as a menu's default item.
+    pub(in crate::window) fn emphasised(self) -> Self {
+        Self {
+            emphasised: true,
+            ..self
+        }
+    }
+
     pub(in crate::window) fn with_shortcut(self, shortcut: &'static str) -> Self {
         Self {
             shortcut: Some(shortcut),

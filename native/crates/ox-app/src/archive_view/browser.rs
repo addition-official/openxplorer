@@ -64,16 +64,30 @@ pub(crate) struct ArchiveDialogActions {
     pub open_protected: Rc<dyn Fn(String)>,
 }
 
+/// The archive dialog's title for the archive `name`: "Photos.zip —
+/// Compressed folder", or with `hyphen` "Photos.zip - Compressed folder",
+/// as window titles follow "Separate window titles with a hyphen (like
+/// Windows)" (LOOK-033).
+pub(crate) fn compressed_folder_title(name: &str, hyphen: bool) -> String {
+    let pattern = if hyphen {
+        ox_core::i18n::gettext("{name} - Compressed folder")
+    } else {
+        ox_core::i18n::gettext("{name} — Compressed folder")
+    };
+    pattern.replace("{name}", name)
+}
+
 /// The "<name> — Compressed folder" dialog for `archive`, showing its
-/// location as `shown_path`.
+/// location as `shown_path`; `hyphen` titles it with a hyphen instead.
 pub(crate) fn archive_dialog(
     archive: &ArchiveTarget,
     browser: ArchiveBrowser,
     shown_path: &str,
     actions: ArchiveDialogActions,
+    hyphen: bool,
 ) -> DialogFrame {
     let frame = DialogFrame::new(
-        &ox_core::i18n::format_message("{name} — Compressed folder", &[("name", &archive.name)]),
+        &compressed_folder_title(&archive.name, hyphen),
         DialogWidth::Archive,
     );
     frame.set_message(ox_core::i18n::gettext_static(BROWSE_MESSAGE));
