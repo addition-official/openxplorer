@@ -12,8 +12,10 @@
 
 mod cell_owners;
 mod content_columns;
+mod overflow_name;
 mod tile_lines;
 use content_columns::ContentColumns;
+use overflow_name::OverflowName;
 use tile_lines::TileLines;
 mod custom_icon;
 mod expander;
@@ -64,9 +66,9 @@ pub(crate) fn row_check_room(after_arrows: bool) -> f64 {
     f64::from(ROW_CHECK_WIDTH + ROW_ICON_GAP + shift)
 }
 
-/// Gap between a tile's icon and its name: 4 pixels, as Windows 11 sets
-/// the name under the icon (the web app's `.file-tile` had 8).
-const TILE_ICON_GAP: i32 = 4;
+/// Gap between a tile's icon and its name: none, as Windows 11 sets the
+/// name's first line right under the icon (measured on its captures).
+const TILE_ICON_GAP: i32 = 0;
 
 /// Gap between a compact item's icon and its name.
 const COMPACT_ICON_GAP: i32 = 6;
@@ -85,8 +87,11 @@ const SMALL_ICONS_NAME_CHARS: i32 = 1;
 /// A tile's name while it runs onto a second line (folder-views.css).
 const WRAPPED_NAME_CLASS: &str = "wrapped-name";
 
-/// Lines of name a tile shows (`.tile-name{max-height:33px}` at a 1.35
-/// line height).
+/// Lines of name an icon tile shows, as Windows 11's Large and Medium
+/// icons do for an unselected item (measured on its captures).
+const ICON_NAME_LINES: i32 = 4;
+
+/// Lines of name a tile of the Tiles view shows, as Windows 11's.
 const TILE_NAME_LINES: i32 = 2;
 
 /// Gap between a tile's icon and its text: Windows 11's text starts 58
@@ -904,9 +909,14 @@ impl FileCell {
         let label = &self.imp().label;
         label.set_wrap(true);
         label.set_wrap_mode(pango::WrapMode::WordChar);
-        label.set_lines(TILE_NAME_LINES);
+        label.set_lines(ICON_NAME_LINES);
         label.set_ellipsize(pango::EllipsizeMode::End);
         label.set_justify(gtk::Justification::Center);
+        // A long name runs below the tile, as in Windows 11.
+        self.remove(label);
+        let frame = OverflowName::new(label);
+        frame.add_css_class("icon-name");
+        self.append(&frame);
     }
 
     /// Puts the check box first in a row, centred on the line.
@@ -1046,7 +1056,11 @@ impl FileCell {
     pub(crate) fn show_name(&self, name: &str, words: &[String]) {
         let label = &self.imp().label;
         label.set_text(name);
-        label.set_attributes(marked_words(name, words).as_ref());
+        let attributes = marked_words(name, words).unwrap_or_default();
+        // A name that wraps breaks where Windows breaks it, with no hyphen
+        // added at the break ("2026.xl-sx").
+        attributes.insert(pango::AttrInt::new_insert_hyphens(false));
+        label.set_attributes(Some(&attributes));
     }
 
     /// The byte ranges of the name marked as found, for tests.
@@ -1066,11 +1080,20 @@ impl FileCell {
     /// The box that holds the name: the cell itself, or the lines beside
     /// the icon of Tiles and Content.
     fn name_box(&self) -> gtk::Box {
-        self.imp()
-            .label
+        self.name_widget()
             .parent()
             .and_downcast::<gtk::Box>()
             .unwrap_or_else(|| self.clone().upcast())
+    }
+
+    /// The name's widget in its box: its label, or on an icon tile the
+    /// frame that lets a long name run below the tile ([`OverflowName`]).
+    fn name_widget(&self) -> gtk::Widget {
+        let label = &self.imp().label;
+        label
+            .parent()
+            .filter(ObjectExt::is::<OverflowName>)
+            .unwrap_or_else(|| label.clone().upcast())
     }
 
     /// Puts `editor` in the name's place, to rename the item in place: on
@@ -1079,8 +1102,9 @@ impl FileCell {
         self.hide_name_editor();
         self.mark_item_being_renamed(true);
         let imp = self.imp();
-        self.name_box().insert_child_after(editor, Some(&imp.label));
-        imp.label.set_visible(false);
+        let name = self.name_widget();
+        self.name_box().insert_child_after(editor, Some(&name));
+        name.set_visible(false);
         imp.name_editor.replace(Some(editor.clone()));
     }
 
@@ -1130,7 +1154,7 @@ impl FileCell {
             return;
         };
         self.name_box().remove(&editor);
-        imp.label.set_visible(true);
+        self.name_widget().set_visible(true);
         self.mark_item_being_renamed(false);
     }
 

@@ -600,7 +600,8 @@ fn closing_a_window_disconnects_it_from_the_shared_skin() {
 /// 100%): columns 109 pixels apart, as many as fit, with the rest of the
 /// width free at the right; each item's box 101 pixels wide, 8 from the
 /// next; rows as tall as the icon, two lines of name and 2 pixels above
-/// and below (129); the name 4 pixels under the icon.
+/// and below (129); the name right under the icon, as Windows 11's
+/// (measured on its Large icons capture).
 ///
 /// parity: VIEW-005, LOOK-014
 #[gtk::test]
@@ -641,7 +642,7 @@ fn a_window_that_opens_in_the_icon_view_lays_tiles_out_as_render_rows() {
         .next()
         .expect("a name");
     let name_top = name.compute_bounds(&first_cell).map(|rect| pixels(rect.y()));
-    assert_eq!(name_top, Some(96 + 4), "the name starts 4 pixels under the icon");
+    assert_eq!(name_top, Some(96), "the name starts right under the icon");
 }
 
 /// Choosing a view while the keyboard is on no item but the first, and
