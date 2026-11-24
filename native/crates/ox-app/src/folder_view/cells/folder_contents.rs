@@ -1,17 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! A folder's contents peeking out of its icon (VIEW-058), as Windows 11
 //! draws a folder with contents at Medium icons and larger and in Tiles:
-//! the thumbnails of the folder's first pictures (a second one behind the
-//! first, slanted slightly) or the icon of its first file as a page, in
-//! front of the folder's back and behind its front, which is lower than a
-//! plain folder's. The pieces go where [`layout`] puts them.
+//! the thumbnail of the folder's first picture, straight, or the icon of
+//! its first file as a page, in front of the folder's back and behind its
+//! front, which is lower than a plain folder's. The pieces go where
+//! [`layout`] puts them.
 //!
 //! The app draws no art of its own (`SOURCES.md`): the folder is its usual
 //! folder icon, drawn whole behind the contents and again in front of
 //! them below the front's edge only, cut along it by clips. With the
-//! user's Windows icon files on, that icon is Windows' folder, and the
-//! back and front come from the files instead when they hold both
-//! ([`IconRole::FolderBack`], [`IconRole::FolderFront`]).
+//! user's Windows icon files on, that icon is Windows' folder, the back
+//! and front come from the files instead when they hold both
+//! ([`IconRole::FolderBack`], [`IconRole::FolderFront`]), and a folder
+//! with files but no picture is Windows' own folder with a page sticking
+//! out ([`IconRole::FolderWithFiles`]) when they hold it.
 //!
 //! The widget lies over the cell's art, which the cell hides while it
 //! shows contents; a cell with nothing to show hides the widget.
@@ -45,8 +47,8 @@ mod imp {
     pub(crate) struct FolderContents {
         /// The folder's own icon, drawn as its back and its front.
         pub(super) folder: ArtImage,
-        /// The thumbnails that peek out, first by name first.
-        pub(super) pictures: RefCell<Vec<gdk::Texture>>,
+        /// The thumbnail that peeks out.
+        pub(super) picture: RefCell<Option<gdk::Texture>>,
         /// The page's icon, made the first time a page peeks out.
         pub(super) page: RefCell<Option<ArtImage>>,
         /// The icon's edge, in logical pixels.
@@ -146,8 +148,7 @@ impl FolderContents {
     /// Shows `art` of a folder's contents, or hides the widget for `None`.
     pub(crate) fn show_art(&self, art: Option<&FolderArt>) {
         let imp = self.imp();
-        imp.pictures
-            .replace(art.map(|art| art.pictures.clone()).unwrap_or_default());
+        imp.picture.replace(art.and_then(|art| art.picture.clone()));
         let page = art.and_then(|art| art.page.as_ref());
         if let Some(page) = page {
             let file_type = FileType::of(&page.name, Some(&page.content_type));
@@ -170,12 +171,20 @@ impl FolderContents {
         self.queue_draw();
     }
 
-    /// How many pictures peek out, and whether a page does, for tests.
+    /// Whether a picture peeks out, and whether a page does, for tests.
     #[cfg(test)]
-    pub(crate) fn shown(&self) -> Option<(usize, bool)> {
+    pub(crate) fn shown(&self) -> Option<(bool, bool)> {
         let imp = self.imp();
         let page = imp.page.borrow().as_ref().is_some_and(WidgetExt::is_visible);
-        self.is_visible().then(|| (imp.pictures.borrow().len(), page))
+        self.is_visible().then(|| (imp.picture.borrow().is_some(), page))
+    }
+
+    /// Which pictures of the Windows icon files the folder is drawn with
+    /// now: its back and front, and its folder with a page sticking out,
+    /// for tests.
+    #[cfg(test)]
+    pub(crate) fn uses_windows_pieces(&self) -> (bool, bool) {
+        (self.windows_pieces().is_some(), self.windows_folder_with_files().is_some())
     }
 
     /// The page's icon's edge, in logical pixels.
@@ -191,6 +200,16 @@ impl FolderContents {
         let back = crate::icons::user_icons::texture_of(IconRole::FolderBack, edge, scale)?;
         let front = crate::icons::user_icons::texture_of(IconRole::FolderFront, edge, scale)?;
         Some((back, front))
+    }
+
+    /// Windows' folder with a page sticking out, from the Windows icon
+    /// files, for a folder whose page peeks out, when they hold it.
+    fn windows_folder_with_files(&self) -> Option<gdk::Texture> {
+        let imp = self.imp();
+        if !imp.page.borrow().as_ref().is_some_and(WidgetExt::is_visible) {
+            return None;
+        }
+        crate::icons::user_icons::texture_of(IconRole::FolderWithFiles, imp.edge.get(), self.scale_factor())
     }
 
     /// Where the pieces go on this icon: on Windows' folder, as Windows
@@ -210,6 +229,10 @@ impl FolderContents {
         #[expect(clippy::cast_precision_loss, reason = "icon sizes are small")]
         let edge = imp.edge.get() as f32;
         let whole = graphene::Rect::new(0.0, 0.0, edge, edge);
+        if let Some(folder) = self.windows_folder_with_files() {
+            snapshot.append_scaled_texture(&folder, gsk::ScalingFilter::Trilinear, &whole);
+            return;
+        }
         let at = self.layout();
         let windows = self.windows_pieces();
         let folder = if windows.is_none() {
@@ -226,26 +249,9 @@ impl FolderContents {
             (None, Some(folder)) => snapshot.append_node(folder),
             (None, None) => {}
         }
-        let pictures = imp.pictures.borrow();
-        if let Some(first) = pictures.first() {
-            // Nothing leaves the folder's body, a slanted picture's
-            // corners included.
-            snapshot.push_clip(&graphene::Rect::new(
-                at.folder.x,
-                at.body_top,
-                at.folder.width,
-                at.folder.bottom() - at.body_top,
-            ));
-            let mut window = at.window;
-            if let Some(second) = pictures.get(1) {
-                draw_slanted(snapshot, second, at.window, at.slant);
-                window.y += at.lowered;
-                window.height -= at.lowered;
-            }
-            draw_covering(snapshot, first, window);
-            snapshot.pop();
+        if let Some(picture) = imp.picture.borrow().as_ref() {
+            draw_covering(snapshot, picture, at.window);
         }
-        drop(pictures);
         if let Some(page) = imp.page.borrow().as_ref() {
             self.snapshot_child(page, snapshot);
         }
@@ -326,24 +332,4 @@ fn draw_covering(snapshot: &gtk::Snapshot, texture: &gdk::Texture, place: Rect) 
         ),
     );
     snapshot.pop();
-}
-
-/// `texture` covering `place`, turned `degrees` about its middle.
-fn draw_slanted(snapshot: &gtk::Snapshot, texture: &gdk::Texture, place: Rect, degrees: f32) {
-    snapshot.save();
-    snapshot.translate(&graphene::Point::new(
-        place.x + place.width / 2.0,
-        place.y + place.height / 2.0,
-    ));
-    snapshot.rotate(degrees);
-    draw_covering(
-        snapshot,
-        texture,
-        Rect {
-            x: -place.width / 2.0,
-            y: -place.height / 2.0,
-            ..place
-        },
-    );
-    snapshot.restore();
 }
