@@ -451,8 +451,8 @@ impl BrowserWindow {
 
     /// Remembers This PC's group whose heading menu is opening, by its
     /// header's class, for the menu's Collapse group or Expand group.
-    pub(super) fn set_this_pc_menu_group(&self, header_class: &'static str) {
-        self.imp().this_pc_menu_group.set(Some(header_class));
+    pub(super) fn set_this_pc_menu_group(&self, header_class: String) {
+        self.imp().this_pc_menu_group.replace(Some(header_class));
     }
 
     /// Whether the active pane shows This PC, whose group headings the
@@ -469,8 +469,9 @@ impl BrowserWindow {
     /// pane only (a press in a pane makes it active before its menu opens).
     fn set_menu_group_collapsed(&self, collapsed: bool) {
         if self.shows_this_pc() {
-            if let Some(header) = self.imp().this_pc_menu_group.get() {
-                super::landing::collapse_groups(self.folder_pane().landing(), Some(header), Some(collapsed));
+            let header = self.imp().this_pc_menu_group.borrow().clone();
+            if let Some(header) = header {
+                super::landing::collapse_groups(self.folder_pane().landing(), Some(&header), Some(collapsed));
             }
             return;
         }

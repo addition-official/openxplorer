@@ -34,6 +34,27 @@ pub(crate) enum SortRole {
     /// When a photo was taken, else when it was modified: Gallery's sort
     /// ([`photo_date`]), not offered in the Sort menu.
     Taken,
+    /// How much room a drive has left: This PC's Free Space, as Windows
+    /// 11 sorts its drives by it; no file has any, so it leaves the
+    /// folders' order to the name. This and the next three are This PC's
+    /// own, offered in its Sort menu only.
+    FreeSpace,
+    /// A drive's file system, such as NTFS or ext4.
+    FileSystem,
+    /// How full a drive is.
+    PercentFull,
+    /// A saved network location's address.
+    NetworkLocation,
+}
+
+impl SortRole {
+    /// The keys only This PC sorts by.
+    pub(crate) const PLACE_ONLY: [SortRole; 4] = [
+        SortRole::FreeSpace,
+        SortRole::FileSystem,
+        SortRole::PercentFull,
+        SortRole::NetworkLocation,
+    ];
 }
 
 impl SortRole {
@@ -59,6 +80,10 @@ impl SortRole {
             SortRole::Group => "group",
             SortRole::LinkTarget => "linkTarget",
             SortRole::Taken => "taken",
+            SortRole::FreeSpace => "freeSpace",
+            SortRole::FileSystem => "fileSystem",
+            SortRole::PercentFull => "percentFull",
+            SortRole::NetworkLocation => "networkLocation",
         }
     }
 
@@ -73,6 +98,10 @@ impl SortRole {
             SortRole::Group => gettext_static("User group"),
             SortRole::LinkTarget => gettext_static("Link destination"),
             SortRole::Taken => gettext_static("Date taken"),
+            SortRole::FreeSpace => gettext_static("Free Space"),
+            SortRole::FileSystem => gettext_static("File System"),
+            SortRole::PercentFull => gettext_static("Percent Full"),
+            SortRole::NetworkLocation => gettext_static("Network Location"),
         }
     }
 
@@ -99,6 +128,10 @@ impl SortRole {
                 text(b.meta.link_target.as_deref()),
             ),
             SortRole::Taken => photo_date(a).cmp(&photo_date(b)),
+            SortRole::FreeSpace
+            | SortRole::FileSystem
+            | SortRole::PercentFull
+            | SortRole::NetworkLocation => Ordering::Equal,
         }
     }
 }
@@ -146,6 +179,7 @@ impl SortBy {
         SortRole::ALL
             .into_iter()
             .chain([SortRole::Taken])
+            .chain(SortRole::PLACE_ONLY)
             .find(|role| role.as_str() == key)
             .map(SortBy::Role)
     }

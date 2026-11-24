@@ -203,7 +203,9 @@ fn work_out_group(grouping: Grouping, item: &FileItem, clocks: &GroupClocks) -> 
     };
     match grouping.by {
         GroupBy::None | GroupBy::SortKey => group_of(grouping.sort.by, item, &clocks.clock),
-        GroupBy::Name => {
+        // Files have no free space, file system or fullness: only This
+        // PC groups by them (`window/this_pc_views.rs`).
+        GroupBy::Name | GroupBy::FreeSpace | GroupBy::FileSystem | GroupBy::PercentFull => {
             let group = NameGroup::of(&entry.name);
             Group::numbered(gettext_static(group.label()), group as i64)
         }
@@ -272,7 +274,11 @@ pub(crate) fn group_of(by: SortBy, item: &FileItem, clock: &GroupClock) -> Group
         None => Group::numbered(missing, 0),
     };
     match by {
-        SortBy::Column(SortColumn::Name) => name_group(item),
+        // Files have no free space; This PC groups its drives itself.
+        SortBy::Column(SortColumn::Name)
+        | SortBy::Role(
+            SortRole::FreeSpace | SortRole::FileSystem | SortRole::PercentFull | SortRole::NetworkLocation,
+        ) => name_group(item),
         SortBy::Column(SortColumn::Size) => size_group(item),
         SortBy::Column(SortColumn::Modified) => clock.period(entry.modified),
         SortBy::Column(SortColumn::Type) => Group::texted(&entry.type_label, 1),
@@ -326,16 +332,22 @@ fn size_group(item: &FileItem) -> Group {
     if item.entry().is_dir && item.folder_size().is_none() {
         return Group::numbered(&gettext("Folders"), -1);
     }
-    let size = item.sort_size();
+    let (title, rank) = size_bucket(item.sort_size());
+    Group::numbered(&title, rank)
+}
+
+/// The size group `size` bytes fall in, as Windows Explorer groups sizes:
+/// its title and its place among the groups, smallest first.
+pub(crate) fn size_bucket(size: u64) -> (String, i64) {
     if size == 0 {
-        return Group::numbered(&gettext("Empty (0 KB)"), 0);
+        return (gettext("Empty (0 KB)"), 0);
     }
     let bucket = SIZE_GROUPS
         .iter()
         .position(|(_, below)| size < *below)
         .unwrap_or(SIZE_GROUPS.len() - 1);
-    Group::numbered(
-        &gettext(SIZE_GROUPS[bucket].0),
+    (
+        gettext(SIZE_GROUPS[bucket].0),
         i64::try_from(bucket).unwrap_or(0) + 1,
     )
 }

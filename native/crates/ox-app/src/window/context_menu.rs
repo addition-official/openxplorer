@@ -360,10 +360,20 @@ impl BrowserWindow {
     /// The folder menus' View, Sort by, Group by and New submenus.
     fn background_submenus(&self) -> BackgroundSubmenus {
         self.refresh_template_menu();
+        // This PC sorts and groups its drives by Windows' choices there.
+        let on_this_pc = self.page_shown() == Some(Page::ThisPc);
         BackgroundSubmenus {
             view: self.background_view_menu(),
-            sort: sort_menu(),
-            group: group_by_menu(),
+            sort: if on_this_pc {
+                super::command_bar::this_pc_sort_menu()
+            } else {
+                sort_menu()
+            },
+            group: if on_this_pc {
+                super::command_bar::this_pc_group_by_menu()
+            } else {
+                group_by_menu()
+            },
             new: new_menu(self.template_menu_entries()),
         }
     }

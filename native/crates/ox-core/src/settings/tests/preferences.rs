@@ -409,6 +409,50 @@ fn apply_to_all_folders_gives_downloads_the_applied_group_by() {
     assert_eq!(reread.downloads_group_by, Some(GroupBy::None), "saved to disk");
 }
 
+/// This PC keeps a style of its own, as Network does, whether or not
+/// each folder keeps one: Windows 11 opens it in Tiles grouped and sorted
+/// by Type,
+/// and a view chosen there stays there and nowhere else.
+/// parity: VIEW-020, VIEW-022
+#[test]
+fn this_pc_starts_in_tiles_grouped_by_type_and_keeps_its_own_style() {
+    let root = temporary_folder();
+    let mut store = Settings::open(root.path());
+    store
+        .update_preferences(&PreferencesUpdate {
+            per_folder_views: Some(false),
+            ..PreferencesUpdate::default()
+        })
+        .unwrap();
+    let pc = crate::location::PC_URI;
+
+    let first = store.snapshot().preferences.view_in(pc, None);
+    assert_eq!((first.mode.as_str(), first.grouping()), ("tiles", GroupBy::Type));
+    assert_eq!(
+        (first.sort.as_str(), first.descending),
+        ("type", false),
+        "sorted by type"
+    );
+    let network = store
+        .snapshot()
+        .preferences
+        .view_in(crate::location::NETWORK_URI, None);
+    assert_eq!(network.sort, "name", "Network keeps its sort");
+
+    let mut chosen = first.clone();
+    chosen.mode = "content".to_owned();
+    chosen.set_grouping(GroupBy::None);
+    let saved = store.remember_view(pc, chosen, ViewScope::Folder).unwrap();
+    assert!(!saved.per_folder_views, "one style for all folders");
+    let shown = saved.view_in(pc, None);
+    assert_eq!(
+        (shown.mode.as_str(), shown.grouping()),
+        ("content", GroupBy::None)
+    );
+    let folder = saved.view_in("file:///home/someone/Projects", None);
+    assert_ne!(folder.mode, "content", "the folders keep the shared style");
+}
+
 /// Reset folders forgets the Group by chosen in Downloads too, so
 /// Downloads is grouped by date again, as it is by default.
 /// parity: VIEW-020, VIEW-022

@@ -1260,8 +1260,8 @@ impl Preferences {
     /// Tiles grouped by type ("Computer"), as Windows 11 shows devices,
     /// until the user chooses another view there ([`Self::network_style`]).
     pub fn view_in(&self, uri: &str, downloads: Option<&str>) -> ViewProperties {
-        if location::same_location(uri, location::NETWORK_URI) {
-            return self.network_style();
+        if let Some(place) = own_style_place(uri) {
+            return self.own_place_style(place);
         }
         let mut style = self.view_for(uri);
         let in_downloads = downloads.is_some_and(|downloads| location::same_location(downloads, uri));
@@ -1276,12 +1276,23 @@ impl Preferences {
     /// The style of Network: the one saved for it, else Tiles grouped by
     /// type, with the shared columns and widths.
     pub fn network_style(&self) -> ViewProperties {
-        let mut style = self.view_for(location::NETWORK_URI);
-        let Some((saved, _)) =
-            super::view_properties::saved_style_for(&self.folder_views, location::NETWORK_URI)
-        else {
+        self.own_place_style(location::NETWORK_URI)
+    }
+
+    /// The style of `place`, Network or This PC, which keep one of their
+    /// own whether or not each folder does: the one saved for it, else
+    /// Windows 11's Tiles grouped by type (This PC sorted by type too),
+    /// with the shared columns and widths.
+    fn own_place_style(&self, place: &str) -> ViewProperties {
+        let mut style = self.view_for(place);
+        let Some((saved, _)) = super::view_properties::saved_style_for(&self.folder_views, place) else {
             NETWORK_MODE.clone_into(&mut style.mode);
             style.set_grouping(GroupBy::Type);
+            // Windows 11 sorts This PC by type, drives before locations.
+            if location::same_location(place, location::PC_URI) {
+                "type".clone_into(&mut style.sort);
+                style.descending = false;
+            }
             return style;
         };
         let mut own = saved.clone();
@@ -1321,8 +1332,17 @@ impl Preferences {
     }
 }
 
-/// The view Network starts in: Windows 11's Tiles.
+/// The view Network and This PC start in: Windows 11's Tiles.
 const NETWORK_MODE: &str = "tiles";
+
+/// The place among Network and This PC that `uri` is, if it is one: the
+/// places that keep a style of their own whether or not each folder does,
+/// as Windows 11 keeps theirs.
+pub fn own_style_place(uri: &str) -> Option<&'static str> {
+    [location::NETWORK_URI, location::PC_URI]
+        .into_iter()
+        .find(|place| location::same_location(uri, place))
+}
 
 /// A partial preferences change; `None` leaves a preference unchanged and
 /// out-of-range numbers are ignored when applied.

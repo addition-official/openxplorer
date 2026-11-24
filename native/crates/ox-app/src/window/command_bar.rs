@@ -42,7 +42,8 @@ use super::window_action::WindowAction;
 use menus::{appearance_items, more_menu};
 pub(super) use menus::{disconnect_network_drive, FolderPin, MoreMenuState, MorePlace, NetworkDrive};
 pub(super) use menus::{
-    gallery_view_menu, group_by_menu, new_menu, search_options_menu, sort_menu, view_menu,
+    gallery_view_menu, group_by_menu, new_menu, search_options_menu, sort_menu, this_pc_group_by_menu,
+    this_pc_sort_menu, view_menu,
 };
 use overflow::OverflowLayout;
 
@@ -236,6 +237,8 @@ mod imp {
         pub(super) view_popover: OnceCell<crate::window::menu_popover::MenuPopover>,
         /// Whether View shows Gallery's menu now.
         pub(super) gallery_menus: Cell<bool>,
+        /// Whether Sort shows This PC's menu now.
+        pub(super) this_pc_menus: Cell<bool>,
         /// Set as background, Rotate left and Rotate right after a
         /// separator, shown in Gallery while photos are selected.
         pub(super) photo_commands: OnceCell<Vec<gtk::Widget>>,
@@ -859,6 +862,27 @@ impl CommandBar {
                 gallery_view_menu()
             } else {
                 view_menu()
+            });
+        }
+    }
+
+    /// Gives Sort This PC's menu while This PC is shown (`on_this_pc`),
+    /// else the folders'.
+    pub(super) fn show_this_pc_menus(&self, on_this_pc: bool) {
+        let imp = self.imp();
+        if imp.this_pc_menus.replace(on_this_pc) == on_this_pc {
+            return;
+        }
+        let popover = imp
+            .sort_button
+            .get()
+            .and_then(gtk::MenuButton::popover)
+            .and_downcast::<MenuPopover>();
+        if let Some(popover) = popover {
+            popover.set_entries(if on_this_pc {
+                this_pc_sort_menu()
+            } else {
+                sort_menu()
             });
         }
     }

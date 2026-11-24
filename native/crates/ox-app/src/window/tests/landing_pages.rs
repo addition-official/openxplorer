@@ -290,6 +290,93 @@ fn drive_tiles_are_laid_out_as_the_tiles_view() {
     );
 }
 
+/// The names of This PC's tiles, group by group, in the order shown.
+fn tile_names(test: &TestWindow) -> Vec<Vec<String>> {
+    landing::tile_groups(test.window.folder_pane().landing())
+        .into_iter()
+        .map(|(_, tiles)| {
+            tiles
+                .iter()
+                .filter_map(|tile| texts_in(tile).into_iter().next())
+                .collect()
+        })
+        .collect()
+}
+
+/// This PC takes every view, sort and grouping Windows 11 offers there:
+/// it starts in Tiles grouped and sorted by type; Details heads Name, Type, Total
+/// Size and Free Space; Name keeps This PC's own order and Descending
+/// turns it round; (None) shows the drives and locations in one run. The
+/// choice is This PC's alone: a folder keeps its own view.
+///
+/// parity: VIEW-020, VIEW-022, VIEW-071
+#[gtk::test]
+fn this_pc_takes_every_view_sort_and_grouping_and_keeps_them_for_itself() {
+    let fixture = Fixture::standard();
+    let test = this_pc_with_drives(&fixture);
+    let landing = test.window.folder_pane().landing().clone();
+    let classes = || {
+        landing::tile_groups(&landing)
+            .into_iter()
+            .map(|(flow, _)| {
+                flow.css_classes()
+                    .into_iter()
+                    .map(String::from)
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>()
+    };
+    assert!(
+        classes().iter().all(|flow| flow.contains(&"pc-tiles".to_owned())),
+        "Tiles at first"
+    );
+    assert_eq!(landing::section_titles(&landing), ["Devices and drives"]);
+    assert_eq!(tile_names(&test), [["Local Disk", "Backup", "USB"]]);
+
+    test.activate("view", Some("details"));
+    wait_for_frames(&test.window, 2);
+    assert!(classes()
+        .iter()
+        .all(|flow| flow.contains(&"pc-details".to_owned())));
+    assert_eq!(
+        landing::details_titles(&landing),
+        ["Name", "Type", "Total Size", "Free Space"]
+    );
+    let (_, local) = drive_tile(&test, "Local Disk");
+    assert_eq!(
+        texts_in(&local)[..2],
+        ["Local Disk", "Local Disk"],
+        "the name, then the type"
+    );
+
+    test.activate("direction", Some("descending"));
+    wait_for_frames(&test.window, 2);
+    assert_eq!(tile_names(&test), [["USB", "Backup", "Local Disk"]]);
+
+    test.activate("group-by", Some("none"));
+    test.activate("view", Some("content"));
+    wait_for_frames(&test.window, 2);
+    assert!(landing::section_titles(&landing).is_empty(), "no group headers");
+    assert!(classes()
+        .iter()
+        .all(|flow| flow.contains(&"pc-content".to_owned())));
+
+    test.window.navigate(&fixture.uri()).expect("the fixture folder");
+    wait_for_frames(&test.window, 2);
+    assert_ne!(
+        test.window.folder_pane().view(),
+        crate::window::folder_pane::FolderView::Content,
+        "the folder keeps its own view"
+    );
+    test.window.navigate(Page::ThisPc.uri()).expect("This PC");
+    // The style is saved in the background; This PC shows it once saved.
+    wait_until("This PC's own view", || {
+        let shown = classes();
+        !shown.is_empty() && shown.iter().all(|flow| flow.contains(&"pc-content".to_owned()))
+    });
+    assert_eq!(tile_names(&test), [["USB", "Backup", "Local Disk"]]);
+}
+
 /// Up from a group's first row reaches its header; Left collapses the
 /// group and Right expands it, and Down goes back to its first tile, where
 /// the arrows carry on. A collapsed group stays collapsed when the page is
@@ -362,8 +449,10 @@ fn a_redraw_keeps_the_selected_tile_and_the_keyboard() {
     test.window.render_places();
 
     let (flow, usb) = drive_tile(&test, "USB");
+    // This PC is sorted by type, as Windows 11 sorts it: the camera, a
+    // Portable Device, after the three Local Disks.
     assert_eq!(
-        texts_in(&flow.child_at_index(1).expect("a second tile"))[0],
+        texts_in(&flow.child_at_index(3).expect("a fourth tile"))[0],
         "Camera"
     );
     assert_eq!(flow.selected_children(), std::slice::from_ref(&usb));

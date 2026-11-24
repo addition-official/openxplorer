@@ -399,6 +399,9 @@ impl BrowserWindow {
         self.update_more_menu();
         let tab = self.imp().session.borrow().active_id();
         self.command_bar().follow_shown_location(tab, uri);
+        // This PC sorts and groups its drives by Windows' choices there.
+        self.command_bar()
+            .show_this_pc_menus(Page::from_uri(uri) == Some(Page::ThisPc));
         self.update_cache_folder_action();
         self.render_tabs();
         self.show_pane_captions();

@@ -308,7 +308,19 @@ impl BrowserWindow {
         }
         super::home_page::leave(body);
         let locations = self.imp().locations.borrow();
-        landing::render(body, page, places, &locations, self.skin().drawn_text_size());
+        let layout = if page == Page::ThisPc {
+            self.this_pc_layout(self.pane_on(side))
+        } else {
+            super::this_pc_views::ThisPcLayout::default()
+        };
+        landing::render(
+            body,
+            page,
+            places,
+            &locations,
+            self.skin().drawn_text_size(),
+            layout,
+        );
         drop(locations);
         // This PC counts its tiles, which a drive coming or going changes.
         if page == Page::ThisPc {
