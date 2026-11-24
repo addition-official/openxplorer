@@ -592,3 +592,205 @@ fn send_to_and_share_with_act_on_a_recent_row() {
     });
     assert!(fixture.path("Documents/plan.txt").is_file(), "the file stays");
 }
+
+/// The icon names the images of `menu` draw, strip and rows, leaving out
+/// application icons (which are the applications' own).
+fn menu_icon_names(menu: &MenuPopover) -> Vec<String> {
+    descendants::<gtk::Image>(menu)
+        .into_iter()
+        .filter(gtk::prelude::WidgetExt::is_drawable)
+        .filter_map(|image| image.icon_name().map(|name| name.to_string()))
+        .collect()
+}
+
+/// Each strip button's label and the icon it draws.
+fn menu_strip_icons(menu: &MenuPopover) -> Vec<(String, String)> {
+    descendants::<gtk::Button>(menu)
+        .into_iter()
+        .filter(|button| button.ancestor(gtk::ListBox::static_type()).is_none())
+        .filter_map(|button| {
+            let label = descendants::<gtk::Label>(&button).first()?.text().to_string();
+            let icon = descendants::<gtk::Image>(&button)
+                .first()?
+                .icon_name()?
+                .to_string();
+            Some((label, icon))
+        })
+        .collect()
+}
+
+/// Each row's label and the icon it draws.
+fn menu_row_icons(menu: &MenuPopover) -> Vec<(String, String)> {
+    menu.rows()
+        .iter()
+        .filter_map(|row| {
+            let label = crate::window::menu_popover::row_label(row)?;
+            let icon = descendants::<gtk::Image>(row)
+                .first()
+                .and_then(gtk::Image::icon_name)
+                .map_or_else(|| "(app or none)".to_owned(), |name| name.to_string());
+            Some((label, icon))
+        })
+        .collect()
+}
+
+/// With Windows icon files on and a symbol font chosen, a Recent row's
+/// menu draws its strip's and rows' glyphs from the font, as the file
+/// list's menu does. The font is synthetic, built in the test from the
+/// codepoints Microsoft's table gives those glyphs.
+///
+/// parity: HOME-036, LOOK-031
+#[gtk::test]
+fn a_recent_rows_menu_draws_the_chosen_fonts_glyphs() {
+    use ox_core::settings::PreferencesUpdate;
+    use ox_core::windows_glyphs::synthetic::SyntheticFont;
+
+    use crate::icons::{user_glyphs, Icon};
+
+    let (fixture, test) = recent_home(&["extra_2.txt"]);
+    let icons = [
+        Icon::Copy,
+        Icon::Share,
+        Icon::Open,
+        Icon::Apps,
+        Icon::Folder,
+        Icon::FolderZip,
+        Icon::Dismiss,
+        Icon::Star,
+        Icon::StarFilled,
+        Icon::Info,
+        Icon::Link,
+        Icon::Wrench,
+        Icon::Document,
+        Icon::MoreHorizontal,
+        Icon::ChevronRight16,
+        Icon::Cut,
+        Icon::Rename,
+        Icon::Delete,
+    ];
+    let codepoints: Vec<u32> = icons
+        .iter()
+        .filter_map(|icon| user_glyphs::glyph_of(*icon))
+        .map(|glyph| glyph.codepoint)
+        .collect();
+    let font = fixture.path("SegoeIcons.ttf");
+    std::fs::write(&font, SyntheticFont::with_codepoints(&codepoints).build()).expect("written");
+    test.context.update_preferences(
+        PreferencesUpdate {
+            use_icon_files: Some(true),
+            symbol_font: Some(font.display().to_string()),
+            ..PreferencesUpdate::default()
+        },
+        |result| result.expect("saved"),
+    );
+    wait_until("the font to be read", || {
+        matches!(user_glyphs::status(), user_glyphs::Status::Ready { .. })
+    });
+
+    let mut pointer = Pointer::connect();
+    let menu = recent_row_menu(&mut pointer, &test, "extra_2");
+    let names = menu_icon_names(&menu);
+    let bundled: Vec<&String> = names.iter().filter(|name| !name.starts_with("ox-win-")).collect();
+    let recent_rows = menu_row_icons(&menu);
+    let recent_strip = menu_strip_icons(&menu);
+    menu.popdown();
+    // The file list's menu of the same file, for comparison.
+    test.window
+        .navigate(&fixture.uri_of("Documents"))
+        .expect("Documents");
+    test.wait_for_listing("Documents");
+    super::file_ops_support::select_names(&test, &["extra_2.txt"]);
+    test.window
+        .right_click(test.window.folder_model().selected_positions().first().copied());
+    let file_menu = open_menu(&test);
+    let file_rows = menu_row_icons(&file_menu);
+    let file_strip = menu_strip_icons(&file_menu);
+    file_menu.popdown();
+    assert!(
+        bundled.is_empty(),
+        "Recent's menu keeps bundled icons {bundled:?}"
+    );
+    // A command both menus have draws the same glyph in both; Recent's
+    // Open shows the default application's icon, as Windows' does.
+    for (label, icon) in recent_rows
+        .iter()
+        .chain(&recent_strip)
+        .filter(|(label, _)| label != "Open")
+    {
+        if let Some((_, theirs)) = file_rows
+            .iter()
+            .chain(&file_strip)
+            .find(|(their, _)| their == label)
+        {
+            assert_eq!(icon, theirs, "{label} draws the file menu's glyph");
+        }
+    }
+}
+
+/// The strip's buttons of `menu`, left to right, with their bounds in the
+/// strip, and the strip's width.
+fn strip_layout(menu: &MenuPopover) -> (Vec<gtk::graphene::Rect>, f32) {
+    let strip = descendants::<gtk::Box>(menu)
+        .into_iter()
+        .find(|widget| widget.has_css_class("context-strip"))
+        .expect("the menu's strip");
+    let buttons: Vec<gtk::graphene::Rect> = descendants::<gtk::Button>(&strip)
+        .iter()
+        .filter_map(|button| button.compute_bounds(&strip))
+        .collect();
+    #[expect(clippy::cast_precision_loss, reason = "a strip is a few hundred pixels wide")]
+    let width = strip.width() as f32;
+    (buttons, width)
+}
+
+/// The compact menu's strip packs its buttons from the left at one fixed
+/// width, whatever their number, with the rest of the strip empty, as
+/// Windows 11 draws it (measured on Windows 11 at 1x, from the menu's
+/// outer edge: Copy centred at 32, a 1-pixel divider at 65, Share
+/// centred at 98, nothing after the last button). A Recent row's two
+/// buttons and a file's five are as wide.
+///
+/// parity: HOME-036, CMD-010
+#[gtk::test]
+fn the_strip_packs_fixed_width_buttons_from_the_left() {
+    let (fixture, test) = recent_home(&["extra_2.txt"]);
+    let mut pointer = Pointer::connect();
+    let menu = recent_row_menu(&mut pointer, &test, "extra_2");
+    let (recent, strip_width) = strip_layout(&menu);
+    menu.popdown();
+    test.window
+        .navigate(&fixture.uri_of("Documents"))
+        .expect("Documents");
+    test.wait_for_listing("Documents");
+    super::file_ops_support::select_names(&test, &["extra_2.txt"]);
+    test.window
+        .right_click(test.window.folder_model().selected_positions().first().copied());
+    let file_menu = open_menu(&test);
+    let (file, _) = strip_layout(&file_menu);
+    file_menu.popdown();
+
+    assert_eq!(recent.len(), 2, "Copy and Share: {recent:?}");
+    assert!(file.len() >= 4, "the file menu's strip: {file:?}");
+    let width = recent[0].width();
+    for button in recent.iter().chain(&file) {
+        assert!(
+            (button.width() - width).abs() <= 1.0,
+            "one fixed width: {button:?} against {width}"
+        );
+    }
+    // The first button fills the strip's start, inside the menu's 1-pixel
+    // border: 64 pixels, centred at 32 from the menu's edge; each next one
+    // starts with its 1-pixel divider, 65 pixels on.
+    assert!((63.0..=65.0).contains(&width), "Windows' width: {width}");
+    assert!(recent[0].x() <= 0.5, "packed from the left: {:?}", recent[0]);
+    let pitch = recent[1].x() - recent[0].x();
+    assert!(
+        (64.0..=66.0).contains(&pitch),
+        "65 pixels from button to button: {pitch}"
+    );
+    let used = recent[1].x() + recent[1].width();
+    assert!(
+        strip_width - used > 100.0,
+        "the rest of the strip stays empty: {used} of {strip_width}"
+    );
+}

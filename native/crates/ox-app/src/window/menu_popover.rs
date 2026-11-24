@@ -391,11 +391,14 @@ glib::wrapper! {
             gtk::Native, gtk::ShortcutManager;
 }
 
-/// The row of labeled buttons of the compact style (`.context-strip`).
+/// The row of labeled buttons of the compact style (`.context-strip`):
+/// one fixed width each, packed from the left with the rest of the row
+/// empty, as Windows 11 draws them (reference/ref-34), whatever their
+/// number; the width is the skin's (`dialogs.css`).
 fn strip_box() -> gtk::Box {
     let strip = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
-        .homogeneous(true)
+        .homogeneous(false)
         .css_classes(["context-strip"])
         .accessible_role(gtk::AccessibleRole::Group)
         .build();
