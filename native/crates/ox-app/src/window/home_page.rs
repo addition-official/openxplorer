@@ -318,27 +318,51 @@ pub(super) fn file_menu(
     }
 }
 
-/// What a Recent row's menu offers where the computer has it: Share in
-/// the strip and Share with where the desktop can share, and the text
-/// editor's "Edit in" for its type, as the file list's menu offers them
-/// ([`super::context_menu::recent_row_extras`]).
+/// What a Recent row's menu offers that the window knows, built as the
+/// file list's menu builds it ([`BrowserWindow::recent_row_extras`]):
+/// Share in the strip and Share with where the desktop can share, the
+/// text editor's "Edit in" for its type, the default application's icon,
+/// the compact menu's Open with submenu and the classic menu's Open
+/// with…, Send to and Create shortcut. Each acts on the selected row.
 #[derive(Default)]
 pub(super) struct RecentRowExtras {
     pub(super) share: Option<MenuItem>,
     pub(super) share_with: Option<MenuEntry>,
     pub(super) editors: Vec<MenuEntry>,
+    pub(super) default_icon: Option<String>,
+    pub(super) open_with: Option<MenuEntry>,
+    pub(super) classic_open_with: Vec<MenuEntry>,
+    pub(super) send_to: Option<MenuEntry>,
+    pub(super) create_shortcut: Option<MenuEntry>,
+}
+
+/// Whether the file named `name` has a type, as Windows judges it for its
+/// Open row: an extension after its name.
+fn has_type(name: &str) -> bool {
+    name.rsplit_once('.')
+        .is_some_and(|(stem, extension)| !stem.is_empty() && !extension.is_empty())
 }
 
 /// The menu of a Recent row for the file at `uri`, in `style`, and its
 /// icon strip (HOME-036), as Windows 11's Home has it (checked on Windows
-/// 11, Home > Recent, 2026-11-22): Copy and Share alone in the strip, then
-/// "Open with" (Enter, which opens the file as a double-click does), Share
-/// with, Open file location, Remove from list (which takes the file off
-/// the desktop's recently used list and leaves it), Add to or Remove from
-/// Favorites, Compress to, Copy as path, Properties and the text editor's
-/// "Edit in". No Cut, Rename or Delete: Windows offers none on a Recent
-/// file. The classic menu behind "Show more options" lists the same, Copy
-/// and Share as rows.
+/// 11, Home > Recent, 2026-11-24, reference/ref-34 and ref-35).
+///
+/// Compact: Copy and Share alone in the strip, then Open (Enter, with the
+/// default application's icon) and the Open with submenu, or for a file
+/// without a type "Open with" (Enter) alone; Share with, Open file
+/// location, Remove from list (which takes the file off the desktop's
+/// recently used list and leaves it), Add to or Remove from Favorites,
+/// Compress to, Copy as path, Properties, then the text editor's "Edit
+/// in" after a divider.
+///
+/// Classic, behind "Show more options": Open in bold, "Edit in", the
+/// Favorites row, Remove from list and Open with…; Copy as path, Share
+/// and Restore previous versions; Send to; Copy; Create shortcut; Open
+/// file location; Properties. Windows' own Edit, Print, Give access to
+/// and Defender scan have no counterpart here.
+///
+/// Neither has Cut, Rename or Delete: Windows offers none on a Recent
+/// file.
 pub(super) fn recent_file_menu(
     uri: &str,
     is_favorite: bool,
@@ -362,47 +386,87 @@ pub(super) fn recent_file_menu(
             WindowAction::AddToFavorites,
         )
     };
-    let copy = target(message_id("Copy"), Icon::Copy, WindowAction::CopyFolder).with_shortcut("Ctrl+C");
-    let mut strip = vec![copy];
-    strip.extend(extras.share);
-    let mut entries: Vec<MenuEntry> =
-        vec![
-            target(message_id("Open with"), Icon::Open, WindowAction::OpenItemAt)
-                .with_shortcut("Enter")
-                .into(),
-        ];
-    entries.extend(extras.share_with);
-    entries.extend([
-        target(
-            message_id("Open file location"),
-            Icon::Folder,
-            WindowAction::OpenFileLocationOf,
-        )
-        .into(),
-        target(
-            message_id("Remove from list"),
-            Icon::Dismiss,
-            WindowAction::RemoveFromRecent,
-        )
-        .into(),
-        favorite.into(),
-        compress_to_item(uri).into(),
-        target(message_id("Copy as path"), Icon::Copy, WindowAction::CopyPathOf)
-            .with_shortcut("Ctrl+Shift+C")
-            .into(),
-        target(message_id("Properties"), Icon::Info, WindowAction::PropertiesOf)
-            .with_shortcut("Alt+Enter")
-            .into(),
-    ]);
-    if !extras.editors.is_empty() {
-        entries.push(MenuEntry::Divider);
-        entries.extend(extras.editors);
+    let typed = has_type(&favorite_name(uri));
+    let open = if typed {
+        target(message_id("Open"), Icon::Open, WindowAction::OpenItemAt)
+    } else {
+        target(message_id("Open with"), Icon::Open, WindowAction::OpenItemAt)
     }
+    .with_shortcut("Enter");
+    let location = target(
+        message_id("Open file location"),
+        Icon::Folder,
+        WindowAction::OpenFileLocationOf,
+    );
+    let remove = target(
+        message_id("Remove from list"),
+        Icon::Dismiss,
+        WindowAction::RemoveFromRecent,
+    );
+    let copy_path = target(message_id("Copy as path"), Icon::Copy, WindowAction::CopyPathOf)
+        .with_shortcut("Ctrl+Shift+C");
+    let properties =
+        target(message_id("Properties"), Icon::Info, WindowAction::PropertiesOf).with_shortcut("Alt+Enter");
+    let copy = target(message_id("Copy"), Icon::Copy, WindowAction::CopyFolder).with_shortcut("Ctrl+C");
     match style {
-        MenuStyle::Compact => (entries, strip),
+        MenuStyle::Compact => {
+            let mut strip = vec![copy];
+            strip.extend(extras.share);
+            let mut entries: Vec<MenuEntry> =
+                vec![open.with_application_icon(extras.default_icon.as_deref()).into()];
+            if typed {
+                entries.extend(extras.open_with);
+            }
+            entries.extend(extras.share_with);
+            entries.extend([
+                location.into(),
+                remove.into(),
+                favorite.into(),
+                compress_to_item(uri).into(),
+                copy_path.into(),
+                properties.into(),
+            ]);
+            if !extras.editors.is_empty() {
+                entries.push(MenuEntry::Divider);
+                entries.extend(extras.editors);
+            }
+            (entries, strip)
+        }
         MenuStyle::Classic => {
-            entries.push(MenuEntry::Divider);
-            entries.extend(strip.into_iter().map(MenuEntry::from));
+            // Windows' default command stands in bold.
+            let open = MenuItem {
+                emphasised: true,
+                ..open
+            };
+            let mut entries: Vec<MenuEntry> = vec![open.into()];
+            entries.extend(extras.editors);
+            entries.extend([favorite.into(), remove.into()]);
+            if typed {
+                entries.extend(extras.classic_open_with);
+            }
+            entries.extend([MenuEntry::Divider, copy_path.into()]);
+            entries.extend(extras.share.map(MenuEntry::from));
+            entries.push(
+                target(
+                    message_id("Restore previous versions"),
+                    Icon::History,
+                    WindowAction::PreviousVersionsOf,
+                )
+                .into(),
+            );
+            if let Some(send_to) = extras.send_to {
+                entries.extend([MenuEntry::Divider, send_to]);
+            }
+            entries.extend([MenuEntry::Divider, copy.into()]);
+            if let Some(create_shortcut) = extras.create_shortcut {
+                entries.extend([MenuEntry::Divider, create_shortcut]);
+            }
+            entries.extend([
+                MenuEntry::Divider,
+                location.into(),
+                MenuEntry::Divider,
+                properties.into(),
+            ]);
             (entries, Vec::new())
         }
     }
@@ -1425,6 +1489,8 @@ fn item_box(page: &gtk::Box, items: Vec<Item>, section: Section, rows: bool) -> 
             if let Some(window) = page.root().and_downcast::<BrowserWindow>() {
                 window.update_file_commands();
                 window.update_share_command();
+                window.update_send_to_actions();
+                window.update_archive_actions();
             }
         }
     ));

@@ -6298,7 +6298,7 @@ msgstr ""
 msgid "Rename items…"
 msgstr ""
 
-#: crates/ox-app/src/window/context_menu/entries.rs
+#: crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/home_page.rs
 msgid "Restore previous versions"
 msgstr ""
 

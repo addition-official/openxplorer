@@ -108,11 +108,15 @@ impl BrowserWindow {
             .selected_archive()
             .is_none()
             .then_some("Select one ZIP archive.");
-        let nothing_selected =
-            (self.folder_pane().model().summary().count == 0).then_some("Select the items to compress.");
-        let read_only = !self
-            .current_uri()
-            .is_some_and(|uri| self.is_writable_folder(&uri));
+        // A row selected on Home is compressed beside its file (HOME-036).
+        let home_file = self.selected_home_file();
+        let nothing_selected = (self.folder_pane().model().summary().count == 0 && home_file.is_none())
+            .then_some("Select the items to compress.");
+        let destination = home_file
+            .as_deref()
+            .and_then(ox_core::location::parent_location)
+            .or_else(|| self.current_uri());
+        let read_only = !destination.is_some_and(|uri| self.is_writable_folder(&uri));
         let read_only = read_only.then_some("This folder is read-only.");
         [
             (WindowAction::ExtractAll, busy.or(no_archive)),
@@ -382,6 +386,14 @@ impl BrowserWindow {
     /// Compress to ZIP file: the selection into a new ZIP in the folder,
     /// named after the first item (ARC-023).
     fn compress_selection(&self, ending: &'static str) {
+        // A row selected on Home compresses its file beside it (HOME-036).
+        if let Some(uri) = self.selected_home_file() {
+            if let Some(folder) = ox_core::location::parent_location(&uri) {
+                let name = self.imp().locations.borrow().base_name(&uri);
+                self.compress_items(vec![uri], folder, name, ending);
+            }
+            return;
+        }
         let selected = self.folder_pane().model().selected_items();
         let (Some(first), Some(folder)) = (selected.first(), self.current_uri()) else {
             return;
