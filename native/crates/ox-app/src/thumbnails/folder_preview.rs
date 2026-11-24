@@ -590,7 +590,10 @@ mod tests {
         let shown = read_contents(folder.path()).shown(true, true);
 
         assert!(shown.picture.is_none());
-        assert_eq!(shown.page.map(|page| page.name).as_deref(), Some("Meeting notes.txt"));
+        assert_eq!(
+            shown.page.map(|page| page.name).as_deref(),
+            Some("Meeting notes.txt")
+        );
         // With picture previews off, a folder of pictures shows a page.
         picture_at(folder.path(), "Beach.png", 0xff00_00ff);
         let shown = read_contents(folder.path()).shown(false, false);
@@ -863,7 +866,11 @@ mod tests {
         assert_eq!(drawn_with(&with_page), (true, true), "the folder with a page");
 
         let _files = choose(&[3]);
-        assert_eq!(drawn_with(&with_picture), (false, false), "the folder cut instead");
+        assert_eq!(
+            drawn_with(&with_picture),
+            (false, false),
+            "the folder cut instead"
+        );
         assert_eq!(drawn_with(&with_page), (false, false));
 
         follow_preferences(&Preferences::default());
@@ -907,7 +914,9 @@ mod tests {
         ] {
             let cell = FileCell::new(layout, size);
             cell.look_up_picture(&item, policy());
-            wait_until("the folder's contents", || cell.shown_folder_contents() == Some((true, false)));
+            wait_until("the folder's contents", || {
+                cell.shown_folder_contents() == Some((true, false))
+            });
             let plain = FileCell::new(layout, size);
             plain.look_up_picture(&item, icons_only);
             wait_for(std::time::Duration::from_millis(100));

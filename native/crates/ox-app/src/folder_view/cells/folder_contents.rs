@@ -184,7 +184,10 @@ impl FolderContents {
     /// for tests.
     #[cfg(test)]
     pub(crate) fn uses_windows_pieces(&self) -> (bool, bool) {
-        (self.windows_pieces().is_some(), self.windows_folder_with_files().is_some())
+        (
+            self.windows_pieces().is_some(),
+            self.windows_folder_with_files().is_some(),
+        )
     }
 
     /// The page's icon's edge, in logical pixels.
