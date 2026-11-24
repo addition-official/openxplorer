@@ -3104,7 +3104,15 @@ msgid "Administrators at this computer install OpenXplorer updates without typin
 msgstr ""
 
 #: crates/ox-app/src/settings_page/about.rs
+msgid "After a few starts, a card asks once a session whether you would star OpenXplorer on GitHub, until you dismiss it. Off: the card never shows."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/about.rs
 msgid "An independent Windows 11–inspired file manager for Linux. Desktop: GTK 4 + GIO/GVfs."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/about.rs
+msgid "Ask for a GitHub star"
 msgstr ""
 
 #: crates/ox-app/resources/ui/status-bar.ui crates/ox-app/src/settings_page/about.rs crates/ox-app/src/window/status_bar.rs
@@ -3185,6 +3193,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/about.rs
 msgid "automatic update check daily launch startup notify notification network github privacy"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/about.rs
+msgid "github star prompt card ask rate enjoying nag popup reminder dismiss"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/about.rs
@@ -4649,7 +4661,15 @@ msgid "Every OpenXplorer window by title; choose one to bring it to the front."
 msgstr ""
 
 #: crates/ox-app/src/settings_page/general.rs
+msgid "Every Properties window, for a file, a folder, a drive, a shortcut or several items, opens at the same size and cannot be resized, as in Windows. Off: it opens at that size and can be made larger."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/general.rs
 msgid "Folders from other apps open in a new window"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/general.rs
+msgid "Keep Properties windows a fixed size (like Windows)"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/general.rs
@@ -4750,6 +4770,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/general.rs
 msgid "open new tabs new tab position after current end tab bar order middle click"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/general.rs
+msgid "properties window size fixed resize resizable larger same size dialog windows 380 520"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/general.rs
