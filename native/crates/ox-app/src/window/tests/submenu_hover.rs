@@ -6,7 +6,9 @@
 //! moving across other rows on the way into the open submenu keeps it
 //! open, a click opens it at once, Right opens it with the keyboard in it
 //! and Left or Escape closes it and gives the keyboard back to its row.
-//! The pointer leaving every menu leaves an open submenu open.
+//! The pointer leaving every menu closes an open submenu after the same
+//! delay, in every style, and leaves the menu itself open (checked on
+//! Windows 11 on 2026-11-24).
 //!
 //! Every menu of the app with a submenu is a [`MenuPopover`], so these
 //! tests check one menu of each kind: the command bar's, the file list's
@@ -367,34 +369,85 @@ fn moving_slowly_towards_an_open_submenu_across_other_rows_keeps_it_open() {
 }
 
 /// Moving the pointer away from an open submenu, down the menu, closes it
-/// once the pointer rests on another row; leaving every menu then leaves
-/// the menu open.
+/// once the pointer rests on another row. Leaving every menu, from the
+/// row or from inside the submenu, closes the submenu after the same
+/// delay, in the compact and the classic menu, as Windows 11 does; coming
+/// back within the delay keeps it; the menu itself stays open throughout.
 ///
 /// parity: CMD-010
 #[gtk::test]
 fn moving_away_from_an_open_submenu_closes_it_after_the_delay() {
     let mut session = Session::open(None);
-    choose_menu_style(&session.test, ContextMenu::Win11);
+    let outside = session.on_screen(&session.test.window, (8.0, 8.0));
+    for style in [ContextMenu::Win11, ContextMenu::Win10] {
+        choose_menu_style(&session.test, style);
+        // Down and to the left, away from the submenu, onto a row without one.
+        let (menu, on_view) = open_view_by_hover(&mut session);
+        let plain = plain_row(&menu);
+        let away = point_on_row(&session, &menu, &plain, 0.2);
+        session.pointer.glide(on_view, away, GLIDE_STEPS);
+        wait_until("the submenu to close", || menu.open_submenu_menu().is_none());
+        assert!(menu.is_mapped(), "{style:?}: the menu stays open");
+        menu.popdown();
+        wait_until("the menu to close", || !menu.is_mapped());
+
+        // From its row straight off every menu.
+        let (menu, on_view) = open_view_by_hover(&mut session);
+        session.pointer.glide(on_view, outside, GLIDE_STEPS);
+        wait_for(PAST_THE_DELAY);
+        assert!(
+            menu.open_submenu_menu().is_none(),
+            "{style:?}: the submenu closes once the pointer has left the menus"
+        );
+        assert!(menu.is_mapped(), "{style:?}: the menu stays open");
+        menu.popdown();
+        wait_until("the menu to close", || !menu.is_mapped());
+
+        // Into the submenu, which keeps it, then off it for no menu.
+        let (menu, on_view) = open_view_by_hover(&mut session);
+        let submenu = menu.open_submenu_menu().expect("the open submenu");
+        wait_for_frames(&submenu, 3);
+        let first = submenu.rows().into_iter().next().expect("a row");
+        let inside = session.on_screen(&first, (12.0, f64::from(first.height()) / 2.0));
+        session.pointer.glide(on_view, inside, GLIDE_STEPS);
+        wait_for(PAST_THE_DELAY);
+        assert!(
+            shows_submenu_of(&menu, "View"),
+            "{style:?}: the submenu stays while the pointer is on it"
+        );
+        // Off and back within the delay keeps it.
+        session.pointer.glide(inside, outside, 2);
+        session.pointer.glide(outside, inside, 2);
+        wait_for(PAST_THE_DELAY);
+        assert_eq!(
+            menu.open_submenu_menu().as_ref(),
+            Some(&submenu),
+            "{style:?}: coming back within the delay keeps the submenu"
+        );
+        session.pointer.glide(inside, outside, GLIDE_STEPS);
+        wait_for(PAST_THE_DELAY);
+        assert!(
+            menu.open_submenu_menu().is_none(),
+            "{style:?}: the submenu closes once the pointer has left it for no menu"
+        );
+        assert!(menu.is_mapped(), "{style:?}: the menu stays open");
+        menu.popdown();
+        wait_until("the menu to close", || !menu.is_mapped());
+    }
+}
+
+/// Opens the folder's menu and rests the real pointer on View until its
+/// submenu opens; the menu and where the pointer is.
+fn open_view_by_hover(session: &mut Session) -> (MenuPopover, (i32, i32)) {
     session.test.window.right_click(None);
-    let menu = open_pane_menu(&session);
-    let start = corner_of(&session, &menu);
-    let on_view = point_on_row(&session, &menu, "View", 0.7);
+    let menu = open_pane_menu(session);
+    let start = corner_of(session, &menu);
+    let on_view = point_on_row(session, &menu, "View", 0.7);
     session.pointer.glide(start, on_view, GLIDE_STEPS);
     wait_until("View's submenu to open on hover", || {
         shows_submenu_of(&menu, "View")
     });
-    // Down and to the left, away from the submenu, onto a row without one.
-    let plain = plain_row(&menu);
-    let away = point_on_row(&session, &menu, &plain, 0.2);
-    session.pointer.glide(on_view, away, GLIDE_STEPS);
-    wait_until("the submenu to close", || menu.open_submenu_menu().is_none());
-    assert!(menu.is_mapped(), "the menu stays open");
-    // Leaving every menu closes nothing more.
-    let outside = session.on_screen(&session.test.window, (8.0, 8.0));
-    session.pointer.glide(away, outside, GLIDE_STEPS);
-    wait_for(PAST_THE_DELAY);
-    assert!(menu.is_mapped(), "the pointer leaving the menu leaves it open");
-    menu.popdown();
+    (menu, on_view)
 }
 
 /// A submenu too wide to fit beside its menu on either side of the
