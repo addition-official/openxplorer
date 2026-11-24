@@ -177,6 +177,8 @@ impl DetailsPane {
         if imp.preview_area.center_widget().as_ref() != Some(widget) {
             imp.preview_area.set_center_widget(Some(widget));
         }
+        // In the middle of the preview's box, as Windows 11 centers it.
+        widget.set_valign(gtk::Align::Center);
         // A picture of the content takes the height its shape needs; the
         // art keeps the area's own height.
         let is_picture = widget.is::<gtk::Picture>();

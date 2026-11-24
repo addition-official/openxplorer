@@ -29,38 +29,34 @@ fn share_button(test: &TestWindow) -> gtk::Button {
     button_for(test, "win.share")
 }
 
+/// Share shows, as in Windows 11, also where no Email portal can take
+/// files: one without Email, nobody answering, or Email version 1, which
+/// takes no attachments. A click then says why, and asks no portal.
+///
 /// parity: CMD-037
 #[gtk::test]
-fn the_share_button_is_named_share_and_hidden_without_an_email_portal() {
+fn share_shows_without_an_email_portal_and_says_why() {
     let fixture = Fixture::standard();
     let test = laid_out(&fixture.uri());
     let button = share_button(&test);
     assert_eq!(button.tooltip_text().as_deref(), Some("Share"));
     let settings_only = SettingsPortal::serving(&[]);
-
-    use_portal(&test, &settings_only.name());
-    assert!(!button.is_visible(), "a portal without Email cannot share");
-    use_portal(&test, crate::window::share::NO_PORTAL);
-    assert!(!button.is_visible(), "nobody answers under that name");
-}
-
-/// Version 1 of the Email portal has no `attachment_fds`, which version
-/// 2 brought, so it would open an email without the files: Share shows
-/// only from version 2.
-///
-/// parity: CMD-037
-#[gtk::test]
-fn share_needs_an_email_portal_that_takes_attachments() {
-    let fixture = Fixture::standard();
-    let test = laid_out(&fixture.uri());
-    let button = share_button(&test);
     let first = EmailPortal::of_version(1, 0);
-    let second = EmailPortal::of_version(2, 0);
+    for portal in [
+        settings_only.name(),
+        crate::window::share::NO_PORTAL.to_owned(),
+        first.name(),
+    ] {
+        use_portal(&test, &portal);
+        assert!(button.is_visible(), "{portal}: Share shows");
+    }
+    select_names(&test, &["Notes 2.txt"]);
+    assert!(button.is_sensitive(), "a file can be shared");
 
-    use_portal(&test, &first.name());
-    assert!(!button.is_visible(), "version 1 takes no attachments");
-    use_portal(&test, &second.name());
-    assert!(button.is_visible(), "version 2 does");
+    button.emit_clicked();
+    let message = test.wait_for_dialog("the reason");
+    assert_eq!(message.title(), "Share");
+    assert!(first.calls().is_empty(), "version 1 is not asked");
 }
 
 /// parity: CMD-037

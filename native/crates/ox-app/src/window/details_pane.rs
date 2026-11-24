@@ -708,9 +708,14 @@ fn property_name(name: &str) -> gtk::Label {
 /// passes it by.
 fn property_value(value: &str) -> gtk::Label {
     let label = property_label(value, "detail-value");
-    // At the pane's right edge, as Windows 11 lines its values up.
+    // At the pane's right edge, as Windows 11 lines its values up, on one
+    // line cut with "…" ("C:\\Users\\aaa\\Documents\\Ref..."), the whole
+    // value in its tooltip.
     label.set_xalign(1.0);
-    label.set_justify(gtk::Justification::Right);
+    label.set_wrap(false);
+    label.set_single_line_mode(true);
+    label.set_ellipsize(gtk::pango::EllipsizeMode::End);
+    label.set_tooltip_text(Some(value));
     label.set_selectable(true);
     label.set_focusable(false);
     label.set_can_focus(false);
