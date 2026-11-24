@@ -98,14 +98,16 @@ impl AppState {
     }
 
     /// Shortly after startup, tidies up Super+E after an uninstalled
-    /// package of `OpenXplorer` or app (INT-033).
+    /// package of `OpenXplorer` or app (INT-033), and replaces GTK 3
+    /// apps' environment file an earlier version wrote with the opt-in
+    /// mark the packages' generator reads (INT-032).
     pub(super) fn forget_removed_shortcut_apps_soon(&self) {
         let context = self.context.downgrade();
         glib::timeout_add_seconds_local_once(SHORTCUT_TIDY_DELAY, move || {
             if let Some(context) = context.upgrade() {
-                context
-                    .desktop_integration()
-                    .forget_removed_launch_shortcut_apps();
+                let integration = context.desktop_integration();
+                integration.forget_removed_launch_shortcut_apps();
+                integration.replace_old_gtk_env_file();
             }
         });
     }

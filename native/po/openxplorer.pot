@@ -1344,7 +1344,7 @@ msgid "GTK 3 apps follow after you log out and back in."
 msgstr ""
 
 #: crates/ox-app/src/integration/file_dialog_service.rs
-msgid "GTK 3 apps keep GTK's dialog: ~/.config/environment.d/60-openxplorer-file-dialogs.conf is not OpenXplorer's, so it was left alone."
+msgid "GTK 3 apps keep GTK's dialog: ~/.config/winspace/file-dialogs/gtk-apps is not OpenXplorer's, so it was left alone."
 msgstr ""
 
 #: crates/ox-app/src/integration/file_dialog_service.rs

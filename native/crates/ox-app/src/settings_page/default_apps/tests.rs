@@ -142,11 +142,10 @@ impl DefaultAppsTest {
             .join("config/xdg-desktop-portal/kde-portals.conf")
     }
 
-    /// The environment file that makes GTK 3 apps ask the portal.
+    /// The opt-in mark for which the packages' generator makes GTK 3 apps
+    /// ask the portal.
     fn gtk_env_file(&self) -> std::path::PathBuf {
-        self.root
-            .path()
-            .join("config/environment.d/60-openxplorer-file-dialogs.conf")
+        self.root.path().join("winspace/file-dialogs/gtk-apps")
     }
 
     fn wait_for_status(&self, what: &str) {
