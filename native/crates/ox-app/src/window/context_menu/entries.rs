@@ -841,10 +841,11 @@ pub(crate) fn more_options_item(action: WindowAction) -> MenuEntry {
 /// Restore previous versions, Extract All…, Mount, View, Sort by, Group
 /// by, New, Refresh, Undo, Redo, Open file location (and the app's Open
 /// file location in a new tab or window, as Open in new tab and window)
-/// and the Recycle Bin's Restore and Empty Recycle Bin. The rows Windows draws with an icon keep
-/// their glyph: Open in Terminal, Open with and the applications' own
-/// icons, Send to, Properties and Open as administrator's shield; so do
-/// the app's own commands, which Windows does not have.
+/// and the Recycle Bin's Restore and Empty Recycle Bin. The other rows
+/// keep their glyph here, for the classic style's drop-down menus; the
+/// classic right-click menu (`legacy` in `menu_popover.rs`) draws only an
+/// application's own icon and Share's glyph, as Windows 11's does
+/// (reference/ref-05).
 const TEXT_ONLY_IN_CLASSIC: [WindowAction; 35] = [
     WindowAction::Open,
     // A drive's or place's Open in the navigation pane and This PC.

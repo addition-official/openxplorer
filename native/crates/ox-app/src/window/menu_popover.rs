@@ -929,6 +929,7 @@ impl MenuPopover {
             };
             let look = RowLook {
                 legacy,
+                submenu: self.imp().is_submenu.get(),
                 access_key: keys
                     .next()
                     .flatten()
@@ -2008,9 +2009,23 @@ fn item_content(item: &MenuItem, check: CheckMark, marks: MarkColumn, glyphs: Gl
 struct RowLook {
     /// Whether the menu is a legacy (Win32 style) menu.
     legacy: bool,
+    /// Whether the legacy menu is a submenu, which keeps every row's icon,
+    /// as Windows' Send to and New draw them.
+    submenu: bool,
     /// The byte offset of the access key the row underlines, if it shows
     /// one.
     access_key: Option<usize>,
+}
+
+/// Whether a legacy menu's row draws its own glyph. Windows 11's classic
+/// menu draws an icon only on a few rows (reference/ref-05): an
+/// application's own icon, as on "Edit in Notepad", which rows with an
+/// application icon show anyway, and Share's glyph. Every other row is
+/// text alone, its icon column kept empty so the text lines up. A
+/// submenu, such as Send to or New, keeps its icons, as Windows draws
+/// them.
+fn legacy_row_shows_glyph(item: &MenuItem) -> bool {
+    item.action == MenuAction::Window(super::window_action::WindowAction::Share)
 }
 
 /// A legacy menu's row, as Windows 11 lays out its Win32 menu: one 16px
@@ -2018,7 +2033,8 @@ struct RowLook {
 /// label with its access key underlined when `access_key` says where, and
 /// a column at the right for a submenu's arrow, which every row keeps, so
 /// the menu is as wide as its longest label and Windows' room after it.
-fn legacy_item_content(item: &MenuItem, check: CheckMark, access_key: Option<usize>) -> gtk::Box {
+fn legacy_item_content(item: &MenuItem, check: CheckMark, look: RowLook) -> gtk::Box {
+    let access_key = look.access_key;
     let content = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     let edge = crate::icons::scaled(ROW_GLYPH);
     let glyph: gtk::Widget = if check == CheckMark::Checked {
@@ -2029,7 +2045,7 @@ fn legacy_item_content(item: &MenuItem, check: CheckMark, access_key: Option<usi
         .and_then(|icon| integration::application_image(Some(icon), edge))
     {
         image.upcast()
-    } else if item.shows_glyph {
+    } else if item.shows_glyph && (look.submenu || legacy_row_shows_glyph(item)) {
         let image = icons::image(item.glyph, ROW_GLYPH);
         if item.glyph_look.mirrored {
             image.add_css_class("mirrored");
@@ -2208,7 +2224,7 @@ fn item_row(
     };
     let row = gtk::ListBoxRow::builder()
         .child(&if look.legacy {
-            legacy_item_content(item, check, look.access_key)
+            legacy_item_content(item, check, look)
         } else {
             item_content(item, check, marks, glyphs)
         })
