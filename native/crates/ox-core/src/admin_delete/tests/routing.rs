@@ -6,6 +6,7 @@
 //! The step that elevates is replaced here, so these tests never start a
 //! process and never ask for an administrator.
 
+use std::os::unix::ffi::OsStringExt;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
@@ -221,6 +222,9 @@ fn only_an_admin_location_of_this_computer_has_a_path_to_delete() {
     assert_eq!(path("admin://server/etc"), None);
     assert_eq!(path("file:///etc/hosts"), None);
     assert_eq!(path("smb://server/share/folder"), None);
+    // A name that is not UTF-8 keeps its bytes (GIO escapes them as %FF).
+    let bytes = path("admin:///srv/bad%FFname").map(|path| path.into_os_string().into_vec());
+    assert_eq!(bytes, Some(b"/srv/bad\xffname".to_vec()));
 }
 
 /// A location that is not `admin://` never reaches the helper, whatever

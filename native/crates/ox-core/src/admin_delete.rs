@@ -225,8 +225,8 @@ fn local_path(file: &gio::File) -> Option<PathBuf> {
     }
     // A path is bytes, not text: the escaped form is decoded to the bytes
     // it stands for, so a name that is not valid UTF-8 survives.
-    let decoded = glib::uri_unescape_string(&parts.path, None::<&str>)?;
-    let path = PathBuf::from(OsString::from_vec(decoded.as_bytes().to_vec()));
+    let decoded: Vec<u8> = percent_encoding::percent_decode_str(&parts.path).collect();
+    let path = PathBuf::from(OsString::from_vec(decoded));
     path.is_absolute().then_some(path)
 }
 
