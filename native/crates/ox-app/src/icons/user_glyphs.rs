@@ -86,6 +86,7 @@ pub(crate) const fn windows_source(icon: Icon) -> WindowsSource {
         Icon::Bluetooth => glyph(0xE702, "Bluetooth"),
         Icon::CheckboxChecked => glyph(0xE73A, "CheckboxComposite"),
         Icon::Checkmark => glyph(0xE73E, "CheckMark"),
+        Icon::Cloud => glyph(0xE753, "Cloud"),
         // The chevrons are `WinUI`'s, drawn at its 8-pixel font size
         // ([`em_of`]), as a drop-down button, a breadcrumb or a submenu
         // draws them.
