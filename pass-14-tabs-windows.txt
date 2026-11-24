@@ -1,4 +1,26 @@
 STATUS: DONE
+UPDATE 2026-11-24 (VM check 12 follow-up: the window menu's details)
+BRANCH: pass-14-system-menu-classic 24ea493d8d33bef6a71472e1cf75444e45eb85bb (one commit on bc428e0b).
+QUESTION: none. (Answered 2026-11-24 by the PC manager: keep Alt+Space as it is, no other key.)
+VISIBLE CHANGES (the window menu only; the classic right-click menu is unchanged)
+1. Alt+Space opens the menu with its outer corner 8 px in from the window's left edge and 31 px down from its top, just under the top of the tab (was the tab row's corner, 4 px lower). Measured live on KWin: 8 and 31, normal; the same offsets maximized. A right-click still opens it at the pointer.
+2. Rows 22 px apart (were 24, the classic menu's). Measured live: Restore, Move, Size, Minimize, Maximize at 22 px steps.
+3. The small glyph's ink starts 16 px in from the menu's outer edge and the text 38 px in (were 14 and 36). Measured live: Maximize's glyph at 16, Close's at 17, text at 38.
+4. Minimize underlines its n ("Mi_n_imize"), not its i. All keys after Alt+Space now: R Restore, M Move, S Size, n Minimize, x Maximize, C Close, U "Use system title bar and borders".
+5. Close's shortcut text "Alt+F4" is bold, like "Close".
+6. Opened with Alt+Space on a window that is not maximized, the grayed Restore is highlighted (the same full-row fill as a hovered row); Down goes to Move, Up to Close, and moving the pointer over a row moves the highlight there. Maximized, Restore is enabled and highlighted as before. A right-click highlights nothing until the pointer or a key moves.
+7. Corners stay square, the classic menu's look.
+WIDTH: no change made. With the extra row "Use system title bar and borders" the menu is 287 px wide outer, because that label is the longest; without that row it would measure 188 px (the Close row: 178 px plus the 10 px frame), 2 px over Windows' 186.
+No new text; no .pot or .po change.
+PASS tests, each failing before its change: title_bar_menu::the_window_menu_is_the_classic_system_menu now also expects n in Minimize, the system-menu rows, Restore highlighted while grayed, Down going to Move and a bold "Alt+F4"; new title_bar_menu::alt_space_opens_the_window_menu_where_windows_does (8 and 31 px from the window's corner, within 1 px).
+PASS touched tests, Rust 1.92, run_isolated as the unprivileged user: title_bar_menu 3, menu_popover 21, theme::fonts 10, legacy 1; classic 17 of 18. rustfmt --check, Clippy -D warnings, parity/check.py pass.
+FAIL look::classic_and_compact_menus_have_the_current_apps_widths_and_rows ("the classic width" 295 vs 264): the same failure as on unchanged origin/test-combined-59, reported in the deb 59 section; this change touches only the window menu's own class.
+PASS live, real input (xdotool) on KWin 5.27 Wayland (nested), dark, Compact view on: Alt+Space on a normal and a maximized window, Down from the grayed Restore, x to maximize and Alt+Space then r to restore. 1x dark captures in the chat only. No CRITICAL, panic or warning on stderr.
+
+VM CHECK
+13. Window menu, second look: on File Explorer press Alt+Space on a normal window, then Down, then Escape; right-click the empty title bar.
+   Look for: whether "Alt+F4" is drawn in the label's color or dimmer (the branch draws it dimmer, like the app's other shortcuts), and whether a right-click highlights any item before the pointer moves.
+
 UPDATE 2026-11-24 (deb 59 follow-up: classic window menu, Alt+Space, title hyphen)
 BRANCH: pass-14-system-menu-classic bc428e0bbc05d1259ee047af6c6983711365eaaa, cut from origin/test-combined-59 (c20dd197), which already holds pass-14-system-decorations and claude/classic-menu-windows.
 QUESTION: Alt+Space is taken by the desktop before any app sees it on stock GNOME (Mutter's own window menu) and on KDE Plasma (KRunner), so there the app's Alt+Space only works where the user frees the shortcut. Keep it as is, or also offer the menu on another key (Windows has none besides Alt+Space)?
