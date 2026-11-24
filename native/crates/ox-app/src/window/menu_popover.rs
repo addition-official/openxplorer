@@ -928,7 +928,7 @@ impl MenuPopover {
         let more_options_key = self.shift_f10_opens_classic_menu().then_some(SHIFT_F10_TEXT);
         let legacy = self.imp().legacy.get();
         let keys = if legacy {
-            access_keys(items_of(&entries).map(|item| item.label.as_str()))
+            access_keys(items_of(&entries).map(|item| (item.label.as_str(), item.access_key_at)))
         } else {
             Vec::new()
         };
@@ -2112,6 +2112,9 @@ fn item_content(item: &MenuItem, check: CheckMark, marks: MarkColumn, glyphs: Gl
     content
 }
 
+/// The edge of the small glyphs of Windows' window menu (Marlett's).
+const SYSTEM_MENU_GLYPH: i32 = 10;
+
 /// How a row of a legacy menu is drawn.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 struct RowLook {
@@ -2153,6 +2156,24 @@ fn legacy_item_content(item: &MenuItem, check: CheckMark, look: RowLook) -> gtk:
         .and_then(|icon| integration::application_image(Some(icon), edge))
     {
         image.upcast()
+    } else if item.shows_glyph && item.legacy_glyph {
+        // Windows' window menu draws Restore, Minimize, Maximize and Close
+        // with small Marlett glyphs.
+        let image = icons::image(item.glyph, SYSTEM_MENU_GLYPH);
+        image.add_css_class("system-menu-glyph");
+        image.set_halign(gtk::Align::Center);
+        image.set_valign(gtk::Align::Center);
+        // Over an empty column as wide as the text-only rows' own, so the
+        // labels line up.
+        let slot = gtk::Overlay::new();
+        slot.set_child(Some(
+            &gtk::DrawingArea::builder()
+                .content_width(edge)
+                .content_height(edge)
+                .build(),
+        ));
+        slot.add_overlay(&image);
+        slot.upcast()
     } else if item.shows_glyph && (look.submenu || legacy_row_shows_glyph(item)) {
         let image = icons::image(item.glyph, ROW_GLYPH);
         if item.glyph_look.mirrored {
@@ -2273,8 +2294,8 @@ const WINDOWS_ACCESS_KEYS: [(&str, usize); 40] = [
 /// Rename"; any other label the first letter of its words not taken yet,
 /// then any letter not taken yet. Two labels may share one, as Windows
 /// lets them; the key then moves between them.
-fn access_keys<'a>(labels: impl Iterator<Item = &'a str>) -> Vec<Option<(usize, char)>> {
-    let labels: Vec<&str> = labels.collect();
+fn access_keys<'a>(labels: impl Iterator<Item = (&'a str, Option<usize>)>) -> Vec<Option<(usize, char)>> {
+    let (labels, own_keys): (Vec<&str>, Vec<Option<usize>>) = labels.unzip();
     let at_char = |label: &str, nth: usize| {
         label
             .char_indices()
@@ -2284,11 +2305,15 @@ fn access_keys<'a>(labels: impl Iterator<Item = &'a str>) -> Vec<Option<(usize, 
     };
     let mut keys: Vec<Option<(usize, char)>> = labels
         .iter()
-        .map(|label| {
-            WINDOWS_ACCESS_KEYS
-                .iter()
-                .find(|(known, _)| known == label)
-                .and_then(|(_, nth)| at_char(label, *nth))
+        .zip(&own_keys)
+        .map(|(label, own)| {
+            own.and_then(|nth| at_char(label, nth))
+                .or_else(|| {
+                    WINDOWS_ACCESS_KEYS
+                        .iter()
+                        .find(|(known, _)| known == label)
+                        .and_then(|(_, nth)| at_char(label, *nth))
+                })
                 .or_else(|| {
                     (label.starts_with("Undo ") || label.starts_with("Redo "))
                         .then(|| at_char(label, 0))

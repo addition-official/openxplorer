@@ -8,7 +8,14 @@
 //! not. Under them, as Chrome offers "Use system title bar and borders"
 //! there, a check item turns the desktop's own title bar and borders on or
 //! off for every open window ([`super::title_bar`]). A right-click on a
-//! tab, the "+" or a caption button keeps its own menu or none.
+//! tab, the "+" or a caption button keeps its own menu or none. Alt+Space
+//! opens the menu at the window's top left, as in Windows.
+//!
+//! It is Windows' old Win32 system menu, not a Windows 11 menu, so it is
+//! drawn in the classic right-click menu's legacy look ([`MenuPopover`]'s
+//! `legacy`): small glyphs beside Restore, Minimize, Maximize and Close
+//! only, Close in bold as the default item, and access keys underlined
+//! when the keyboard opened it.
 //!
 //! With the desktop's frame the tab row is the first row of the window's
 //! content; it is still a [`gtk::WindowHandle`], and its empty part has
@@ -59,13 +66,19 @@ pub(super) struct WindowMenuFacts {
 }
 
 /// The window menu, in Windows 11's order, then the system title bar
-/// choice.
+/// choice. It is Windows' Win32 system menu, drawn as the classic menu is:
+/// small glyphs beside Restore, Minimize, Maximize and Close only, Close
+/// in bold as the default item, and Windows' access keys (Restore, Move,
+/// Size, mInimize, maXimize, Close), underlined when the keyboard opened
+/// it.
 pub(super) fn window_menu(facts: WindowMenuFacts) -> Vec<MenuEntry> {
     let restore = MenuItem::new(
         &ox_core::i18n::gettext("Restore"),
         Icon::SquareMultiple,
         WindowAction::RestoreWindow,
     )
+    .with_access_key(0)
+    .with_legacy_glyph()
     .disabled_when(!facts.maximized);
     let moving = MenuItem::new(
         &ox_core::i18n::gettext("Move"),
@@ -73,6 +86,7 @@ pub(super) fn window_menu(facts: WindowMenuFacts) -> Vec<MenuEntry> {
         WindowAction::MoveWindow,
     )
     .without_glyph()
+    .with_access_key(0)
     .disabled_when(facts.maximized);
     let size = MenuItem::new(
         &ox_core::i18n::gettext("Size"),
@@ -80,24 +94,33 @@ pub(super) fn window_menu(facts: WindowMenuFacts) -> Vec<MenuEntry> {
         WindowAction::SizeWindow,
     )
     .without_glyph()
+    .with_access_key(0)
     .disabled_when(facts.maximized);
     let minimize = MenuItem::new(
         &ox_core::i18n::gettext("Minimize"),
         Icon::Subtract,
         WindowAction::MinimizeWindow,
-    );
+    )
+    .with_access_key(1)
+    .with_legacy_glyph();
     let maximize = MenuItem::new(
         &ox_core::i18n::gettext("Maximize"),
         Icon::Maximize,
         WindowAction::MaximizeWindow,
     )
+    .with_access_key(2)
+    .with_legacy_glyph()
     .disabled_when(facts.maximized);
+    // The menu's default item, which Windows draws in bold.
     let close = MenuItem::new(
         &ox_core::i18n::gettext("Close"),
         Icon::Dismiss,
         WindowAction::CloseWindow,
     )
-    .with_shortcut("Alt+F4");
+    .with_shortcut("Alt+F4")
+    .with_access_key(0)
+    .with_legacy_glyph()
+    .emphasised();
     let mut system = MenuItem::new(
         &ox_core::i18n::gettext("Use system title bar and borders"),
         Icon::Dismiss,
@@ -154,6 +177,25 @@ impl BrowserWindow {
         ));
         self.imp().tab_bar.add_controller(press);
         self.install_armed_frame_drag();
+        // Alt+Space opens it from the keyboard, as in Windows, before the
+        // focused widget sees the key.
+        let keys = gtk::ShortcutController::new();
+        keys.set_propagation_phase(gtk::PropagationPhase::Capture);
+        let open = gtk::CallbackAction::new(|widget, _| {
+            let Some(window) = widget.downcast_ref::<BrowserWindow>() else {
+                return glib::Propagation::Proceed;
+            };
+            if window.dialog_layer().shown().is_some() {
+                return glib::Propagation::Proceed;
+            }
+            window.open_window_menu_from_keyboard();
+            glib::Propagation::Stop
+        });
+        keys.add_shortcut(gtk::Shortcut::new(
+            gtk::ShortcutTrigger::parse_string("<Alt>space"),
+            Some(open),
+        ));
+        self.add_controller(keys);
     }
 
     /// Whether (`x`, `y`) of the tab row is on its empty part: not on a
@@ -170,9 +212,23 @@ impl BrowserWindow {
             .all(|widget| !widget.is::<gtk::Button>() && !widget.has_css_class("tab"))
     }
 
-    /// Opens the window menu at (`x`, `y`) of the tab row.
+    /// Opens the window menu at (`x`, `y`) of the tab row, as a
+    /// right-click does.
     fn show_window_menu_at(&self, x: f64, y: f64) {
+        self.show_window_menu(x, y, false);
+    }
+
+    /// Alt+Space: opens the window menu at the window's top left, with
+    /// its access keys underlined, as Windows does.
+    pub(super) fn open_window_menu_from_keyboard(&self) {
+        self.show_window_menu(0.0, 0.0, true);
+    }
+
+    /// Opens the window menu at (`x`, `y`) of the tab row, in the classic
+    /// menu's legacy look; `keyboard` underlines its access keys.
+    fn show_window_menu(&self, x: f64, y: f64, keyboard: bool) {
         let menu = MenuPopover::kept_by(&self.imp().tab_bar.get(), MENU_NAME);
+        menu.set_legacy_look(true, keyboard);
         menu.set_entries(window_menu(WindowMenuFacts {
             maximized: self.is_maximized() || self.is_fullscreen(),
             system_title_bar: self
@@ -422,5 +478,75 @@ mod tests {
             item(&maximized, "Use system title bar and borders").check,
             ItemCheck::Fixed(true)
         );
+    }
+
+    /// The window menu is Windows' Win32 system menu, drawn as the classic
+    /// right-click menu is (the legacy look): small glyphs beside Restore,
+    /// Minimize, Maximize and Close only, Close in bold as the default
+    /// item, and, opened from the keyboard (Alt+Space), Windows' access
+    /// keys underlined: Restore, Move, Size, mInimize, maXimize, Close.
+    /// "Use system title bar and borders" stays under a separator in the
+    /// same look. Opened by the pointer, nothing is underlined; the keys
+    /// work either way.
+    ///
+    /// parity: LOOK-032
+    #[gtk::test]
+    fn the_window_menu_is_the_classic_system_menu() {
+        use crate::test_support::harness::{settle, Fixture, TestWindow};
+
+        let fixture = Fixture::standard();
+        let test = TestWindow::open(&fixture.uri());
+        test.window.open_window_menu_from_keyboard();
+        settle();
+        let menu = test.window.title_bar_menu().expect("the window menu");
+        let legacy = menu.has_css_class("legacy");
+        let keys = menu.underlined_keys();
+        let bold = menu.bold_row_labels();
+        let glyphs = menu.legacy_glyph_labels();
+        let rows = menu.row_labels();
+        let at_top_left = menu.pointing_to().1.x() <= 1 && menu.pointing_to().1.y() <= 1;
+        menu.popdown();
+        settle();
+
+        test.window.show_window_menu_at(200.0, 10.0);
+        settle();
+        let by_pointer = test
+            .window
+            .title_bar_menu()
+            .expect("the window menu")
+            .underlined_keys();
+        test.window.title_bar_menu().expect("the window menu").popdown();
+
+        assert!(legacy, "drawn as the classic menu");
+        assert!(at_top_left, "Alt+Space opens it at the window's top left");
+        assert_eq!(
+            keys,
+            [
+                ("Restore".to_owned(), Some('R')),
+                ("Move".to_owned(), Some('M')),
+                ("Size".to_owned(), Some('S')),
+                ("Minimize".to_owned(), Some('i')),
+                ("Maximize".to_owned(), Some('x')),
+                ("Close".to_owned(), Some('C')),
+                ("Use system title bar and borders".to_owned(), Some('U')),
+            ]
+        );
+        assert_eq!(bold, ["Close"]);
+        assert_eq!(glyphs, ["Restore", "Minimize", "Maximize", "Close"]);
+        assert_eq!(
+            rows,
+            [
+                "Restore",
+                "Move",
+                "Size",
+                "Minimize",
+                "Maximize",
+                "-",
+                "Close",
+                "-",
+                "Use system title bar and borders"
+            ]
+        );
+        assert!(by_pointer.iter().all(|(_, key)| key.is_none()), "{by_pointer:?}");
     }
 }
