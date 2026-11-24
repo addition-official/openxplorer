@@ -23,7 +23,7 @@ Builds on: the previous PR in this series (pr/15-pass-14-tabs-windows)
 - **ZIP:** "The Compressed (zipped) Folder is invalid." for a damaged archive, and "This ZIP archive uses a feature that isn't supported. To open it, use a different archive app." for an unsupported one; zipfile's words go to the log.
 - **Format:** "OpenXplorer was unable to complete the format."; a drive formatted but not mounted again no longer quotes UDisks.
 - The `gio` workspace dependency gets the `v2_74` feature (the app already needs GLib 2.76) for `G_IO_ERROR_NO_SUCH_DEVICE`.
-- The message template is regenerated and the parity notes are updated (DEV-015, VIEW-047, OPS-047, the sign-in text); no `.po` file is touched.
+- The message template is regenerated and the parity notes are updated (DEV-015, VIEW-047, NET-003 and NET-007's sign-in text); no `.po` file is touched.
 
 Unchanged: disk full, a typed address that is not found, and a missing app. New folder, New file and Paste refused by the system still say it in the message line (now in Windows' words), not in Windows' "Destination Folder Access Denied" dialog. A name too long on rename keeps "This name is longer than 255 bytes.".
 
@@ -31,7 +31,11 @@ Unchanged: disk full, a typed address that is not found, and a missing app. New 
 Errors reached the interface as GIO, GLib, Samba, libmtp, UDisks or Python zipfile text, with paths and URIs inside, for example "Error moving file /home/…/keep.txt: Permission denied" in a toast after a rename, "Error creating directory /mnt/…/beach.jpg: Read-only file system" in Interrupted Action, "Failed to mount Windows share: Connection refused" under an unreachable share's Details, "File is not a zip file" for a damaged ZIP, and "Permission denied (os error 13): /home/…/settings.json". Windows 11 says the same failures in its own words and, where its dialogs have one, with the error code line. An unreachable share moved the tab to an unavailable page, where Windows 11 stays and asks.
 
 ## CHANGED OWNER DECISIONS
-None recorded as an owner decision. Note that this revises the recorded parity behavior DEV-015: before, New stayed on on a read-only drive and a New that failed there showed the system's error; now New is grayed on a drive whose file system is read-only, as Windows 11 grays it on a write-protected USB stick.
+The parity specs in `native/parity/features.toml` record these decisions, and this PR changes them:
+- DEV-015 (A drive mounted read-only does not explain itself). Before: "A write that fails there shows the system's own error, as the Python app's error_payload did. New and Paste stay on too, as they do in any folder the user may not write to (CMD-011): a New or Paste that fails there shows the system's error and makes nothing." After: a write that fails there shows the system's error in Windows' words ("The media is write protected.", in Interrupted Action "Error 0x80070013: The media is write protected."); Paste stays on as before, but New is grayed on a drive whose file system is read-only, as Windows 11 grays it on a write-protected USB stick; and a copy that meets the drive asks "1 Interrupted Action", "The disk is write-protected.", "Remove the write-protection or use another disk." with Try Again, Skip and Cancel, no error code and no "Do this for all current items", More details grayed. The rest of the entry (no notice, no explanation of why the drive is read-only, Paste into folder, Cut, Rename, Duplicate and Delete on) is unchanged.
+- NET-007 (Network sign-in dialog layout). Before: a refused sign-in said "The previous sign-in was not accepted. Check your username and password."; after: "The user name or password is incorrect.", Windows' words.
+- VIEW-047 (Empty, loading and unavailable states). Before: a folder that may not be read showed "Access is denied." with the system's error under Details; after: Windows' message box (error icon, OK, nothing under Details).
+- NET-003 (SMB server listing shows shares as network folders). New note: a share that cannot be reached keeps the tab on the folder it was opened from and shows Windows 11's "Network Error" dialog, instead of moving the tab to an unavailable page.
 
 ## New and changed visible text
 Changed:

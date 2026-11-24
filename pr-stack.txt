@@ -1,14 +1,12 @@
-STATUS: DONE (31 stacked PR branches pushed; no PRs opened)
-HEAD: pr/31-windows-mode-switch 9bac293c45afeed63811ff39c9cf766249225234
+STATUS: DONE (32 stacked PR branches force-pushed; no PRs opened)
+HEAD: pr/32-classic-menu-windows 5627819e8036709981ca1854d8960632b1647514
 BASE: upstream main 0fed5d4a (AKolenda/openxplorer)
-QUESTION: PR 22 (long-a-fuzz) adds two libFuzzer crash files, native/fuzz/crash-da39a3ee5e6b4b0d3255bfef95601890afd80709 (empty) and native/fuzz/crash-f1aedce8... (148 bytes), from long-a's commit e65d298d. They are in test-combined-56, so they stay to keep the final tree equal; they look accidental. Drop them from PR 22 (and the final tree)?
-QUESTION: PR 16 (pass-15-errors) changes parity entry DEV-015 (New on a read-only drive was on, now grayed); its text lists it as a parity change, not an owner decision. Is DEV-015 a recorded owner decision?
-QUESTION: PR 29 (long-c-thumb-cache) settles the open "needs an owner decision" item on folder-contents previews; its text says "None" for changed decisions with a note. OK as written?
-NOTE: Final tree check: `git diff pr/31-windows-mode-switch <target>` is empty, where target = test-combined-56 (a1082704) + upstream's 2 newer commits (95ea4003, 0fed5d4a; one ui-spec.md row conflict resolved by taking both changes) - the icon growth work (0613fcfb, 3a42a312, 31929ba8, c1496e0b, removed by hand where later work had built on it; Tiles, Content and icon cells keep their 100% icon sizes, the skin's static chevron sizes apply) - .github/workflows/fork-test-deb.yml. No status/*.txt or status/*.md in any pr branch; no .po file changed.
-NOTE: Order changes from the list given: network-like-windows is PR 07, ahead of pass-7 (it only needs passes 1-6); pass-7-views is split into PR 08 (early commits) and PR 26 pass-7-views-2 (the later spacing, column title line, Name width and Tiles work, written on top of the later passes); long-c-thumb-cache is PR 29, after review-6-fixes, because its last commit uses review-6's file-time change. No tiny branches were merged together.
-NOTE: Each PR's diff only touches files its feature (or the test-combined fix it carries) touched. Where a later PR rewrites a line an earlier one added, the earlier PR keeps the version that feature wrote; some intermediate PRs therefore add tests that PR 26's "Drop redundant tests" later removes. pass-4's computers-under-Network work, which a later commit reverted, appears in no PR.
-NOTE: Checks run on every branch: cargo check --workspace --all-targets (0 errors, 0 warnings), cargo fmt --all -- --check, python3 native/parity/check.py; all pass. No test suites were run. Commits are by addition-official with no trailers, one commit per branch titled as its PR.
-NOTE: PR texts are pr-01-*.md .. pr-31-*.md on this branch.
+QUESTION: none.
+NOTE: Updated to deb 57: target = origin/test-combined-57 (30414a50) + origin/claude/classic-menu-windows tip 981c6823 ("Show icons in the classic menu only where Windows does") - the icon growth work (0613fcfb, 3a42a312, 31929ba8, c1496e0b, removed by hand where later work built on it, now also one call in the classic menu's Win32 rows) - .github/workflows/fork-test-deb.yml - the two libFuzzer crash files native/fuzz/crash-da39a3ee... and crash-f1aedce8... (nothing reads them: the harness writes failures to artifacts/ and regression tests sit next to the parsers, so they were dropped as asked). `git diff pr/32-classic-menu-windows <target>` is empty.
+NOTE: New work went where asked: owner-audit round 2 (PR 27, including its large "Drop redundant tests" commit ebdeac88), review-6 rounds 4-5 (PR 28), pass-12's view toggles and Details button (PR 13), pass-7's four-line names (PR 26), long-c's straight picture and imageres 162 (PR 29), windows-mode-switch's star prompt, fixed-size Properties and wider guard (PR 31), and the classic menu as the new PR 32. The pruning commits that test-combined-57 brought for network-like-windows, pass-8, pass-9 and pass-10 are in PRs 07, 09, 10 and 11.
+NOTE: PR texts: PR 16 lists DEV-015 (before/after) and other parity entries it changes under CHANGED OWNER DECISIONS; PR 29 says "Settles the open decision VIEW-058"; PR 22 has no crash files. One pot string of PR 31 (the GitHub star card) contains the word "session", so it is quoted only up to that word with a pointer to the .pot.
+NOTE: Order unchanged from the first stack: network-like-windows is PR 07; pass-7 is split into PR 08 and PR 26; long-c is PR 29 after review-6. Each PR changes only files its feature touched; no test is removed by one PR and re-added by a later one. Where a later PR rewrites code, the earlier PR keeps the version its feature wrote, so some code (for example network-like-windows' first menu helpers) is added in one PR and replaced later.
+NOTE: Checks run on every branch: cargo check --workspace --all-targets (0 errors, 0 warnings), cargo fmt --all -- --check, python3 native/parity/check.py; all pass. No test suites were run. One commit per branch, by addition-official, no trailers.
 
 NN | branch | source branches | commits | files | cargo check
 01 | pr/01-pass-1-copy-move | pass-1-copy-move | 5 | 14 | ok (0 errors, 0 warnings)
@@ -16,29 +14,30 @@ NN | branch | source branches | commits | files | cargo check
 03 | pr/03-pass-3-rename | pass-3-rename | 11 | 22 | ok (0 errors, 0 warnings)
 04 | pr/04-pass-4-nav-pane | pass-4-nav-pane | 14 | 29 | ok (0 errors, 0 warnings)
 05 | pr/05-pass-5-address-bar | pass-5-address-bar | 8 | 29 | ok (0 errors, 0 warnings)
-06 | pr/06-pass-6-context-menu | pass-6-context-menu (+2 review4-diffs commits it merged) | 12 | 51 | ok (0 errors, 0 warnings)
-07 | pr/07-network-like-windows | network-like-windows | 3 | 71 | ok (0 errors, 0 warnings)
+06 | pr/06-pass-6-context-menu | pass-6-context-menu (+2 review4-diffs commits it merged) | 12 | 52 | ok (0 errors, 0 warnings)
+07 | pr/07-network-like-windows | network-like-windows | 4 | 74 | ok (0 errors, 0 warnings)
 08 | pr/08-pass-7-views | pass-7-views (early commits) | 9 | 18 | ok (0 errors, 0 warnings)
-09 | pr/09-pass-8-open-with | pass-8-open-with | 15 | 25 | ok (0 errors, 0 warnings)
-10 | pr/10-pass-9-scaling | pass-9-scaling | 8 | 31 | ok (0 errors, 0 warnings)
-11 | pr/11-pass-10-home-recent | pass-10-home-recent | 6 | 21 | ok (0 errors, 0 warnings)
+09 | pr/09-pass-8-open-with | pass-8-open-with | 16 | 26 | ok (0 errors, 0 warnings)
+10 | pr/10-pass-9-scaling | pass-9-scaling | 10 | 33 | ok (0 errors, 0 warnings)
+11 | pr/11-pass-10-home-recent | pass-10-home-recent | 8 | 21 | ok (0 errors, 0 warnings)
 12 | pr/12-pass-11-new-menu | pass-11-new-menu | 12 | 33 | ok (0 errors, 0 warnings)
-13 | pr/13-pass-12-details-status | pass-12-details-status | 12 | 28 | ok (0 errors, 0 warnings)
+13 | pr/13-pass-12-details-status | pass-12-details-status (incl. view toggles and Details button) | 13 | 36 | ok (0 errors, 0 warnings)
 14 | pr/14-pass-13-startup | pass-13-startup | 10 | 20 | ok (0 errors, 0 warnings)
 15 | pr/15-pass-14-tabs-windows | pass-14-tabs-windows | 11 | 32 | ok (0 errors, 0 warnings)
-16 | pr/16-pass-15-errors | pass-15-errors | 11 | 71 | ok (0 errors, 0 warnings)
+16 | pr/16-pass-15-errors | pass-15-errors | 11 | 70 | ok (0 errors, 0 warnings)
 17 | pr/17-pass-16-clipboard | pass-16-clipboard | 7 | 22 | ok (0 errors, 0 warnings)
 18 | pr/18-pass-17-shortcuts | pass-17-shortcuts | 12 | 47 | ok (0 errors, 0 warnings)
 19 | pr/19-pass-18-drives | pass-18-drives | 16 | 39 | ok (0 errors, 0 warnings)
 20 | pr/20-pass-19-a11y | pass-19-a11y | 17 | 53 | ok (0 errors, 0 warnings)
 21 | pr/21-sort-header-windows | sort-header-windows | 5 | 16 | ok (0 errors, 0 warnings)
-22 | pr/22-long-a-fuzz | long-a-fuzz | 20 | 69 | ok (0 errors, 0 warnings)
+22 | pr/22-long-a-fuzz | long-a-fuzz | 20 | 67 | ok (0 errors, 0 warnings)
 23 | pr/23-long-d-doc-previews | long-d-doc-previews | 23 | 11 | ok (0 errors, 0 warnings)
 24 | pr/24-long-b-soak | long-b-soak | 3 | 9 | ok (0 errors, 0 warnings)
 25 | pr/25-user-icon-files | user-icon-files (without the icon growth work) + 3 test-combined merge fixes | 23 | 54 | ok (0 errors, 0 warnings)
-26 | pr/26-pass-7-views-2 | pass-7-views (later commits) + 1 test-combined fix | 10 | 35 | ok (0 errors, 0 warnings)
-27 | pr/27-owner-audit-fixes | claude/owner-audit-fixes | 14 | 49 | ok (0 errors, 0 warnings)
-28 | pr/28-review-6-fixes | claude/review-6-fixes | 26 | 78 | ok (0 errors, 0 warnings)
-29 | pr/29-long-c-thumb-cache | long-c-thumb-cache + 1 test-combined rustfmt commit | 16 | 35 | ok (0 errors, 0 warnings)
+26 | pr/26-pass-7-views-2 | pass-7-views (later commits, incl. four-line names) + 1 test-combined fix | 11 | 34 | ok (0 errors, 0 warnings)
+27 | pr/27-owner-audit-fixes | claude/owner-audit-fixes (rounds 1-2) | 25 | 98 | ok (0 errors, 0 warnings)
+28 | pr/28-review-6-fixes | claude/review-6-fixes (through round 5) | 29 | 83 | ok (0 errors, 0 warnings)
+29 | pr/29-long-c-thumb-cache | long-c-thumb-cache + 2 test-combined rustfmt commits | 18 | 36 | ok (0 errors, 0 warnings)
 30 | pr/30-settings-export-letters | claude/settings-export-letters | 1 | 26 | ok (0 errors, 0 warnings)
-31 | pr/31-windows-mode-switch | claude/windows-mode-switch + 1 test-combined commit (3d6ddce0) | 9 | 22 | ok (0 errors, 0 warnings)
+31 | pr/31-windows-mode-switch | claude/windows-mode-switch + 1 test-combined commit (3d6ddce0) | 11 | 28 | ok (0 errors, 0 warnings)
+32 | pr/32-classic-menu-windows | claude/classic-menu-windows (8f596d15, 981c6823) | 1 | 15 | ok (0 errors, 0 warnings)

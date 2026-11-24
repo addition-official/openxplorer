@@ -18,6 +18,7 @@ Builds on: the previous PR in this series (pr/09-pass-8-open-with)
 - **A Gallery tile keeps its sharp picture.** A picture decoded for the tile is never replaced by a thumbnail that arrives later.
 - **The progress and File Conflict windows follow the text size**: the progress header, its percentage and the speed graph's labels, and the File Conflict window's heading and names.
 - The interface guide describes the narrow-window behavior.
+- **Tests removed.** The "test: Drop redundant tests" commits remove three of PR 06's menu tests that other tests already cover (`a_network_computer_has_windows_11s_menu`, `a_text_file_offers_edit_in_its_default_text_editor` and `share_with_comes_before_add_to_favorites`), and some of this branch's own new tests (named below).
 
 ## Why
 - In a narrow window, at a large text size, in the Recycle Bin or during a search, the last commands were clipped, "..." among them, so its menu (Select all, Properties, Options and the rest) could not be reached.

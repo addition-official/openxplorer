@@ -26,7 +26,7 @@ Copy, cut and paste between OpenXplorer and other apps were tested with real key
 None. One commit in this PR made Paste ignore a picture by default; the next commit reverts it, so the owner's choice ("Paste pictures as new files" on by default) stands.
 
 ## New and changed visible text
-None. (The message "Encoded control characters are not allowed." only moves in `openxplorer.pot`: the clipboard no longer uses it, the address bar still does.)
+None.
 
 ## Tests
 Run on this branch: `cargo check --workspace --all-targets` (no errors or warnings), `cargo fmt --all -- --check` and `python3 native/parity/check.py`, all passing. The test suites were not run on this branch.

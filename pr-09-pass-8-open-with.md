@@ -20,6 +20,7 @@ Builds on: the previous PR in this series (pr/08-pass-7-views)
 - **A disabled accent button looks disabled.** Just once before an app is chosen, or Set default for a type that cannot get a default, kept the blue fill; it is now drawn as a disabled bordered button.
 - **The chooser puts the keyboard on the chosen app**, also when More apps opens by itself.
 - **Type-to-select with `GTK_A11Y=none`.** PR 01 already stops this crash; this PR adds a test that runs itself again with `GTK_A11Y=none` and announces with no accessibility context.
+- **Tests removed.** The "test: Drop redundant tests" commit removes PR 08's `switching_to_small_icons_keeps_the_list_at_the_top` and `home_shows_the_first_groups_heading_in_a_grouped_grid`, which other tests already cover. Three older tests of the old behavior (`a_file_without_an_application_offers_a_search_in_software`, `only_a_type_without_an_application_is_searched_for` and `the_items_other_applications_are_offered_before_open_with`) are replaced by tests of the chooser and the Open with submenu.
 
 Checked and unchanged: text, PDF, JPEG, PNG (a Flatpak app, which gets `@@u <path> @@`), MP3, MP4, ODT, a 3 GiB MP4, names with spaces, Unicode and shell characters (passed as one literal path), `.desktop` folder links (followed), `.desktop` launchers and scripts (opened in their editor, never run, unless Settings asks), ZIP members, search results, Recent, mixed selections, and a folder's Open, Open in new tab and Open in new window.
 
@@ -33,7 +34,12 @@ Docs (`docs.json` and the generated guides), the UI spec, the parity notes (OPEN
 - The open question came one item early, and a disabled Just once looked clickable.
 
 ## CHANGED OWNER DECISIONS
-None.
+The parity specs in `native/parity/features.toml` record these as decided behavior, and this PR changes them:
+- OPEN-003 (Open several selected items at once): before, opening 15 or more items asked first; now more than 15, as Windows asks above its `MultipleInvokePromptMinimum` of 15.
+- OPEN-010 (Offer to install a handler when no application opens a file type): before, a file no app opens showed "Could not open the item: No application is installed for this file type. Use Open with… to choose one." with a Software search button; now it opens the app chooser, which carries the Software link.
+- OPEN-012 (Open with launches and can set the default): before, Always set the default for the file's content type; now for what the file's extension names.
+- OPEN-013 (Open With applications listed in the menu): before, the applications were rows in the menu itself, "as Nautilus has them, rather than in a submenu", without the file's default application; now an "Open with" submenu lists up to four apps, the default first, then "Choose another app", as Windows 11 does.
+- PROP-003 (Properties General tab): before, Change... opened the Open with chooser; now it only sets the default app and opens nothing.
 
 ## New and changed visible text
 - "Select an app to open this file" → "Select an app to open '{name}'"

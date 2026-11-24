@@ -20,12 +20,13 @@ Data safety comes first: compressing a folder could make an incomplete archive w
 - **Properties' Hidden keeps the name.** The item is listed in its folder's `.hidden` file (which GIO, Nautilus and Dolphin honor), and clearing Hidden takes it off; other lines are kept, and the list is replaced through a new file. A dot-name still reads as hidden. Only an item off this computer, where no list can be written, still gets a leading dot.
 - **A local folder that cannot be listed** shows a folder icon and a short sentence ("The file name or path is too long.", "This folder can't be found. It may have been moved or deleted.", "This folder can't be opened."), unselected, instead of the network icon and GIO's raw text. A share mounted at a local path still says it was disconnected.
 - **Dates at and before 1 January 1970** show and sort in Date modified, Properties and the Recycle Bin, as in Windows. Item times are now signed, as GIO keeps them; the search cache, the settings file and the thumbnail cache keep their unsigned times, where 0 still means unknown.
-- **Details pane on a picture:** the preview runs edge to edge with square corners, as tall as the picture's shape needs; the name is 15 px semibold beside a 32 px icon centered on it, and the Details rows are 22 px apart with their values at the pane's right edge, as measured on Windows 11.
-- **Set as background, Rotate left and Rotate right** show in the command bar whenever pictures are selected, not only in Gallery. Set as background hands one selected picture to the desktop's Wallpaper portal, which shows its own preview and asks first; it is grayed where the desktop has no Wallpaper portal. With the Windows symbol font chosen, these commands draw their glyphs from it.
+- **Details pane, measured against Windows 11:** the preview sits in a box across the top of the pane, a shade lighter than the pane (220 px tall for an icon); a picture fills its width edge to edge with square corners, as tall as the picture's shape needs, with 17 px of the box above it and 16 px below, and the name starts 32 px under the box. The name is 15 px semibold beside a 32 px icon centered on it, and the Details rows are 22 px apart with their values at the pane's right edge. Every Details value stays on one line, cut with "…", with the whole value in its tooltip.
+- **Set as background, Rotate left and Rotate right** show in the command bar whenever pictures are selected, not only in Gallery. Set as background hands one selected picture to the desktop's Wallpaper portal, which shows its own preview and asks first. With the Windows symbol font chosen, these commands draw their glyphs from it.
+- **Share and Set as background are offered where Windows offers them**, also where the desktop has no Email or Wallpaper portal: Share in the command bar, the file menu and the Details pane, and Set as background for one picture. A click there says why nothing opens, in a message, without asking any portal.
 - **Menus measured against Windows 11:** context menu rows are 32 px apart and 41 px across a separator; New's menu opens 1 px left of the button; a chosen choice's dot sits where Windows 11 draws it.
 - **Open and Save dialogs for other apps** are never titled with a filter's name: a title that is empty, names one of the request's filters or is Chromium's "All Files" gives way to Windows' own "Save As", "Open" or "Select Folder".
 - **Smaller fixes:** a local folder with an unreadable subfolder reads "Indexed, some folders could not be read" instead of offline; Previous Versions of a local file shows only Windows' heading and says there are no previous versions in Windows' words; Alt+D, Ctrl+L, F4 and Ctrl+F no longer reach the window behind an in-window dialog; the Gallery year scale marks every year that has photos.
-- For developers: Hidden now writes the folder's `.hidden` file instead of renaming the item; the search cache stores two new one-time markers in its existing table. Parity notes for ARC-023, PROP-002 and PROP-005 are updated. Two style commits satisfy Clippy.
+- For developers: Hidden now writes the folder's `.hidden` file instead of renaming the item; the search cache stores two new one-time markers in its existing table. Parity notes for HOME-030, CMD-037, ARC-023, PROP-002, PROP-005 and INT-032 are updated. Two style commits satisfy Clippy.
 
 ## Why
 - Compressing a folder left out links, FIFOs and sockets silently.
@@ -35,11 +36,14 @@ Data safety comes first: compressing a folder could make an incomplete archive w
 - Hidden renamed the item to a dot-name, breaking links and other apps' lists; in Windows, Hidden is an attribute.
 - An unlistable local folder showed the network icon and GIO's raw text, which for a path past 4,096 bytes was the whole path, drawn selected.
 - Dates at and before 1970 showed the unknown dash and sorted as unknown.
-- The Details pane, menus and command bar differed from Windows 11's measures, Set as background was not available, and the rotate buttons borrowed Refresh's and Restore's glyphs.
+- The Details pane, menus and command bar differed from Windows 11's measures: the Details pane had no preview box, and a long value such as File location wrapped onto two lines. Set as background was not available, and the rotate buttons borrowed Refresh's and Restore's glyphs.
+- Share was hidden, and Set as background grayed, where the desktop has no Email or Wallpaper portal, so a picture's Details pane had no Share, unlike Windows 11.
 - Chrome's Save page as was titled "All Files".
 
 ## CHANGED OWNER DECISIONS
-- Open and Save dialog titles for other apps (parity note, owner decision changed 2026-11-23). Old: only a Save title naming an All Files filter gave way to Windows' title, so Chrome's Save page as was titled "All Files". New: a title that is empty, names one of the request's filters or is Chromium's "All Files" gives way to Windows' own "Save As", "Open" or "Select Folder".
+- Share where the desktop cannot share (parity CMD-037, owner decision changed 2026-11-23). Old: Share was hidden where the desktop has no Email portal. New: Share shows in the command bar, the file menu and the Details pane as in Windows 11, and a click says why in a message ("This desktop has no way to send files by email…") without asking any portal.
+- Set as background where the desktop has no Wallpaper portal (parity HOME-030, owner decision changed 2026-11-23). Old: it was grayed. New: it is enabled for one picture as in Windows 11, and a click says why in a message.
+- Open and Save dialog titles for other apps (parity INT-032, owner decision changed 2026-11-23). Old: only a Save title naming an All Files filter gave way to Windows' title, so Chrome's Save page as was titled "All Files". New: a title that is empty, names one of the request's filters or is Chromium's "All Files" gives way to Windows' own "Save As", "Open" or "Select Folder".
 
 ## New and changed visible text
 - "Some items were not compressed"
@@ -61,6 +65,8 @@ Data safety comes first: compressing a folder could make an incomplete archive w
 - "This folder can't be opened."
 - "The desktop background could not be set."
 - "The picture could not be opened."
+- "This desktop has no way to send files by email: no email app is set up, or its desktop portal has no email service. Set up an email app, then share again."
+- "This desktop has no way for apps to set its background: its desktop portal has no wallpaper service. Set the background in the desktop's own settings."
 - Removed: "Compressed {item_count} items into {name}.", "{compressed} {skipped_count} links or special files were left out." and the tooltip "Setting the desktop background is not available yet."
 
 ## Tests
