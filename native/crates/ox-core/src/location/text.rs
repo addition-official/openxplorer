@@ -125,7 +125,7 @@ pub(crate) fn unquote_without_controls(text: &str) -> Result<String, LocationErr
 }
 
 /// `unquote(text)` with Python's default `errors='replace'`: invalid UTF-8
-/// becomes U+FFFD instead of failing. GLib's `g_uri_unescape_string`
+/// becomes U+FFFD instead of failing. `GLib`'s `g_uri_unescape_string`
 /// gives the bytes as they are, which glib-rs then holds as text that is
 /// not UTF-8.
 pub fn unquote_lossy(text: &str) -> String {

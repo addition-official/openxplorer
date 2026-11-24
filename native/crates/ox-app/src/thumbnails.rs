@@ -1405,7 +1405,7 @@ mod tests {
 
     /// A file whose name is not valid UTF-8 (`%FF` in its URI) is still
     /// told apart as a document or not by its extension, and never makes
-    /// a string of the bytes: GLib's unescaped text there is not UTF-8,
+    /// a string of the bytes: `GLib`'s unescaped text there is not UTF-8,
     /// which glib-rs asserts on in a debug build and a release build
     /// would carry on as an invalid `String`. A folder holding such a file
     /// panicked as soon as its icons were shown.

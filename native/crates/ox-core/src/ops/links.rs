@@ -136,7 +136,7 @@ pub fn suggested_name(location: &ShortcutLocation) -> String {
             let share = parts.as_ref().and_then(|parts| {
                 let last = parts.path.trim_end_matches('/').rsplit('/').next()?;
                 let name = crate::location::unquote_lossy(last);
-                (!name.is_empty()).then(|| name.to_string())
+                (!name.is_empty()).then_some(name)
             });
             let server = parts
                 .map(|parts| parts.authority)

@@ -307,6 +307,9 @@ pub(crate) struct BrowserWindow {
     /// after Settings hides; see
     /// [`super::BrowserWindow::focus_new_file_list`].
     pub(super) file_list_awaits_focus: Cell<bool>,
+    /// The window menu's Move or Size waiting, on Wayland, for the press
+    /// that starts it.
+    pub(super) armed_frame_drag: Cell<Option<super::title_bar_menu::FrameDrag>>,
     /// The item a folder opened from outside or typed into the address bar
     /// rang without selecting it, until the next key in the file list:
     /// Up or Down then moves on from it, as in Windows 11 (SEL-020).
@@ -471,6 +474,9 @@ impl ObjectImpl for BrowserWindow {
     }
 
     fn dispose(&self) {
+        // The window menu hangs on the tab row, which GTK finalizes with
+        // the window; a popover must leave its parent first.
+        self.obj().drop_title_bar_menu();
         self.obj().end_progress_actions();
         self.obj().end_size_scans();
         self.obj().close_properties_windows();

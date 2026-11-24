@@ -28,6 +28,21 @@ pub(crate) enum WindowAction {
     /// Closes the window after asking whether it may close: the caption's
     /// Close button.
     CloseWindow,
+    /// The title bar's window menu: Restore, as a maximized window's.
+    RestoreWindow,
+    /// The window menu's Move: the window follows the pointer, or the
+    /// arrow keys where the desktop offers that, until a click.
+    MoveWindow,
+    /// The window menu's Size: the window's lower right corner follows the
+    /// pointer until a click.
+    SizeWindow,
+    /// The window menu's Minimize.
+    MinimizeWindow,
+    /// The window menu's Maximize.
+    MaximizeWindow,
+    /// The window menu's "Use system title bar and borders": turns the
+    /// desktop's own frame on or off for every window.
+    SystemTitleBar,
     /// Shows the tab whose id is the `u64` target.
     SelectTab,
     /// Closes the tab whose id is the `u64` target (its close button).
@@ -589,6 +604,12 @@ impl WindowAction {
             WindowAction::NextTab => "next-tab",
             WindowAction::PreviousTab => "previous-tab",
             WindowAction::CloseWindow => "close-window",
+            WindowAction::RestoreWindow => "restore-window",
+            WindowAction::MoveWindow => "move-window",
+            WindowAction::SizeWindow => "size-window",
+            WindowAction::MinimizeWindow => "minimize-window",
+            WindowAction::MaximizeWindow => "maximize-window",
+            WindowAction::SystemTitleBar => "system-title-bar",
             WindowAction::SelectTab => "select-tab",
             WindowAction::CloseTabById => "close-tab-by-id",
             WindowAction::ShowTabNumber => "show-tab-number",
