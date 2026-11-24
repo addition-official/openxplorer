@@ -369,7 +369,7 @@ mod tests {
     /// The window menu is Windows 11's title bar menu, in its order, with
     /// a separator before Close (Alt+F4), then the system title bar
     /// choice, checked while it is on. On a window that is not maximized
-    /// Restore is greyed out, and on a maximized one Move, Size and
+    /// Restore is grayed out, and on a maximized one Move, Size and
     /// Maximize are.
     ///
     /// parity: LOOK-032
