@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! This PC in every view Windows 11 offers there (VIEW-071, DEV-001):
 //! Extra large, Large, Medium and Small icons, List, Details, Tiles and
-//! Content, sorted by Name, Type, Total Size or Free Space, and grouped by
-//! type ("Devices and drives", "Network locations") or not at all.
+//! Content; sorted by Name, Type (the default), Total Size, Free Space,
+//! File System, Percent Full or Network Location; and grouped by Name,
+//! Type ("Devices and drives", "Network locations", the default), Total
+//! Size, Free Space, File System, Percent Full or not at all, as Windows
+//! 11's This PC offers them where the app has the data.
 //!
 //! This PC keeps a style of its own, as Network does
-//! (`ox_core::settings::own_style_place`): it starts in Tiles grouped by
-//! type, and a view, sort or grouping chosen there is saved for it alone.
+//! (`ox_core::settings::own_style_place`): it starts in Tiles grouped and
+//! sorted by type, and a view, sort or grouping chosen there is saved for
+//! it alone.
 //! The window keeps the chosen style in the folder pane's own state, as
 //! for any folder, and [`super::landing`] draws the tiles from it
 //! ([`ThisPcLayout`]).
@@ -16,6 +20,10 @@
 //! Windows' Name sort orders the drives by their letter, not by their
 //! label, so This PC's own order (Local Disk, then the drives as they are
 //! listed) is its Name order; Descending turns it round.
+//!
+//! Grouped by size or fullness, a drive not measured yet is under
+//! "Unknown"; once GIO measures it, This PC is drawn again with it in its
+//! group, and remembers the measure for the next time it is drawn.
 
 use std::cmp::Ordering;
 
@@ -32,6 +40,7 @@ use crate::folder_view::sort_roles::{SortBy, SortRole};
 use crate::folder_view::sorting::{SortColumn, SortDirection};
 use crate::icons::{self, Icon};
 use crate::text_size::{self, TextSize};
+use ox_core::grouping::GroupBy;
 
 /// What This PC's tiles are sorted by, as Windows 11 sorts its drives.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -44,6 +53,12 @@ pub(super) enum ThisPcSort {
     TotalSize,
     /// The room left on the drive.
     FreeSpace,
+    /// The drive's file system, such as NTFS or ext4.
+    FileSystem,
+    /// How full the drive is.
+    PercentFull,
+    /// A saved network location's address.
+    NetworkLocation,
 }
 
 impl ThisPcSort {
@@ -55,14 +70,30 @@ impl ThisPcSort {
         ThisPcSort::FreeSpace,
     ];
 
+    /// The Sort menu's first keys, as Windows 11's This PC lists them.
+    pub(super) const MENU: [ThisPcSort; 3] = [ThisPcSort::Name, ThisPcSort::Type, ThisPcSort::TotalSize];
+
+    /// The keys under the Sort menu's More, as Windows 11's This PC lists
+    /// those the app has the data for.
+    pub(super) const MORE: [ThisPcSort; 4] = [
+        ThisPcSort::FreeSpace,
+        ThisPcSort::FileSystem,
+        ThisPcSort::PercentFull,
+        ThisPcSort::NetworkLocation,
+    ];
+
     /// This PC's sort for the window's sort key `by`: Size is its Total
-    /// Size; a key This PC has no column for sorts by name.
+    /// Size; a key This PC has no column for sorts by type, This PC's
+    /// default.
     pub(super) fn of(by: SortBy) -> Self {
         match by {
-            SortBy::Column(SortColumn::Type) => ThisPcSort::Type,
+            SortBy::Column(SortColumn::Name) => ThisPcSort::Name,
             SortBy::Column(SortColumn::Size) => ThisPcSort::TotalSize,
             SortBy::Role(SortRole::FreeSpace) => ThisPcSort::FreeSpace,
-            _ => ThisPcSort::Name,
+            SortBy::Role(SortRole::FileSystem) => ThisPcSort::FileSystem,
+            SortBy::Role(SortRole::PercentFull) => ThisPcSort::PercentFull,
+            SortBy::Role(SortRole::NetworkLocation) => ThisPcSort::NetworkLocation,
+            _ => ThisPcSort::Type,
         }
     }
 
@@ -74,6 +105,9 @@ impl ThisPcSort {
             ThisPcSort::Type => SortBy::Column(SortColumn::Type).as_str(),
             ThisPcSort::TotalSize => SortBy::Column(SortColumn::Size).as_str(),
             ThisPcSort::FreeSpace => SortBy::Role(SortRole::FreeSpace).as_str(),
+            ThisPcSort::FileSystem => SortBy::Role(SortRole::FileSystem).as_str(),
+            ThisPcSort::PercentFull => SortBy::Role(SortRole::PercentFull).as_str(),
+            ThisPcSort::NetworkLocation => SortBy::Role(SortRole::NetworkLocation).as_str(),
         }
     }
 
@@ -84,6 +118,9 @@ impl ThisPcSort {
             ThisPcSort::Type => ox_core::i18n::gettext_static("Type"),
             ThisPcSort::TotalSize => ox_core::i18n::gettext_static("Total Size"),
             ThisPcSort::FreeSpace => ox_core::i18n::gettext_static("Free Space"),
+            ThisPcSort::FileSystem => ox_core::i18n::gettext_static("File System"),
+            ThisPcSort::PercentFull => ox_core::i18n::gettext_static("Percent Full"),
+            ThisPcSort::NetworkLocation => ox_core::i18n::gettext_static("Network Location"),
         }
     }
 
@@ -92,7 +129,11 @@ impl ThisPcSort {
         match self {
             ThisPcSort::Name => 256,
             ThisPcSort::Type => 144,
-            ThisPcSort::TotalSize | ThisPcSort::FreeSpace => 112,
+            ThisPcSort::TotalSize
+            | ThisPcSort::FreeSpace
+            | ThisPcSort::FileSystem
+            | ThisPcSort::PercentFull
+            | ThisPcSort::NetworkLocation => 112,
         }
     }
 }
@@ -103,20 +144,20 @@ pub(super) struct ThisPcLayout {
     pub(super) view: FolderView,
     pub(super) sort: ThisPcSort,
     pub(super) descending: bool,
-    /// Under "Devices and drives" and "Network locations", or in one run.
-    pub(super) grouped: bool,
+    /// What the tiles are grouped by, or `None` for one run.
+    pub(super) group: Option<ThisPcGroup>,
     /// Windows' Compact view, whose Details rows stand closer.
     pub(super) compact: bool,
 }
 
 impl Default for ThisPcLayout {
-    /// Windows 11's This PC: Tiles grouped by type, in drive order.
+    /// Windows 11's This PC: Tiles grouped and sorted by type.
     fn default() -> Self {
         Self {
             view: FolderView::Tiles,
-            sort: ThisPcSort::Name,
+            sort: ThisPcSort::Type,
             descending: false,
-            grouped: true,
+            group: Some(ThisPcGroup::Type),
             compact: false,
         }
     }
@@ -124,19 +165,19 @@ impl Default for ThisPcLayout {
 
 impl ThisPcLayout {
     /// The layout for the window's `view`, sort key `by` in `direction`,
-    /// grouped or not.
+    /// grouped by `group_by`.
     pub(super) fn new(
         view: FolderView,
         by: SortBy,
         direction: SortDirection,
-        grouped: bool,
+        group_by: GroupBy,
         compact: bool,
     ) -> Self {
         Self {
             view,
             sort: ThisPcSort::of(by),
             descending: direction == SortDirection::Descending,
-            grouped,
+            group: ThisPcGroup::of(group_by),
             compact,
         }
     }
@@ -187,9 +228,15 @@ impl ThisPcLayout {
     /// The order of two tiles' `a` and `b` facts in this layout.
     pub(super) fn compare(self, a: &DriveFacts, b: &DriveFacts) -> Ordering {
         let by_place = a.order.cmp(&b.order);
+        let text = |text: &str| crate::folder_view::sorting::SortKey::new(text);
         let ordering = match self.sort {
             ThisPcSort::Name => by_place,
-            ThisPcSort::Type => a.kind.cmp(&b.kind).then(by_place),
+            ThisPcSort::Type => text(&a.kind).natural_cmp(&text(&b.kind)).then(by_place),
+            ThisPcSort::FileSystem => text(&a.filesystem)
+                .natural_cmp(&text(&b.filesystem))
+                .then(by_place),
+            ThisPcSort::NetworkLocation => text(&a.location).natural_cmp(&text(&b.location)).then(by_place),
+            ThisPcSort::PercentFull => a.percent_full().cmp(&b.percent_full()).then(by_place),
             ThisPcSort::TotalSize => size_of(a, |capacity| capacity.size)
                 .cmp(&size_of(b, |capacity| capacity.size))
                 .then(by_place),
@@ -211,15 +258,213 @@ fn size_of(facts: &DriveFacts, part: impl Fn(Capacity) -> u64) -> Option<u64> {
     facts.capacity.map(part)
 }
 
-/// What This PC sorts a tile by.
+/// What This PC sorts and groups a tile by.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct DriveFacts {
     /// The tile's place in This PC's own order.
     pub(super) order: usize,
+    /// Its name, as the tile shows it.
+    pub(super) name: String,
     /// Its type, as the Type column writes it.
     pub(super) kind: String,
+    /// Whether it is a saved network location, not a drive.
+    pub(super) network: bool,
+    /// Its file system, such as NTFS or ext4; empty when unknown.
+    pub(super) filesystem: String,
+    /// A saved network location's address, as the address bar writes it;
+    /// empty for a drive.
+    pub(super) location: String,
     /// How full it is, once GIO has measured it.
     pub(super) capacity: Option<Capacity>,
+}
+
+impl DriveFacts {
+    /// How full the drive is, in hundredths of a percent, once measured.
+    fn percent_full(&self) -> Option<u64> {
+        let capacity = self.capacity?;
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "a share from 0 to 1, times 10,000"
+        )]
+        let share = (capacity.used_share() * 10_000.0).round() as u64;
+        Some(share)
+    }
+
+    /// The group the tile falls in when This PC is grouped by `group`:
+    /// its title, a key that finds the group again after a redraw, and
+    /// its place among the groups.
+    pub(super) fn group(&self, group: ThisPcGroup) -> GroupKey {
+        let unknown = || GroupKey::new(ox_core::i18n::gettext("Unknown"), i64::MAX);
+        match group {
+            ThisPcGroup::Type => {
+                if self.network {
+                    GroupKey::keyed(ox_core::i18n::gettext("Network locations"), "network", 1)
+                } else {
+                    GroupKey::keyed(ox_core::i18n::gettext("Devices and drives"), "drives", 0)
+                }
+            }
+            ThisPcGroup::Name => {
+                let name = ox_core::grouping::NameGroup::of(&self.name);
+                GroupKey::new(ox_core::i18n::gettext(name.label()), name as i64)
+            }
+            ThisPcGroup::TotalSize | ThisPcGroup::FreeSpace => {
+                let Some(capacity) = self.capacity else {
+                    return unknown();
+                };
+                let bytes = if group == ThisPcGroup::TotalSize {
+                    capacity.size
+                } else {
+                    capacity.free
+                };
+                let (title, rank) = crate::folder_view::groups::size_bucket(bytes);
+                GroupKey::new(title, rank)
+            }
+            ThisPcGroup::FileSystem if self.filesystem.is_empty() => unknown(),
+            ThisPcGroup::FileSystem => GroupKey::new(self.filesystem.clone(), 0),
+            ThisPcGroup::PercentFull => {
+                let Some(share) = self.percent_full() else {
+                    return unknown();
+                };
+                // Tenths: 0 – 10%, 10 – 20%, up to 90 – 100%.
+                let tenth = (share / 1000).min(9);
+                let title = ox_core::i18n::format_message(
+                    &ox_core::i18n::gettext("{low} – {high}%"),
+                    &[
+                        ("low", &(tenth * 10).to_string()),
+                        ("high", &(tenth * 10 + 10).to_string()),
+                    ],
+                );
+                GroupKey::new(title, i64::try_from(tenth).unwrap_or(0))
+            }
+        }
+    }
+}
+
+/// What This PC's tiles are grouped by, as Windows 11's This PC offers
+/// them where the app has the data.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum ThisPcGroup {
+    /// "Devices and drives" and "Network locations".
+    Type,
+    /// The name's letter ranges, as a folder's.
+    Name,
+    /// The size groups of the drive's size.
+    TotalSize,
+    /// The size groups of the room left.
+    FreeSpace,
+    /// The file system.
+    FileSystem,
+    /// Tenths of fullness.
+    PercentFull,
+}
+
+impl ThisPcGroup {
+    /// Group by's choices in This PC, in Windows' order, (None) last.
+    pub(super) const MENU: [GroupBy; 7] = [
+        GroupBy::Name,
+        GroupBy::Type,
+        GroupBy::Size,
+        GroupBy::FreeSpace,
+        GroupBy::FileSystem,
+        GroupBy::PercentFull,
+        GroupBy::None,
+    ];
+
+    /// This PC's grouping for the window's `by`: Size is its Total Size; a
+    /// choice This PC has no data for groups by type.
+    pub(super) fn of(by: GroupBy) -> Option<Self> {
+        match by {
+            GroupBy::None => None,
+            GroupBy::Name => Some(ThisPcGroup::Name),
+            GroupBy::Size => Some(ThisPcGroup::TotalSize),
+            GroupBy::FreeSpace => Some(ThisPcGroup::FreeSpace),
+            GroupBy::FileSystem => Some(ThisPcGroup::FileSystem),
+            GroupBy::PercentFull => Some(ThisPcGroup::PercentFull),
+            GroupBy::Type | GroupBy::Modified | GroupBy::Created | GroupBy::SortKey => {
+                Some(ThisPcGroup::Type)
+            }
+        }
+    }
+
+    /// The Group by menu's label for the window's `by` in This PC.
+    pub(super) fn label(by: GroupBy) -> &'static str {
+        match by {
+            GroupBy::Size => ox_core::i18n::gettext_static("Total Size"),
+            other => ox_core::i18n::gettext_static(other.label()),
+        }
+    }
+}
+
+/// One of This PC's groups.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct GroupKey {
+    /// "Devices and drives", "Huge (1 – 4 GB)", "NTFS"...
+    pub(super) title: String,
+    /// What the group's header and collapsed state are named by.
+    pub(super) key: String,
+    /// Its place among the groups; equal places go by title.
+    pub(super) rank: i64,
+}
+
+impl GroupKey {
+    /// A group named by its title.
+    fn new(title: String, rank: i64) -> Self {
+        let slug: String = title
+            .chars()
+            .map(|character| {
+                if character.is_ascii_alphanumeric() {
+                    character.to_ascii_lowercase()
+                } else {
+                    '-'
+                }
+            })
+            .collect();
+        let key = format!("pc-group-{slug}");
+        Self { title, key, rank }
+    }
+
+    /// The class the page carries while the group is collapsed, so a
+    /// collapsed group stays collapsed when This PC is drawn again.
+    pub(super) fn collapsed_class(&self) -> String {
+        format!("{}-collapsed", self.key)
+    }
+
+    /// The class of the group's header, which finds it again after a
+    /// redraw.
+    pub(super) fn header_class(&self) -> String {
+        format!("{}-header", self.key)
+    }
+
+    /// The groups of This PC that `tiles`, given with their facts, fall in
+    /// when grouped by `group`, in Windows' order: by place, then title.
+    pub(super) fn sorted<T>(tiles: Vec<(T, &DriveFacts)>, group: ThisPcGroup) -> Vec<(GroupKey, Vec<T>)> {
+        let mut groups: Vec<(GroupKey, Vec<T>)> = Vec::new();
+        for (tile, facts) in tiles {
+            let key = facts.group(group);
+            match groups.iter_mut().find(|(known, _)| known.key == key.key) {
+                Some((_, members)) => members.push(tile),
+                None => groups.push((key, vec![tile])),
+            }
+        }
+        let text = |text: &str| crate::folder_view::sorting::SortKey::new(text);
+        groups.sort_by(|(a, _), (b, _)| {
+            a.rank
+                .cmp(&b.rank)
+                .then_with(|| text(&a.title).natural_cmp(&text(&b.title)))
+        });
+        groups
+    }
+
+    /// A group with its own `key`: Type's two, whose header and collapsed
+    /// classes stay as before ("drives-header", "network-collapsed").
+    fn keyed(title: String, key: &str, rank: i64) -> Self {
+        Self {
+            title,
+            key: key.to_owned(),
+            rank,
+        }
+    }
 }
 
 /// How a tile is laid out in a view.
@@ -487,20 +732,23 @@ mod tests {
     fn facts(order: usize, kind: &str, size: u64, free: u64) -> DriveFacts {
         DriveFacts {
             order,
+            name: format!("Drive {order}"),
             kind: kind.to_owned(),
             capacity: Some(Capacity { size, free }),
+            ..DriveFacts::default()
         }
     }
 
     /// Name keeps This PC's own order, Windows' drive-letter order, and
-    /// Descending turns it round; Type, Total Size and Free Space sort by
-    /// their value, then by that order.
+    /// Descending turns it round; Type, Total Size, Free Space and Percent
+    /// Full sort by their value, then by that order. This PC starts sorted
+    /// by type, as Windows 11's.
     #[test]
     fn this_pc_sorts_as_windows_sorts_its_drives() {
         let drives = [
             facts(0, "Local Disk", 500, 100),
-            facts(1, "Removable Disk", 64, 60),
-            facts(2, "Local Disk", 2000, 10),
+            facts(1, "CD Drive", 64, 0),
+            facts(2, "Local Disk", 2000, 1800),
         ];
         let order = |sort: ThisPcSort, descending: bool| {
             let layout = ThisPcLayout {
@@ -512,24 +760,69 @@ mod tests {
             sorted.sort_by(|a, b| layout.compare(a, b));
             sorted.iter().map(|drive| drive.order).collect::<Vec<_>>()
         };
+        assert_eq!(ThisPcLayout::default().sort, ThisPcSort::Type);
         assert_eq!(order(ThisPcSort::Name, false), [0, 1, 2]);
         assert_eq!(order(ThisPcSort::Name, true), [2, 1, 0]);
-        assert_eq!(order(ThisPcSort::Type, false), [0, 2, 1]);
+        assert_eq!(
+            order(ThisPcSort::Type, false),
+            [1, 0, 2],
+            "CD Drive first, as in Windows"
+        );
         assert_eq!(order(ThisPcSort::TotalSize, false), [1, 0, 2]);
-        assert_eq!(order(ThisPcSort::FreeSpace, true), [0, 1, 2]);
+        assert_eq!(order(ThisPcSort::FreeSpace, true), [2, 0, 1]);
+        assert_eq!(order(ThisPcSort::PercentFull, false), [2, 0, 1]);
     }
 
     /// The window's Sort menu keys reach This PC's columns: Size is its
-    /// Total Size, and keys it has no column for sort by name.
+    /// Total Size, and keys it has no column for sort by type.
     #[test]
     fn the_sort_menu_keys_reach_this_pcs_columns() {
-        for column in ThisPcSort::ALL {
+        for column in ThisPcSort::MENU.into_iter().chain(ThisPcSort::MORE) {
             let by = SortBy::from_key(column.key()).expect("a sort key");
             assert_eq!(ThisPcSort::of(by), column);
         }
         assert_eq!(
             ThisPcSort::of(SortBy::Column(SortColumn::Modified)),
-            ThisPcSort::Name
+            ThisPcSort::Type
         );
+    }
+
+    /// Grouped, a drive falls in Windows' groups: by type, the drives and
+    /// the network locations; by size, the files' size groups; by file
+    /// system, its name; by fullness, tenths; an unmeasured drive under
+    /// Unknown.
+    #[test]
+    fn drives_fall_in_windows_groups() {
+        let disk = DriveFacts {
+            filesystem: "ext4".to_owned(),
+            ..facts(0, "Local Disk", 256 * 1024 * 1024 * 1024, 64 * 1024 * 1024 * 1024)
+        };
+        let share = DriveFacts {
+            network: true,
+            capacity: None,
+            ..facts(1, "Network Drive", 0, 0)
+        };
+        let title = |facts: &DriveFacts, group: ThisPcGroup| facts.group(group).title;
+        assert_eq!(title(&disk, ThisPcGroup::Type), "Devices and drives");
+        assert_eq!(title(&share, ThisPcGroup::Type), "Network locations");
+        assert_eq!(title(&disk, ThisPcGroup::TotalSize), "Gigantic (> 4 GB)");
+        assert_eq!(title(&disk, ThisPcGroup::FileSystem), "ext4");
+        assert_eq!(title(&disk, ThisPcGroup::PercentFull), "70 – 80%");
+        assert_eq!(title(&share, ThisPcGroup::FreeSpace), "Unknown");
+        assert_eq!(title(&disk, ThisPcGroup::Name), "A – H");
+        let groups = GroupKey::sorted(vec![("share", &share), ("disk", &disk)], ThisPcGroup::Type);
+        let order: Vec<_> = groups
+            .iter()
+            .map(|(key, tiles)| (key.title.as_str(), tiles.clone()))
+            .collect();
+        assert_eq!(
+            order,
+            [
+                ("Devices and drives", vec!["disk"]),
+                ("Network locations", vec!["share"])
+            ]
+        );
+        assert_eq!(ThisPcGroup::of(GroupBy::Size), Some(ThisPcGroup::TotalSize));
+        assert_eq!(ThisPcGroup::of(GroupBy::None), None);
     }
 }

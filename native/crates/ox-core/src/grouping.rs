@@ -45,6 +45,13 @@ pub enum GroupBy {
     /// The key the folder is sorted by, in that key's own groups
     /// (Dolphin's "Show in groups").
     SortKey,
+    /// This PC's drives by how much room they have left, in the size
+    /// groups.
+    FreeSpace,
+    /// This PC's drives by their file system, such as NTFS or ext4.
+    FileSystem,
+    /// This PC's drives by how full they are, in steps of a tenth.
+    PercentFull,
 }
 
 impl GroupBy {
@@ -59,6 +66,11 @@ impl GroupBy {
         GroupBy::None,
     ];
 
+    /// The choices only This PC offers, as Windows 11's This PC does: its
+    /// drives have room left, a file system and a share of it used; files
+    /// have none of these.
+    pub const PLACE_ONLY: [GroupBy; 3] = [GroupBy::FreeSpace, GroupBy::FileSystem, GroupBy::PercentFull];
+
     /// The key stored in the settings and used as the action target.
     pub fn as_str(self) -> &'static str {
         match self {
@@ -69,12 +81,18 @@ impl GroupBy {
             GroupBy::Size => "size",
             GroupBy::Created => "created",
             GroupBy::SortKey => "sort",
+            GroupBy::FreeSpace => "freeSpace",
+            GroupBy::FileSystem => "fileSystem",
+            GroupBy::PercentFull => "percentFull",
         }
     }
 
     /// The choice for a key, if it is one.
     pub fn from_key(key: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|group_by| group_by.as_str() == key)
+        Self::ALL
+            .into_iter()
+            .chain(Self::PLACE_ONLY)
+            .find(|group_by| group_by.as_str() == key)
     }
 
     /// The Group by menu's label, a message id to translate.
@@ -87,6 +105,9 @@ impl GroupBy {
             GroupBy::Size => message_id("Size"),
             GroupBy::Created => message_id("Date created"),
             GroupBy::SortKey => message_id("Same as sort"),
+            GroupBy::FreeSpace => message_id("Free Space"),
+            GroupBy::FileSystem => message_id("File System"),
+            GroupBy::PercentFull => message_id("Percent Full"),
         }
     }
 

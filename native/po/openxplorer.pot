@@ -1039,7 +1039,7 @@ msgstr ""
 msgid "Today"
 msgstr ""
 
-#: crates/ox-app/src/folder_view/groups.rs crates/ox-app/src/properties/security_tab.rs
+#: crates/ox-app/src/folder_view/groups.rs crates/ox-app/src/properties/security_tab.rs crates/ox-app/src/window/this_pc_views.rs
 msgid "Unknown"
 msgstr ""
 
@@ -1079,11 +1079,15 @@ msgstr ""
 msgid "Date taken"
 msgstr ""
 
+#: crates/ox-app/src/folder_view/sort_roles.rs crates/ox-app/src/window/this_pc_views.rs crates/ox-core/src/grouping.rs
+msgid "File System"
+msgstr ""
+
 #: crates/ox-app/src/folder_view/sort_roles.rs crates/ox-app/src/folder_view/sorting.rs
 msgid "File extension"
 msgstr ""
 
-#: crates/ox-app/src/folder_view/sort_roles.rs crates/ox-app/src/window/this_pc_views.rs
+#: crates/ox-app/src/folder_view/sort_roles.rs crates/ox-app/src/window/this_pc_views.rs crates/ox-core/src/grouping.rs
 msgid "Free Space"
 msgstr ""
 
@@ -1091,8 +1095,16 @@ msgstr ""
 msgid "Link destination"
 msgstr ""
 
+#: crates/ox-app/src/folder_view/sort_roles.rs crates/ox-app/src/window/this_pc_views.rs
+msgid "Network Location"
+msgstr ""
+
 #: crates/ox-app/src/folder_view/sort_roles.rs crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/properties/permissions_editor.rs crates/ox-app/src/properties/security_tab/advanced.rs crates/ox-app/src/properties/selection_view.rs
 msgid "Owner"
+msgstr ""
+
+#: crates/ox-app/src/folder_view/sort_roles.rs crates/ox-app/src/window/this_pc_views.rs crates/ox-core/src/grouping.rs
+msgid "Percent Full"
 msgstr ""
 
 #: crates/ox-app/src/folder_view/sort_roles.rs crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/security_tab/advanced.rs
@@ -7714,14 +7726,6 @@ msgid "Connect on open"
 msgstr ""
 
 #: crates/ox-app/src/window/landing.rs
-msgid "Devices and drives"
-msgstr ""
-
-#: crates/ox-app/resources/manual.md crates/ox-app/src/window/landing.rs
-msgid "Network locations"
-msgstr ""
-
-#: crates/ox-app/src/window/landing.rs
 msgid "Portable Device"
 msgstr ""
 
@@ -8724,7 +8728,20 @@ msgid "{title} — Previous version — {snapshot}"
 msgstr ""
 
 #: crates/ox-app/src/window/this_pc_views.rs
+msgid "Devices and drives"
+msgstr ""
+
+#: crates/ox-app/resources/manual.md crates/ox-app/src/window/this_pc_views.rs
+msgid "Network locations"
+msgstr ""
+
+#: crates/ox-app/src/window/this_pc_views.rs
 msgid "Total Size"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/this_pc_views.rs
+msgid "{low} – {high}%"
 msgstr ""
 
 #: crates/ox-app/src/window/title_bar.rs

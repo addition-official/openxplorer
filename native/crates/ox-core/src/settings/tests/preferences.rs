@@ -410,7 +410,8 @@ fn apply_to_all_folders_gives_downloads_the_applied_group_by() {
 }
 
 /// This PC keeps a style of its own, as Network does, whether or not
-/// each folder keeps one: Windows 11 opens it in Tiles grouped by Type,
+/// each folder keeps one: Windows 11 opens it in Tiles grouped and sorted
+/// by Type,
 /// and a view chosen there stays there and nowhere else.
 /// parity: VIEW-020, VIEW-022
 #[test]
@@ -427,6 +428,16 @@ fn this_pc_starts_in_tiles_grouped_by_type_and_keeps_its_own_style() {
 
     let first = store.snapshot().preferences.view_in(pc, None);
     assert_eq!((first.mode.as_str(), first.grouping()), ("tiles", GroupBy::Type));
+    assert_eq!(
+        (first.sort.as_str(), first.descending),
+        ("type", false),
+        "sorted by type"
+    );
+    let network = store
+        .snapshot()
+        .preferences
+        .view_in(crate::location::NETWORK_URI, None);
+    assert_eq!(network.sort, "name", "Network keeps its sort");
 
     let mut chosen = first.clone();
     chosen.mode = "content".to_owned();

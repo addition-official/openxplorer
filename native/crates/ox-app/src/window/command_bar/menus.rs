@@ -19,7 +19,7 @@ use crate::icons::Icon;
 use crate::text_size::Step;
 use crate::window::folder_pane::FolderView;
 use crate::window::menu_popover::{MenuEntry, MenuItem};
-use crate::window::this_pc_views::ThisPcSort;
+use crate::window::this_pc_views::{ThisPcGroup, ThisPcSort};
 use crate::window::window_action::WindowAction;
 
 /// A menu line that runs `action`.
@@ -138,19 +138,24 @@ pub(in crate::window) fn sort_menu() -> Vec<MenuEntry> {
     entries
 }
 
-/// This PC's Sort menu, as Windows 11's there: Name, Type, Total Size and
-/// Free Space, This PC's columns; the direction; then Group by, by type
-/// or not at all. As in the folders' Sort menu, no row has a glyph and a
-/// dot marks each choice.
+/// This PC's Sort menu, as Windows 11's there: Name, Type and Total Size,
+/// then More with Free Space, File System, Percent Full and Network
+/// Location; the direction; then Group by ([`this_pc_group_by_menu`]).
+/// As in the folders' Sort menu, no row has a glyph and a dot marks each
+/// choice.
 pub(in crate::window) fn this_pc_sort_menu() -> Vec<MenuEntry> {
-    let mut entries: Vec<MenuEntry> = ThisPcSort::ALL
-        .into_iter()
-        .map(|column| {
-            MenuItem::choice(column.title(), Icon::ArrowSort, WindowAction::Sort, column.key())
-                .without_glyph()
-                .into()
-        })
-        .collect();
+    let sort_item = |column: ThisPcSort| -> MenuEntry {
+        MenuItem::choice(column.title(), Icon::ArrowSort, WindowAction::Sort, column.key())
+            .without_glyph()
+            .into()
+    };
+    let mut entries: Vec<MenuEntry> = ThisPcSort::MENU.into_iter().map(sort_item).collect();
+    let more = ThisPcSort::MORE.into_iter().map(sort_item).collect();
+    entries.push(
+        MenuItem::submenu(&gettext("More"), Icon::ArrowSort, WindowAction::Sort, more)
+            .without_glyph()
+            .into(),
+    );
     entries.extend([
         MenuEntry::Divider,
         direction_item(&gettext("Ascending"), SortDirection::Ascending),
@@ -168,12 +173,23 @@ pub(in crate::window) fn this_pc_sort_menu() -> Vec<MenuEntry> {
     entries
 }
 
-/// This PC's Group by choices: by type, under "Devices and drives" and
-/// "Network locations", or not at all.
+/// This PC's Group by choices, as Windows 11's This PC lists those the
+/// app has the data for: Name, Type ("Devices and drives", "Network
+/// locations"), Total Size, Free Space, File System, Percent Full and
+/// (None).
 pub(in crate::window) fn this_pc_group_by_menu() -> Vec<MenuEntry> {
-    [GroupBy::Type, GroupBy::None]
+    ThisPcGroup::MENU
         .into_iter()
-        .map(group_item)
+        .map(|group_by| {
+            MenuItem::choice(
+                ThisPcGroup::label(group_by),
+                Icon::TextBulletList,
+                WindowAction::GroupBy,
+                group_by.as_str(),
+            )
+            .without_glyph()
+            .into()
+        })
         .collect()
 }
 
@@ -700,37 +716,53 @@ mod tests {
             .collect()
     }
 
-    /// This PC's Sort menu sorts by Windows' columns there, Name, Type,
-    /// Total Size and Free Space, either way, and groups by type or not at
-    /// all; it has no folder keys such as Date modified or Folders first.
+    /// This PC's Sort menu is Windows 11's there: Name, Type and Total
+    /// Size, then More with Free Space, File System, Percent Full and
+    /// Network Location; either way; then Group by with Name, Type, Total
+    /// Size, Free Space, File System, Percent Full and (None). It has no
+    /// folder keys such as Date modified or Folders first.
     ///
     /// parity: VIEW-019, VIEW-022, DEV-001
     #[test]
     fn this_pcs_sort_menu_sorts_and_groups_as_windows_does_there() {
         let menu = this_pc_sort_menu();
+        let submenu = |label: &str| {
+            menu.iter()
+                .find_map(|entry| match entry {
+                    MenuEntry::Item(item) if item.label == label => Some(item.submenu.clone()),
+                    _ => None,
+                })
+                .unwrap_or_else(|| panic!("a {label} submenu"))
+        };
         assert_eq!(
             labels_running(&menu, WindowAction::Sort),
-            ["Name", "Type", "Total Size", "Free Space"]
+            ["Name", "Type", "Total Size", "More"]
+        );
+        assert_eq!(
+            labels_running(&submenu("More"), WindowAction::Sort),
+            ["Free Space", "File System", "Percent Full", "Network Location"]
         );
         assert_eq!(
             labels_running(&menu, WindowAction::Direction),
             ["Ascending", "Descending"]
         );
         assert!(labels_running(&menu, WindowAction::FoldersFirst).is_empty());
-        let group_by = menu
-            .iter()
-            .find_map(|entry| match entry {
-                MenuEntry::Item(item) if item.label == "Group by" => Some(item.submenu.clone()),
-                _ => None,
-            })
-            .expect("a Group by submenu");
+        let windows_groups = [
+            "Name",
+            "Type",
+            "Total Size",
+            "Free Space",
+            "File System",
+            "Percent Full",
+            "(None)",
+        ];
         assert_eq!(
-            labels_running(&group_by, WindowAction::GroupBy),
-            ["Type", "(None)"]
+            labels_running(&submenu("Group by"), WindowAction::GroupBy),
+            windows_groups
         );
         assert_eq!(
             labels_running(&this_pc_group_by_menu(), WindowAction::GroupBy),
-            ["Type", "(None)"]
+            windows_groups
         );
     }
 

@@ -281,9 +281,10 @@ fn is_customizable_mount(mount: &MountEntry) -> bool {
 
 /// The kind of drive Windows would call the mount point at `uri`, in its
 /// words ("Local Disk", "Removable Disk", "Network Drive", "CD Drive"),
+/// and its file system as Properties names it ("NTFS", "FAT32", "ext4"),
 /// from the kernel's mount table and udev alone, so it never waits on the
 /// drive; `None` for a location that is no mount point here.
-pub(crate) fn drive_type_name(uri: &str) -> Option<String> {
+pub(crate) fn drive_kind_and_filesystem(uri: &str) -> Option<(String, String)> {
     let path = gio::File::for_uri(uri).path()?;
     let path = path.to_str()?;
     let mount = read_mount_table()
@@ -292,7 +293,10 @@ pub(crate) fn drive_type_name(uri: &str) -> Option<String> {
         .rev()
         .find(|mount| mount.path == path)?;
     let block = read_block_facts(&mount.source);
-    Some(drive_type(&mount.filesystem, false, &block).label())
+    Some((
+        drive_type(&mount.filesystem, false, &block).label(),
+        filesystem_name(&mount.filesystem, &block),
+    ))
 }
 
 /// What is mounted at the folder `file`, if it is a mount point of the

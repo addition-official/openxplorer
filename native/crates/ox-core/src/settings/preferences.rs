@@ -1272,13 +1272,18 @@ impl Preferences {
 
     /// The style of `place`, Network or This PC, which keep one of their
     /// own whether or not each folder does: the one saved for it, else
-    /// Windows 11's Tiles grouped by type, with the shared columns and
-    /// widths.
+    /// Windows 11's Tiles grouped by type (This PC sorted by type too),
+    /// with the shared columns and widths.
     fn own_place_style(&self, place: &str) -> ViewProperties {
         let mut style = self.view_for(place);
         let Some((saved, _)) = super::view_properties::saved_style_for(&self.folder_views, place) else {
             NETWORK_MODE.clone_into(&mut style.mode);
             style.set_grouping(GroupBy::Type);
+            // Windows 11 sorts This PC by type, drives before locations.
+            if location::same_location(place, location::PC_URI) {
+                "type".clone_into(&mut style.sort);
+                style.descending = false;
+            }
             return style;
         };
         let mut own = saved.clone();

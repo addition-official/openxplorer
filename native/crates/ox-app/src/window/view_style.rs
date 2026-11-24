@@ -353,7 +353,7 @@ impl BrowserWindow {
             pane.view(),
             sort.by,
             sort.direction,
-            group_by != GroupBy::None,
+            group_by,
             self.has_css_class("compact-density"),
         )
     }

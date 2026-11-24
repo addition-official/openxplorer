@@ -93,7 +93,7 @@ pub(crate) use folder_sizes::{size_key, FolderSizeState, FolderSizes};
 pub(crate) use item_window::{open_item_properties, PropertiesContext};
 #[cfg(test)]
 pub(crate) use location_panel::LocationPanel;
-pub(crate) use metadata::drive_type_name;
+pub(crate) use metadata::drive_kind_and_filesystem;
 #[cfg(test)]
 pub(crate) use metadata::is_mount_point;
 pub(crate) use metadata::mount_at;

@@ -39,7 +39,7 @@ use ox_core::format;
 use ox_core::location::{is_smb_location, split_location, LocationContext};
 use ox_core::places::{NetworkKind, SavedShare};
 
-use super::this_pc_views::{self, CapacitySlot, DriveFacts, Shape, ThisPcLayout, TileParts};
+use super::this_pc_views::{self, CapacitySlot, DriveFacts, GroupKey, Shape, ThisPcLayout, TileParts};
 use crate::icons::{self, Art, ArtImage, Connection, Icon};
 use crate::locations::Page;
 use crate::places::Places;
@@ -168,43 +168,9 @@ pub(super) fn capacity_bar(capacity: Capacity) -> gtk::ProgressBar {
     bar
 }
 
-/// The groups of This PC, in Windows 11's order.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Group {
-    /// Local Disk, drives, devices and volumes.
-    DevicesAndDrives,
-    /// The saved network locations.
-    NetworkLocations,
-}
-
-impl Group {
-    fn title(self) -> &'static str {
-        match self {
-            Group::DevicesAndDrives => ox_core::i18n::gettext_static("Devices and drives"),
-            Group::NetworkLocations => ox_core::i18n::gettext_static("Network locations"),
-        }
-    }
-
-    /// The class the page carries while the group is collapsed, so a
-    /// collapsed group stays collapsed when This PC is drawn again.
-    fn collapsed_class(self) -> &'static str {
-        match self {
-            Group::DevicesAndDrives => "drives-collapsed",
-            Group::NetworkLocations => "network-collapsed",
-        }
-    }
-
-    /// The class of the group's header, which finds it again after a
-    /// redraw.
-    fn header_class(self) -> &'static str {
-        match self {
-            Group::DevicesAndDrives => "drives-header",
-            Group::NetworkLocations => "network-header",
-        }
-    }
-
-    const ALL: [Group; 2] = [Group::DevicesAndDrives, Group::NetworkLocations];
-}
+/// One of This PC's groups: "Devices and drives" and "Network
+/// locations" by type, or the groups of another Group by.
+type Group = GroupKey;
 
 /// What opening a tile does: an action and its target.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -278,16 +244,24 @@ fn drive_tile(row: &VolumeRow, shape: Shape, order: usize) -> Tile {
         Some(role) => icons::user_icons::role_image(role, glyph, pixels),
         None => icons::image(glyph, pixels),
     };
-    let kind = drive_kind(row);
+    let (kind, filesystem) = drive_kind(row);
     let TileParts {
         child,
         lines,
         capacity,
     } = this_pc_views::tile(icon.upcast_ref(), &row.label, &kind, key, shape);
+    let measured_uri = match &row.state {
+        VolumeState::Mounted { uri, .. } => Some(uri.as_str()),
+        VolumeState::Mountable { .. } => None,
+    };
     let facts = DriveFacts {
         order,
+        name: row.label.clone(),
         kind,
-        capacity: None,
+        network: false,
+        filesystem,
+        location: String::new(),
+        capacity: measured_uri.and_then(measured),
     };
     if row.kind == VolumeKind::Device {
         child.add_css_class(DEVICE_TILE_CLASS);
@@ -345,16 +319,31 @@ fn shows_notes(shape: Shape) -> bool {
 
 /// The drive's type, as This PC's Type column writes it: Windows' words
 /// for the kind of drive mounted there ("Local Disk", "Removable Disk",
-/// "Network Drive", "CD Drive"), "Portable Device" for a phone or camera.
-fn drive_kind(row: &VolumeRow) -> String {
+/// "Network Drive", "CD Drive"), "Portable Device" for a phone or camera;
+/// and its file system where the kernel mounts it, else empty.
+fn drive_kind(row: &VolumeRow) -> (String, String) {
     match (row.kind, &row.state) {
-        (VolumeKind::Device, _) => ox_core::i18n::gettext("Portable Device"),
-        (VolumeKind::Cloud, _) => ox_core::i18n::gettext("Network Drive"),
+        (VolumeKind::Device, _) => (ox_core::i18n::gettext("Portable Device"), String::new()),
+        (VolumeKind::Cloud, _) => (ox_core::i18n::gettext("Network Drive"), String::new()),
         (VolumeKind::Drive, VolumeState::Mounted { uri, .. }) => {
-            crate::properties::drive_type_name(uri).unwrap_or_else(|| ox_core::i18n::gettext("Local Disk"))
+            crate::properties::drive_kind_and_filesystem(uri)
+                .unwrap_or_else(|| (ox_core::i18n::gettext("Local Disk"), String::new()))
         }
-        (VolumeKind::Drive, VolumeState::Mountable { .. }) => ox_core::i18n::gettext("Local Disk"),
+        (VolumeKind::Drive, VolumeState::Mountable { .. }) => {
+            (ox_core::i18n::gettext("Local Disk"), String::new())
+        }
     }
+}
+
+thread_local! {
+    /// How full each drive was when GIO last measured it, by location, so
+    /// This PC drawn again sorts and groups by size at once.
+    static MEASURED: RefCell<HashMap<String, Capacity>> = RefCell::new(HashMap::new());
+}
+
+/// How full the drive at `uri` was when last measured, if it was.
+fn measured(uri: &str) -> Option<Capacity> {
+    MEASURED.with(|measured| measured.borrow().get(uri).copied())
 }
 
 fn local_disk() -> VolumeRow {
@@ -409,8 +398,12 @@ fn share_tile(
         properties: share.is_connected.then(|| uri.clone()),
         facts: DriveFacts {
             order,
+            name,
             kind,
-            capacity: None,
+            network: true,
+            filesystem: String::new(),
+            location: locations.display_location(uri),
+            capacity: share.is_connected.then(|| measured(uri)).flatten(),
         },
         measure,
     }
@@ -480,8 +473,10 @@ fn header_text(title: &str, count: usize) -> String {
 /// right edge. Clicking it, Enter or Space collapses or expands `tiles`;
 /// with the keyboard on it, Left collapses them and Right expands them, as
 /// in Explorer ([`connect_header_keys`]).
-fn group_header(page: &gtk::Box, group: Group, count: usize, tiles: &gtk::FlowBox) -> gtk::Button {
-    let collapsed = page.has_css_class(group.collapsed_class());
+fn group_header(page: &gtk::Box, group: &Group, count: usize, tiles: &gtk::FlowBox) -> gtk::Button {
+    let collapsed_class = group.collapsed_class();
+    let header_class = group.header_class();
+    let collapsed = page.has_css_class(&collapsed_class);
     let chevron_of = |collapsed: bool| {
         if collapsed {
             Icon::ChevronRight16
@@ -491,7 +486,7 @@ fn group_header(page: &gtk::Box, group: Group, count: usize, tiles: &gtk::FlowBo
     };
     let chevron = icons::image(chevron_of(collapsed), CHEVRON);
     let title = gtk::Label::builder()
-        .label(header_text(group.title(), count))
+        .label(header_text(&group.title, count))
         .xalign(0.0)
         .css_classes(["group-title"])
         .build();
@@ -510,7 +505,7 @@ fn group_header(page: &gtk::Box, group: Group, count: usize, tiles: &gtk::FlowBo
     let header = gtk::Button::builder()
         .child(&row)
         .focusable(collapsed)
-        .css_classes(["group-header", group.header_class()])
+        .css_classes(["group-header", header_class.as_str()])
         .build();
     header.update_state(&[gtk::accessible::State::Expanded(Some(!collapsed))]);
     tiles.set_visible(!collapsed);
@@ -523,9 +518,9 @@ fn group_header(page: &gtk::Box, group: Group, count: usize, tiles: &gtk::FlowBo
             let collapse = tiles.is_visible();
             tiles.set_visible(!collapse);
             if collapse {
-                page.add_css_class(group.collapsed_class());
+                page.add_css_class(&collapsed_class);
             } else {
-                page.remove_css_class(group.collapsed_class());
+                page.remove_css_class(&collapsed_class);
             }
             icons::set_icon(&chevron, chevron_of(collapse), CHEVRON);
             if collapse {
@@ -547,7 +542,7 @@ fn group_header(page: &gtk::Box, group: Group, count: usize, tiles: &gtk::FlowBo
 /// and hangs from the folder pane, both of which outlive a redraw of This
 /// PC: a press in the other pane of a split tab makes that pane active,
 /// which draws This PC again before the heading sees the press.
-fn popup_heading_menu(page: &gtk::Box, group: Group, point: gtk::graphene::Point, classic: bool) {
+fn popup_heading_menu(page: &gtk::Box, group: &Group, point: gtk::graphene::Point, classic: bool) {
     let style = if classic {
         MenuStyle::Classic
     } else {
@@ -559,7 +554,7 @@ fn popup_heading_menu(page: &gtk::Box, group: Group, point: gtk::graphene::Point
         .ancestor(super::folder_pane::FolderPane::static_type())
         .unwrap_or_else(|| page.clone().upcast());
     let point = page.compute_point(&owner, &point).unwrap_or(point);
-    let collapsed = page.has_css_class(group.collapsed_class());
+    let collapsed = page.has_css_class(&group.collapsed_class());
     if let Some(window) = page.root().and_downcast::<BrowserWindow>() {
         window.set_this_pc_menu_group(group.header_class());
     }
@@ -589,7 +584,7 @@ fn popup_heading_menu(page: &gtk::Box, group: Group, point: gtk::graphene::Point
 /// window, as This PC was drawn again under it.
 fn press_point_in(
     page: &gtk::Box,
-    group: Group,
+    group: &Group,
     gesture: &gtk::GestureClick,
     x: f64,
     y: f64,
@@ -610,20 +605,22 @@ fn press_point_in(
     // No event to read, as when a test emits the press: the group's
     // heading as drawn now, at the same place in it.
     let header =
-        super::widget_tree::children(page).find(|child| child.has_css_class(group.header_class()))?;
+        super::widget_tree::children(page).find(|child| child.has_css_class(&group.header_class()))?;
     header.compute_point(page, &at)
 }
 
 /// Gives `header`, drawn in `page`, its menu: a right-click (Shift for the
 /// classic style), opened on the press as a tile's menu is, the Menu key
 /// and Shift+F10.
-fn connect_header_menu(header: &gtk::Button, group: Group, page: &gtk::Box) {
+fn connect_header_menu(header: &gtk::Button, group: &Group, page: &gtk::Box) {
     let right_click = gtk::GestureClick::new();
     right_click.set_button(gtk::gdk::BUTTON_SECONDARY);
+    let pressed = group.clone();
     right_click.connect_pressed(glib::clone!(
         #[weak]
         page,
         move |gesture, _, x, y| {
+            let group = &pressed;
             gesture.set_state(gtk::EventSequenceState::Claimed);
             let shift = gesture
                 .current_event_state()
@@ -636,6 +633,7 @@ fn connect_header_menu(header: &gtk::Button, group: Group, page: &gtk::Box) {
     header.add_controller(right_click);
     let shortcuts = gtk::ShortcutController::new();
     for (key, shift_f10) in [(MENU_KEY, false), (SHIFT_F10_KEY, true)] {
+        let keyed = group.clone();
         let action = gtk::CallbackAction::new(glib::clone!(
             #[weak]
             page,
@@ -648,7 +646,7 @@ fn connect_header_menu(header: &gtk::Button, group: Group, page: &gtk::Box) {
                     return glib::Propagation::Proceed;
                 };
                 let classic = shift_f10 && shift_f10_opens_classic(&page);
-                popup_heading_menu(&page, group, point, classic);
+                popup_heading_menu(&page, &keyed, point, classic);
                 glib::Propagation::Stop
             }
         ));
@@ -961,10 +959,12 @@ fn tile_group(page: &gtk::Box, group: Option<Group>, mut tiles: Vec<Tile>, layou
         .valign(gtk::Align::Start)
         .css_classes(["drive-tiles", layout.css_class()])
         .build();
-    let title = group.map_or(Page::ThisPc.title(), Group::title);
-    flow.update_property(&[gtk::accessible::Property::Label(title)]);
+    let title = group
+        .as_ref()
+        .map_or_else(|| Page::ThisPc.title().to_owned(), |group| group.title.clone());
+    flow.update_property(&[gtk::accessible::Property::Label(&title)]);
     if let Some(group) = group {
-        page.append(&group_header(page, group, tiles.len(), &flow));
+        page.append(&group_header(page, &group, tiles.len(), &flow));
     }
     page.append(&flow);
     sort_tiles(&flow, &mut tiles, layout);
@@ -1206,7 +1206,8 @@ enum KeptFocus {
     /// On the tile with this key.
     Tile(String),
     /// On a group's header.
-    Header(Group),
+    /// On the group header with this class.
+    Header(String),
 }
 
 /// The selected tiles and the keyboard's place on This PC, read before it
@@ -1234,10 +1235,11 @@ impl Kept {
             }
             let header = std::iter::successors(Some(focused), WidgetExt::parent)
                 .find(|widget| widget.has_css_class("group-header"))?;
-            let group = Group::ALL
+            let class = header
+                .css_classes()
                 .into_iter()
-                .find(|group| header.has_css_class(group.header_class()))?;
-            Some(KeptFocus::Header(group))
+                .find(|class| class.ends_with("-header") && class.as_str() != "group-header")?;
+            Some(KeptFocus::Header(class.to_string()))
         });
         Self { selected, focus }
     }
@@ -1257,9 +1259,9 @@ impl Kept {
                     focus_tile(&child);
                 }
             }
-            Some(KeptFocus::Header(group)) => {
+            Some(KeptFocus::Header(class)) => {
                 let header = super::widget_tree::children(page)
-                    .find(|child| child.has_css_class(group.header_class()))
+                    .find(|child| child.has_css_class(class))
                     .and_downcast::<gtk::Button>();
                 if let Some(header) = header {
                     focus_header(&header);
@@ -1307,6 +1309,11 @@ fn sort_tiles(flow: &gtk::FlowBox, tiles: &mut [Tile], layout: ThisPcLayout) {
         let Some((uri, slot)) = tile.measure.take() else {
             continue;
         };
+        // Measured before: shown at once, and measured again for news.
+        let shown = tile.facts.capacity;
+        if let Some(capacity) = shown {
+            this_pc_views::show_capacity_in(&slot, capacity);
+        }
         let key = tile.child.widget_name().to_string();
         let flow = flow.downgrade();
         let facts = Rc::clone(&facts);
@@ -1314,13 +1321,29 @@ fn sort_tiles(flow: &gtk::FlowBox, tiles: &mut [Tile], layout: ThisPcLayout) {
             let Some(capacity) = measure_capacity(&gio::File::for_uri(&uri)).await else {
                 return;
             };
+            MEASURED.with(|measured| measured.borrow_mut().insert(uri.clone(), capacity));
             // A page drawn again while GIO measured shows nothing.
             let Some(flow) = flow.upgrade() else {
                 return;
             };
-            this_pc_views::show_capacity_in(&slot, capacity);
-            if let Some(facts) = facts.borrow_mut().get_mut(&key) {
-                facts.capacity = Some(capacity);
+            if shown.is_none() {
+                this_pc_views::show_capacity_in(&slot, capacity);
+            }
+            let regroup = {
+                let mut facts = facts.borrow_mut();
+                facts.get_mut(&key).is_some_and(|facts| {
+                    let before = layout.group.map(|group| facts.group(group).key);
+                    facts.capacity = Some(capacity);
+                    before != layout.group.map(|group| facts.group(group).key)
+                })
+            };
+            // Grouped by size or fullness, a drive measured into another
+            // group than it was drawn in moves there.
+            if regroup {
+                if let Some(window) = flow.root().and_downcast::<BrowserWindow>() {
+                    window.render_landing();
+                }
+                return;
             }
             flow.invalidate_sort();
             // The Details pane describes a selected tile with its sizes.
@@ -1354,13 +1377,16 @@ fn this_pc(
     if let Shape::Details(_, scale) = shape {
         page.append(&this_pc_views::details_titles(layout, scale));
     }
-    if layout.grouped {
-        tile_group(page, Some(Group::DevicesAndDrives), drive_tiles, layout);
-        tile_group(page, Some(Group::NetworkLocations), share_tiles, layout);
-    } else {
-        let mut all = drive_tiles;
-        all.extend(share_tiles);
+    let mut all = drive_tiles;
+    all.extend(share_tiles);
+    let Some(group) = layout.group else {
         tile_group(page, None, all, layout);
+        return;
+    };
+    let facts: Vec<DriveFacts> = all.iter().map(|tile| tile.facts.clone()).collect();
+    let tiles = all.into_iter().zip(facts.iter()).collect();
+    for (key, members) in GroupKey::sorted(tiles, group) {
+        tile_group(page, Some(key), members, layout);
     }
 }
 

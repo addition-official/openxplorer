@@ -304,7 +304,7 @@ fn tile_names(test: &TestWindow) -> Vec<Vec<String>> {
 }
 
 /// This PC takes every view, sort and grouping Windows 11 offers there:
-/// it starts in Tiles grouped by type; Details heads Name, Type, Total
+/// it starts in Tiles grouped and sorted by type; Details heads Name, Type, Total
 /// Size and Free Space; Name keeps This PC's own order and Descending
 /// turns it round; (None) shows the drives and locations in one run. The
 /// choice is This PC's alone: a folder keeps its own view.
@@ -369,13 +369,11 @@ fn this_pc_takes_every_view_sort_and_grouping_and_keeps_them_for_itself() {
         "the folder keeps its own view"
     );
     test.window.navigate(Page::ThisPc.uri()).expect("This PC");
-    wait_for_frames(&test.window, 2);
-    assert!(
-        classes()
-            .iter()
-            .all(|flow| flow.contains(&"pc-content".to_owned())),
-        "This PC's own"
-    );
+    // The style is saved in the background; This PC shows it once saved.
+    wait_until("This PC's own view", || {
+        let shown = classes();
+        !shown.is_empty() && shown.iter().all(|flow| flow.contains(&"pc-content".to_owned()))
+    });
     assert_eq!(tile_names(&test), [["USB", "Backup", "Local Disk"]]);
 }
 
@@ -451,8 +449,10 @@ fn a_redraw_keeps_the_selected_tile_and_the_keyboard() {
     test.window.render_places();
 
     let (flow, usb) = drive_tile(&test, "USB");
+    // This PC is sorted by type, as Windows 11 sorts it: the camera, a
+    // Portable Device, after the three Local Disks.
     assert_eq!(
-        texts_in(&flow.child_at_index(1).expect("a second tile"))[0],
+        texts_in(&flow.child_at_index(3).expect("a fourth tile"))[0],
         "Camera"
     );
     assert_eq!(flow.selected_children(), std::slice::from_ref(&usb));
