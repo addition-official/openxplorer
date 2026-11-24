@@ -131,9 +131,10 @@ impl BrowserWindow {
         self.update_send_to_actions();
     }
 
-    /// Enables Send to and its entries while something is selected.
+    /// Enables Send to and its entries while something is selected: items
+    /// of the folder, or a Recent or Favorites row on Home (HOME-036).
     pub(super) fn update_send_to_actions(&self) {
-        let selected = self.folder_pane().model().summary().count > 0;
+        let selected = self.folder_pane().model().summary().count > 0 || self.selected_home_file().is_some();
         for action in [
             WindowAction::SendTo,
             WindowAction::SendToDesktop,
@@ -349,9 +350,12 @@ impl BrowserWindow {
     /// Send to ▸ Bluetooth device: starts the desktop's Bluetooth sender
     /// with the selected files, which asks for the device and sends them.
     fn send_to_bluetooth(&self) {
-        let items = self.folder_pane().model().selected_items();
-        if items.is_empty() || items.iter().any(|item| item.entry().is_dir) {
-            return;
+        // A row selected on Home stands for its file (HOME-036).
+        if self.selected_home_file().is_none() {
+            let items = self.folder_pane().model().selected_items();
+            if items.is_empty() || items.iter().any(|item| item.entry().is_dir) {
+                return;
+            }
         }
         let Some((sender, program)) = bluetooth_sender() else {
             return;

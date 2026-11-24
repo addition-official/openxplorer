@@ -369,3 +369,226 @@ fn drag_tile(pointer: &mut Pointer, test: &TestWindow, from: &str, onto: &str, a
     pointer.release(Button::Primary);
     wait_for_frames(&test.window, 3);
 }
+
+/// A text editor installed in the private data folder the tests run with
+/// (native/tools/check.py) until it is dropped, listed as one for plain
+/// text, as the desktop's text editor is; it runs `true`.
+struct TextEditor(std::path::PathBuf);
+
+impl TextEditor {
+    const ID: &'static str = "io.example.HomeTextEditor.desktop";
+    const NAME: &'static str = "Sample Editor";
+
+    fn install() -> Self {
+        let data = gtk::glib::user_data_dir();
+        assert!(
+            data.starts_with(std::env::temp_dir()),
+            "tests add applications only to a private data folder"
+        );
+        let folder = data.join("applications");
+        fs::create_dir_all(&folder).expect("the data folder is writable");
+        let path = folder.join(Self::ID);
+        let entry = format!(
+            "[Desktop Entry]\nType=Application\nName={}\nExec=true %U\nMimeType=text/plain;\n\
+             Categories=Utility;TextEditor;\n",
+            Self::NAME
+        );
+        fs::write(&path, entry).expect("the data folder is writable");
+        wait_until("GIO to list the editor", || {
+            crate::integration::installed_application(Self::ID).is_some()
+        });
+        Self(path)
+    }
+}
+
+impl Drop for TextEditor {
+    fn drop(&mut self) {
+        if fs::remove_file(&self.0).is_ok() {
+            wait_until("GIO to forget the editor", || {
+                crate::integration::installed_application(Self::ID).is_none()
+            });
+        }
+    }
+}
+
+/// "Edit in" and the name of the text editor the desktop offers for plain
+/// text: the fixture's, or one installed on the computer that comes first.
+fn edit_in_label() -> String {
+    let editor = crate::integration::text_editor_for(Some("text/plain")).expect("a text editor");
+    format!("Edit in {}", editor.name)
+}
+
+/// The rows of `menu` with their dividers ("-"), leaving out Share and
+/// Share with, which come only where the desktop can share.
+fn rows_without_share(menu: &MenuPopover) -> Vec<String> {
+    menu.row_labels()
+        .into_iter()
+        .filter(|label| label != "Share" && label != "Share with")
+        .collect()
+}
+
+/// The shortcut text shown on the row labelled `label`.
+fn shortcut_of(menu: &MenuPopover, label: &str) -> Option<String> {
+    descendants::<gtk::Label>(&menu.row(label))
+        .into_iter()
+        .find(|text| text.has_css_class("shortcut"))
+        .map(|text| text.text().to_string())
+}
+
+/// Right-clicks the Recent row named `name` with the real pointer and
+/// returns its menu.
+fn recent_row_menu(pointer: &mut Pointer, test: &TestWindow, name: &str) -> MenuPopover {
+    wait_until("the row", || recent_names(test).contains(&name.to_owned()));
+    let row = home_page::item_named(body(test), name);
+    click(pointer, test, &row, None, Button::Secondary);
+    open_menu(test)
+}
+
+/// A Recent text file's menu is Windows 11's (checked on Windows 11, Home
+/// > Recent, 2026-11-24): Copy (and Share) in the strip, then Open
+/// (Enter), Open with, Share with, Open file location, Remove from list,
+/// Add to Favorites, Compress to, Copy as path, Properties, the text
+/// editor's own "Edit in" row after a divider, and "Show more options".
+///
+/// parity: HOME-036
+#[gtk::test]
+fn a_recent_text_files_menu_is_windows_11s() {
+    let _editor = TextEditor::install();
+    let (_fixture, test) = recent_home(&["extra_2.txt"]);
+    let mut pointer = Pointer::connect();
+    let menu = recent_row_menu(&mut pointer, &test, "extra_2");
+
+    let strip = menu.strip_labels();
+    assert_eq!(strip.first().map(String::as_str), Some("Copy"), "{strip:?}");
+    assert!(
+        strip
+            .iter()
+            .all(|label| ["Copy", "Share"].contains(&label.as_str())),
+        "{strip:?}"
+    );
+    let edit_in = edit_in_label();
+    assert_eq!(
+        rows_without_share(&menu),
+        [
+            "Open",
+            "Open with",
+            "Open file location",
+            "Remove from list",
+            "Add to Favorites",
+            "Compress to",
+            "Copy as path",
+            "Properties",
+            "-",
+            edit_in.as_str(),
+            "-",
+            "Show more options"
+        ]
+    );
+    assert_eq!(shortcut_of(&menu, "Open").as_deref(), Some("Enter"));
+    assert!(menu.row("Open with").is_sensitive());
+    assert!(menu.row(&edit_in).is_sensitive());
+}
+
+/// A Recent file without a type, such as README, opens with "Open with"
+/// (Enter), as Windows lists it, and has no other Open row.
+///
+/// parity: HOME-036
+#[gtk::test]
+fn a_recent_file_without_a_type_starts_with_open_with() {
+    let (_fixture, test) = recent_home(&["README"]);
+    let mut pointer = Pointer::connect();
+    let menu = recent_row_menu(&mut pointer, &test, "README");
+
+    let rows = rows_without_share(&menu);
+    assert_eq!(rows.first().map(String::as_str), Some("Open with"), "{rows:?}");
+    assert_eq!(shortcut_of(&menu, "Open with").as_deref(), Some("Enter"));
+    assert!(!rows.contains(&"Open".to_owned()), "{rows:?}");
+}
+
+/// "Show more options" on a Recent text file opens Windows 11's classic
+/// menu (checked 2026-11-24) in its groups: Open, the text editor's "Edit
+/// in", Add to Favorites, Remove from list, Open with…; Copy as path,
+/// Share, Restore previous versions; Send to; Copy; Create shortcut; Open
+/// file location; Properties. No Cut, Delete or Rename; Windows' own
+/// Edit, Print, Give access to and Defender scan are left out.
+///
+/// parity: HOME-036
+#[gtk::test]
+fn a_recent_text_files_classic_menu_is_windows_11s() {
+    let _editor = TextEditor::install();
+    let (_fixture, test) = recent_home(&["extra_2.txt"]);
+    let mut pointer = Pointer::connect();
+    let menu = recent_row_menu(&mut pointer, &test, "extra_2");
+    menu.click_row("Show more options");
+    let classic = open_menu(&test);
+
+    let edit_in = edit_in_label();
+    // Windows' classic menu has "Open with…" for a file with one
+    // application and the submenu where there are several.
+    let open_with =
+        if crate::integration::menu_applications("file:///x.txt", Some("text/plain"), false, 3).len() < 2 {
+            "Open with…"
+        } else {
+            "Open with"
+        };
+    assert_eq!(
+        rows_without_share(&classic),
+        [
+            "Open",
+            edit_in.as_str(),
+            "Add to Favorites",
+            "Remove from list",
+            open_with,
+            "-",
+            "Copy as path",
+            "Restore previous versions",
+            "-",
+            "Send to",
+            "-",
+            "Copy",
+            "-",
+            "Create shortcut",
+            "-",
+            "Open file location",
+            "-",
+            "Properties"
+        ]
+    );
+    for label in ["Open", "Send to", "Copy", "Create shortcut", "Properties"] {
+        assert!(classic.row(label).is_sensitive(), "{label} can be chosen");
+    }
+    classic.popdown();
+}
+
+/// With a Recent row selected, Send to, Share with and Create shortcut can
+/// run on its file, as in Windows 11, where Share with is enabled: Send to
+/// ▸ Compressed (zipped) folder makes the ZIP beside the file.
+///
+/// parity: HOME-036
+#[gtk::test]
+fn send_to_and_share_with_act_on_a_recent_row() {
+    use crate::window::window_action::WindowAction;
+
+    let (fixture, test) = recent_home(&["plan.txt", "budget.txt"]);
+    let enabled = |action: WindowAction| {
+        test.window
+            .lookup_action(action.name())
+            .is_some_and(|action| action.is_enabled())
+    };
+    let mut pointer = Pointer::connect();
+    click_row(&mut pointer, &test, "plan");
+    for action in [
+        WindowAction::SendTo,
+        WindowAction::SendToDesktop,
+        WindowAction::CreateShortcut,
+        WindowAction::CompressToZip,
+    ] {
+        wait_until("the action to follow the row", || enabled(action));
+    }
+
+    test.activate("compress-to-zip", None);
+    wait_until("the ZIP beside the file", || {
+        fixture.path("Documents/plan.zip").is_file()
+    });
+    assert!(fixture.path("Documents/plan.txt").is_file(), "the file stays");
+}

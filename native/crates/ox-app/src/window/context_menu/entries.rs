@@ -405,7 +405,7 @@ fn open_with_chooser(facts: &ItemFacts) -> MenuItem {
 /// it; for a
 /// folder, which Windows offers no apps for, one "Open with <app>" each,
 /// then Open folder with… (OPEN-013).
-fn classic_application_items(facts: &ItemFacts) -> Vec<MenuEntry> {
+pub(super) fn classic_application_items(facts: &ItemFacts) -> Vec<MenuEntry> {
     if facts.shape != ItemShape::Folder {
         // Windows' classic menu shows "Open with..." (the chooser) for a
         // file with one application, as for a text file, and the submenu
@@ -434,7 +434,7 @@ fn compact_open_with(facts: &ItemFacts) -> Option<MenuEntry> {
 /// A file's "Open with" submenu, as Windows 11 lists it: each of its apps
 /// by name, its default first, then "Choose another app" (Open with…);
 /// "Open with…" alone when it has none.
-fn open_with_submenu(facts: &ItemFacts) -> MenuEntry {
+pub(super) fn open_with_submenu(facts: &ItemFacts) -> MenuEntry {
     let mut choices: Vec<MenuEntry> = facts
         .applications
         .iter()
@@ -575,7 +575,7 @@ fn edit_items(facts: &ItemFacts) -> [MenuItem; 5] {
 
 /// Create shortcut, as Windows' classic menu lists it before Delete and
 /// Rename (CMD-040).
-fn create_shortcut_item() -> MenuEntry {
+pub(super) fn create_shortcut_item() -> MenuEntry {
     item(
         ox_core::i18n::gettext_static("Create shortcut"),
         Icon::Link,
@@ -710,7 +710,7 @@ fn tool_items(facts: &ItemFacts) -> Vec<MenuEntry> {
 /// has them; no other application adds entries. Documents and Mail
 /// recipient show Fluent's colour art, as Windows shows colour glyphs;
 /// the others keep their glyphs, as Fluent has no colour art for them.
-fn send_to_item(facts: &ItemFacts) -> MenuEntry {
+pub(super) fn send_to_item(facts: &ItemFacts) -> MenuEntry {
     let targets = &facts.send_to;
     let mut entries: Vec<MenuEntry> = Vec::new();
     if targets.bluetooth {

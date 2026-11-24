@@ -436,6 +436,14 @@ impl BrowserWindow {
             share: entries::share_item(&facts),
             share_with: entries::share_with_item(&facts),
             editors: entries::editor_items(&facts),
+            default_icon: facts
+                .applications
+                .first()
+                .and_then(|application| application.icon.clone()),
+            open_with: Some(entries::open_with_submenu(&facts)),
+            classic_open_with: entries::classic_application_items(&facts),
+            send_to: Some(entries::send_to_item(&facts)),
+            create_shortcut: Some(entries::create_shortcut_item()),
         }
     }
 
