@@ -8,7 +8,7 @@ Model: claude-opus-5-5
 
 CLA: I agree
 
-Builds on: upstream main (0fed5d4a)
+Builds on: upstream main (1bda07a0, 2.0.25)
 
 ## What changes for the user
 - A move to another drive writes its copy out to that drive (`syncfs` on local destinations) after the copy is published and before any original is removed. If the drive cannot write it out, every original is kept and the progress window says: "The copy at {uri} could not be written to its drive, so the original was kept. {error}".

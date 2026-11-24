@@ -1,43 +1,52 @@
-STATUS: DONE (32 stacked PR branches force-pushed; no PRs opened)
-HEAD: pr/32-classic-menu-windows 5627819e8036709981ca1854d8960632b1647514
-BASE: upstream main 0fed5d4a (AKolenda/openxplorer)
+STATUS: DONE (32 stacked PR branches rebased onto upstream 1bda07a0 and force-pushed; no PRs opened)
+HEAD: pr/32-classic-menu-windows 0fc8c022615157ab9e75ec8e5994d2e15f3c161a
+BASE: upstream main 1bda07a0 (2.0.25; new since 0fed5d4a: #389 system window decorations, #392 read-only Google Drive and OneDrive, the 2.0.24 and 2.0.25 releases)
 QUESTION: none.
-NOTE: Updated to deb 57: target = origin/test-combined-57 (30414a50) + origin/claude/classic-menu-windows tip 981c6823 ("Show icons in the classic menu only where Windows does") - the icon growth work (0613fcfb, 3a42a312, 31929ba8, c1496e0b, removed by hand where later work built on it, now also one call in the classic menu's Win32 rows) - .github/workflows/fork-test-deb.yml - the two libFuzzer crash files native/fuzz/crash-da39a3ee... and crash-f1aedce8... (nothing reads them: the harness writes failures to artifacts/ and regression tests sit next to the parsers, so they were dropped as asked). `git diff pr/32-classic-menu-windows <target>` is empty.
-NOTE: New work went where asked: owner-audit round 2 (PR 27, including its large "Drop redundant tests" commit ebdeac88), review-6 rounds 4-5 (PR 28), pass-12's view toggles and Details button (PR 13), pass-7's four-line names (PR 26), long-c's straight picture and imageres 162 (PR 29), windows-mode-switch's star prompt, fixed-size Properties and wider guard (PR 31), and the classic menu as the new PR 32. The pruning commits that test-combined-57 brought for network-like-windows, pass-8, pass-9 and pass-10 are in PRs 07, 09, 10 and 11.
-NOTE: PR texts: PR 16 lists DEV-015 (before/after) and other parity entries it changes under CHANGED OWNER DECISIONS; PR 29 says "Settles the open decision VIEW-058"; PR 22 has no crash files. One pot string of PR 31 (the GitHub star card) contains the word "session", so it is quoted only up to that word with a pointer to the .pot.
-NOTE: Order unchanged from the first stack: network-like-windows is PR 07; pass-7 is split into PR 08 and PR 26; long-c is PR 29 after review-6. Each PR changes only files its feature touched; no test is removed by one PR and re-added by a later one. Where a later PR rewrites code, the earlier PR keeps the version its feature wrote, so some code (for example network-like-windows' first menu helpers) is added in one PR and replaced later.
+NOTE: Rebase method: each step's tree was 3-way merged with upstream (base 0fed5d4a, ours = the step as pushed before, theirs = 1bda07a0). Steps 01-04 merged cleanly. 23 distinct conflict hunks in 16 files appeared from PR 05 on; each was resolved once and the same resolution applied wherever the hunk recurs. Generated files (native/po/openxplorer.pot, docs/*.md, the website's Markdown copies and markdown.json) were regenerated with i18n.py extract and tools/sync-docs.py, then cargo fmt.
+NOTE: Conflict resolutions, by the PR where each first appears (later PRs carry the same resolution):
+- PR 05 icon.rs: our side drops Icon::Code, upstream adds Icon::Cloud beside it; kept Cloud (variant, name, ALL_ICONS entry), no Code, ALL_ICONS count our count + 1 (125 -> 126). location.rs module table: both rows (cloud_names, typed).
+- PR 07 location/display.rs: our Smb crumb with the computer's name kept; upstream's Cloud joins the Remote arm (Remote | Cloud => crumb of the authority).
+- PR 10, 31 settings_page.rs, PR 25, 31 window/tests.rs and settings_page/tests.rs: module lists merged in order (window_decorations, windows_icon_files, windows_mode, wrap_layout).
+- PR 13 entry/info.rs, entry/meta.rs: both new fields and helpers kept (our trash_file, upstream's web_target).
+- PR 16 file_ops/availability.rs: both kept (is_on_read_only_drive and is_cloud).
+- PR 20 settings/preferences.rs: upstream moved desktop_font and shift_f10_classic into apply_appearance(); kept that call plus our f6_like_windows line.
+- PR 25 settings_page/tests.rs and tests/redesign.rs: both rows lists kept (our Windows icon file rows, upstream's "Use system window decorations"). sidebar/entries.rs: our side replaced the drive glyph match with VolumeRow::art(); upstream's Cloud arm moves there (see fixes).
+- PR 27 window/activation.rs: upstream's Google Docs web_target branch kept in front of our async desktop_link call, with our follow_link(&entry, target) signature.
+- PR 28 icon.rs: our COMMAND_ROLES and non-test ALL_ICONS kept, count + 1 for Cloud.
+NOTE: Post-merge fixes so both features build: PR 17 keeps has_control_character in location's re-exports (pass-16 had dropped it; upstream's web_target uses it), so PR 17 no longer touches location.rs. PR 18+ passes the entry to follow_link for web links (pass-17 added that parameter). PR 25+ maps Icon::Cloud to Segoe's Cloud glyph (E753) in the Windows symbol-font table and draws a Cloud drive with the Cloud glyph in VolumeRow::art().
+NOTE: Every PR's file list and new/changed strings are the same as before the rebase, apart from PR 17's location.rs. Each branch is one commit on the one before (git merge-tree against the previous branch: clean for all 32); pr/32 merges cleanly into upstream main. Final tree = previous final tree rebased onto 1bda07a0 with the resolutions above; the exclusions are unchanged.
 NOTE: Checks run on every branch: cargo check --workspace --all-targets (0 errors, 0 warnings), cargo fmt --all -- --check, python3 native/parity/check.py; all pass. No test suites were run. One commit per branch, by addition-official, no trailers.
 
-NN | branch | source branches | commits | files | cargo check
-01 | pr/01-pass-1-copy-move | pass-1-copy-move | 5 | 14 | ok (0 errors, 0 warnings)
-02 | pr/02-pass-2-undo-redo | pass-2-undo-redo | 2 | 10 | ok (0 errors, 0 warnings)
-03 | pr/03-pass-3-rename | pass-3-rename | 11 | 22 | ok (0 errors, 0 warnings)
-04 | pr/04-pass-4-nav-pane | pass-4-nav-pane | 14 | 29 | ok (0 errors, 0 warnings)
-05 | pr/05-pass-5-address-bar | pass-5-address-bar | 8 | 29 | ok (0 errors, 0 warnings)
-06 | pr/06-pass-6-context-menu | pass-6-context-menu (+2 review4-diffs commits it merged) | 12 | 52 | ok (0 errors, 0 warnings)
-07 | pr/07-network-like-windows | network-like-windows | 4 | 74 | ok (0 errors, 0 warnings)
-08 | pr/08-pass-7-views | pass-7-views (early commits) | 9 | 18 | ok (0 errors, 0 warnings)
-09 | pr/09-pass-8-open-with | pass-8-open-with | 16 | 26 | ok (0 errors, 0 warnings)
-10 | pr/10-pass-9-scaling | pass-9-scaling | 10 | 33 | ok (0 errors, 0 warnings)
-11 | pr/11-pass-10-home-recent | pass-10-home-recent | 8 | 21 | ok (0 errors, 0 warnings)
-12 | pr/12-pass-11-new-menu | pass-11-new-menu | 12 | 33 | ok (0 errors, 0 warnings)
-13 | pr/13-pass-12-details-status | pass-12-details-status (incl. view toggles and Details button) | 13 | 36 | ok (0 errors, 0 warnings)
-14 | pr/14-pass-13-startup | pass-13-startup | 10 | 20 | ok (0 errors, 0 warnings)
-15 | pr/15-pass-14-tabs-windows | pass-14-tabs-windows | 11 | 32 | ok (0 errors, 0 warnings)
-16 | pr/16-pass-15-errors | pass-15-errors | 11 | 70 | ok (0 errors, 0 warnings)
-17 | pr/17-pass-16-clipboard | pass-16-clipboard | 7 | 22 | ok (0 errors, 0 warnings)
-18 | pr/18-pass-17-shortcuts | pass-17-shortcuts | 12 | 47 | ok (0 errors, 0 warnings)
-19 | pr/19-pass-18-drives | pass-18-drives | 16 | 39 | ok (0 errors, 0 warnings)
-20 | pr/20-pass-19-a11y | pass-19-a11y | 17 | 53 | ok (0 errors, 0 warnings)
-21 | pr/21-sort-header-windows | sort-header-windows | 5 | 16 | ok (0 errors, 0 warnings)
-22 | pr/22-long-a-fuzz | long-a-fuzz | 20 | 67 | ok (0 errors, 0 warnings)
-23 | pr/23-long-d-doc-previews | long-d-doc-previews | 23 | 11 | ok (0 errors, 0 warnings)
-24 | pr/24-long-b-soak | long-b-soak | 3 | 9 | ok (0 errors, 0 warnings)
-25 | pr/25-user-icon-files | user-icon-files (without the icon growth work) + 3 test-combined merge fixes | 23 | 54 | ok (0 errors, 0 warnings)
-26 | pr/26-pass-7-views-2 | pass-7-views (later commits, incl. four-line names) + 1 test-combined fix | 11 | 34 | ok (0 errors, 0 warnings)
-27 | pr/27-owner-audit-fixes | claude/owner-audit-fixes (rounds 1-2) | 25 | 98 | ok (0 errors, 0 warnings)
-28 | pr/28-review-6-fixes | claude/review-6-fixes (through round 5) | 29 | 83 | ok (0 errors, 0 warnings)
-29 | pr/29-long-c-thumb-cache | long-c-thumb-cache + 2 test-combined rustfmt commits | 18 | 36 | ok (0 errors, 0 warnings)
-30 | pr/30-settings-export-letters | claude/settings-export-letters | 1 | 26 | ok (0 errors, 0 warnings)
-31 | pr/31-windows-mode-switch | claude/windows-mode-switch + 1 test-combined commit (3d6ddce0) | 11 | 28 | ok (0 errors, 0 warnings)
-32 | pr/32-classic-menu-windows | claude/classic-menu-windows (8f596d15, 981c6823) | 1 | 15 | ok (0 errors, 0 warnings)
+NN | branch | source branches | commits | files | cargo check | upstream rebase
+01 | pr/01-pass-1-copy-move | pass-1-copy-move | 5 | 14 | ok (0 errors, 0 warnings) | clean
+02 | pr/02-pass-2-undo-redo | pass-2-undo-redo | 2 | 10 | ok (0 errors, 0 warnings) | clean
+03 | pr/03-pass-3-rename | pass-3-rename | 11 | 22 | ok (0 errors, 0 warnings) | clean
+04 | pr/04-pass-4-nav-pane | pass-4-nav-pane | 14 | 29 | ok (0 errors, 0 warnings) | clean
+05 | pr/05-pass-5-address-bar | pass-5-address-bar | 8 | 29 | ok (0 errors, 0 warnings) | conflict: icon.rs, location.rs
+06 | pr/06-pass-6-context-menu | pass-6-context-menu (+2 review4-diffs commits it merged) | 12 | 52 | ok (0 errors, 0 warnings) | carried
+07 | pr/07-network-like-windows | network-like-windows | 4 | 74 | ok (0 errors, 0 warnings) | conflict: location/display.rs
+08 | pr/08-pass-7-views | pass-7-views (early commits) | 9 | 18 | ok (0 errors, 0 warnings) | carried
+09 | pr/09-pass-8-open-with | pass-8-open-with | 16 | 26 | ok (0 errors, 0 warnings) | carried
+10 | pr/10-pass-9-scaling | pass-9-scaling | 10 | 33 | ok (0 errors, 0 warnings) | conflict: settings_page.rs
+11 | pr/11-pass-10-home-recent | pass-10-home-recent | 8 | 21 | ok (0 errors, 0 warnings) | carried
+12 | pr/12-pass-11-new-menu | pass-11-new-menu | 12 | 33 | ok (0 errors, 0 warnings) | carried
+13 | pr/13-pass-12-details-status | pass-12-details-status (incl. view toggles and Details button) | 13 | 36 | ok (0 errors, 0 warnings) | conflict: entry/info.rs, entry/meta.rs
+14 | pr/14-pass-13-startup | pass-13-startup | 10 | 20 | ok (0 errors, 0 warnings) | carried
+15 | pr/15-pass-14-tabs-windows | pass-14-tabs-windows | 11 | 32 | ok (0 errors, 0 warnings) | carried
+16 | pr/16-pass-15-errors | pass-15-errors | 11 | 70 | ok (0 errors, 0 warnings) | conflict: file_ops/availability.rs
+17 | pr/17-pass-16-clipboard | pass-16-clipboard | 7 | 21 | ok (0 errors, 0 warnings) | carried; fix: re-export has_control_character
+18 | pr/18-pass-17-shortcuts | pass-17-shortcuts | 12 | 47 | ok (0 errors, 0 warnings) | carried; fix: follow_link(&fresh, ...) for web links
+19 | pr/19-pass-18-drives | pass-18-drives | 16 | 39 | ok (0 errors, 0 warnings) | carried
+20 | pr/20-pass-19-a11y | pass-19-a11y | 17 | 53 | ok (0 errors, 0 warnings) | conflict: settings/preferences.rs
+21 | pr/21-sort-header-windows | sort-header-windows | 5 | 16 | ok (0 errors, 0 warnings) | carried
+22 | pr/22-long-a-fuzz | long-a-fuzz | 20 | 67 | ok (0 errors, 0 warnings) | carried
+23 | pr/23-long-d-doc-previews | long-d-doc-previews | 23 | 11 | ok (0 errors, 0 warnings) | carried
+24 | pr/24-long-b-soak | long-b-soak | 3 | 9 | ok (0 errors, 0 warnings) | carried
+25 | pr/25-user-icon-files | user-icon-files (without the icon growth work) + 3 test-combined merge fixes | 23 | 54 | ok (0 errors, 0 warnings) | conflict: icon.rs, settings_page/tests.rs, settings_page/tests/redesign.rs, sidebar/entries.rs, window/tests.rs; fix: Cloud glyph and Cloud drive art
+26 | pr/26-pass-7-views-2 | pass-7-views (later commits, incl. four-line names) + 1 test-combined fix | 11 | 34 | ok (0 errors, 0 warnings) | carried
+27 | pr/27-owner-audit-fixes | claude/owner-audit-fixes (rounds 1-2) | 25 | 98 | ok (0 errors, 0 warnings) | conflict: window/activation.rs
+28 | pr/28-review-6-fixes | claude/review-6-fixes (through round 5) | 29 | 83 | ok (0 errors, 0 warnings) | conflict: icon.rs
+29 | pr/29-long-c-thumb-cache | long-c-thumb-cache + 2 test-combined rustfmt commits | 18 | 36 | ok (0 errors, 0 warnings) | carried
+30 | pr/30-settings-export-letters | claude/settings-export-letters | 1 | 26 | ok (0 errors, 0 warnings) | carried
+31 | pr/31-windows-mode-switch | claude/windows-mode-switch + 1 test-combined commit (3d6ddce0) | 11 | 28 | ok (0 errors, 0 warnings) | conflict: settings_page.rs, settings_page/tests.rs
+32 | pr/32-classic-menu-windows | claude/classic-menu-windows (8f596d15, 981c6823) | 1 | 15 | ok (0 errors, 0 warnings) | carried
