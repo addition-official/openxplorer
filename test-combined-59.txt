@@ -1,0 +1,38 @@
+STATUS: RUNNING (merged and pushed; GitHub Actions builds the deb)
+HEAD: test-combined-59 c20dd197183cf5e28a9ffa707522a5b7110f8f8e
+
+BRANCH: test-combined-59, started from deb 58's test-combined-58 6776789d (the workflow file is in the tree); all three tips were cut from it.
+
+MERGES (in the order given; no conflicts):
+- pass-14-system-decorations a75fe63a -> 65cc1831
+- claude/classic-menu-windows 415f2801 -> 2fdc128d
+- claude/bold-franklin-i10s85 e2bcca79 -> c20dd197
+- .pot: the branches' own regenerated template merged as is (i18n check passes); docs needed no change (sync-docs --check passes). No .po file touched.
+
+SKIPPED: none.
+
+TESTS RUN HERE (ox-app lib tests of the touched modules, isolated under Xvfb, one process; filters context_menus, menu_popover, submenu_hover, home_recent, window_decorations, title_bar_menu, thumbnails): 139 passed, 3 failed. The 3 failures also fail on test-combined-58 6776789d, run the same way (0 of 3 passed there), and failed on main in earlier debs; they predate these merges, and most likely come from this container:
+- thumbnails::thumbnailers::tests::a_sandboxed_thumbnailer_runs_within_its_limits ("the program saw its limits and wrote its picture") and a_sandboxed_thumbnailer_sees_only_its_item ("a thumbnail made in the sandbox"): likely bubblewrap's sandbox not running in this container (not checked further).
+- window::tests::context_menus::a_folder_without_write_permission_keeps_new_and_paste_and_shows_the_error ("timed out waiting for the action to ask"): likely because the tests run as root here, where a folder without write permission is still writable (not checked further).
+No full suite, as asked.
+
+CHECKS HERE: cargo check of the workspace (and of all targets): no errors or warnings; rustfmt clean; i18n check and sync-docs --check pass. The 5 new commits are by addition-official <239187859+addition-official@users.noreply.github.com> (author and committer), with no trailers; on top of upstream main 1bda07a0: 660 commits, 658 by addition-official and the owner's 2 #366 commits by AKolenda, as before. No status/*.txt or status/*.md in the tree. No release build here; GitHub Actions builds and checks the deb.
+
+CHANGES (everything since deb 58, in plain words):
+- System title bar, switched at once (pass-14-system-decorations, 5c9c0324): turning on "Use system window decorations" now changes windows that are already open, not only new ones, so on KDE Plasma (KWin) open windows get the desktop's own title bar right away. Each open window is briefly hidden and shown again in the new layout, staying maximized if it was; its tabs and running copies carry on, and a file dialog keeps its frame. Checked by its author on KWin Wayland and Mutter Wayland.
+- Window menu on the title bar (pass-14-system-decorations, 5c9c0324): right-clicking the empty part of the title bar, or of the tab row under the desktop's frame, opens Windows 11's window menu: Restore, Move, Size, Minimize, Maximize, Close (Alt+F4), then a check item "Use system title bar and borders" that turns the same setting on or off. Move and Size use the window manager's keyboard move on X11; on Wayland the next press in the window starts them. Right-clicking a tab still opens the tab's menu.
+- No crash on file names that are not UTF-8 (pass-14-system-decorations, 0c25c35f): a folder holding a file whose name is not valid UTF-8 could make the app panic when checking for document previews; such names are now read with a replacement character. The same fix keeps such names intact for a shortcut to an SMB share and for an administrator deletion.
+- Submenus close when the pointer leaves (classic-menu-windows, 415f2801): with a submenu open (such as Send to), moving the pointer off every menu closes the submenu after the 400 ms menu delay, as in Windows 11, while the menu it came from stays open until a click outside or Escape. This now works in the compact menu, the classic menu and the command bar's menus, and for every submenu up the chain.
+- Recent files' menus match Windows 11 (bold-franklin-i10s85, e2bcca79), for a file under Home > Recent:
+  - Compact menu: Open (Enter, with the default app's icon) and the Open with submenu (or Open with alone for a file without an extension), Share with, Open file location, Remove from list, Add to Favorites, Compress to, Copy as path, Properties, the text editor's Edit in, and Show more options.
+  - Classic menu: Open in bold, Edit in, Add to Favorites, Remove from list, Open with..., Copy as path, Share, Restore previous versions, Send to, Copy, Create shortcut, Open file location, Properties.
+  - Send to, Share with, Create shortcut and Compressed (zipped) folder now work on a selected Recent file; Share with used to be grayed.
+- Test-only (a75fe63a): American spelling in the window menu test.
+
+NEW TEXT (every new or changed UI text, verbatim):
+- New: "Use system title bar and borders" (the window menu's check item).
+- Changed, the "Use system window decorations" row's description: "Use your desktop's title bar and window buttons, with the tabs below them. Open windows change at once. Where the desktop draws no title bars, GTK draws a standard one." (was "... Applies to windows opened after the change. ...").
+- Changed, that row's search keywords: "appearance layout frame border borders titlebar title bar desktop native system decorations KDE KWin GNOME Wayland X11 CSD SSD minimize maximize close" (adds "borders").
+- Reused, not new in the template: the window menu's Restore, Move, Size, Minimize, Maximize and Close, and the Recent menus' items, are existing texts; "Alt+F4" is a shortcut label, not translated.
+
+QUESTION: none.
