@@ -272,7 +272,8 @@ pub(crate) fn group_of(by: SortBy, item: &FileItem, clock: &GroupClock) -> Group
         None => Group::numbered(missing, 0),
     };
     match by {
-        SortBy::Column(SortColumn::Name) => name_group(item),
+        // Files have no free space; This PC groups its drives itself.
+        SortBy::Column(SortColumn::Name) | SortBy::Role(SortRole::FreeSpace) => name_group(item),
         SortBy::Column(SortColumn::Size) => size_group(item),
         SortBy::Column(SortColumn::Modified) => clock.period(entry.modified),
         SortBy::Column(SortColumn::Type) => Group::texted(&entry.type_label, 1),

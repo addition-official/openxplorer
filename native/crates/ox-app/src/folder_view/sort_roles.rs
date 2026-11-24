@@ -34,6 +34,10 @@ pub(crate) enum SortRole {
     /// When a photo was taken, else when it was modified: Gallery's sort
     /// ([`photo_date`]), not offered in the Sort menu.
     Taken,
+    /// How much room a drive has left: This PC's Free Space, as Windows
+    /// 11 sorts its drives by it; no file has any, so it leaves the
+    /// folders' order to the name.
+    FreeSpace,
 }
 
 impl SortRole {
@@ -59,6 +63,7 @@ impl SortRole {
             SortRole::Group => "group",
             SortRole::LinkTarget => "linkTarget",
             SortRole::Taken => "taken",
+            SortRole::FreeSpace => "freeSpace",
         }
     }
 
@@ -73,6 +78,7 @@ impl SortRole {
             SortRole::Group => gettext_static("User group"),
             SortRole::LinkTarget => gettext_static("Link destination"),
             SortRole::Taken => gettext_static("Date taken"),
+            SortRole::FreeSpace => gettext_static("Free Space"),
         }
     }
 
@@ -99,6 +105,7 @@ impl SortRole {
                 text(b.meta.link_target.as_deref()),
             ),
             SortRole::Taken => photo_date(a).cmp(&photo_date(b)),
+            SortRole::FreeSpace => Ordering::Equal,
         }
     }
 }
@@ -145,7 +152,7 @@ impl SortBy {
         }
         SortRole::ALL
             .into_iter()
-            .chain([SortRole::Taken])
+            .chain([SortRole::Taken, SortRole::FreeSpace])
             .find(|role| role.as_str() == key)
             .map(SortBy::Role)
     }

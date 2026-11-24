@@ -23,12 +23,14 @@ use ox_core::settings::{
 };
 
 use super::folder_pane::{FolderPane, FolderView};
+use super::this_pc_views::ThisPcLayout;
 use super::window_action::WindowAction;
 use super::BrowserWindow;
 use crate::folder_view::details::GroupTitle;
 use crate::folder_view::groups::Grouping;
 use crate::folder_view::sort_roles::{SortBy, SortState};
 use crate::folder_view::sorting::{SortColumn, SortDirection, SortOrder};
+use crate::locations::Page;
 
 /// The date style the preferences ask for.
 pub(super) fn date_style(preferences: &Preferences) -> DateStyle {
@@ -204,7 +206,7 @@ impl BrowserWindow {
         // Gallery's own style never stays on a folder (HOME-019), and
         // neither does Network's.
         let from_gallery = super::gallery::shows_gallery_style(self.folder_pane());
-        let own_style = from_gallery || is_network(uri) || self.folder_pane().is_styled_for_network();
+        let own_style = from_gallery || keeps_own_style(uri) || self.folder_pane().is_styled_for_own_place();
         self.folder_pane().set_gallery(false);
         let preferences = self.context().settings_data().preferences;
         let downloads = self.downloads_location();
@@ -237,7 +239,7 @@ impl BrowserWindow {
             return;
         }
         let from_gallery = super::gallery::shows_gallery_style(pane);
-        let own_style = from_gallery || is_network(uri) || pane.is_styled_for_network();
+        let own_style = from_gallery || keeps_own_style(uri) || pane.is_styled_for_own_place();
         pane.set_gallery(false);
         let preferences = self.context().settings_data().preferences;
         let downloads = self.downloads_location();
@@ -289,9 +291,13 @@ impl BrowserWindow {
             .shown_panes()
             .into_iter()
             .find_map(|(side, uri)| (self.pane_on(side) == pane).then_some(uri));
-        // Network keeps its own style, whether or not each folder does.
-        if let Some(uri) = shown_uri.as_deref().filter(|uri| is_network(uri)) {
+        // Network and This PC keep their own style, whether or not each
+        // folder does; This PC draws its tiles in it at once.
+        if let Some(uri) = shown_uri.as_deref().filter(|uri| keeps_own_style(uri)) {
             self.save_style(uri, style, ViewScope::Folder);
+            if Page::from_uri(uri) == Some(Page::ThisPc) {
+                self.render_landing();
+            }
             return;
         }
         if preferences.per_folder_views {
@@ -322,6 +328,34 @@ impl BrowserWindow {
             self.context()
                 .update_preferences(update, self.preference_failure_reply());
         }
+    }
+
+    /// How This PC is laid out in `pane`: in This PC's own style, which the
+    /// pane takes up when it comes to This PC, as it takes up a folder's,
+    /// and which the View, Sort and Group by menus then change and save
+    /// for This PC alone ([`Self::remember_pane_style`]).
+    pub(super) fn this_pc_layout(&self, pane: &FolderPane) -> ThisPcLayout {
+        let pc = ox_core::location::PC_URI;
+        if !pane.is_styled_for_place(pc) {
+            let style = self.context().settings_data().preferences.view_in(pc, None);
+            self.apply_style_to(pane, &style);
+            pane.set_styled_for(&gio::ListStore::new::<glib::Object>(), pc);
+            if pane == self.folder_pane() {
+                self.show_pane_view_state();
+            }
+        }
+        let sort = pane_sort_state(pane);
+        let group_by = pane
+            .model()
+            .grouping()
+            .map_or(GroupBy::None, |grouping| grouping.by);
+        ThisPcLayout::new(
+            pane.view(),
+            sort.by,
+            sort.direction,
+            group_by != GroupBy::None,
+            self.has_css_class("compact-density"),
+        )
     }
 
     /// Saves `style` for the folder at `uri` with `scope`, saying so when
@@ -425,8 +459,10 @@ fn show_pane_sort(pane: &FolderPane, state: SortState) {
 
 /// Whether `uri` is Network, which keeps a style of its own: Tiles grouped
 /// by type until the user chooses another there.
-fn is_network(uri: &str) -> bool {
-    ox_core::location::same_location(uri, ox_core::location::NETWORK_URI)
+/// Whether `uri` is Network or This PC, which keep a style of their own
+/// whether or not each folder does, as Windows 11 keeps theirs.
+fn keeps_own_style(uri: &str) -> bool {
+    ox_core::settings::own_style_place(uri).is_some()
 }
 
 #[cfg(test)]

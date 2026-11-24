@@ -19,6 +19,7 @@ use crate::icons::Icon;
 use crate::text_size::Step;
 use crate::window::folder_pane::FolderView;
 use crate::window::menu_popover::{MenuEntry, MenuItem};
+use crate::window::this_pc_views::ThisPcSort;
 use crate::window::window_action::WindowAction;
 
 /// A menu line that runs `action`.
@@ -135,6 +136,45 @@ pub(in crate::window) fn sort_menu() -> Vec<MenuEntry> {
         .into(),
     ]);
     entries
+}
+
+/// This PC's Sort menu, as Windows 11's there: Name, Type, Total Size and
+/// Free Space, This PC's columns; the direction; then Group by, by type
+/// or not at all. As in the folders' Sort menu, no row has a glyph and a
+/// dot marks each choice.
+pub(in crate::window) fn this_pc_sort_menu() -> Vec<MenuEntry> {
+    let mut entries: Vec<MenuEntry> = ThisPcSort::ALL
+        .into_iter()
+        .map(|column| {
+            MenuItem::choice(column.title(), Icon::ArrowSort, WindowAction::Sort, column.key())
+                .without_glyph()
+                .into()
+        })
+        .collect();
+    entries.extend([
+        MenuEntry::Divider,
+        direction_item(&gettext("Ascending"), SortDirection::Ascending),
+        direction_item(&gettext("Descending"), SortDirection::Descending),
+        MenuEntry::Divider,
+        MenuItem::submenu(
+            &gettext("Group by"),
+            Icon::TextBulletList,
+            WindowAction::GroupBy,
+            this_pc_group_by_menu(),
+        )
+        .without_glyph()
+        .into(),
+    ]);
+    entries
+}
+
+/// This PC's Group by choices: by type, under "Devices and drives" and
+/// "Network locations", or not at all.
+pub(in crate::window) fn this_pc_group_by_menu() -> Vec<MenuEntry> {
+    [GroupBy::Type, GroupBy::None]
+        .into_iter()
+        .map(group_item)
+        .collect()
 }
 
 /// Search options, as Windows 11 File Explorer lists them while it
@@ -658,6 +698,40 @@ mod tests {
                 _ => None,
             })
             .collect()
+    }
+
+    /// This PC's Sort menu sorts by Windows' columns there, Name, Type,
+    /// Total Size and Free Space, either way, and groups by type or not at
+    /// all; it has no folder keys such as Date modified or Folders first.
+    ///
+    /// parity: VIEW-019, VIEW-022, DEV-001
+    #[test]
+    fn this_pcs_sort_menu_sorts_and_groups_as_windows_does_there() {
+        let menu = this_pc_sort_menu();
+        assert_eq!(
+            labels_running(&menu, WindowAction::Sort),
+            ["Name", "Type", "Total Size", "Free Space"]
+        );
+        assert_eq!(
+            labels_running(&menu, WindowAction::Direction),
+            ["Ascending", "Descending"]
+        );
+        assert!(labels_running(&menu, WindowAction::FoldersFirst).is_empty());
+        let group_by = menu
+            .iter()
+            .find_map(|entry| match entry {
+                MenuEntry::Item(item) if item.label == "Group by" => Some(item.submenu.clone()),
+                _ => None,
+            })
+            .expect("a Group by submenu");
+        assert_eq!(
+            labels_running(&group_by, WindowAction::GroupBy),
+            ["Type", "(None)"]
+        );
+        assert_eq!(
+            labels_running(&this_pc_group_by_menu(), WindowAction::GroupBy),
+            ["Type", "(None)"]
+        );
     }
 
     /// Folder Options is "…" > Options, as in Windows 11, and the View

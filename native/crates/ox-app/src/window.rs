@@ -155,6 +155,7 @@ mod send_to;
 mod service_actions;
 mod session;
 mod session_restore;
+mod this_pc_views;
 pub(crate) use session_restore::{save_front_session, save_windows_for_quit};
 mod settings_tab;
 mod share;

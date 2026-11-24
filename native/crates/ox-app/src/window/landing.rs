@@ -28,7 +28,8 @@
 //! (Escape) and Invert selection act on the tiles of both groups, as in
 //! Windows 11's This PC ([`change_tile_selection`]).
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use gtk::gio;
@@ -38,7 +39,7 @@ use ox_core::format;
 use ox_core::location::{is_smb_location, split_location, LocationContext};
 use ox_core::places::{NetworkKind, SavedShare};
 
-use crate::folder_view::icon_size::{tiles_cell, CellSize, TILES_ICON};
+use super::this_pc_views::{self, CapacitySlot, DriveFacts, Shape, ThisPcLayout, TileParts};
 use crate::icons::{self, Art, ArtImage, Connection, Icon};
 use crate::locations::Page;
 use crate::places::Places;
@@ -58,10 +59,10 @@ use super::BrowserWindow;
 const NEARLY_FULL: f64 = 0.9;
 
 /// Pixels between a tile's icon and its lines, as in the Tiles view.
-const TILE_ICON_GAP: i32 = 10;
+pub(super) const TILE_ICON_GAP: i32 = 10;
 /// A tile's padding and margin across (8 and 2 on each side) and down
 /// (8 and 1 on each side), as `gridview.files.tiles > child` has them.
-const TILE_CHROME: (i32, i32) = (20, 18);
+pub(super) const TILE_CHROME: (i32, i32) = (20, 18);
 /// The chevron of a group header.
 const CHEVRON: i32 = 16;
 /// Most tiles a row of a group holds; the pane's width decides.
@@ -99,7 +100,7 @@ impl Capacity {
 
     /// "N free of M", as Windows 11 says it under a drive, and as the
     /// drive's Properties says it.
-    fn text(self) -> String {
+    pub(super) fn text(self) -> String {
         format::free_of_text(self.free, self.size)
     }
 }
@@ -156,7 +157,7 @@ pub(super) async fn measure_capacity(file: &gio::File) -> Option<Capacity> {
 }
 
 /// The bar that shows how full a drive is, red when it is nearly full.
-fn capacity_bar(capacity: Capacity) -> gtk::ProgressBar {
+pub(super) fn capacity_bar(capacity: Capacity) -> gtk::ProgressBar {
     let bar = gtk::ProgressBar::builder()
         .fraction(capacity.used_share())
         .css_classes(["capacity"])
@@ -225,6 +226,10 @@ struct Tile {
     menu: PlaceMenu,
     /// The location Alt+Enter shows the Properties of, if it can.
     properties: Option<String>,
+    /// What This PC sorts the tile by.
+    facts: DriveFacts,
+    /// The location to measure and where to show how full it is.
+    measure: Option<(String, CapacitySlot)>,
 }
 
 impl Tile {
@@ -254,35 +259,9 @@ impl Tile {
     }
 }
 
-/// An empty tile showing `icon` left of `name`, at the Tiles view's size,
-/// and the box of lines beside the icon, for what the tile says under the
-/// name.
-///
-/// The tile is named `key`, the location or volume it opens, which finds
-/// it again after a redraw ([`Kept`]).
-pub(super) fn tile_frame(
-    icon: &impl IsA<gtk::Widget>,
-    name: &str,
-    key: &str,
-    cell: CellSize,
-) -> (gtk::FlowBoxChild, gtk::Box) {
-    let lines = gtk::Box::new(gtk::Orientation::Vertical, 1);
-    lines.set_valign(gtk::Align::Center);
-    lines.set_hexpand(true);
-    lines.add_css_class("tile-lines");
-    lines.append(&label(name, "tile-name"));
-    let content = gtk::Box::new(gtk::Orientation::Horizontal, TILE_ICON_GAP);
-    icon.set_valign(gtk::Align::Center);
-    content.append(icon);
-    content.append(&lines);
-    content.set_size_request(cell.width - TILE_CHROME.0, cell.height - TILE_CHROME.1);
-    let child = gtk::FlowBoxChild::builder().child(&content).name(key).build();
-    child.update_property(&[gtk::accessible::Property::Label(name)]);
-    (child, lines)
-}
-
-/// A drive's tile: Local Disk, a drive, a device, or a volume to connect.
-fn drive_tile(row: &VolumeRow, cell: CellSize) -> Tile {
+/// A drive's tile: Local Disk, a drive, a device, or a volume to connect,
+/// in `shape`, the `order`th in This PC.
+fn drive_tile(row: &VolumeRow, shape: Shape, order: usize) -> Tile {
     let glyph = match row.kind {
         VolumeKind::Device => Icon::Phone,
         VolumeKind::Drive => Icon::HardDrive,
@@ -294,17 +273,27 @@ fn drive_tile(row: &VolumeRow, cell: CellSize) -> Tile {
     };
     // The drive's picture from the user's Windows icon files, when they
     // chose some (LOOK-030): a fixed, removable or optical drive.
+    let pixels = shape.icon_pixels();
     let icon = match icons::user_icons::role_of(row.art()) {
-        Some(role) => icons::user_icons::role_image(role, glyph, TILES_ICON),
-        None => icons::image(glyph, TILES_ICON),
+        Some(role) => icons::user_icons::role_image(role, glyph, pixels),
+        None => icons::image(glyph, pixels),
     };
-    let (child, lines) = tile_frame(&icon, &row.label, key, cell);
+    let kind = drive_kind(row);
+    let TileParts {
+        child,
+        lines,
+        capacity,
+    } = this_pc_views::tile(icon.upcast_ref(), &row.label, &kind, key, shape);
+    let facts = DriveFacts {
+        order,
+        kind,
+        capacity: None,
+    };
     if row.kind == VolumeKind::Device {
         child.add_css_class(DEVICE_TILE_CLASS);
     }
     match &row.state {
         VolumeState::Mounted { uri, controls } => {
-            show_capacity(&lines, uri, true);
             gestures::open_folder_on_middle_click(&child, uri);
             // What Copy copies while the tile is selected, and what a drag
             // of it carries ([`drive_tile_at`]): a shortcut to the drive,
@@ -322,13 +311,17 @@ fn drive_tile(row: &VolumeRow, cell: CellSize) -> Tile {
                     controls: *controls,
                 },
                 properties: Some(uri.clone()),
+                facts,
+                measure: Some((uri.clone(), capacity)),
             }
         }
         VolumeState::Mountable { id } => {
-            lines.append(&label(
-                ox_core::i18n::gettext_static("Click to connect"),
-                "card-sub",
-            ));
+            if shows_notes(shape) {
+                lines.append(&label(
+                    ox_core::i18n::gettext_static("Click to connect"),
+                    "card-sub",
+                ));
+            }
             Tile {
                 child,
                 open: Opening {
@@ -337,8 +330,30 @@ fn drive_tile(row: &VolumeRow, cell: CellSize) -> Tile {
                 },
                 menu: PlaceMenu::Volume { id: id.clone() },
                 properties: None,
+                facts,
+                measure: None,
             }
         }
+    }
+}
+
+/// Whether a tile in `shape` shows a note such as "Click to connect"
+/// under its name: Small icons, List and Details show the name alone.
+fn shows_notes(shape: Shape) -> bool {
+    matches!(shape, Shape::Tile(_) | Shape::Content(_) | Shape::Icon(..))
+}
+
+/// The drive's type, as This PC's Type column writes it: Windows' words
+/// for the kind of drive mounted there ("Local Disk", "Removable Disk",
+/// "Network Drive", "CD Drive"), "Portable Device" for a phone or camera.
+fn drive_kind(row: &VolumeRow) -> String {
+    match (row.kind, &row.state) {
+        (VolumeKind::Device, _) => ox_core::i18n::gettext("Portable Device"),
+        (VolumeKind::Cloud, _) => ox_core::i18n::gettext("Network Drive"),
+        (VolumeKind::Drive, VolumeState::Mounted { uri, .. }) => {
+            crate::properties::drive_type_name(uri).unwrap_or_else(|| ox_core::i18n::gettext("Local Disk"))
+        }
+        (VolumeKind::Drive, VolumeState::Mountable { .. }) => ox_core::i18n::gettext("Local Disk"),
     }
 }
 
@@ -356,17 +371,28 @@ fn local_disk() -> VolumeRow {
 /// A saved share's tile, as Windows 11 draws a mapped drive in This PC:
 /// its name with its server and letter, and, while it is connected, how
 /// full it is, else that it connects on open. Its address is its tooltip.
-/// `places` says whether its drive letter is shown.
-fn share_tile(share: &SavedShare, places: &Places, locations: &LocationContext, cell: CellSize) -> Tile {
+/// `places` says whether its drive letter is shown. It is laid out in
+/// `shape`, the `order`th in This PC.
+fn share_tile(
+    share: &SavedShare,
+    places: &Places,
+    locations: &LocationContext,
+    shape: Shape,
+    order: usize,
+) -> Tile {
     let uri = &share.bookmark.uri;
-    let art = ArtImage::new(saved_share_art(share), TILES_ICON);
+    let art = ArtImage::new(saved_share_art(share), shape.icon_pixels());
     let name = share_card_name(places.shown_label(&share.bookmark.label), uri);
-    let (child, lines) = tile_frame(&art, &name, uri, cell);
+    let kind = ox_core::i18n::gettext("Network Drive");
+    let TileParts {
+        child,
+        lines,
+        capacity,
+    } = this_pc_views::tile(art.upcast_ref(), &name, &kind, uri, shape);
     child.set_tooltip_text(Some(&locations.display_location(uri)));
     // Measuring never mounts: only a share that is mounted is asked.
-    if share.is_connected {
-        show_capacity(&lines, uri, true);
-    } else {
+    let measure = share.is_connected.then(|| (uri.clone(), capacity));
+    if !share.is_connected && shows_notes(shape) {
         lines.append(&label(
             ox_core::i18n::gettext_static("Connect on open"),
             "card-sub",
@@ -381,6 +407,12 @@ fn share_tile(share: &SavedShare, places: &Places, locations: &LocationContext, 
         },
         menu: PlaceMenu::SavedShare { uri: uri.clone() },
         properties: share.is_connected.then(|| uri.clone()),
+        facts: DriveFacts {
+            order,
+            kind,
+            capacity: None,
+        },
+        measure,
     }
 }
 
@@ -904,9 +936,11 @@ fn connect_keys(flow: &gtk::FlowBox, tiles: &Rc<Vec<Tile>>) {
     flow.add_controller(shortcuts);
 }
 
-/// Adds `group`'s header and its `tiles` to `page`; a group without tiles
-/// is left out, as Windows 11 leaves out an empty group.
-fn tile_group(page: &gtk::Box, group: Group, tiles: Vec<Tile>) {
+/// Adds `group`'s header and its `tiles` to `page`, laid out and sorted
+/// as `layout` says; a group without tiles is left out, as Windows 11
+/// leaves out an empty group. Without a group, the tiles follow the
+/// Details' titles or the page's top, ungrouped.
+fn tile_group(page: &gtk::Box, group: Option<Group>, mut tiles: Vec<Tile>, layout: ThisPcLayout) {
     if tiles.is_empty() {
         return;
     }
@@ -917,15 +951,23 @@ fn tile_group(page: &gtk::Box, group: Group, tiles: Vec<Tile>) {
         .activate_on_single_click(false)
         .homogeneous(true)
         .min_children_per_line(1)
-        .max_children_per_line(MOST_TILES_PER_ROW)
+        .max_children_per_line(if layout.one_per_row() {
+            1
+        } else {
+            MOST_TILES_PER_ROW
+        })
         .column_spacing(0)
         .row_spacing(0)
         .valign(gtk::Align::Start)
-        .css_classes(["drive-tiles"])
+        .css_classes(["drive-tiles", layout.css_class()])
         .build();
-    flow.update_property(&[gtk::accessible::Property::Label(group.title())]);
-    page.append(&group_header(page, group, tiles.len(), &flow));
+    let title = group.map_or(Page::ThisPc.title(), Group::title);
+    flow.update_property(&[gtk::accessible::Property::Label(title)]);
+    if let Some(group) = group {
+        page.append(&group_header(page, group, tiles.len(), &flow));
+    }
     page.append(&flow);
+    sort_tiles(&flow, &mut tiles, layout);
     for tile in &tiles {
         flow.append(&tile.child);
         // The Details pane's Properties opens what Alt+Enter does: the
@@ -1089,7 +1131,9 @@ fn recount_on_selection(flow: &gtk::FlowBox) {
 
 /// The tiles of `flow`.
 fn tiles_in(flow: &gtk::FlowBox) -> impl Iterator<Item = gtk::FlowBoxChild> {
-    super::widget_tree::children(flow).filter_map(|child| child.downcast::<gtk::FlowBoxChild>().ok())
+    // In the order the box shows them, which its sort sets.
+    let flow = flow.clone();
+    (0..).map_while(move |index| flow.child_at_index(index))
 }
 
 thread_local! {
@@ -1236,16 +1280,88 @@ impl Kept {
     }
 }
 
-fn this_pc(page: &gtk::Box, places: &Places, locations: &LocationContext, text_size: TextSize) {
-    let cell = tiles_cell(text_size);
+/// Keeps `flow`'s tiles in `layout`'s order, and measures each drive,
+/// showing how full it is and sorting again once it is known.
+fn sort_tiles(flow: &gtk::FlowBox, tiles: &mut [Tile], layout: ThisPcLayout) {
+    let facts: Rc<RefCell<HashMap<String, DriveFacts>>> = Rc::new(RefCell::new(
+        tiles
+            .iter()
+            .map(|tile| (tile.child.widget_name().to_string(), tile.facts.clone()))
+            .collect(),
+    ));
+    flow.set_sort_func(glib::clone!(
+        #[strong]
+        facts,
+        move |a, b| {
+            let facts = facts.borrow();
+            let (Some(a), Some(b)) = (
+                facts.get(a.widget_name().as_str()),
+                facts.get(b.widget_name().as_str()),
+            ) else {
+                return gtk::Ordering::Equal;
+            };
+            layout.compare(a, b).into()
+        }
+    ));
+    for tile in tiles.iter_mut() {
+        let Some((uri, slot)) = tile.measure.take() else {
+            continue;
+        };
+        let key = tile.child.widget_name().to_string();
+        let flow = flow.downgrade();
+        let facts = Rc::clone(&facts);
+        glib::spawn_future_local(async move {
+            let Some(capacity) = measure_capacity(&gio::File::for_uri(&uri)).await else {
+                return;
+            };
+            // A page drawn again while GIO measured shows nothing.
+            let Some(flow) = flow.upgrade() else {
+                return;
+            };
+            this_pc_views::show_capacity_in(&slot, capacity);
+            if let Some(facts) = facts.borrow_mut().get_mut(&key) {
+                facts.capacity = Some(capacity);
+            }
+            flow.invalidate_sort();
+            // The Details pane describes a selected tile with its sizes.
+            if let Some(window) = flow.root().and_downcast::<BrowserWindow>() {
+                window.update_details_pane();
+            }
+        });
+    }
+}
+
+fn this_pc(
+    page: &gtk::Box,
+    places: &Places,
+    locations: &LocationContext,
+    text_size: TextSize,
+    layout: ThisPcLayout,
+) {
+    let shape = layout.shape(text_size);
     let drives = std::iter::once(local_disk()).chain(places.drives.iter().cloned());
-    let drive_tiles = drives.map(|row| drive_tile(&row, cell)).collect();
-    tile_group(page, Group::DevicesAndDrives, drive_tiles);
-    let share_tiles = places.saved_shares.iter();
-    let share_tiles = share_tiles
-        .map(|share| share_tile(share, places, locations, cell))
+    let drive_tiles: Vec<Tile> = drives
+        .enumerate()
+        .map(|(order, row)| drive_tile(&row, shape, order))
         .collect();
-    tile_group(page, Group::NetworkLocations, share_tiles);
+    let first_share = drive_tiles.len();
+    let share_tiles: Vec<Tile> = places
+        .saved_shares
+        .iter()
+        .enumerate()
+        .map(|(order, share)| share_tile(share, places, locations, shape, first_share + order))
+        .collect();
+    if let Shape::Details(_, scale) = shape {
+        page.append(&this_pc_views::details_titles(layout, scale));
+    }
+    if layout.grouped {
+        tile_group(page, Some(Group::DevicesAndDrives), drive_tiles, layout);
+        tile_group(page, Some(Group::NetworkLocations), share_tiles, layout);
+    } else {
+        let mut all = drive_tiles;
+        all.extend(share_tiles);
+        tile_group(page, None, all, layout);
+    }
 }
 
 /// Draws `page` into `body`, replacing what it showed.
@@ -1255,6 +1371,7 @@ pub(super) fn render(
     places: &Places,
     locations: &LocationContext,
     text_size: TextSize,
+    layout: ThisPcLayout,
 ) {
     // A redraw keeps the selected tile and the keyboard's place.
     let kept = Kept::read(body);
@@ -1263,7 +1380,7 @@ pub(super) fn render(
         Page::ThisPc => {
             body.add_css_class(THIS_PC_CLASS);
             allow_drive_drags(body);
-            this_pc(body, places, locations, text_size);
+            this_pc(body, places, locations, text_size, layout);
             select_one_group(body);
             kept.restore(body);
         }
@@ -1273,6 +1390,16 @@ pub(super) fn render(
         // Home draws itself (`super::home_page`).
         Page::Home | Page::Network | Page::Settings => body.remove_css_class(THIS_PC_CLASS),
     }
+}
+
+/// The titles of This PC's Details columns `body` shows, for tests.
+#[cfg(test)]
+pub(super) fn details_titles(body: &gtk::Box) -> Vec<String> {
+    super::widget_tree::descendants::<gtk::Label>(body)
+        .into_iter()
+        .filter(|label| label.has_css_class("pc-title-text"))
+        .map(|label| label.text().to_string())
+        .collect()
 }
 
 /// The group titles `body` shows, without their counts, for tests.
@@ -1339,8 +1466,12 @@ mod tests {
             mounted_volume("Pixel 7", "mtp://[usb:001,010]/", VolumeKind::Device),
             volume,
         ];
-        let cell = tiles_cell(TextSize::from_percent(100));
-        let tiles: Vec<Tile> = rows.iter().map(|row| drive_tile(row, cell)).collect();
+        let shape = ThisPcLayout::default().shape(TextSize::from_percent(100));
+        let tiles: Vec<Tile> = rows
+            .iter()
+            .enumerate()
+            .map(|(order, row)| drive_tile(row, shape, order))
+            .collect();
 
         let first_lines: Vec<Vec<String>> = tiles.iter().map(|tile| texts_of(&tile.child)).collect();
         assert_eq!(

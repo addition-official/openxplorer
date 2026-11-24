@@ -732,7 +732,7 @@ msgstr ""
 msgid "Specify the folder that you want to connect to:"
 msgstr ""
 
-#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/properties/drive_tab.rs crates/ox-app/src/properties/general_tab.rs crates/ox-app/src/properties/security_tab/advanced.rs crates/ox-app/src/properties/selection_view.rs crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-core/src/grouping.rs
+#: crates/ox-app/src/dialogs/network_map.rs crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/properties/drive_tab.rs crates/ox-app/src/properties/general_tab.rs crates/ox-app/src/properties/security_tab/advanced.rs crates/ox-app/src/properties/selection_view.rs crates/ox-app/src/window/details_pane/content.rs crates/ox-app/src/window/details_pane/options_menu.rs crates/ox-app/src/window/this_pc_views.rs crates/ox-core/src/grouping.rs
 msgid "Type"
 msgstr ""
 
@@ -1083,6 +1083,10 @@ msgstr ""
 msgid "File extension"
 msgstr ""
 
+#: crates/ox-app/src/folder_view/sort_roles.rs crates/ox-app/src/window/this_pc_views.rs
+msgid "Free Space"
+msgstr ""
+
 #: crates/ox-app/src/folder_view/sort_roles.rs
 msgid "Link destination"
 msgstr ""
@@ -1111,7 +1115,7 @@ msgstr ""
 msgid "Folder path"
 msgstr ""
 
-#: crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/properties/general_tab.rs crates/ox-app/src/properties/security_tab/advanced.rs crates/ox-app/src/properties/versions_panel.rs crates/ox-app/src/window/file_ops/batch_rename.rs crates/ox-app/src/window/file_ops/name_dialog.rs crates/ox-app/src/window/home_page.rs crates/ox-core/src/grouping.rs
+#: crates/ox-app/src/folder_view/sorting.rs crates/ox-app/src/properties/details_rows.rs crates/ox-app/src/properties/general_tab.rs crates/ox-app/src/properties/security_tab/advanced.rs crates/ox-app/src/properties/versions_panel.rs crates/ox-app/src/window/file_ops/batch_rename.rs crates/ox-app/src/window/file_ops/name_dialog.rs crates/ox-app/src/window/home_page.rs crates/ox-app/src/window/this_pc_views.rs crates/ox-core/src/grouping.rs
 msgid "Name"
 msgstr ""
 
@@ -2184,7 +2188,7 @@ msgstr ""
 msgid "Local Disk"
 msgstr ""
 
-#: crates/ox-app/src/properties/drive_facts.rs
+#: crates/ox-app/src/properties/drive_facts.rs crates/ox-app/src/window/landing.rs
 msgid "Network Drive"
 msgstr ""
 
@@ -7717,6 +7721,10 @@ msgstr ""
 msgid "Network locations"
 msgstr ""
 
+#: crates/ox-app/src/window/landing.rs
+msgid "Portable Device"
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/landing.rs
 msgid "{title} ({count})"
@@ -8713,6 +8721,10 @@ msgstr ""
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/tab_strip.rs
 msgid "{title} — Previous version — {snapshot}"
+msgstr ""
+
+#: crates/ox-app/src/window/this_pc_views.rs
+msgid "Total Size"
 msgstr ""
 
 #: crates/ox-app/src/window/title_bar.rs

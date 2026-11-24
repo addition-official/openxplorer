@@ -147,11 +147,23 @@ impl FolderPane {
         }));
     }
 
-    /// Whether the pane last showed Network's own style.
-    pub(crate) fn is_styled_for_network(&self) -> bool {
-        self.imp().styled.borrow().as_ref().is_some_and(|styled| {
-            ox_core::location::same_location(&styled.uri, ox_core::location::NETWORK_URI)
-        })
+    /// Whether the pane last showed the own style of Network or This PC,
+    /// which keep one whether or not each folder does.
+    pub(crate) fn is_styled_for_own_place(&self) -> bool {
+        self.imp()
+            .styled
+            .borrow()
+            .as_ref()
+            .is_some_and(|styled| ox_core::settings::own_style_place(&styled.uri).is_some())
+    }
+
+    /// Whether the pane shows the own style of `place`, Network or This PC.
+    pub(crate) fn is_styled_for_place(&self, place: &str) -> bool {
+        self.imp()
+            .styled
+            .borrow()
+            .as_ref()
+            .is_some_and(|styled| ox_core::location::same_location(&styled.uri, place))
     }
 
     /// Notes that the pane shows the folder style `from` shows, for the
