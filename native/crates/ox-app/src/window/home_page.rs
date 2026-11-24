@@ -403,7 +403,9 @@ pub(super) fn recent_file_menu(
         Icon::Dismiss,
         WindowAction::RemoveFromRecent,
     );
-    let copy_path = target(message_id("Copy as path"), Icon::Copy, WindowAction::CopyPathOf)
+    // The file list's glyph for Copy as path, so both menus draw the same
+    // from Windows' symbol font (LOOK-031).
+    let copy_path = target(message_id("Copy as path"), Icon::Link, WindowAction::CopyPathOf)
         .with_shortcut("Ctrl+Shift+C");
     let properties =
         target(message_id("Properties"), Icon::Info, WindowAction::PropertiesOf).with_shortcut("Alt+Enter");
