@@ -41,6 +41,7 @@ use crate::folder_view::sorting::{SortColumn, SortDirection};
 use crate::icons::{self, Icon};
 use crate::text_size::{self, TextSize};
 use ox_core::grouping::GroupBy;
+use ox_core::i18n::message_id;
 
 /// What This PC's tiles are sorted by, as Windows 11 sorts its drives.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -295,7 +296,9 @@ impl DriveFacts {
     /// its title, a key that finds the group again after a redraw, and
     /// its place among the groups.
     pub(super) fn group(&self, group: ThisPcGroup) -> GroupKey {
-        let unknown = || GroupKey::new(ox_core::i18n::gettext("Unknown"), i64::MAX);
+        // Windows' group of a drive without the value, such as an empty
+        // CD drive or a share that is not connected (VM, 2026-11-24).
+        let unspecified = || GroupKey::new(ox_core::i18n::gettext("Unspecified"), i64::MAX);
         match group {
             ThisPcGroup::Type => {
                 if self.network {
@@ -308,37 +311,70 @@ impl DriveFacts {
                 let name = ox_core::grouping::NameGroup::of(&self.name);
                 GroupKey::new(ox_core::i18n::gettext(name.label()), name as i64)
             }
-            ThisPcGroup::TotalSize | ThisPcGroup::FreeSpace => {
-                let Some(capacity) = self.capacity else {
-                    return unknown();
-                };
-                let bytes = if group == ThisPcGroup::TotalSize {
-                    capacity.size
-                } else {
-                    capacity.free
-                };
-                let (title, rank) = crate::folder_view::groups::size_bucket(bytes);
-                GroupKey::new(title, rank)
-            }
-            ThisPcGroup::FileSystem if self.filesystem.is_empty() => unknown(),
+            ThisPcGroup::TotalSize => match self.capacity.filter(|capacity| capacity.size > 0) {
+                Some(capacity) => {
+                    let (title, rank) = capacity_band(capacity.size);
+                    GroupKey::new(title, rank)
+                }
+                None => unspecified(),
+            },
+            ThisPcGroup::FileSystem if self.filesystem.is_empty() => unspecified(),
             ThisPcGroup::FileSystem => GroupKey::new(self.filesystem.clone(), 0),
-            ThisPcGroup::PercentFull => {
-                let Some(share) = self.percent_full() else {
-                    return unknown();
+            ThisPcGroup::FreeSpace | ThisPcGroup::PercentFull => {
+                let Some(full) = self.percent_full() else {
+                    return unspecified();
                 };
-                // Tenths: 0 – 10%, 10 – 20%, up to 90 – 100%.
-                let tenth = (share / 1000).min(9);
+                // Bands of a tenth: 0% - 9%, 10% - 19%, up to 90% - 100%.
+                let percent = if group == ThisPcGroup::FreeSpace {
+                    100 - full.div_ceil(100).min(100)
+                } else {
+                    full / 100
+                };
+                let tenth = (percent / 10).min(9);
+                let low = tenth * 10;
+                let high = if tenth == 9 { 100 } else { low + 9 };
+                let pattern = if group == ThisPcGroup::FreeSpace {
+                    ox_core::i18n::gettext("{low}% - {high}% free")
+                } else {
+                    ox_core::i18n::gettext("{low}% - {high}% full")
+                };
                 let title = ox_core::i18n::format_message(
-                    &ox_core::i18n::gettext("{low} – {high}%"),
-                    &[
-                        ("low", &(tenth * 10).to_string()),
-                        ("high", &(tenth * 10 + 10).to_string()),
-                    ],
+                    &pattern,
+                    &[("low", &low.to_string()), ("high", &high.to_string())],
                 );
                 GroupKey::new(title, i64::try_from(tenth).unwrap_or(0))
             }
         }
     }
+}
+
+/// The size bands of System.Capacity, Windows' Total Size of a drive:
+/// each band's last size in bytes and its title. The limits are
+/// Microsoft's (props-system-capacity, Windows 7 to 10); the titles take
+/// the Windows 11 VM's wording, "16 GB - 80 GB" (2026-11-24); the others
+/// are written alike and not seen in the VM.
+const CAPACITY_BANDS: [(u64, &str); 6] = [
+    (16 * GIB, message_id("0 GB - 16 GB")),
+    (80 * GIB, message_id("16 GB - 80 GB")),
+    (250 * GIB, message_id("80 GB - 250 GB")),
+    (500 * GIB, message_id("250 GB - 500 GB")),
+    (1024 * GIB, message_id("500 GB - 1 TB")),
+    (u64::MAX, message_id(">1 TB")),
+];
+
+/// A gibibyte, the GB of Windows' bands.
+const GIB: u64 = 1024 * 1024 * 1024;
+
+/// The Total Size band of a drive of `size` bytes: its title and place.
+fn capacity_band(size: u64) -> (String, i64) {
+    let band = CAPACITY_BANDS
+        .iter()
+        .position(|(last, _)| size <= *last)
+        .unwrap_or(CAPACITY_BANDS.len() - 1);
+    (
+        ox_core::i18n::gettext(CAPACITY_BANDS[band].1),
+        i64::try_from(band).unwrap_or(0),
+    )
 }
 
 /// What This PC's tiles are grouped by, as Windows 11's This PC offers
@@ -349,13 +385,13 @@ pub(super) enum ThisPcGroup {
     Type,
     /// The name's letter ranges, as a folder's.
     Name,
-    /// The size groups of the drive's size.
+    /// Windows' bands of the drive's size (System.Capacity).
     TotalSize,
-    /// The size groups of the room left.
+    /// Tenths of the room left, as Windows 11 groups Free Space.
     FreeSpace,
     /// The file system.
     FileSystem,
-    /// Tenths of fullness.
+    /// Tenths of fullness, written as Free Space's are.
     PercentFull,
 }
 
@@ -805,10 +841,25 @@ mod tests {
         let title = |facts: &DriveFacts, group: ThisPcGroup| facts.group(group).title;
         assert_eq!(title(&disk, ThisPcGroup::Type), "Devices and drives");
         assert_eq!(title(&share, ThisPcGroup::Type), "Network locations");
-        assert_eq!(title(&disk, ThisPcGroup::TotalSize), "Gigantic (> 4 GB)");
+        assert_eq!(title(&disk, ThisPcGroup::TotalSize), "250 GB - 500 GB");
         assert_eq!(title(&disk, ThisPcGroup::FileSystem), "ext4");
-        assert_eq!(title(&disk, ThisPcGroup::PercentFull), "70 – 80%");
-        assert_eq!(title(&share, ThisPcGroup::FreeSpace), "Unknown");
+        assert_eq!(title(&disk, ThisPcGroup::PercentFull), "70% - 79% full");
+        assert_eq!(title(&share, ThisPcGroup::FreeSpace), "Unspecified");
+        assert_eq!(title(&share, ThisPcGroup::TotalSize), "Unspecified");
+        // The Windows 11 VM's Local Disk (C:): 62.8 GB, 41.6 GB free.
+        let gib = |tenths: u64| tenths * 1024 * 1024 * 1024 / 10;
+        let vm_disk = facts(2, "Local Disk", gib(628), gib(416));
+        assert_eq!(title(&vm_disk, ThisPcGroup::TotalSize), "16 GB - 80 GB");
+        assert_eq!(title(&vm_disk, ThisPcGroup::FreeSpace), "60% - 69% free");
+        // The bands' edges, as System.Capacity sets them: 16 GB is the
+        // first band's, a byte more the next one's.
+        let at = |bytes: u64| title(&facts(3, "Local Disk", bytes, 0), ThisPcGroup::TotalSize);
+        assert_eq!(at(16 * 1024 * 1024 * 1024), "0 GB - 16 GB");
+        assert_eq!(at(16 * 1024 * 1024 * 1024 + 1), "16 GB - 80 GB");
+        assert_eq!(at(2 * 1024 * 1024 * 1024 * 1024), ">1 TB");
+        let full = facts(4, "Local Disk", 100, 0);
+        assert_eq!(title(&full, ThisPcGroup::FreeSpace), "0% - 9% free");
+        assert_eq!(title(&full, ThisPcGroup::PercentFull), "90% - 100% full");
         assert_eq!(title(&disk, ThisPcGroup::Name), "A – H");
         let groups = GroupKey::sorted(vec![("share", &share), ("disk", &disk)], ThisPcGroup::Type);
         let order: Vec<_> = groups

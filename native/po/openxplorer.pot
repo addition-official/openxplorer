@@ -1039,7 +1039,7 @@ msgstr ""
 msgid "Today"
 msgstr ""
 
-#: crates/ox-app/src/folder_view/groups.rs crates/ox-app/src/properties/security_tab.rs crates/ox-app/src/window/this_pc_views.rs
+#: crates/ox-app/src/folder_view/groups.rs crates/ox-app/src/properties/security_tab.rs
 msgid "Unknown"
 msgstr ""
 
@@ -8728,6 +8728,30 @@ msgid "{title} — Previous version — {snapshot}"
 msgstr ""
 
 #: crates/ox-app/src/window/this_pc_views.rs
+msgid "0 GB - 16 GB"
+msgstr ""
+
+#: crates/ox-app/src/window/this_pc_views.rs
+msgid "16 GB - 80 GB"
+msgstr ""
+
+#: crates/ox-app/src/window/this_pc_views.rs
+msgid "250 GB - 500 GB"
+msgstr ""
+
+#: crates/ox-app/src/window/this_pc_views.rs
+msgid "500 GB - 1 TB"
+msgstr ""
+
+#: crates/ox-app/src/window/this_pc_views.rs
+msgid "80 GB - 250 GB"
+msgstr ""
+
+#: crates/ox-app/src/window/this_pc_views.rs
+msgid ">1 TB"
+msgstr ""
+
+#: crates/ox-app/src/window/this_pc_views.rs
 msgid "Devices and drives"
 msgstr ""
 
@@ -8739,9 +8763,18 @@ msgstr ""
 msgid "Total Size"
 msgstr ""
 
+#: crates/ox-app/src/window/this_pc_views.rs
+msgid "Unspecified"
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/this_pc_views.rs
-msgid "{low} – {high}%"
+msgid "{low}% - {high}% free"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/this_pc_views.rs
+msgid "{low}% - {high}% full"
 msgstr ""
 
 #: crates/ox-app/src/window/title_bar.rs
