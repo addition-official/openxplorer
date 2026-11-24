@@ -80,6 +80,11 @@ const ROW_BATCH: usize = 100;
 /// The class of a row whose submenu is open, which stays highlighted.
 const SUBMENU_OPEN: &str = "submenu-open";
 
+/// The class of a system menu's grayed first row, highlighted while the
+/// keyboard is on none of the rows, as Windows highlights Restore on a
+/// window that is not maximized when Alt+Space opens its menu.
+pub(super) const FIRST_ROW_HIGHLIGHT: &str = "first-row-highlight";
+
 /// A menu row's mark and submenu chevron: 16 pixels, as Windows 11 draws
 /// menu icons (ui-spec.md I05; the web app's classic menus drew 15).
 const ROW_GLYPH: i32 = 16;
@@ -152,6 +157,14 @@ mod imp {
         /// Whether a legacy menu underlines its access keys: it was
         /// opened from the keyboard.
         pub(super) keyboard_cues: Cell<bool>,
+        /// Whether the menu is the window menu, drawn as Windows' system
+        /// menu: 22-pixel rows, and its first item highlighted when the
+        /// keyboard opens it, even while grayed.
+        pub(super) system_menu: Cell<bool>,
+        /// Whether the system menu highlights its grayed first row, as
+        /// it does from when the keyboard opens it until the keyboard or
+        /// the pointer moves to a row.
+        pub(super) first_row_highlighted: Cell<bool>,
         /// Whether the keyboard was used in the menu since it opened,
         /// rather than the pointer, so a menu it opens in its place
         /// underlines its access keys too.
@@ -306,7 +319,8 @@ mod imp {
                     let menu = popover.downgrade();
                     glib::idle_add_local_once(move || {
                         if let Some(menu) = menu.upgrade() {
-                            if menu.is_mapped() && !menu.a_row_has_the_keyboard() {
+                            if menu.is_mapped() && !menu.a_row_has_the_keyboard() && !menu.list().has_focus()
+                            {
                                 menu.focus_first_item();
                             }
                         }
@@ -314,6 +328,7 @@ mod imp {
                 }
             });
             popover.connect_closed(super::MenuPopover::forget_hover);
+            popover.connect_closed(super::MenuPopover::clear_first_row_highlight);
         }
 
         fn dispose(&self) {
@@ -436,20 +451,27 @@ fn item_list(popover: &MenuPopover) -> gtk::ListBox {
     open_submenus_by_keyboard(popover, &list);
     // Up on the first item and Down on the last wrap around, as `openMenu`
     // moves between enabled items.
-    list.connect_keynav_failed(|list, direction| {
-        let wrapped_to = match direction {
-            gtk::DirectionType::Down => first_enabled_row(list),
-            gtk::DirectionType::Up => last_enabled_row(list),
-            _ => None,
-        };
-        match wrapped_to {
-            Some(row) => {
-                row.grab_focus();
-                glib::Propagation::Stop
+    list.connect_keynav_failed(glib::clone!(
+        #[weak]
+        popover,
+        #[upgrade_or]
+        glib::Propagation::Proceed,
+        move |list, direction| {
+            popover.clear_first_row_highlight();
+            let wrapped_to = match direction {
+                gtk::DirectionType::Down => first_enabled_row(list),
+                gtk::DirectionType::Up => last_enabled_row(list),
+                _ => None,
+            };
+            match wrapped_to {
+                Some(row) => {
+                    row.grab_focus();
+                    glib::Propagation::Stop
+                }
+                None => glib::Propagation::Proceed,
             }
-            None => glib::Propagation::Proceed,
         }
-    });
+    ));
     list
 }
 
@@ -491,6 +513,7 @@ fn follow_hover(popover: &MenuPopover, list: &gtk::ListBox) {
         popover,
         move |_, x, y| {
             popover.pointer_came_back();
+            popover.clear_first_row_highlight();
             rest_at(x, y);
         }
     ));
@@ -724,6 +747,28 @@ impl MenuPopover {
         self.imp().keyboard_last.get()
     }
 
+    /// Draws the menu as Windows' system menu, the window menu of a
+    /// title bar: 22-pixel rows (src/theme/fonts.rs), and, opened from the
+    /// keyboard, its first item highlighted even while it is grayed, the
+    /// keyboard going to the next item on Down. Set before the entries.
+    pub(super) fn set_system_menu(&self, system_menu: bool) {
+        self.imp().system_menu.set(system_menu);
+        if system_menu {
+            self.add_css_class("system-menu");
+        } else {
+            self.remove_css_class("system-menu");
+        }
+    }
+
+    /// Stops highlighting a grayed first row, once the keyboard or the
+    /// pointer is on a row.
+    fn clear_first_row_highlight(&self) {
+        self.imp().first_row_highlighted.set(false);
+        if let Some(first) = self.list().row_at_index(0) {
+            first.remove_css_class(FIRST_ROW_HIGHLIGHT);
+        }
+    }
+
     /// Replaces the menu's entries.
     pub(super) fn set_entries(&self, entries: Vec<MenuEntry>) {
         self.imp().entries.replace(entries);
@@ -895,7 +940,21 @@ impl MenuPopover {
     }
 
     fn focus_first_item(&self) {
-        if let Some(row) = first_enabled_row(self.list()) {
+        let list = self.list();
+        // A system menu opened from the keyboard highlights its first item
+        // even while it is grayed, with the keyboard on the list, so Down
+        // goes to the first item that can be chosen (`keynav-failed`).
+        let grayed_first = list
+            .row_at_index(0)
+            .filter(|row| !row.is_sensitive())
+            .filter(|_| self.imp().system_menu.get() && self.imp().keyboard_cues.get());
+        if let Some(first) = grayed_first {
+            self.imp().first_row_highlighted.set(true);
+            first.add_css_class(FIRST_ROW_HIGHLIGHT);
+            list.grab_focus();
+            return;
+        }
+        if let Some(row) = first_enabled_row(list) {
             row.grab_focus();
         }
     }
@@ -958,6 +1017,14 @@ impl MenuPopover {
         self.append_rows(rows.by_ref().take(ROW_BATCH), marks, glyphs);
         if rows.len() > 0 {
             self.fill_rows_later(rows, marks, glyphs);
+        }
+        // The rows were drawn again, as when an action's state changed:
+        // the grayed first row stays highlighted.
+        if self.imp().first_row_highlighted.get() {
+            match self.list().row_at_index(0).filter(|row| !row.is_sensitive()) {
+                Some(first) => first.add_css_class(FIRST_ROW_HIGHLIGHT),
+                None => self.imp().first_row_highlighted.set(false),
+            }
         }
         self.refit_if_shown();
     }
@@ -1580,6 +1647,7 @@ impl MenuPopover {
     /// known, so only the pointer coming onto another row starts a timer
     /// again.
     fn keyboard_moved(&self) {
+        self.clear_first_row_highlight();
         self.cancel_hover();
         let focused = self
             .list()
@@ -2226,6 +2294,13 @@ fn legacy_item_content(item: &MenuItem, check: CheckMark, look: RowLook) -> gtk:
             .label(shortcut)
             .css_classes(["shortcut"])
             .build();
+        // The default item's shortcut is bold too, as Close's "Alt+F4" in
+        // Windows' window menu.
+        if item.emphasised {
+            let bold = gtk::pango::AttrList::new();
+            bold.insert(gtk::pango::AttrInt::new_weight(gtk::pango::Weight::Bold));
+            shortcut.set_attributes(Some(&bold));
+        }
         content.append(&shortcut);
     }
     let arrow_slot = gtk::Box::builder()

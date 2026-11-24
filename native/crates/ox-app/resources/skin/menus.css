@@ -139,6 +139,14 @@ popover.ox-menu.legacy list > row label { margin-top: 2px; }
 popover.ox-menu.legacy list > row .submenu-arrow { color: @ox_legacy_menu_text; margin-left: 0; }
 popover.ox-menu.legacy list > row:disabled .submenu-arrow { color: @ox_legacy_menu_text_disabled; }
 popover.ox-menu.legacy list > row .legacy-arrow-slot { min-width: 16px; margin-left: 49px; margin-right: 4px; }
+/* The title bar's window menu (src/window/title_bar_menu.rs), as Windows 11
+   draws its system menu (measured in the VM on 2026-11-24, 100 %): 22px
+   rows (src/theme/fonts.rs), the small glyph's ink 16px in from the
+   menu's edge and the text 38px in, and its first item highlighted when
+   Alt+Space opens it, even while grayed, until the keyboard or the
+   pointer moves to a row. */
+popover.ox-menu.legacy.system-menu list > row { padding-left: 7px; }
+popover.ox-menu.legacy.system-menu list:focus > row.first-row-highlight { background-color: @ox_legacy_menu_hover; }
 
 /* ---- The address bar's suggestions (src/window/address_bar/suggestions.rs) ----
    Windows 11's address bar drop-down lists its rows as its list views

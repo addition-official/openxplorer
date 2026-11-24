@@ -243,6 +243,35 @@ impl MenuPopover {
             .collect()
     }
 
+    /// The labels of the rows drawn highlighted: the row with the
+    /// keyboard, or a grayed first row a system menu highlights, for tests.
+    pub(crate) fn highlighted_row_labels(&self) -> Vec<String> {
+        self.rows()
+            .iter()
+            .filter(|row| row.has_focus() || row.has_css_class(super::FIRST_ROW_HIGHLIGHT))
+            .filter_map(row_label)
+            .collect()
+    }
+
+    /// The shortcut texts drawn in bold, for tests.
+    pub(crate) fn bold_shortcut_texts(&self) -> Vec<String> {
+        self.rows()
+            .iter()
+            .filter_map(ListBoxRowExt::child)
+            .flat_map(|content| crate::window::widget_tree::descendants::<gtk::Label>(&content))
+            .filter(|label| label.has_css_class("shortcut"))
+            .filter(|label| {
+                label.attributes().is_some_and(|attributes| {
+                    attributes
+                        .attributes()
+                        .into_iter()
+                        .any(|attribute| attribute.type_() == gtk::pango::AttrType::Weight)
+                })
+            })
+            .map(|label| label.text().to_string())
+            .collect()
+    }
+
     /// The labels of a legacy menu's rows that draw a glyph (not an empty
     /// column or a check mark), for tests.
     pub(crate) fn legacy_glyph_labels(&self) -> Vec<String> {
@@ -254,9 +283,7 @@ impl MenuPopover {
                         .filter(|child| child.has_css_class("legacy-glyph"))
                         .any(|child| {
                             child.is::<gtk::Image>()
-                                || crate::window::widget_tree::descendants::<gtk::Image>(&child)
-                                    .first()
-                                    .is_some()
+                                || !crate::window::widget_tree::descendants::<gtk::Image>(&child).is_empty()
                         })
                 })
             })

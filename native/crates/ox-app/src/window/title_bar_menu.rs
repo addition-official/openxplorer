@@ -36,6 +36,12 @@ use super::BrowserWindow;
 /// The widget name of the kept window menu on the tab row.
 const MENU_NAME: &str = "title-bar-menu";
 
+/// Where Alt+Space opens the window menu: its outer corner 8 pixels in
+/// from the window's left edge and 31 down from its top, just under the
+/// top of the tabs, as Windows 11 places it (measured in the VM on
+/// 2026-11-24).
+const KEYBOARD_MENU_CORNER: (f32, f32) = (8.0, 31.0);
+
 /// The window menu's Move or Size.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum FrameDrag {
@@ -101,7 +107,7 @@ pub(super) fn window_menu(facts: WindowMenuFacts) -> Vec<MenuEntry> {
         Icon::Subtract,
         WindowAction::MinimizeWindow,
     )
-    .with_access_key(1)
+    .with_access_key(2)
     .with_legacy_glyph();
     let maximize = MenuItem::new(
         &ox_core::i18n::gettext("Maximize"),
@@ -218,17 +224,28 @@ impl BrowserWindow {
         self.show_window_menu(x, y, false);
     }
 
-    /// Alt+Space: opens the window menu at the window's top left, with
-    /// its access keys underlined, as Windows does.
+    /// Alt+Space: opens the window menu near the window's top left, with
+    /// its access keys underlined, as Windows does: its outer corner
+    /// `KEYBOARD_MENU_CORNER` from the window's.
     pub(super) fn open_window_menu_from_keyboard(&self) {
-        self.show_window_menu(0.0, 0.0, true);
+        let (x, y) = KEYBOARD_MENU_CORNER;
+        // The menu's top is 1 pixel below the point it opens at.
+        let corner = gtk::graphene::Point::new(x, y - 1.0);
+        let at = self
+            .compute_point(&self.imp().tab_bar.get(), &corner)
+            .map_or((0.0, 0.0), |at| (f64::from(at.x()), f64::from(at.y())));
+        self.show_window_menu(at.0, at.1, true);
     }
 
     /// Opens the window menu at (`x`, `y`) of the tab row, in the classic
-    /// menu's legacy look; `keyboard` underlines its access keys.
+    /// menu's legacy look, as Windows' system menu; `keyboard` underlines
+    /// its access keys and opens it right at that point, the pointer a few
+    /// pixels below it, as the app's other menus.
     fn show_window_menu(&self, x: f64, y: f64, keyboard: bool) {
         let menu = MenuPopover::kept_by(&self.imp().tab_bar.get(), MENU_NAME);
         menu.set_legacy_look(true, keyboard);
+        menu.set_system_menu(true);
+        menu.set_offset(0, if keyboard { 0 } else { 4 });
         menu.set_entries(window_menu(WindowMenuFacts {
             maximized: self.is_maximized() || self.is_fullscreen(),
             system_title_bar: self
@@ -238,7 +255,7 @@ impl BrowserWindow {
                 .system_window_decorations,
         }));
         #[expect(clippy::cast_possible_truncation, reason = "pointer positions are small")]
-        let target = gdk::Rectangle::new(x as i32, y as i32, 1, 1);
+        let target = gdk::Rectangle::new(x.round() as i32, y.round() as i32, 1, 1);
         menu.set_pointing_to(Some(&target));
         menu.popup();
     }
@@ -484,7 +501,9 @@ mod tests {
     /// right-click menu is (the legacy look): small glyphs beside Restore,
     /// Minimize, Maximize and Close only, Close in bold as the default
     /// item, and, opened from the keyboard (Alt+Space), Windows' access
-    /// keys underlined: Restore, Move, Size, mInimize, maXimize, Close.
+    /// keys underlined: Restore, Move, Size, miNimize, maXimize, Close
+    /// (checked in the Windows 11 VM on 2026-11-24), with the first item
+    /// highlighted even while it is grayed.
     /// "Use system title bar and borders" stays under a separator in the
     /// same look. Opened by the pointer, nothing is underlined; the keys
     /// work either way.
@@ -498,13 +517,24 @@ mod tests {
         let test = TestWindow::open(&fixture.uri());
         test.window.open_window_menu_from_keyboard();
         settle();
+        crate::test_support::harness::wait_for_frames(&test.window, 2);
         let menu = test.window.title_bar_menu().expect("the window menu");
         let legacy = menu.has_css_class("legacy");
         let keys = menu.underlined_keys();
         let bold = menu.bold_row_labels();
         let glyphs = menu.legacy_glyph_labels();
         let rows = menu.row_labels();
-        let at_top_left = menu.pointing_to().1.x() <= 1 && menu.pointing_to().1.y() <= 1;
+        let system_rows = menu.has_css_class("system-menu");
+        let highlighted = menu.highlighted_row_labels();
+        let shortcut_bold = menu.bold_shortcut_texts();
+        // Down goes from the grayed Restore to Move, the first item that
+        // can be chosen.
+        menu.rows()[0]
+            .parent()
+            .and_downcast::<gtk::ListBox>()
+            .expect("the rows' list")
+            .emit_move_cursor(gtk::MovementStep::DisplayLines, 1, false, false);
+        let after_down = menu.highlighted_row_labels();
         menu.popdown();
         settle();
 
@@ -518,14 +548,25 @@ mod tests {
         test.window.title_bar_menu().expect("the window menu").popdown();
 
         assert!(legacy, "drawn as the classic menu");
-        assert!(at_top_left, "Alt+Space opens it at the window's top left");
+        assert!(system_rows, "drawn with the system menu's 22-pixel rows");
+        assert_eq!(
+            highlighted,
+            ["Restore"],
+            "the first item is highlighted, grayed or not, as Windows does"
+        );
+        assert_eq!(after_down, ["Move"], "Down goes on to Move");
+        assert_eq!(
+            shortcut_bold,
+            ["Alt+F4"],
+            "the default item's shortcut is bold too"
+        );
         assert_eq!(
             keys,
             [
                 ("Restore".to_owned(), Some('R')),
                 ("Move".to_owned(), Some('M')),
                 ("Size".to_owned(), Some('S')),
-                ("Minimize".to_owned(), Some('i')),
+                ("Minimize".to_owned(), Some('n')),
                 ("Maximize".to_owned(), Some('x')),
                 ("Close".to_owned(), Some('C')),
                 ("Use system title bar and borders".to_owned(), Some('U')),
@@ -548,5 +589,41 @@ mod tests {
             ]
         );
         assert!(by_pointer.iter().all(|(_, key)| key.is_none()), "{by_pointer:?}");
+    }
+
+    /// Alt+Space opens the menu with its outer corner 8 pixels in from the
+    /// window's left edge and 31 down from its top, as Windows 11 places
+    /// it (measured in the VM on 2026-11-24).
+    ///
+    /// parity: LOOK-032
+    #[gtk::test]
+    fn alt_space_opens_the_window_menu_where_windows_does() {
+        use crate::test_support::harness::{settle, wait_for_frames, Fixture, TestWindow};
+
+        let fixture = Fixture::standard();
+        let test = TestWindow::open(&fixture.uri());
+        wait_for_frames(&test.window, 3);
+        test.window.open_window_menu_from_keyboard();
+        settle();
+        let menu = test.window.title_bar_menu().expect("the window menu");
+        let (_, target) = menu.pointing_to();
+        // The menu opens below the point, its left edge on it, with no
+        // gap (MenuPopover's own offset is 4 pixels).
+        #[expect(clippy::cast_precision_loss, reason = "window positions are small")]
+        let top_left = gtk::graphene::Point::new(
+            target.x() as f32,
+            (target.y() + target.height() + menu.offset().1) as f32,
+        );
+        let corner = test
+            .window
+            .imp()
+            .tab_bar
+            .get()
+            .compute_point(&test.window, &top_left)
+            .expect("the tab row is in the window");
+        menu.popdown();
+
+        assert!((corner.x() - 8.0).abs() <= 1.0, "8 px in: {}", corner.x());
+        assert!((corner.y() - 31.0).abs() <= 1.0, "31 px down: {}", corner.y());
     }
 }

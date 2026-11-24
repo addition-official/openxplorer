@@ -499,7 +499,8 @@ fn selection_bar_rules(scale: f64) -> [String; 2] {
 /// drop-down spaces them. The classic right-click menu (`legacy`) has
 /// Windows 11's Win32 menu rows, 24 pixels at 100% text (measured on its
 /// "Show more options" menu), and no least width: it is as wide as its
-/// longest row.
+/// longest row. The window menu (`system-menu`) has the 22-pixel rows of
+/// Windows 11's system menu (measured in the VM on 2026-11-24).
 fn menu_rules(scale: f64) -> String {
     let row = 22.0 * scale + 10.0;
     let suggestion_row = 22.0 * scale + 18.0;
@@ -507,6 +508,7 @@ fn menu_rules(scale: f64) -> String {
     let compact_row = 22.0 * scale + 6.0;
     let compact_width = (235.0 * scale).max(276.0) - 2.0;
     let legacy_row = 22.0 * scale + 2.0;
+    let system_row = 22.0 * scale;
     format!(
         "popover.ox-menu list > row, popover.menu.ox-menu modelbutton {{ min-height: {row:.0}px; }}\n\
          popover.ox-menu > contents, popover.menu.ox-menu > contents {{ min-width: {width:.0}px; }}\n\
@@ -514,6 +516,7 @@ fn menu_rules(scale: f64) -> String {
          popover.ox-menu.compact > contents {{ min-width: {compact_width:.0}px; }}\n\
          popover.ox-menu.legacy list > row {{ min-height: {legacy_row:.0}px; }}\n\
          popover.ox-menu.legacy > contents {{ min-width: 0; }}\n\
+         popover.ox-menu.legacy.system-menu list > row {{ min-height: {system_row:.0}px; }}\n\
          popover.ox-menu list.address-suggestions > row {{ min-height: {suggestion_row:.0}px; }}"
     )
 }
