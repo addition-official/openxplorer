@@ -947,6 +947,15 @@ fn tile_group(page: &gtk::Box, group: Option<Group>, mut tiles: Vec<Tile>, layou
         .valign(gtk::Align::Start)
         .css_classes(["drive-tiles", layout.css_class()])
         .build();
+    if layout.flows_sideways() {
+        // List: the tiles fill the page's height column by column, and the
+        // page scrolls sideways to the next ([`scroll_sideways`]).
+        flow.set_orientation(gtk::Orientation::Vertical);
+        flow.set_max_children_per_line(u32::MAX);
+        flow.set_valign(gtk::Align::Fill);
+        flow.set_vexpand(true);
+        flow.set_halign(gtk::Align::Start);
+    }
     let title = group
         .as_ref()
         .map_or_else(|| Page::ThisPc.title().to_owned(), |group| group.title.clone());
@@ -1367,7 +1376,9 @@ fn this_pc(
     }
     let mut all = drive_tiles;
     all.extend(share_tiles);
-    let Some(group) = layout.group else {
+    // List keeps its order alone, as a folder's List does.
+    let group = layout.group.filter(|_| !layout.flows_sideways());
+    let Some(group) = group else {
         tile_group(page, None, all, layout);
         return;
     };
@@ -1393,6 +1404,7 @@ pub(super) fn render(
     match page {
         Page::ThisPc => {
             body.add_css_class(THIS_PC_CLASS);
+            scroll_sideways(body, layout.flows_sideways());
             allow_drive_drags(body);
             this_pc(body, places, locations, text_size, layout);
             select_one_group(body);
@@ -1402,8 +1414,64 @@ pub(super) fn render(
         // whole browsing area, landing pages included
         // (`super::settings_tab`). Neither draws anything here.
         // Home draws itself (`super::home_page`).
-        Page::Home | Page::Network | Page::Settings => body.remove_css_class(THIS_PC_CLASS),
+        Page::Home | Page::Network | Page::Settings => {
+            body.remove_css_class(THIS_PC_CLASS);
+            scroll_sideways(body, false);
+        }
     }
+}
+
+/// Lets the page around `body` scroll down, or, `sideways`, only across:
+/// List's columns then take the page's height and the rest are reached by
+/// scrolling sideways, as in a folder's List.
+fn scroll_sideways(body: &gtk::Box, sideways: bool) {
+    let Some(scroller) = body
+        .ancestor(gtk::ScrolledWindow::static_type())
+        .and_downcast::<gtk::ScrolledWindow>()
+    else {
+        return;
+    };
+    let down = if sideways {
+        gtk::PolicyType::Never
+    } else {
+        gtk::PolicyType::Automatic
+    };
+    scroller.set_vscrollbar_policy(down);
+    if sideways && !scroller.has_css_class(WHEEL_SIDEWAYS_CLASS) {
+        scroller.add_css_class(WHEEL_SIDEWAYS_CLASS);
+        wheel_scrolls_sideways_in_list(&scroller);
+    }
+}
+
+/// Marks the landing page's scroller once its List wheel is connected.
+const WHEEL_SIDEWAYS_CLASS: &str = "wheel-sideways";
+
+/// Pixels the page moves sideways per wheel notch, at least.
+const LIST_WHEEL_STEP: f64 = 40.0;
+
+/// A plain mouse wheel scrolls This PC's List sideways, as Windows 11's
+/// List does; GTK scrolls sideways only with Shift. The other views, which
+/// scroll down, keep the wheel as it is.
+fn wheel_scrolls_sideways_in_list(scroller: &gtk::ScrolledWindow) {
+    let wheel = gtk::EventControllerScroll::new(gtk::EventControllerScrollFlags::VERTICAL);
+    wheel.connect_scroll(glib::clone!(
+        #[weak]
+        scroller,
+        #[upgrade_or]
+        glib::Propagation::Proceed,
+        move |_, _, delta_y| {
+            let adjustment = scroller.hadjustment();
+            if scroller.vscrollbar_policy() != gtk::PolicyType::Never
+                || adjustment.upper() <= adjustment.page_size()
+            {
+                return glib::Propagation::Proceed;
+            }
+            let step = adjustment.step_increment().max(LIST_WHEEL_STEP);
+            adjustment.set_value(adjustment.value() + delta_y * step);
+            glib::Propagation::Stop
+        }
+    ));
+    scroller.add_controller(wheel);
 }
 
 /// The titles of This PC's Details columns `body` shows, for tests.

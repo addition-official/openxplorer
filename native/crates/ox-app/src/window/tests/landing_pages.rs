@@ -377,6 +377,42 @@ fn this_pc_takes_every_view_sort_and_grouping_and_keeps_them_for_itself() {
     assert_eq!(tile_names(&test), [["USB", "Backup", "Local Disk"]]);
 }
 
+/// List fills This PC's columns top to bottom and the page scrolls
+/// sideways, as a folder's List and Windows 11's List do: one box of
+/// tiles in columns, no group headers, and no scrolling down. Tiles
+/// scrolls down again.
+///
+/// parity: VIEW-008
+#[gtk::test]
+fn this_pc_list_fills_columns_and_scrolls_sideways() {
+    let fixture = Fixture::standard();
+    let test = this_pc_with_drives(&fixture);
+    let landing = test.window.folder_pane().landing().clone();
+    let scroller = landing
+        .ancestor(gtk::ScrolledWindow::static_type())
+        .and_downcast::<gtk::ScrolledWindow>()
+        .expect("the page's scroller");
+
+    test.activate("view", Some("compact"));
+    wait_for_frames(&test.window, 2);
+    let groups = landing::tile_groups(&landing);
+    assert_eq!(groups.len(), 1, "one box of tiles");
+    let (flow, tiles) = &groups[0];
+    assert!(flow.has_css_class("pc-list"));
+    assert_eq!(flow.orientation(), gtk::Orientation::Vertical, "columns");
+    assert!(landing::section_titles(&landing).is_empty(), "no group headers");
+    assert_eq!(scroller.vscrollbar_policy(), gtk::PolicyType::Never);
+    let first = bounds(&test, &tiles[0]);
+    let second = bounds(&test, &tiles[1]);
+    assert_eq!(first.x, second.x, "the second tile under the first");
+    assert!(second.y > first.y);
+
+    test.activate("view", Some("tiles"));
+    wait_for_frames(&test.window, 2);
+    assert_eq!(scroller.vscrollbar_policy(), gtk::PolicyType::Automatic);
+    assert_eq!(landing::section_titles(&landing), ["Devices and drives"]);
+}
+
 /// Up from a group's first row reaches its header; Left collapses the
 /// group and Right expands it, and Down goes back to its first tile, where
 /// the arrows carry on. A collapsed group stays collapsed when the page is

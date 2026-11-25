@@ -221,6 +221,13 @@ impl ThisPcLayout {
         }
     }
 
+    /// Whether the tiles fill columns top to bottom and the page scrolls
+    /// sideways: List alone, as a folder's List (VIEW-008) and Windows 11's
+    /// List everywhere. Like a folder's List it shows no group headings.
+    pub(super) fn flows_sideways(self) -> bool {
+        matches!(self.view, FolderView::Compact)
+    }
+
     /// Whether a row holds one tile across the page.
     pub(super) fn one_per_row(self) -> bool {
         matches!(self.view, FolderView::Details | FolderView::Content)
