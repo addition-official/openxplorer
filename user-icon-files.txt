@@ -1,6 +1,54 @@
 STATUS: DONE
-HEAD: icons-command-bar 39907895 (branched from origin/test-combined-60 14a8bf9f)
+HEAD: icons-fluent-audit eb107bf2 (branched from origin/test-combined-61)
 QUESTION: none.
+NOTE: Round 18, Fluent asset audit, from the PC manager workflow. Every command bar, navigation, address bar, tab, View button and menu-row icon on the reference captures was cropped and scored against every 16 and 20 pixel regular and filled icon of the pinned @fluentui/svg-icons 1.1.343 (tarball SHA-1 2b74740b18af25923a00061d80a00245a207f5f9), each rasterized at 12 to 20 pixels and compared by ink overlap with the crop (1.000 = identical ink). Where the user's Segoe Fluent Icons glyph scored higher in rounds 15 to 17, Windows draws the font glyph and ours keeps it with the font on.
+NOTE: Added byte for byte to resources/icons, listed in SOURCES.md with their SHA-256 (awaiting the owner's review like the earlier additions): text_description_ltr_20_regular, desktop_16_regular, expand_up_right_20_regular, pin_off_20_regular. They draw with or without the symbol font where marked "Fluent always" below; where marked "Fluent without the font", the Segoe glyph wins with the font on.
+NOTE: New roles: Icon::ViewExtraLarge (desktop_20), Icon::OpenInNewTab (window_new_20, used by every "Open in new tab" row: place menus, folder tree, navigation pane, item menu, address menu), Icon::TextDescription; plain icons Icon::Desktop16, Icon::ExpandUpRight, Icon::PinOff so every bundled file is an icon's name. Large icons no longer use the font's E7F4 (Fluent's desktop_16 scores 0.937).
+NOTE: Windows' crops are not committed anywhere (Microsoft artwork rule); the contact sheet of Windows crop beside ours was sent in chat only, not pushed. ours-icons/audit.png is therefore not on this branch.
+NOTE: Tests run (touched modules only): icons:: 52/52 (one run of three fails window::tests::icons::high_contrast_paints_the_place_glyphs_in_the_text_colour; origin/test-combined-61's own build fails it one run of three too, it passes alone), menu_marks_are_dots 1/1, the_view_button 1/1, the_more_and_view_menus 1/1, windows_icon_files 4/4, place_menus 11/11, folder_tree 11/11, menu_popover 21/21, view_styles 19/19. Clippy on ox-app: only home_page.rs:431 and tests/nav_tree.rs:307, both identical on origin/test-combined-61. tools/check.py: only the drawn-icon guard on menu_popover.rs:2238/2288, untouched and the same on origin/test-combined-61. Also failing identically on origin/test-combined-61: tab_after_escaping_the_address, the_sidebar_recycle_bin_shows_it_is_full (left_and_right_stop_at_the_first_chevron failed once on the baseline, passed on this branch).
+TABLE (place | Windows ref crop | Fluent asset chosen | match score | ours before -> now)
+cmd New | ref-01-details-folder.png 18,97 15x15 | add_circle_16_regular@17 | 0.995 | font ECC8 (two-tone) kept with the font; same file family without
+cmd New chevron | ref-01 73,103 6x4 | none (caret_down_16_filled 0.826) | 0.826 | font E70D kept
+cmd Cut | ref-04-menu-file.png 116,97 14x16 | cut_20_regular@20 | 0.989 | font E8C6 (0.99+, two-tone) kept; Fluent without the font
+cmd Copy | ref-04 164,98 14x14 | copy_20_regular@20 | 0.991 | font E8C8 kept; Fluent without the font
+cmd Paste | ref-01 212,97 14x16 | clipboard_paste_20_regular@20 | 0.995 | font E77F (0.996) kept; Fluent without the font
+cmd Rename | ref-04 259,97 16x16 | rename_a_20_regular@20 | 0.992 | font E8AC (0.993) kept; Fluent without the font
+cmd Share | ref-04 308,98 15x14 | share_20_regular@19 | 0.923 | font E72D (0.990) kept
+cmd Delete | ref-04 355,97 15x16 | delete_20_regular@20 | 0.971 | font E74D kept; Fluent without the font
+cmd Sort | ref-01 406,99 16x12 | none (arrow_sort_16_filled 0.743) | 0.743 | font E8CB (0.998) kept
+cmd More | ref-01 590,104 16x3 | none (0.888) | 0.888 | font E712 at a 20 px em kept
+cmd Details pane | ref-01 1837,99 16x12 | none (rectangle_landscape_20_regular 0.841) | 0.841 | unchanged
+nav Back | ref-01 21,50 12x12 | arrow_left_20_filled@15 | 0.955 | font E72B at a 12 px em kept
+nav Up | ref-01 117,50 12x12 | arrow_up_20_filled@15 | 0.954 | font E74A kept
+nav Refresh | ref-01 | arrow_clockwise_16_regular@16 | 0.973 | font E72C kept
+addr root | ref-01 | desktop_16_regular@20 | 0.947 | unchanged (Windows shows This PC's monitor there)
+addr crumb | ref-01 | chevron_right_16_regular@14 | 0.971 | font E76C kept
+addr search | ref-01 | search_16_filled@13 | 0.945 | font E721 kept
+tab close | ref-01 | dismiss_16_filled@13 | 0.964 | font E711 kept
+tab new | ref-01 | add_20_filled@13 | 0.992 | font E710 kept
+caption max / close | ref-01 | stop_20_regular@14 / dismiss_20_filled@16 | 0.996 / 0.999 | unchanged
+pane pin | ref-01 | pin_16_filled@14 | 0.977 | PinFilled (round 16) unchanged
+view Details | View button | text_description_ltr_20_regular@20 | 0.961 | bulleted lines (TextBulletList / E8FD) -> Fluent always
+view Extra large | View menu | desktop_20_regular@18 | 0.925 | rectangle -> Fluent always (ViewExtraLarge)
+view Large | View menu | desktop_16_regular@16 | 0.937 | font E7F4 / rectangle -> Fluent always
+view Medium | View menu | none (0.809) | 0.809 | unchanged, needs owner-approved icon
+view Small | View menu | grid_16_regular@18 | 0.945 | font E8A9 (0.98) kept
+view List | View menu | none (text_description 0.885) | 0.885 | unchanged
+view Tiles | View menu | none (0.760) | 0.760 | unchanged
+view Content | View menu | none (0.712) | 0.712 | unchanged
+row Open with | ref-04 | none (0.781) | 0.781 | font E7AC (0.994) kept
+row Add to Favorites | ref-04 | star_20_regular@20 | 0.907 | font E734 kept
+row Compress to | ref-04 | none (0.795) | 0.795 | font F012 (0.997) kept
+row Copy as path | ref-04 | none (0.831) | 0.831 | font E62F (0.969) kept
+row Properties | ref-04 | wrench_16_regular@19 | 0.907 | font E90F (0.995) kept
+row Show more options | ref-04 | expand_up_right_20_regular@20 | 0.989 | more dots -> Fluent without the font; font E93A (0.996) kept with it
+row Open in new tab | ref-31 | window_new_20_regular@20 | 0.974 | plus (Add / E710) -> Fluent always (OpenInNewTab)
+row Open in new window | ref-31 | none (open_16_filled 0.836) | 0.836 | font E8A7 (0.991) kept
+row Unpin from Quick access | ref-31 | pin_off_20_regular@20 | 0.920 | plain pin -> Fluent without the font; font E77A (0.997) kept with it
+row Pin to Start | ref-31 | pin_16_regular@20 | 0.898 | font E718 kept
+row New | ref-06 | add_circle_16_regular@17 | 0.996 | font ECC8 kept
+row Open in Terminal | ref-31 | none (0.794) | 0.794 | unchanged
+ROUND 17
 NOTE: Round 17, from the PC manager workflow's answer (no new bundled shapes): the View button and the View menu take the closest glyph of Segoe Fluent Icons 1.54 where one is close, and keep their current glyph where nothing is. Small icons: E8A9 (0.98, already used). Large icons: E7F4, Windows' monitor, at a 12-pixel em (0.93), as a new role Icon::ViewLarge, which still draws the rectangle without the font. Tests: icons:: 52/52, the_more_and_view_menus_show_windows_glyphs (Large icons now ViewLarge), the_view_button 1/1, windows_icon_files 4/4; clippy clean.
 NOTE: Needs owner-approved icon (no glyph of the font is close to Windows' View-button shape; ours kept): Details (Windows: four plain lines; ours bulleted lines, best font match 0.76), Extra large (a monitor on a stand; ours the rectangle, best 0.88), Medium (a small monitor with stand lines; ours the monitor E7F4, best 0.83), List (two columns of lines; ours E8FD-like columns, best 0.71), Tiles (two rows of circle and line; ours Tiles ECA5, best 0.60), Content (three rows of circle and lines; ours ContentView, best 0.84).
 NOTE: Merge check: `git merge-tree --write-tree origin/main 39907895` exits 0 against this fork's main (8803be65); the fork's main does not hold upstream's 5243f3ea, which this session cannot reach.
