@@ -394,6 +394,11 @@ pub(crate) enum Status {
     Off,
     /// The chosen font is being read.
     Reading,
+    /// The font could not be read, for `reason`: the app's own glyphs.
+    Unreadable {
+        /// Why: missing, unreadable, not TrueType, damaged.
+        reason: &'static str,
+    },
     /// The font was read and draws `found` of `wanted` glyphs.
     Ready {
         /// How many glyphs it draws.
@@ -517,9 +522,18 @@ pub(crate) fn follow_preferences(preferences: &Preferences) {
             let found = glyph_icons()
                 .filter(|icon| glyph_of(*icon).is_some() && loaded.contains(&glyph_icon_name(*icon, 16)))
                 .count();
-            state.status = Status::Ready {
-                found,
-                wanted: glyph_count(),
+            state.status = match loaded.problem() {
+                Some(reason) => {
+                    glib::g_warning!(
+                        ox_core::LOG_DOMAIN,
+                        "The Windows symbol font could not be read ({reason}), so the app's own glyphs are shown"
+                    );
+                    Status::Unreadable { reason }
+                }
+                None => Status::Ready {
+                    found,
+                    wanted: glyph_count(),
+                },
             };
             state.loaded = Some(loaded);
             true

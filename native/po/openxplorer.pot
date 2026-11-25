@@ -3405,6 +3405,11 @@ msgstr ""
 msgid "OpenXplorer (default)"
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "OpenXplorer cannot read it ({reason}), so its own glyphs are shown"
+msgstr ""
+
 #: crates/ox-app/src/settings_page/appearance.rs
 msgid "OpenXplorer shows its menus, buttons and messages in your desktop's language when a translation for it is installed, and in English otherwise. Change the language in your desktop's language or region settings, then start OpenXplorer again."
 msgstr ""

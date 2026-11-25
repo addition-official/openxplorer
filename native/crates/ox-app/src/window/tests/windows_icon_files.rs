@@ -173,11 +173,12 @@ fn every_place_of_a_window_takes_the_files_pictures() {
     });
 }
 
-/// With Windows icon files on and a symbol font chosen, the window's
-/// glyphs come from the font: the command bar's New, the Back button and
-/// a tab's close button; a glyph the font lacks keeps the app's own; and
-/// turning it off brings every bundled glyph back. The font is synthetic,
-/// built in the test.
+/// With Windows icon files on and a symbol font chosen from a path in the
+/// user's home, the window's glyphs come from the font: the command bar's
+/// New, the Back button, a tab's close button, and a folder's right-click
+/// menu, its strip's Copy and its Properties row; a glyph the font lacks
+/// keeps the app's own; and turning it off brings every bundled glyph
+/// back. The font is synthetic, built in the test.
 ///
 /// parity: LOOK-031
 #[gtk::test]
@@ -187,10 +188,14 @@ fn the_windows_glyphs_come_from_the_chosen_symbol_font() {
     use crate::icons::user_glyphs;
 
     let home = TestHome::new();
-    let font = home.home.parent().expect("the root").join("SegoeIcons.ttf");
-    // Add, AddTo (New's circled plus), Back and Cancel (the tab's close
-    // button); Cut is left out.
-    let codepoints = [0xE710, 0xECC8, 0xE72B, 0xE711];
+    // In the user's own folders, as a font the user copied from Windows.
+    let fonts = home.home.join(".local/share/fonts");
+    std::fs::create_dir_all(&fonts).expect("a fonts folder");
+    let font = fonts.join("SegoeIcons.ttf");
+    // Add, AddTo (New's circled plus), Back, Cancel (the tab's close
+    // button), Copy (the menu strip) and Info (Properties); Cut is left
+    // out.
+    let codepoints = [0xE710, 0xECC8, 0xE72B, 0xE711, 0xE8C8, 0xE946];
     std::fs::write(&font, SyntheticFont::with_codepoints(&codepoints).build()).expect("written");
     let folders = FolderLocations::new(home.home.clone(), &home.config);
     let test = TestWindow::open_with_standard_folders(&file_uri(&home.home), folders, |_| {});
@@ -204,7 +209,7 @@ fn the_windows_glyphs_come_from_the_chosen_symbol_font() {
     );
     wait_until("the font to be read", || {
         // Cancel (E711) draws both X glyphs.
-        matches!(user_glyphs::status(), user_glyphs::Status::Ready { found: 4, .. })
+        matches!(user_glyphs::status(), user_glyphs::Status::Ready { found: 6, .. })
     });
     let shown = |name: &str| {
         descendants::<gtk::Image>(&test.window)
@@ -222,6 +227,22 @@ fn the_windows_glyphs_come_from_the_chosen_symbol_font() {
     }
     assert!(shown(Icon::Cut.name()), "Cut keeps the app's glyph");
     assert!(!shown(Icon::Add.name()), "New uses the font's");
+
+    // A folder's right-click menu, built after the font was read.
+    assert!(test.window.select_named("Documents"), "Documents is listed");
+    test.activate("context-menu", None);
+    let menu = super::menu_sweep::open_menu(&test.window).expect("the menu opens");
+    let menu_glyphs: Vec<String> = descendants::<gtk::Image>(&menu)
+        .iter()
+        .filter_map(|image| image.icon_name().map(String::from))
+        .collect();
+    for glyph in ["ox-win-copy-20-box18-symbolic", "ox-win-info-20-box18-symbolic"] {
+        assert!(
+            menu_glyphs.iter().any(|name| name == glyph),
+            "{glyph} in the menu: {menu_glyphs:?}"
+        );
+    }
+    menu.popdown();
 
     test.context.update_preferences(
         PreferencesUpdate {

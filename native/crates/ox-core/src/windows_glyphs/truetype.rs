@@ -42,6 +42,18 @@ pub enum FontError {
     OverLimit,
 }
 
+impl FontError {
+    /// What went wrong, in words a settings row can show.
+    pub const fn message(self) -> &'static str {
+        match self {
+            FontError::TooLarge => "the font is too large",
+            FontError::NotTrueType => "the file is not a TrueType font",
+            FontError::Damaged => "the font is damaged",
+            FontError::OverLimit => "the font holds more than OpenXplorer reads",
+        }
+    }
+}
+
 /// A big-endian `u16` at `at`.
 fn u16_at(bytes: &[u8], at: usize) -> Result<u16, FontError> {
     let field = bytes

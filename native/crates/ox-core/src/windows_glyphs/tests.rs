@@ -95,6 +95,29 @@ fn files_that_are_not_truetype_fonts_are_refused() {
         assert_eq!(Font::parse(bytes).err(), Some(expected), "{case}");
     }
     assert_eq!(Font::parse(vec![0; 33 << 20]).err(), Some(FontError::TooLarge));
+
+    // Loading such a file says why, and caches nothing, so a fixed file is
+    // read again; a missing file says so too.
+    let folder = temporary_folder();
+    let cache = folder.path().join("cache");
+    let font = folder.path().join("SegoeIcons.ttf");
+    std::fs::write(&font, with(0, b"OTTO")).expect("written");
+    let wanted = [GlyphRequest {
+        name: "ox-win-add-20-symbolic".to_owned(),
+        codepoint: 0xE710,
+        em: 16,
+        size: 16,
+    }];
+    let loaded = load_glyphs(&font, &wanted, &cache);
+    assert_eq!(loaded.problem(), Some(FontError::NotTrueType.message()));
+    assert_eq!(loaded.found(), 0);
+    assert_eq!(
+        std::fs::read_dir(&cache).expect("the cache").count(),
+        0,
+        "nothing cached"
+    );
+    let missing = load_glyphs(&folder.path().join("gone.ttf"), &wanted, &cache);
+    assert_eq!(missing.problem(), Some("the file cannot be found or opened"));
 }
 
 /// A font cut at any length, or with any byte changed, never panics; at
