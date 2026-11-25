@@ -271,7 +271,7 @@ fn drive_menu(
         open.into(),
         item(
             ox_core::i18n::gettext_static("Open in new tab"),
-            Icon::Add,
+            Icon::OpenInNewTab,
             WindowAction::OpenTab,
             uri,
         ),
@@ -361,7 +361,7 @@ fn quick_access_pin_menu(
                 target("Open", Icon::Folder, WindowAction::GoTo)
                     .with_shortcut("Enter")
                     .into(),
-                target("Open in new tab", Icon::Add, WindowAction::OpenTab).into(),
+                target("Open in new tab", Icon::OpenInNewTab, WindowAction::OpenTab).into(),
                 target(
                     "Open in new window",
                     Icon::OpenInNewWindow,
@@ -408,7 +408,7 @@ fn network_entries(location: &NetworkLocation, caching: Option<Caching>, pinned:
         ),
         item(
             ox_core::i18n::gettext_static("Open in new tab"),
-            Icon::Add,
+            Icon::OpenInNewTab,
             WindowAction::OpenTab,
             uri,
         ),
@@ -486,7 +486,7 @@ fn recent_files_entries() -> Vec<MenuEntry> {
         ),
         item(
             ox_core::i18n::gettext_static("Open in new tab"),
-            Icon::Add,
+            Icon::OpenInNewTab,
             WindowAction::OpenTab,
             RECENT_URI,
         ),
@@ -523,7 +523,7 @@ fn recycle_bin_entries(has_items: bool) -> Vec<MenuEntry> {
         ),
         item(
             ox_core::i18n::gettext_static("Open in new tab"),
-            Icon::Add,
+            Icon::OpenInNewTab,
             WindowAction::OpenTab,
             TRASH_URI,
         ),
@@ -550,7 +550,7 @@ fn recent_locations_entries() -> Vec<MenuEntry> {
         ),
         item(
             ox_core::i18n::gettext_static("Open in new tab"),
-            Icon::Add,
+            Icon::OpenInNewTab,
             WindowAction::OpenTab,
             uri,
         ),
@@ -653,7 +653,7 @@ impl PlaceMenu {
                     ),
                     item(
                         ox_core::i18n::gettext_static("Open in new tab"),
-                        Icon::Add,
+                        Icon::OpenInNewTab,
                         WindowAction::OpenTab,
                         uri,
                     ),

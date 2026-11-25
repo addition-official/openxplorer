@@ -227,7 +227,7 @@ fn folder_open_items(facts: &ItemFacts) -> Vec<MenuEntry> {
     let new_tab = if facts.is_single {
         MenuItem::with_text_target(
             &ox_core::i18n::gettext("Open in new tab"),
-            Icon::Add,
+            Icon::OpenInNewTab,
             WindowAction::OpenTab,
             &facts.navigation_uri,
         )

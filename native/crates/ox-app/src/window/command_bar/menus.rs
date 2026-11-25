@@ -300,9 +300,25 @@ pub(in crate::window) fn view_glyph(view: FolderView) -> Icon {
     match view {
         FolderView::Icons(size) => icon_size_glyph(crate::folder_view::gallery_view::nearest_named(size)),
         FolderView::Compact => Icon::TextColumnTwo,
-        FolderView::Details => Icon::TextBulletList,
+        FolderView::Details => Icon::TextDescription,
         FolderView::Tiles => Icon::AppsListDetail,
         FolderView::Content => Icon::ContentView,
+    }
+}
+
+/// The square the View button draws `view`'s glyph in, at which its
+/// Fluent file inks what Windows' does (matched against its captures): 20
+/// for Details' lines, 16 for Large icons' smaller monitor, else the
+/// command's usual 18.
+pub(in crate::window) fn view_glyph_size(view: FolderView) -> i32 {
+    match view {
+        FolderView::Details => 20,
+        FolderView::Icons(size)
+            if crate::folder_view::gallery_view::nearest_named(size) == IconSize::LARGE =>
+        {
+            16
+        }
+        _ => 18,
     }
 }
 
@@ -313,8 +329,11 @@ fn icon_size_glyph(size: IconSize) -> Icon {
     } else if size == IconSize::SMALL {
         Icon::Grid
     } else if size == IconSize::LARGE {
-        // Windows' monitor, with the symbol font; the rectangle without.
+        // Windows' smaller monitor (desktop_16_regular).
         Icon::ViewLarge
+    } else if size == IconSize::EXTRA_LARGE {
+        // Windows' monitor (desktop_20_regular).
+        Icon::ViewExtraLarge
     } else {
         Icon::RectangleLandscape
     }

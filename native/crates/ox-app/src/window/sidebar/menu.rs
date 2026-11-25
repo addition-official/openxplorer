@@ -51,7 +51,7 @@ pub(in crate::window) fn pin_menu(uri: &str, caching: Option<Caching>, editable:
         .into(),
         MenuItem::with_text_target(
             &ox_core::i18n::gettext("Open in new tab"),
-            Icon::Add,
+            Icon::OpenInNewTab,
             WindowAction::OpenTab,
             uri,
         )
@@ -165,7 +165,7 @@ fn open_elsewhere_items(uri: &str) -> Vec<MenuEntry> {
     vec![
         MenuItem::with_text_target(
             &ox_core::i18n::gettext("Open in new tab"),
-            Icon::Add,
+            Icon::OpenInNewTab,
             WindowAction::OpenTab,
             uri,
         )
@@ -427,7 +427,7 @@ impl Sidebar {
             crate::window::place_commands::new_menu_in(uri, crate::window::command_bar::new_menu(templates)),
         );
         vec![
-            target("Open in new tab", Icon::Add, WindowAction::OpenTab).into(),
+            target("Open in new tab", Icon::OpenInNewTab, WindowAction::OpenTab).into(),
             target(
                 "Open in new window",
                 Icon::OpenInNewWindow,
