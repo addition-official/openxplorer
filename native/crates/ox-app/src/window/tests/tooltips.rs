@@ -195,16 +195,16 @@ fn closing_a_window_with_the_pointer_over_the_pane_logs_no_critical() {
     assert!(criticals.is_empty(), "{criticals:?}");
 }
 
-/// A window destroyed right after one of its menus closed under the real
-/// pointer logs no critical message. The pointer over the Places menu
-/// makes the menu GTK 4.14's tooltip surface; the menu closes, the
-/// navigation pane comes back (which hides the Places button, and GTK
-/// then keeps the menu alive after its window), and the window goes
-/// before GTK hears of the pointer over the window again. GTK let go of
-/// the tooltip only for the window itself, so the timer later asked for
-/// the pointer's position on the menu, which had no surface left
-/// (`Gdk-CRITICAL gdk_surface_get_device_position`, which killed the test
-/// process in `the_navigation_pane_hides_and_a_places_button_lists_its_places`).
+/// A menu opened and closed under the resting pointer, the navigation
+/// pane turned back on and the window destroyed at once, as
+/// `the_navigation_pane_hides_and_a_places_button_lists_its_places` does,
+/// leave nothing for GTK's tooltip timer. Closing the Places menu used to
+/// leave the window's keyboard focus on its first row, and with the
+/// Places button then hidden GTK 4.14 kept the menu alive after its
+/// window; GTK's tooltip, pointed at the menu by the pointer's crossing
+/// into it, then asked for the pointer's position on a menu with no
+/// surface (`Gdk-CRITICAL gdk_surface_get_device_position`, SIGTRAP in the
+/// deb 61 and 62 test runs).
 ///
 /// parity: SIDE-024
 #[gtk::test]
@@ -216,26 +216,36 @@ fn a_window_destroyed_right_after_a_menu_closed_under_the_pointer_logs_no_critic
     let recorder = crate::test_support::gtk_log::LogRecorder::start();
     let fixture = Fixture::standard();
     let mut pointer = Pointer::connect();
-    let test = TestWindow::open(&fixture.uri());
-    test.window.present();
-    test.activate("sidebar", None);
-    wait_for_frames(&test.window, 3);
-    let places = test.window.places_button().clone();
-    places.popup();
-    let menu = places.popover().expect("the places menu");
-    wait_for_frames(&menu, 3);
-    let middle = (f64::from(menu.width()) / 2.0, f64::from(menu.height()) / 2.0);
-    let over = screen_point(&mut pointer, &menu, middle, PROBE);
-    pointer.move_to(over.0 + 1, over.1);
-    wait_for(std::time::Duration::from_millis(50));
-
-    places.popdown();
-    test.activate("sidebar", None);
-    drop(menu);
-    drop(places);
-    drop(test);
-    // Longer than GTK's tooltip delay.
-    wait_for(std::time::Duration::from_millis(1200));
+    let mut freed = Vec::new();
+    for round in 0..2 {
+        let test = TestWindow::open(&fixture.uri());
+        test.window.present();
+        test.activate("sidebar", None);
+        wait_for_frames(&test.window, 3);
+        let places = test.window.places_button().clone();
+        let menu = places.popover().expect("the places menu");
+        if round == 0 {
+            // Where the menu opens: the pointer rests there, and the
+            // second round opens the menu right under it.
+            places.popup();
+            wait_for_frames(&menu, 3);
+            let middle = (f64::from(menu.width()) / 2.0, f64::from(menu.height()) / 2.0);
+            let over = screen_point(&mut pointer, &menu, middle, PROBE);
+            pointer.move_to(over.0, over.1);
+            wait_for(std::time::Duration::from_millis(50));
+        } else {
+            places.popup();
+        }
+        places.popdown();
+        test.activate("sidebar", None);
+        let left = menu.downgrade();
+        drop(menu);
+        drop(places);
+        drop(test);
+        // Longer than GTK's tooltip delay.
+        wait_for(std::time::Duration::from_millis(1200));
+        freed.push(left.upgrade().is_none());
+    }
     // Off every window, past the double-click time.
     pointer.move_to(1430, 990);
     wait_for(std::time::Duration::from_millis(700));
@@ -246,4 +256,5 @@ fn a_window_destroyed_right_after_a_menu_closed_under_the_pointer_logs_no_critic
         .filter(|warning| warning.contains("gdk_surface_get_device_position"))
         .collect();
     assert!(criticals.is_empty(), "{criticals:?}");
+    assert_eq!(freed, [true, true], "the menu goes with its window");
 }
