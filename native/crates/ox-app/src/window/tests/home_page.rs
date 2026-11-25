@@ -1467,3 +1467,45 @@ fn searching_from_a_big_home_shows_matches_as_they_are_found() {
         "the search was seen running"
     );
 }
+
+/// Quick access's heading is a small pill around its chevron and title,
+/// about 130 by 34 pixels as Windows 11's (reference ref-24), which the
+/// pointer lights only over the pill, not across the row. The pointer is
+/// real (XTEST).
+///
+/// parity: HOME-012
+#[gtk::test]
+fn the_quick_access_heading_is_a_pill_around_its_title() {
+    use crate::test_support::pointer::{screen_point, Pointer};
+    let fixture = Fixture::standard();
+    let test = home_window(&fixture);
+    let heading = crate::test_support::harness::descendants::<gtk::Button>(body(&test))
+        .into_iter()
+        .find(|button| button.has_css_class("home-quick-fold"))
+        .expect("Quick access has its heading");
+    wait_until("the heading drawn", || heading.width() > 0);
+    crate::test_support::harness::wait_for_frames(&test.window, 2);
+    // The border box, padding included, which the hover fills.
+    let bounds = heading.compute_bounds(&heading).expect("the heading is drawn");
+    #[allow(clippy::cast_possible_truncation)]
+    let (width, height) = (bounds.width().round() as i32, bounds.height().round() as i32);
+    assert!((120..=140).contains(&width), "the pill is {width} pixels wide");
+    assert!((32..=36).contains(&height), "the pill is {height} pixels high");
+    assert!(width < body(&test).width() / 4, "the pill is not the row");
+
+    let mut pointer = Pointer::connect();
+    let lit = || heading.state_flags().contains(gtk::StateFlags::PRELIGHT);
+    let middle = f64::from(bounds.y() + bounds.height() / 2.0);
+    let (x, y) = screen_point(
+        &mut pointer,
+        &heading,
+        (f64::from(bounds.x() + bounds.width() / 2.0), middle),
+        (8, 8),
+    );
+    pointer.move_to(x, y);
+    wait_until("the pill lit", lit);
+    let beside = f64::from(bounds.x() + bounds.width()) + 60.0;
+    let (x, y) = screen_point(&mut pointer, &heading, (beside, middle), (8, 8));
+    pointer.move_to(x, y);
+    wait_until("the row beside it unlit", || !lit());
+}

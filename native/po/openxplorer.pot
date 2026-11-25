@@ -1677,7 +1677,7 @@ msgstr ""
 msgid "Change Icon for {folder} Folder"
 msgstr ""
 
-#: crates/ox-app/src/properties/change_icon.rs crates/ox-app/src/properties/custom_icon.rs crates/ox-app/src/settings_page/file_icons.rs
+#: crates/ox-app/src/properties/change_icon.rs crates/ox-app/src/properties/custom_icon.rs crates/ox-app/src/settings_page/file_icons.rs crates/ox-app/src/window/home_page.rs
 msgid "Images"
 msgstr ""
 
@@ -1721,7 +1721,7 @@ msgstr ""
 msgid "Also apply this template to all subfolders"
 msgstr ""
 
-#: crates/ox-app/src/properties/custom_icon/folder_type.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-core/src/places/known_folders.rs
+#: crates/ox-app/src/properties/custom_icon/folder_type.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/home_page.rs crates/ox-core/src/places/known_folders.rs
 msgid "Documents"
 msgstr ""
 
@@ -1741,7 +1741,7 @@ msgstr ""
 msgid "The folder's window has closed."
 msgstr ""
 
-#: crates/ox-app/src/properties/custom_icon/folder_type.rs crates/ox-app/src/settings_page/files_folders.rs crates/ox-core/src/places/known_folders.rs
+#: crates/ox-app/src/properties/custom_icon/folder_type.rs crates/ox-app/src/settings_page/files_folders.rs crates/ox-app/src/window/home_page.rs crates/ox-core/src/places/known_folders.rs
 msgid "Videos"
 msgstr ""
 
@@ -3257,6 +3257,10 @@ msgid "Adds Recent files, Recent locations, the Recycle Bin and a bar under each
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "Adds Select items matching…, which selects the items whose names match a pattern, to the command bar's … menu. Off, the … menu looks like Windows 11's."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "Always at the bottom"
 msgstr ""
 
@@ -3434,6 +3438,10 @@ msgid "Show Recent files in the navigation pane"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "Show Select items matching… in the … menu"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "Show a line under column titles"
 msgstr ""
 
@@ -3600,6 +3608,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
 msgid "reset layout widths sidebar resize columns"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "select items matching pattern wildcard more options menu command bar windows"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
@@ -5865,6 +5877,10 @@ msgstr ""
 msgid "Extract all files from this archive"
 msgstr ""
 
+#: crates/ox-app/src/window/command_bar.rs
+msgid "Filter"
+msgstr ""
+
 #: crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/sidebar/menu.rs crates/ox-core/src/ops/undo.rs
 msgid "New"
 msgstr ""
@@ -7666,6 +7682,10 @@ msgstr ""
 msgid "Turning on network discovery"
 msgstr ""
 
+#: crates/ox-app/src/window/home_page.rs
+msgid "All File Types"
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/home_page.rs
 msgid "Could not remove from Recent: {error}"
@@ -7693,7 +7713,19 @@ msgid "Folders you pin to Quick access show here."
 msgstr ""
 
 #: crates/ox-app/src/window/home_page.rs
+msgid "No files of this kind. Choose All File Types in Filter to list every file."
+msgstr ""
+
+#: crates/ox-app/src/window/home_page.rs
 msgid "Open file location"
+msgstr ""
+
+#: crates/ox-app/src/window/home_page.rs
+msgid "PDF"
+msgstr ""
+
+#: crates/ox-app/src/window/home_page.rs
+msgid "Presentations"
 msgstr ""
 
 #: crates/ox-app/src/window/home_page.rs crates/ox-app/src/window/sidebar/entries.rs
@@ -7710,6 +7742,10 @@ msgstr ""
 
 #: crates/ox-app/src/window/home_page.rs
 msgid "Remove from list"
+msgstr ""
+
+#: crates/ox-app/src/window/home_page.rs
+msgid "Spreadsheets"
 msgstr ""
 
 #: crates/ox-app/src/window/imp.rs

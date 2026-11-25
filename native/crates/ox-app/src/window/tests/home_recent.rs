@@ -31,7 +31,7 @@ const HOME_PAGE: &str = "ox:home";
 /// A window showing Home, with "Open Quick access on Home" on, whose
 /// Recent lists `Documents/<name>` of a new fixture for each of `names`,
 /// each just added to the desktop's history.
-fn recent_home(names: &[&str]) -> (Fixture, TestWindow) {
+pub(super) fn recent_home(names: &[&str]) -> (Fixture, TestWindow) {
     require_private_trash();
     let schemes = gtk::gio::Vfs::default().supported_uri_schemes();
     assert!(
@@ -68,7 +68,7 @@ fn stem(name: &str) -> String {
 }
 
 /// The Home page's body in the active pane.
-fn body(test: &TestWindow) -> &gtk::Box {
+pub(super) fn body(test: &TestWindow) -> &gtk::Box {
     test.window.folder_pane().landing()
 }
 
@@ -79,7 +79,7 @@ fn recent_names(test: &TestWindow) -> Vec<String> {
 
 /// Moves the real pointer to the middle of `widget`, or to `at` in it,
 /// and clicks `button`.
-fn click(
+pub(super) fn click(
     pointer: &mut Pointer,
     test: &TestWindow,
     widget: &impl IsA<gtk::Widget>,
@@ -95,7 +95,7 @@ fn click(
 }
 
 /// The menu open in the folder pane.
-fn open_menu(test: &TestWindow) -> MenuPopover {
+pub(super) fn open_menu(test: &TestWindow) -> MenuPopover {
     let open = || {
         descendants::<MenuPopover>(test.window.folder_pane())
             .into_iter()
@@ -792,5 +792,73 @@ fn the_strip_packs_fixed_width_buttons_from_the_left() {
     assert!(
         strip_width - used > 100.0,
         "the rest of the strip stays empty: {used} of {strip_width}"
+    );
+}
+
+/// Home's "…" is Windows 11's: Select all, Select none and Invert
+/// selection, then Properties, grayed with nothing selected and enabled
+/// for a selected row, and Options. Pin to Quick access is left out, not
+/// grayed, as Home cannot be pinned; the owner's Select items matching…
+/// stays unless Settings turns it off, as "Behave like Windows Explorer"
+/// does. The menu opens with a real click.
+///
+/// parity: CMD-007, HOME-012
+#[gtk::test]
+fn homes_more_menu_is_windows_11s() {
+    let (_fixture, test) = recent_home(&["plan.txt"]);
+    let more_button = super::command_bar::command_bar_controls(&test)
+        .into_iter()
+        .filter_map(|control| control.downcast::<gtk::MenuButton>().ok())
+        .find(|button| button.has_css_class("more-command"))
+        .expect("the command bar has …");
+    let more = super::command_bar::menu_of(&test, "See more");
+    let mut pointer = Pointer::connect();
+    click(&mut pointer, &test, &more_button, None, Button::Primary);
+    wait_until("…'s menu", || more.is_mapped());
+    wait_for_frames(&test.window, 2);
+    assert_eq!(
+        more.row_labels(),
+        [
+            "Select all",
+            "Select none",
+            "Invert selection",
+            "Select items matching…",
+            "-",
+            "Properties",
+            "Options"
+        ]
+    );
+    assert!(!more.row("Properties").is_sensitive(), "nothing is selected");
+    more.popdown();
+    wait_until("… closed", || !more.is_mapped());
+
+    click_row(&mut pointer, &test, "plan");
+    click(&mut pointer, &test, &more_button, None, Button::Primary);
+    wait_until("…'s menu", || more.is_mapped());
+    wait_for_frames(&test.window, 2);
+    assert!(more.row("Properties").is_sensitive(), "a row is selected");
+    more.popdown();
+
+    let update = ox_core::settings::PreferencesUpdate {
+        select_matching_in_more_menu: Some(false),
+        ..ox_core::settings::PreferencesUpdate::default()
+    };
+    ox_core::settings::Settings::open(test.settings_directory())
+        .update_preferences(&update)
+        .expect("the settings file takes the choice");
+    test.context.reload_settings();
+    wait_until("Select items matching… gone", || {
+        !more.row_labels().contains(&"Select items matching…".to_owned())
+    });
+    assert_eq!(
+        more.row_labels(),
+        [
+            "Select all",
+            "Select none",
+            "Invert selection",
+            "-",
+            "Properties",
+            "Options"
+        ]
     );
 }

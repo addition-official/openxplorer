@@ -1245,13 +1245,14 @@ fn the_view_menu_and_ctrl_shift_f4_open_the_terminal_here() {
 }
 
 /// More options: "Pin to Quick access" needs a folder, so a page that
-/// lists it, such as Settings, disables it and says why (CMD-031); This
+/// cannot be pinned, such as Settings, leaves it out rather than graying
+/// it, as Windows 11 hides what does not apply (reference ref-10); This
 /// PC and Network list the network drive commands in its place, as
 /// Windows 11 does.
 ///
-/// parity: CMD-007, CMD-031
+/// parity: CMD-007
 #[gtk::test]
-fn more_options_needs_a_folder_for_pin() {
+fn more_options_offers_pin_only_for_a_folder() {
     let fixture = Fixture::standard();
     let test = laid_out(&fixture.uri());
     let more = menu_of(&test, "See more");
@@ -1261,15 +1262,11 @@ fn more_options_needs_a_folder_for_pin() {
     more.popdown();
 
     test.window.navigate(Page::Settings.uri()).expect("Settings");
-    more.popup();
-    wait_for_frames(&test.window, 2);
-    let pin = more.row("Pin to Quick access");
-    assert!(!pin.is_sensitive());
-    assert_eq!(
-        more.disabled_reason_of("Pin to Quick access").as_deref(),
-        Some("Only a folder can be pinned to Quick access.")
+    let labels = more.row_labels();
+    assert!(
+        !labels.iter().any(|label| label.contains("Quick access")),
+        "{labels:?}"
     );
-    more.popdown();
 
     test.window.navigate(Page::ThisPc.uri()).expect("This PC");
     let labels = more.row_labels();

@@ -293,6 +293,9 @@ fn every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages() {
         "Keep Properties windows a fixed size (like Windows)",
         // The letters of mapped network folders, which can be turned off.
         "Show letters on mapped network folders",
+        // The owner's Select items matching… in "…", which can be turned
+        // off for Windows' menu (CMD-007).
+        "Show Select items matching… in the … menu",
         // Carrying the settings to another computer.
         "Export settings",
         "Import settings",
