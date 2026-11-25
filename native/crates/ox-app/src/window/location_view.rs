@@ -502,8 +502,9 @@ impl BrowserWindow {
             select_matching: context.settings_data().preferences.select_matching_in_more_menu,
         };
         self.command_bar().show_more_menu(state);
-        // Filter shows on Home's own page, not on a search from it.
-        self.command_bar().show_home_filter(
+        // Filter shows on Home's own page, not on a search from it, and
+        // Sort is grayed there.
+        self.command_bar().show_home_commands(
             page == Some(Page::Home)
                 && context.settings_data().preferences.home_quick_access
                 && !self.is_searching(),

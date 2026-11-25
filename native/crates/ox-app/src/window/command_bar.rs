@@ -239,6 +239,8 @@ mod imp {
         pub(super) gallery_menus: Cell<bool>,
         /// Home's Filter ▾, shown only on Home (HOME-038).
         pub(super) home_filter: OnceCell<gtk::MenuButton>,
+        /// Whether the bar shows Home's commands now: Filter, Sort grayed.
+        pub(super) home_commands: Cell<bool>,
         /// Whether Sort shows This PC's menu now.
         pub(super) this_pc_menus: Cell<bool>,
         /// Set as background, Rotate left and Rotate right after a
@@ -768,13 +770,30 @@ impl CommandBar {
         }
     }
 
-    /// Shows Filter, between View and "…", while the tab shows Home, as
-    /// Windows 11 does (HOME-038), or hides it.
-    pub(super) fn show_home_filter(&self, shown: bool) {
-        if let Some(button) = self.imp().home_filter.get() {
-            button.set_visible(shown);
-            if !shown {
+    /// Shows Home's commands while the tab shows Home, as Windows 11 does:
+    /// Filter between View and "…" (HOME-038), and Sort grayed; or the
+    /// folders' again.
+    pub(super) fn show_home_commands(&self, on_home: bool) {
+        let imp = self.imp();
+        if let Some(button) = imp.home_filter.get() {
+            button.set_visible(on_home);
+            if !on_home {
                 button.popdown();
+            }
+        }
+        imp.home_commands.set(on_home);
+        self.gray_sort_where_windows_does();
+    }
+
+    /// Grays Sort on Gallery (HOME-031) and on Home (HOME-038), where
+    /// Windows 11 grays it, and enables it elsewhere.
+    fn gray_sort_where_windows_does(&self) {
+        let imp = self.imp();
+        let grayed = imp.gallery_menus.get() || imp.home_commands.get();
+        if let Some(sort) = imp.sort_button.get() {
+            sort.set_sensitive(!grayed);
+            if grayed {
+                sort.popdown();
             }
         }
     }
@@ -882,13 +901,9 @@ impl CommandBar {
     /// Gallery (`in_gallery`), or the folders' (HOME-030, HOME-031).
     pub(super) fn show_gallery_menus(&self, in_gallery: bool) {
         let imp = self.imp();
-        if let Some(sort) = imp.sort_button.get() {
-            sort.set_sensitive(!in_gallery);
-            if in_gallery {
-                sort.popdown();
-            }
-        }
-        if imp.gallery_menus.replace(in_gallery) == in_gallery {
+        let changed = imp.gallery_menus.replace(in_gallery) != in_gallery;
+        self.gray_sort_where_windows_does();
+        if !changed {
             return;
         }
         if let Some(view) = imp.view_popover.get() {

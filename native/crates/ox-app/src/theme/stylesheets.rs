@@ -149,6 +149,45 @@ mod tests {
         assert_eq!(defined(Appearance::Dark).as_deref(), Some("#60cdff"));
     }
 
+    /// The compact (Windows 11) menu's edge is Windows': in the dark theme
+    /// a light 1-pixel line, #3b3b3b (luminance 59) around the #2c2c2c
+    /// fill, measured on Windows 11 at 1x (reference/ref-04 and ref-06);
+    /// in the light theme the flyouts' faint line as before. Only the
+    /// compact menus take it: Windows draws the command bar's and the
+    /// classic menu's edges otherwise (ref-05, ref-08, ref-10).
+    ///
+    /// parity: CMD-008
+    #[test]
+    fn the_compact_menus_edge_is_windows_in_each_theme() {
+        let defined = |appearance, token: &str| {
+            palette(appearance)
+                .lines()
+                .find_map(|line| {
+                    line.trim()
+                        .strip_prefix(&format!("@define-color {token} "))
+                        .map(str::to_owned)
+                })
+                .map(|value| {
+                    let value = value.split("/*").next().unwrap_or_default();
+                    value.trim().trim_end_matches(';').trim().to_lowercase()
+                })
+        };
+        assert_eq!(defined(Appearance::Dark, "ox_flyout").as_deref(), Some("#2c2c2c"));
+        assert_eq!(
+            defined(Appearance::Dark, "ox_compact_menu_stroke").as_deref(),
+            Some("#3b3b3b")
+        );
+        assert_eq!(
+            defined(Appearance::Light, "ox_compact_menu_stroke"),
+            defined(Appearance::Light, "ox_flyout_stroke")
+        );
+        let rules = without_comments(RULES);
+        assert!(
+            rules.contains("popover.ox-menu.compact > contents { border-color: @ox_compact_menu_stroke; }"),
+            "the compact menus draw it"
+        );
+    }
+
     /// A colour written into a rule would not follow the appearance.
     #[test]
     fn the_rules_name_colours_only_by_token() {

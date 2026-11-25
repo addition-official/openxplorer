@@ -15,6 +15,14 @@ use crate::window::home_page;
 
 use super::home_recent::{body, click, recent_home};
 
+/// The command bar's menu button with `class`.
+fn command(test: &TestWindow, class: &str) -> gtk::MenuButton {
+    descendants::<gtk::MenuButton>(test.window.command_bar())
+        .into_iter()
+        .find(|button| button.has_css_class(class))
+        .unwrap_or_else(|| panic!("the command bar has .{class}"))
+}
+
 /// The command bar's Filter button.
 fn filter_button(test: &TestWindow) -> gtk::MenuButton {
     descendants::<gtk::MenuButton>(test.window.command_bar())
@@ -40,7 +48,8 @@ const FILES: [&str; 11] = [
 
 /// Filter shows on Home alone, between View and "…", and its menu is
 /// Windows 11's radio list with the kinds named for what they are, All
-/// File Types chosen at first.
+/// File Types chosen at first. Sort is grayed on Home, as Windows 11
+/// grays it there (ref-24, ref-38), and usable again in a folder.
 ///
 /// parity: HOME-038
 #[gtk::test]
@@ -48,6 +57,8 @@ fn filter_shows_on_home_alone_with_its_kinds() {
     let (fixture, test) = recent_home(&["plan.txt"]);
     let filter = filter_button(&test);
     wait_until("Filter on Home", || filter.is_visible());
+    let sort = command(&test, "sort-command");
+    assert!(!sort.is_sensitive(), "Sort is grayed on Home");
     let mut pointer = Pointer::connect();
     click(&mut pointer, &test, &filter, None, Button::Primary);
     let menu = filter
@@ -75,6 +86,9 @@ fn filter_shows_on_home_alone_with_its_kinds() {
         .expect("Documents");
     test.wait_for_listing("Documents");
     wait_until("no Filter in a folder", || !filter.is_visible());
+    assert!(sort.is_sensitive(), "Sort is usable in a folder");
+    test.activate("home", None);
+    wait_until("Sort grayed on Home again", || !sort.is_sensitive());
 }
 
 /// Each kind lists only its files, in Recent and in Favorites: Documents
