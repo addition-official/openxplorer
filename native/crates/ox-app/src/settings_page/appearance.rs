@@ -911,7 +911,6 @@ fn choose_text_size(page: &SettingsPage, size: TextSize) {
 fn layout_group(page: &SettingsPage) -> SettingsGroup {
     let group = SettingsGroup::new(&ox_core::i18n::gettext("Layout"));
     group.add_row(&super::window_decorations::row(page));
-    group.add_row(&super::window_decorations::hyphen_row(page));
     group.add_row(&super::files_folders::compact_view_row(page));
     group.add_row(&column_header_style_row(page));
     let title_line = SettingRow::new(COLUMN_TITLE_LINE);

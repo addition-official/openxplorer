@@ -2931,7 +2931,7 @@ python_tests = [
 bridge = ["windowMetadata"]
 dolphin = "DolphinViewContainer::captionWindowTitle"
 native = "done"
-native_note = "render_location sets the window title to '<active tab title> — OpenXplorer' on every tab switch and navigation, which the window list and the desktop show. Test: native/crates/ox-app/src/window/title_bar.rs (the_windows_menu_lists_every_window_by_its_tab_title)."
+native_note = "render_location sets the window title to '<active tab title> - OpenXplorer' (Windows' hyphen, LOOK-033, where 2.0.0 had an em dash) on every tab switch and navigation, which the window list and the desktop show. Test: native/crates/ox-app/src/window/title_bar.rs (the_windows_menu_lists_every_window_by_its_tab_title)."
 
 [[feature]]
 id = "TAB-046"
@@ -16033,18 +16033,19 @@ native_note = "native/crates/ox-app/src/window/title_bar.rs (configure_window_de
 id = "LOOK-033"
 area = "LOOK"
 title = "Window titles with Windows' hyphen"
-behaviour = "Browsing windows are titled '<location> — OpenXplorer' (an em dash, the owner's choice since 2.0.0), Settings 'Settings — OpenXplorer', and an archive's window '<name> — Compressed folder'. Settings > Appearance > Layout > 'Separate window titles with a hyphen (like Windows)' (off by default, set by 'Behave like Windows Explorer') titles them with a hyphen and spaces, '<location> - OpenXplorer' and '<name> - Compressed folder', as Windows 11 writes 'Documents - File Explorer'. Open windows retitle at once."
+behaviour = "Every window title separates its parts with a hyphen and spaces, as Windows 11 writes 'Documents - File Explorer': browsing windows '<location> - OpenXplorer' (Settings 'Settings - OpenXplorer') and an archive's window '<name> - Compressed folder'. This replaces the em dash ('Documents — OpenXplorer') the owner used since 2.0.0; there is no setting for it."
 origin = ["openxplorer"]
 priority = "could"
 openxplorer = "missing"
 sources = [
   "Owner request, 2026-11-24 (deb 59): KDE's title bar, the taskbar and Alt+Tab show the em dash; Windows uses ' - '",
+  "User's decision, 2026-11-25: the hyphen is the default for everyone, without a setting; the owner accepts or refuses it in review",
   "Windows 11: File Explorer's window title 'Documents - File Explorer'",
 ]
 python_tests = []
 bridge = []
 native = "done"
-native_note = "native/crates/ox-app/src/window/title_bar.rs (window_title), location_view.rs (render_title), archive_view/browser.rs (compressed_folder_title); the preference hyphenInWindowTitles (ox-core settings/preferences.rs), a line of WINDOWS_SETTINGS (ox-core settings/windows_mode.rs), its row in settings_page/window_decorations.rs (hyphen_row); places_changed (window/environment.rs) retitles open windows. Properties titles ('<name> Properties') and the other dialogs have no dash and are unchanged. Tests: native/crates/ox-app/src/window/title_bar.rs (window_titles_take_a_hyphen_like_windows_when_asked), ox-core settings/windows_mode.rs (every_line_reads_and_writes_the_same_setting)."
+native_note = "native/crates/ox-app/src/window/title_bar.rs (window_title), location_view.rs (render_title), archive_view/browser.rs (compressed_folder_title). A hyphenInWindowTitles stored by test builds is ignored on load and dropped on the next save. Properties titles ('<name> Properties') and the other dialogs have no dash and are unchanged. Tests: native/crates/ox-app/src/window/title_bar.rs (window_titles_take_windows_hyphen), ox-core settings/tests/preferences.rs (the_retired_title_hyphen_setting_is_ignored)."
 
 [[feature]]
 id = "INT-001"

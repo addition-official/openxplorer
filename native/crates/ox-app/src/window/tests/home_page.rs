@@ -81,7 +81,7 @@ fn home_is_the_home_folder_by_default_and_the_setting_opens_windows_home() {
     test.wait_for_listing("the home folder");
     let home_folder = test.window.current_uri().expect("a location");
     assert!(home_folder.starts_with("file:///"), "{home_folder}");
-    assert_eq!(test.window.title().as_deref(), Some("Home — OpenXplorer"));
+    assert_eq!(test.window.title().as_deref(), Some("Home - OpenXplorer"));
 
     open_quick_access_on_home(&test, true);
     let home_row = test
@@ -95,7 +95,7 @@ fn home_is_the_home_folder_by_default_and_the_setting_opens_windows_home() {
         test.window.current_uri().as_deref() == Some(HOME_PAGE)
     });
 
-    assert_eq!(test.window.title().as_deref(), Some("Home — OpenXplorer"));
+    assert_eq!(test.window.title().as_deref(), Some("Home - OpenXplorer"));
     assert_eq!(
         home_page::section_titles(body(&test)),
         ["Quick access", "Recent", "Favorites"]

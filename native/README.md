@@ -89,8 +89,8 @@ is shown again, maximized as it was; its tabs and file operations go on. A
 file dialog keeps the frame it opened with. On Wayland compositors without
 server-side decorations GTK supplies its standard header instead. No
 process-wide `GTK_CSD` override or window-manager rule is used. Window titles
-read `Documents — OpenXplorer`; **Separate window titles with a hyphen (like
-Windows)** makes them `Documents - OpenXplorer`.
+read `Documents - OpenXplorer`, with a hyphen, as Windows writes `Documents -
+File Explorer`.
 
 ## Checks
 

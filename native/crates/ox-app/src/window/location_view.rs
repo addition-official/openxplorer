@@ -569,8 +569,7 @@ impl BrowserWindow {
         } else {
             locations.title_for(&uri)
         };
-        let hyphen = self.context().settings_data().preferences.hyphen_in_window_titles;
-        self.set_title(Some(&super::title_bar::window_title(&place, hyphen)));
+        self.set_title(Some(&super::title_bar::window_title(&place)));
     }
 
     fn active_location(&self) -> Option<ActiveLocation> {

@@ -422,7 +422,7 @@ fn the_title_crumbs_and_address_call_a_phone_by_its_mount_name() {
         tab.history.push("mtp://[usb:001,010]/Internal%20storage/DCIM");
     }
     test.window.render_navigation();
-    assert_eq!(test.window.title().as_deref(), Some("DCIM — OpenXplorer"));
+    assert_eq!(test.window.title().as_deref(), Some("DCIM - OpenXplorer"));
     let crumbs = test.window.address_bar().crumb_buttons();
     let labels: Vec<String> = crumbs
         .iter()
@@ -441,7 +441,7 @@ fn the_title_crumbs_and_address_call_a_phone_by_its_mount_name() {
 fn the_title_shows_the_full_path_when_the_settings_ask() {
     let fixture = Fixture::standard();
     let test = TestWindow::open(&fixture.uri_of("Documents"));
-    assert_eq!(test.window.title().as_deref(), Some("Documents — OpenXplorer"));
+    assert_eq!(test.window.title().as_deref(), Some("Documents - OpenXplorer"));
     let update = PreferencesUpdate {
         full_path_in_title: Some(true),
         ..PreferencesUpdate::default()
@@ -454,7 +454,7 @@ fn the_title_shows_the_full_path_when_the_settings_ask() {
 
     let path = fixture.path("Documents").display().to_string();
     wait_until("the title to show the path", || {
-        test.window.title().as_deref() == Some(&format!("{path} — OpenXplorer"))
+        test.window.title().as_deref() == Some(&format!("{path} - OpenXplorer"))
     });
 }
 

@@ -172,7 +172,7 @@ fn the_gallery_row_is_right_under_home_and_opens_gallery() {
         test.window.current_uri().as_deref() == Some(GALLERY)
     });
     test.wait_for_listing("Gallery");
-    assert_eq!(test.window.title().as_deref(), Some("Gallery — OpenXplorer"));
+    assert_eq!(test.window.title().as_deref(), Some("Gallery - OpenXplorer"));
 }
 
 /// Typing "Gallery" in the address bar opens Gallery; Back and Forward

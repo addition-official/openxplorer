@@ -528,6 +528,32 @@ fn views_saved_by_the_old_display_style_dialog_still_load() {
     assert_eq!(reread.view_for("file:///home/someone/Projects/site").sort, "size");
 }
 
+/// Window titles always take Windows' hyphen (`Documents - OpenXplorer`),
+/// so the separator is no longer a setting: a `hyphenInWindowTitles` that
+/// a test build stored is ignored on load and dropped by the next save.
+/// parity: LOOK-033
+#[test]
+fn the_retired_title_hyphen_setting_is_ignored() {
+    let root = temporary_folder();
+    let saved = json!({"preferences": {"showHidden": true, "hyphenInWindowTitles": true}});
+    std::fs::write(root.path().join("settings.json"), saved.to_string()).unwrap();
+
+    let mut store = Settings::open(root.path());
+    assert!(store.warning().is_none());
+    assert!(
+        store.snapshot().preferences.show_hidden,
+        "the other settings load"
+    );
+
+    save_preferences(&mut store, &json!({"showHidden": false}));
+    let written: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(root.path().join("settings.json")).unwrap()).unwrap();
+    assert!(
+        written["preferences"].get("hyphenInWindowTitles").is_none(),
+        "{written}"
+    );
+}
+
 /// Reset Folders shows every folder in the default view, Details by name,
 /// even when the view the Python app reads was saved as icons; whether
 /// hidden files show is not a view of a folder and stays, as in Windows.
