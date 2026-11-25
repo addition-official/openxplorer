@@ -83,27 +83,27 @@ window.ox .landing button.pc-title:hover { background-color: @ox_hover; }
 .landing .card-sub { color: @ox_muted; }
 
 /* A drive's capacity bar, as Windows 11's This PC draws it in both
-   themes (measured on its dark capture): 13px tall with a 1px
-   (188,188,188) border, a light (230,230,230) track, the used part
-   Windows' (0,112,203) blue, red once the drive is 90% full, square
-   corners; 14px under the name's ink, 5px above the free space's. */
+   themes (measured on its dark capture; colors in light.css and
+   dark.css): 13px tall with a 1px border, a light track, the used part
+   Windows' blue, red once the drive is 90% full, square corners; 14px
+   under the name's ink, 5px above the free space's. */
 .landing .capacity { min-height: 13px; margin: 1px 0 1px 0; }
 .landing .capacity > trough {
   min-height: 11px;
-  background-color: rgb(230, 230, 230);
-  border: 1px solid rgb(188, 188, 188);
+  background-color: @ox_capacity_track;
+  border: 1px solid @ox_capacity_border;
   box-shadow: none;
   border-radius: 0;
 }
 .landing .capacity > trough > progress {
   min-height: 11px;
-  background-color: rgb(0, 112, 203);
+  background-color: @ox_capacity_used;
   border: none;
   border-radius: 0;
 }
 /* Windows' red for a nearly full drive: not yet measured on a capture
-   (NEED VM REF); (218,38,38) as reported. */
-.landing .capacity.full > trough > progress { background-color: rgb(218, 38, 38); }
+   (NEED VM REF). */
+.landing .capacity.full > trough > progress { background-color: @ox_capacity_full; }
 .landing .quiet { color: @ox_muted; }
 /* Line heights: GTK multiplies the font's own line height (16px for Noto
    Sans at 11px, 17px at 12px), so `line-height:1.7` at 12px is 1.2 and
