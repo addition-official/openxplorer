@@ -11,7 +11,6 @@
 use std::sync::Arc;
 
 use gtk::subclass::prelude::*;
-use ox_core::location::is_cloud_location;
 use ox_core::ops::WriteProtection;
 use ox_core::transfer::TransferError;
 use ox_core::versions::PreviousVersions;
@@ -35,17 +34,22 @@ impl AppContext {
     }
 
     /// The write guard of every file and archive operation: previous
-    /// versions, and Google Drive and `OneDrive`, which are read-only for
-    /// now (DEV-013). Copying items off a drive changes nothing there, so
-    /// it is never asked about them; moving, renaming or deleting them, or
-    /// writing into a drive, is refused.
+    /// versions, and Google Drive and `OneDrive` (DEV-013). `OneDrive` is
+    /// read-only for now, and so is Google Drive unless Settings > Files &
+    /// folders > "Allow changes to Google Drive" is on; its top folders
+    /// (My Drive itself, Shared with me, the shared drives) never change.
+    /// Copying items off a drive changes nothing there, so it is never
+    /// asked about them; moving, renaming or deleting them, or writing
+    /// into a drive, is refused while the drive is read-only.
     pub(crate) fn write_guard(&self) -> impl Fn(&str) -> Result<(), TransferError> + Send + Sync + 'static {
         let previous_versions = self.previous_versions().write_guard();
         move |uri: &str| {
-            if is_cloud_location(uri) {
-                return Err(TransferError::failed(ox_core::i18n::gettext(
-                    "Google Drive and OneDrive are read-only for now. Copy items to this PC to change them.",
-                )));
+            // The guard is asked about folders written into as well as
+            // items changed, so it refuses only what no write may touch;
+            // the GIO adapter itself refuses changing My Drive and the
+            // items Shared with me lists.
+            if let Some(refusal) = ox_core::location::cloud_writes::cloud_folder_write_refusal(uri) {
+                return Err(TransferError::failed(refusal));
             }
             previous_versions(uri)
         }

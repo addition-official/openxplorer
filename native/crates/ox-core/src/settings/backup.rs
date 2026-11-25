@@ -432,6 +432,7 @@ mod tests {
                             "detailsColumns": ["size", "created"]},
             "fullPathInTitle": true, "confirmTrash": true, "confirmDelete": false,
             "confirmEmptyTrash": false, "deleteRemovablePermanently": true,
+            "allowGoogleDriveChanges": true,
             "confirmCloseTabs": true, "askToRunPrograms": true, "runInstalledLaunchers": true,
             "progressDetails": true, "recycleReplacedFiles": false, "restoreOverOriginal": true,
             "extensionWordStarts": true, "showAllSearchMatches": true,

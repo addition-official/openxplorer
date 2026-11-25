@@ -632,7 +632,8 @@ impl AppContext {
     /// Makes the searches started from now on match words in extensions as
     /// Settings > Search says (`extension_word_starts`), and the name
     /// fields refuse characters as Settings says
-    /// (`allow_linux_name_characters`).
+    /// (`allow_linux_name_characters`), and Google Drive takes changes
+    /// only while Settings allow them (`allow_google_drive_changes`).
     fn follow_search_preferences(&self) {
         let mode = if self.settings_data().preferences.extension_word_starts {
             ox_core::search::ExtensionWords::FromStart
@@ -642,6 +643,11 @@ impl AppContext {
         ox_core::search::set_extension_words(mode);
         crate::window::allow_linux_name_characters(
             self.settings_data().preferences.allow_linux_name_characters,
+        );
+        // DEV-013: every window, the write guard and the GIO adapter read
+        // this one switch.
+        ox_core::location::cloud_writes::set_google_drive_writable(
+            self.settings_data().preferences.allow_google_drive_changes,
         );
     }
 

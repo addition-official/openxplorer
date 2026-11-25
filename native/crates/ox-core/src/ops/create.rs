@@ -199,14 +199,22 @@ fn create_item_blocking(
         )));
     }
     let folder_uri = normalise(folder_uri)?;
+    // DEV-013: Google Drive only while Settings allow changes to it.
+    if let Some(refusal) = crate::location::cloud_writes::cloud_folder_write_refusal(&folder_uri) {
+        return Err(OpsError::failed(refusal));
+    }
     context.protection.check(&folder_uri)?;
     context.cancel.check()?;
     let item = gio::File::for_uri(&folder_uri).child(name);
     create_exclusively(&item, kind, context).map_err(|error| name_taken_or(error, name))?;
-    Ok(CreatedItem {
-        uri: item.uri().to_string(),
-        kind,
-    })
+    // On Google Drive the new item is found by its title; its address
+    // names it by its ID, as the folder lists it.
+    let uri = if crate::location::names_items_by_id(&folder_uri) {
+        crate::gio_node::google_drive_id_uri(&item.uri())
+    } else {
+        item.uri().to_string()
+    };
+    Ok(CreatedItem { uri, kind })
 }
 
 /// OPS-008: creates `item` only when its name is free. Both GIO calls are

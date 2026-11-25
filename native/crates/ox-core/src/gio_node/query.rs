@@ -27,11 +27,12 @@ impl GioNode {
     /// a definite absence.
     pub(super) fn query_info(&self, cancel: Option<&Cancellation>) -> Result<NodeInfo, TransferError> {
         check_cancelled(cancel)?;
-        let info = self.file.query_info(
-            INFO_ATTRIBUTES,
-            gio::FileQueryInfoFlags::NOFOLLOW_SYMLINKS,
-            gio_cancellable(cancel),
-        )?;
+        // On Google Drive, the "link" GVfs reports for an item addressed
+        // by its title is followed to the item (DEV-013).
+        let info = self
+            .file
+            .query_info(INFO_ATTRIBUTES, self.query_flags(), gio_cancellable(cancel))
+            .map_err(|error| self.write_error(error))?;
         // GIO answers for an item in a folder that cannot be searched with
         // an info that holds nothing, not an error: the item's kind, and
         // whether it exists at all, are unknown.

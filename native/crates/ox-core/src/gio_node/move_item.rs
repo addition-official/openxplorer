@@ -63,6 +63,16 @@ impl GioNode {
         check_cancelled(cancel)?;
         self.require_item()?;
         let target_file = gio::File::for_uri(&target.uri());
+        // DEV-013: on Google Drive a move within one folder only changes
+        // the title, which every GVfs version can do and which never
+        // overwrites; a move to another folder is GVfs's own, and a
+        // version that cannot do it reports so (the engine then copies).
+        if self.is_google_drive() && overwrite == Overwrite::Never && self.has_same_parent(&target_file) {
+            let Some(title) = GioNode::from_file(target_file).requested_title() else {
+                return Err(TransferError::failed(crate::i18n::gettext("Enter a name.")));
+            };
+            return self.retitle(&title, cancel);
+        }
         if !self.is_mtp() {
             return self.move_with_gio(&target_file, cancel, overwrite);
         }
@@ -107,9 +117,16 @@ impl GioNode {
             Overwrite::Never => MOVE_FLAGS,
             Overwrite::Replace => MOVE_FLAGS | gio::FileCopyFlags::OVERWRITE,
         };
+        let drive = self.is_google_drive() || target_file.has_uri_scheme("google-drive");
         self.file
             .move_(target_file, flags, gio_cancellable(cancel), None)
-            .map_err(|error| move_error(error, overwrite))
+            .map_err(|error| {
+                if drive && super::google_drive::has_windows_words(&error) {
+                    super::google_drive::drive_error(error)
+                } else {
+                    move_error(error, overwrite)
+                }
+            })
     }
 
     /// Installs this completed staged copy under `target` without ever

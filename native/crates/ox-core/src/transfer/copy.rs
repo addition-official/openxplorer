@@ -196,9 +196,11 @@ impl<'a> Copier<'a> {
             }
             NodeKind::Symlink => self.copy_file(source, target)?,
             NodeKind::Special => {
-                return Err(TransferError::failed(crate::i18n::gettext(
-                    "Sockets, devices and other special files are not copied.",
-                )));
+                return Err(source.special_refusal().unwrap_or_else(|| {
+                    TransferError::failed(crate::i18n::gettext(
+                        "Sockets, devices and other special files are not copied.",
+                    ))
+                }));
             }
         }
         Ok(())

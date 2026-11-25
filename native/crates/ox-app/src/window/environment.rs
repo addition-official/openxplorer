@@ -128,6 +128,8 @@ impl BrowserWindow {
         // The places show the icons chosen in File icons (LOOK-029) too.
         crate::icons::file_icons::follow(&self.context().settings_data().preferences.file_icons);
         self.render_places();
+        // "Allow changes to Google Drive" may have changed (DEV-013).
+        self.update_file_commands();
         // The settings may have changed too.
         self.apply_view_options();
         // Settings may have changed how items are shown.
