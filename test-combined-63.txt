@@ -1,0 +1,46 @@
+STATUS: RUNNING (merged and pushed; GitHub Actions builds the deb)
+HEAD: test-combined-63 8dc8a4c68f81227f65d9bcb2f668e52930b4e9e9
+
+BRANCH: test-combined-63, started from deb 62's test-combined-62 f6f2c0d4 (workflow file in the tree). Each tip was its branch's newest when merged and still is.
+
+REQUIRED RESULTS (ox-app lib, one process, G_DEBUG=fatal-criticals, which check.py's isolated environment sets; deb 62's long list plus the Details pane and Gallery modules these merges touch, 793 tests, window::tests::landing_pages::a_drive_tile_has_the_drive_menu_and_its_properties included):
+- Full run reaching the end: PASS. No crash; libtest's own summary: 788 passed, 5 failed.
+- window::tests::sidebar::the_navigation_pane_hides_and_a_places_button_lists_its_places: PASS.
+- window::tests::landing_pages::a_drive_tile_has_the_drive_menu_and_its_properties: PASS.
+- The 8 home_page tests: all PASS: a_quick_access_tile_shows_its_name_its_location_and_a_pin, a_quick_access_tiles_menu_draws_no_ring_around_its_rows, compact_view_draws_quick_access_tiles_closer, home_has_no_band_under_the_titles_and_its_tiles_do_not_touch, home_is_spaced_as_windows_11_home, the_keyboard_comes_back_to_the_item_whose_menu_closed, the_quick_access_heading_is_a_pill_around_its_title, the_tiles_stand_as_windows_11s_beside_the_details_pane.
+- The 5 failures, all also failing in debs 61 and 62 (window::tests::): address_input::left_and_right_stop_at_the_first_chevron_and_the_last_crumb; context_menus::a_folder_without_write_permission_keeps_new_and_paste_and_shows_the_error (also on test-combined-58 and 60); focus::tab_after_escaping_the_address_goes_round_in_explorers_order_with_every_stop_shown; narrow_windows::commands_that_do_not_fit_move_into_see_more; panes_layout::the_status_bar_view_buttons_are_flat_side_by_side_with_the_view_on_a_gray_square. Since deb 62 these pass now: the 8 home_page tests, home_recent::a_recent_rows_menu_draws_the_chosen_fonts_glyphs and address_bar::the_search_boxs_x_sits_left_of_the_magnifier_as_in_windows.
+- ox-core lib (settings:: and windows_icons, which changed): 160 of 160 passed.
+No full suite.
+
+MERGES (in the order given):
+- pass-4-sigtrap-2 4b039104 -> df969067, this-pc-crash 549fc519 -> 1e72a703, home-tests-fix 966f03f6 -> d406c9dc, icons-explorer-assets 0434c84e -> 121bb5e3: no conflicts.
+- gallery-scrubber-speed b33ddd74 -> 8dc8a4c6. icons/icon.rs: both sides' new icons; ALL_ICONS 136 (the tree's 134 and Gallery's two carets). icons/user_glyphs.rs: both new arms (the tree's Fluent-drawn View, Open in new tab, Details pane and Desktop icons; Gallery's carets), each without a Segoe glyph.
+- .pot regenerated where needed; docs needed no change. No .po file touched.
+
+SKIPPED: none.
+
+CHECKS HERE: cargo check of the workspace (and of all targets): no errors or warnings; rustfmt clean; parity check, i18n check and sync-docs --check pass. New bundled files: three SVGs from the pinned Fluent UI System Icons package (caret_up_12_filled, caret_down_12_filled, panel_right_20_filled), no Windows data; the Windows Explorer icons folder is read from the user's own copy and nothing from it is bundled. On top of upstream main 5243f3ea: 756 commits, all by addition-official <239187859+addition-official@users.noreply.github.com> (author and committer) except the owner's 2 #366 commits by AKolenda; no trailers. No status/*.txt or status/*.md in the tree. No release build here; GitHub Actions builds and checks the deb.
+
+CHANGES (everything since deb 62, in plain words):
+- Crash fix (pass-4-sigtrap-2): when a menu closes in a window that stays open, the keyboard focus that GTK would leave on one of its rows is moved out of it, to the nearest widget that takes it, or nowhere; a submenu hands it back to its menu. The menu is then freed with its window, so GTK's tooltip timer never asks a gone window for the pointer's position. This is what crashed the long test runs since deb 61.
+- This PC tile menus (this-pc-crash): This PC is redrawn while places keep reporting changes after a window opens; a menu asked for on a tile replaced meanwhile now does not open, instead of opening outside any window (which crashed with a GTK critical in the tests).
+- Home (home-tests-fix):
+  - Home's Filter button draws Windows' funnel before its label, as Windows 11 does, also in "..." when the button moves there.
+  - Home's Recent and Favorites menus draw the same Copy as path and Properties glyphs as the file menu.
+  - The address bar's search box saves its width only after the user drags the divider, so opening a window no longer saves a setting (which had redrawn every window's Home and lost a tile menu's keyboard place).
+  - A test's off-screen skin at 150% text no longer sets the app's icon scale.
+- Windows Explorer icons folder (icons-explorer-assets): Settings > File icons has a new opt-in "Windows Explorer icons folder" row. The user picks their own copy of File Explorer's Assets\images folder; while Windows icon files are on, the command bar, View menu and button, menu rows, pane buttons and the address bar's root draw Windows' own pictures from it, in the look being drawn (light, dark or high contrast). Only the folder's path is saved; nothing is copied or bundled. Commands without a picture keep their icon. Windows icon files are also read from more of Explorer's resource files (devices, networks, archives); a phone in This PC gets its own icon.
+- Details pane button (icons-explorer-assets): with the pane open, the button draws Windows' two tones, the outline in the text colour and only the pane in the accent colour.
+- Gallery (gallery-scrubber-speed): the scrubber's place mark is Windows' blue bar over the year at the view's place, moving with the scroll; pointing at the track shows a short gray bar beside the month; the arrows are solid carets. Gallery's first screen draws sooner: photos show once they fill the screen (from 100 ms), a JPEG tile is cut from the shared thumbnail when that is big enough, thumbnails are read once, and tiles on screen go first.
+
+NEW TEXT (every new or changed UI text, verbatim; nothing removed):
+- Choose Windows Explorer's icons folder
+- Choose folder…
+- No folder chosen
+- The folder of Windows 11 File Explorer's own command pictures (the Assets\images folder beside File Explorer in Windows, or a copy of it), which then draw the command bar, the View menu, menu rows, pane buttons and the address bar, in their own colors, light, dark or high contrast as the app is. Only where the folder is is saved; nothing is copied. Commands it has no picture for keep their icon.
+- Windows Explorer icons folder
+- it has no contrast-standard, contrast-black or contrast-white folder, so OpenXplorer's own icons are shown
+- windows explorer icons folder assets images svg command bar menu view details pane address bar pictures
+- {found} of {wanted} pictures
+
+QUESTION: none.
