@@ -184,6 +184,9 @@ pub(crate) const fn windows_source(icon: Icon) -> WindowsSource {
             WindowsSource::None("Windows shows the file type's picture here, not a glyph")
         }
         Icon::DismissCircleFilled => WindowsSource::None("a coloured status badge, not a command glyph"),
+        Icon::CaretDown12Filled | Icon::CaretUp12Filled => {
+            WindowsSource::None("Gallery's scrubber arrows; not yet checked against Microsoft's table")
+        }
         Icon::ArrowSwap
         | Icon::Braces
         | Icon::Markdown

@@ -123,6 +123,12 @@ pub(crate) enum Icon {
     /// chevron, a column title's sort arrow, the sidebar's expanders and a
     /// settings drop-down).
     ChevronDown16,
+    /// `caret_down_12_filled`: the down arrow at the foot of Gallery's date
+    /// scrubber, solid as Windows 11 draws it.
+    CaretDown12Filled,
+    /// `caret_up_12_filled`: the up arrow at the top of Gallery's date
+    /// scrubber, solid as Windows 11 draws it.
+    CaretUp12Filled,
     /// `chevron_left_16_regular`: the address bar's crumb dividers in a
     /// right-to-left language (named by `resources/skin/navigation.css`)
     /// and the tab strip's arrow that scrolls it back.
@@ -410,6 +416,8 @@ impl Icon {
             Icon::CheckboxChecked => "ox-checkbox-checked-20-symbolic",
             Icon::Checkmark => "ox-checkmark-20-symbolic",
             Icon::ChevronDown => "ox-chevron-down-20-symbolic",
+            Icon::CaretDown12Filled => "ox-caret-down-12-filled-symbolic",
+            Icon::CaretUp12Filled => "ox-caret-up-12-filled-symbolic",
             Icon::ChevronDown16 => "ox-chevron-down-16-symbolic",
             Icon::ChevronDoubleLeft16 => "ox-chevron-double-left-16-symbolic",
             Icon::ChevronDoubleRight16 => "ox-chevron-double-right-16-symbolic",
@@ -553,7 +561,7 @@ pub(crate) const COMMAND_ROLES: [Icon; 9] = [
 /// Every icon, in the order of [`Icon`]: for the tests that check each one
 /// ships, is recorded and resolves, and to find the icon a drawn name
 /// stands for ([`super::user_glyphs`]).
-pub(crate) const ALL_ICONS: [Icon; 129] = [
+pub(crate) const ALL_ICONS: [Icon; 131] = [
     Icon::Add,
     Icon::AddNetworkLocation24,
     Icon::Apps,
@@ -574,6 +582,8 @@ pub(crate) const ALL_ICONS: [Icon; 129] = [
     Icon::ArrowUp,
     Icon::Bluetooth,
     Icon::Braces,
+    Icon::CaretDown12Filled,
+    Icon::CaretUp12Filled,
     Icon::CheckboxChecked,
     Icon::Checkmark,
     Icon::ChevronDown,

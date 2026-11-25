@@ -1589,7 +1589,7 @@ native_note = "native/crates/ox-app/src/folder_view/gallery_view.rs (range_text,
 id = "HOME-028"
 area = "HOME"
 title = "Gallery's date scrubber"
-behaviour = "At Gallery's right edge, in place of the scroll bar, a date scrubber: an up arrow, a track marking where each year starts ('2025'), and a down arrow. Hovering the track shows the month there in a tooltip ('November 2026'); a click or a drag on it scrolls Gallery there; the arrows scroll a row up or down. The track maps its height to the whole scroll, and a thin bar marks the view's place. It takes no keyboard focus, as a scroll bar does; the keys scroll the photos. Checked in Windows 11 build 26200."
+behaviour = "At Gallery's right edge, in place of the scroll bar, a date scrubber: a solid up arrow (▲), a track marking where each year starts ('2025'), and a solid down arrow (▼). Hovering the track shows the month there in a tooltip ('November 2026'); a click or a drag on it scrolls Gallery there; the arrows scroll a row up or down. The track maps its height to the whole scroll, and a blue bar marks the view's place: three pixels tall, as wide as a year's digits and a pixel beyond each side, its foot right over the digits of the year that starts at the view's place, and moving down the track with the scroll. While the pointer is on the track a short gray bar of the same width marks it beside the month's tooltip. It takes no keyboard focus, as a scroll bar does; the keys scroll the photos. Checked in Windows 11 build 26200."
 origin = ["openxplorer"]
 priority = "could"
 openxplorer = "missing"
@@ -1713,6 +1713,22 @@ bridge = []
 native = "done"
 native_note = "native/crates/ox-app/src/folder_view/gallery_view.rs (GalleryCanvas::hold_layout, GalleryView heading row); native/crates/ox-app/src/window/loading.rs (Gallery's first listing holds the layout until it ends). Test: native/crates/ox-app/src/window/tests/gallery_view.rs (gallery_lays_its_photos_out_once_as_it_opens)."
 
+
+[[feature]]
+id = "HOME-040"
+area = "HOME"
+title = "Gallery's photos show quickly"
+behaviour = "Opening Gallery shows the first screen's thumbnails quickly: the photos read so far show as soon as they fill the screen (from 100 ms after opening), the tiles on screen are drawn first, newest first, and a JPEG's tile picture is cut from the shared cache's thumbnail when that covers the tile, so a library opened before draws from the cache without decoding a photo. A photo's thumbnail and its tile picture are read or made once for both. Thumbnails are made on several workers, one fewer than the computer's processors, and decoded in the picture decoder processes within their memory limits; nothing is decoded on the main loop. Reading the photos' dates reads a JPEG's first 68 KiB, and further only when its size comes later."
+origin = ["openxplorer"]
+priority = "could"
+openxplorer = "missing"
+sources = [
+  "user report on a test build (2026-11-25): Gallery takes long to load its pictures",
+]
+python_tests = []
+bridge = []
+native = "done"
+native_note = "native/crates/ox-app/src/thumbnails.rs (sharp_picture from a covering cached thumbnail, one reading per preview); native/crates/ox-app/src/folder_view/gallery_view.rs (on-screen requests first, no scaled draw before the sharp picture); native/crates/ox-app/src/window/loading.rs (shows the photos read once they fill the screen); native/crates/ox-app/src/folder_view/gallery.rs (shorter JPEG head). Tests: thumbnails.rs (a_sharp_picture_is_cut_from_a_cached_thumbnail_that_covers_the_tile, callers_of_one_preview_at_once_share_one_reading), folder_view/gallery.rs (a_jpeg_with_long_segments_before_its_size_is_read_on)."
 [[feature]]
 id = "TAB-001"
 area = "TAB"

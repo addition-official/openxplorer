@@ -315,6 +315,11 @@ thread_local! {
     /// Sharp pictures decoded at a tile's size (Gallery), by item, version
     /// and edge; only the last few, as they are large.
     static SHARP_KEPT: RefCell<Vec<(PreviewKey, gdk::Texture)>> = const { RefCell::new(Vec::new()) };
+    /// The previews being looked up or made, by item, version and size,
+    /// with the callers waiting for the same one: a tile's thumbnail and
+    /// its sharp picture read or make it once.
+    static IN_FLIGHT: RefCell<HashMap<PreviewKey, Vec<async_channel::Sender<Option<gdk::Texture>>>>> =
+        RefCell::new(HashMap::new());
     /// Item versions no thumbnail could be made of in this run.
     static FAILED: RefCell<HashSet<(String, Option<u64>)>> = RefCell::new(HashSet::new());
     /// The types gdk-pixbuf's loaders declare they read.
@@ -383,7 +388,23 @@ pub(crate) async fn preview(request: PreviewRequest) -> Option<gdk::Texture> {
         on_network,
         ..request
     };
-    let texture = look_up_or_make(&request).await?;
+    let key = (request.uri.clone(), request.modified, request.pixels);
+    let texture = loop {
+        match lead_or_join(&key) {
+            // Another caller reads or makes it: its answer, unless it
+            // stopped first, when this one leads.
+            Turn::Join(answer) => {
+                if let Ok(texture) = answer.recv().await {
+                    return texture;
+                }
+            }
+            Turn::Lead(lead) => {
+                let texture = look_up_or_make(&request).await;
+                lead.answer(texture.as_ref());
+                break texture?;
+            }
+        }
+    };
     MEMORY.with_borrow_mut(|memory| {
         memory.put(
             (request.uri.clone(), request.pixels),
@@ -394,6 +415,52 @@ pub(crate) async fn preview(request: PreviewRequest) -> Option<gdk::Texture> {
     });
     note_kept_previews_used();
     Some(texture)
+}
+
+/// Whose turn it is to read or make a preview.
+enum Turn {
+    /// This caller reads or makes it, and answers the others.
+    Lead(Lead),
+    /// Another caller does: its answer comes here, or nothing once it
+    /// stopped.
+    Join(async_channel::Receiver<Option<gdk::Texture>>),
+}
+
+/// The caller that reads or makes the preview of `key`; the others wait
+/// for it. Dropped without answering, as when its tile is unbound, it lets
+/// them go to lead in turn.
+struct Lead(PreviewKey);
+
+impl Lead {
+    /// Answers the callers waiting with `texture`.
+    fn answer(self, texture: Option<&gdk::Texture>) {
+        let waiting = IN_FLIGHT.with_borrow_mut(|in_flight| in_flight.remove(&self.0));
+        for sender in waiting.into_iter().flatten() {
+            let _ = sender.try_send(texture.cloned());
+        }
+    }
+}
+
+impl Drop for Lead {
+    fn drop(&mut self) {
+        // Their senders go with the entry: each waiting caller leads.
+        IN_FLIGHT.with_borrow_mut(|in_flight| in_flight.remove(&self.0));
+    }
+}
+
+/// Leads the reading of `key`'s preview when nobody does, else waits for
+/// the caller that does.
+fn lead_or_join(key: &PreviewKey) -> Turn {
+    IN_FLIGHT.with_borrow_mut(|in_flight| {
+        if let Some(waiting) = in_flight.get_mut(key) {
+            let (sender, receiver) = async_channel::bounded(1);
+            waiting.push(sender);
+            Turn::Join(receiver)
+        } else {
+            in_flight.insert(key.clone(), Vec::new());
+            Turn::Lead(Lead(key.clone()))
+        }
+    })
 }
 
 /// Gets the previews of the folder about to be shown ready: lists the
@@ -637,7 +704,12 @@ const SHARP_KEPT_COUNT: usize = 48;
 /// cover. `None` for an item on a network or not a local file, or one the
 /// picture limits refuse; it keeps its thumbnail. Dropping the future
 /// cancels the decode.
-pub(crate) async fn sharp_picture(request: PreviewRequest, width: i32, height: i32) -> Option<gdk::Texture> {
+pub(crate) async fn sharp_picture(
+    request: PreviewRequest,
+    thumbnail: Option<PreviewRequest>,
+    width: i32,
+    height: i32,
+) -> Option<gdk::Texture> {
     let key = (
         request.uri.clone(),
         request.modified,
@@ -655,6 +727,38 @@ pub(crate) async fn sharp_picture(request: PreviewRequest, width: i32, height: i
     gio::File::for_uri(&request.uri).path()?;
     if is_on_network(&request.uri, None).await {
         return None;
+    }
+    // A JPEG's thumbnail, when it is in memory or the shared cache and
+    // covers the tile: shrunk from it, the photo itself is not decoded
+    // again (HOME-040). A JPEG's decoder scales it exactly; another
+    // picture's thumbnail may come from gdk-pixbuf's single bilinear step,
+    // which loses small print, so it is decoded from the file. One still
+    // to be made is not waited for: the photo decoded for the tile shows
+    // sooner, and the thumbnail is made for the cache all the same.
+    let ready = thumbnail.filter(|thumbnail| {
+        request.content_type == "image/jpeg"
+            && (remembered(thumbnail).is_some() || probably_cached(thumbnail))
+    });
+    let covered = match ready {
+        Some(thumbnail) => match preview(thumbnail).await {
+            Some(texture) if covers(&texture, width, height) => {
+                trace::event("sharp-from-thumbnail", &request.uri);
+                DECODING
+                    .with(Rc::clone)
+                    .blocking(move |_| {
+                        let shrunk = shrink_to_cover(&pixbuf_of(&texture), width, height)?;
+                        Some(gdk::Texture::for_pixbuf(&shrunk))
+                    })
+                    .await
+                    .flatten()
+            }
+            _ => None,
+        },
+        None => None,
+    };
+    if let Some(texture) = covered {
+        keep_sharp(key, &texture);
+        return Some(texture);
     }
     let uri = request.uri.clone();
     // A JPEG's decoder halves it exactly and cheaply; its last step to the
@@ -676,6 +780,12 @@ pub(crate) async fn sharp_picture(request: PreviewRequest, width: i32, height: i
         })
         .await
         .flatten()?;
+    keep_sharp(key, &texture);
+    Some(texture)
+}
+
+/// Keeps `texture`, the sharp picture of `key`, for a tile scrolled back.
+fn keep_sharp(key: PreviewKey, texture: &gdk::Texture) {
     SHARP_KEPT.with_borrow_mut(|kept| {
         if kept.len() >= SHARP_KEPT_COUNT {
             kept.remove(0);
@@ -683,7 +793,28 @@ pub(crate) async fn sharp_picture(request: PreviewRequest, width: i32, height: i
         kept.push((key, texture.clone()));
     });
     note_kept_previews_used();
-    Some(texture)
+}
+
+/// Whether `texture`, a thumbnail, has the pixels to cover `width` by
+/// `height` without being stretched.
+fn covers(texture: &gdk::Texture, width: i32, height: i32) -> bool {
+    texture.width() >= width && texture.height() >= height
+}
+
+/// `texture`'s pixels as a picture gdk-pixbuf shrinks.
+fn pixbuf_of(texture: &gdk::Texture) -> Pixbuf {
+    let mut downloader = gdk::TextureDownloader::new(texture);
+    downloader.set_format(gdk::MemoryFormat::R8g8b8a8);
+    let (bytes, stride) = downloader.download_bytes();
+    Pixbuf::from_bytes(
+        &bytes,
+        gtk::gdk_pixbuf::Colorspace::Rgb,
+        true,
+        8,
+        texture.width(),
+        texture.height(),
+        i32::try_from(stride).unwrap_or(i32::MAX),
+    )
 }
 
 /// The edge a picture other than a JPEG is decoded within for Gallery's
@@ -1855,6 +1986,101 @@ mod tests {
             ThumbnailFlavor::Normal
         )
         .is_some());
+    }
+
+    /// Gallery's sharp picture of a tile is cut from the tile's thumbnail
+    /// when the cache holds one that covers the tile, without decoding
+    /// the photo again; a tile larger than the thumbnail decodes the photo.
+    ///
+    /// parity: HOME-040
+    #[gtk::test]
+    fn a_sharp_picture_is_cut_from_a_cached_thumbnail_that_covers_the_tile() {
+        let Some(cache) = private_cache() else {
+            return;
+        };
+        let folder = tempfile::tempdir().expect("a temporary folder");
+        // The photo is red, its cached thumbnail green.
+        let item = folder.path().join("Harbour.jpg");
+        let photo = Pixbuf::new(Colorspace::Rgb, false, 8, 400, 200).expect("a photo");
+        photo.fill(0xff00_00ff);
+        photo.savev(&item, "jpeg", &[]).expect("the photo");
+        let thumbnail = PreviewRequest {
+            pixels: 320,
+            ..request_of(&item, "image/jpeg")
+        };
+        let cached = Pixbuf::new(Colorspace::Rgb, false, 8, 512, 256).expect("a thumbnail");
+        cached.fill(0x00ff_00ff);
+        let entry = thumbnail_file(&cache, &thumbnail.uri, ThumbnailFlavor::XLarge);
+        fs::create_dir_all(entry.parent().expect("a folder")).expect("the folder");
+        cached
+            .savev(
+                &entry,
+                "png",
+                &[
+                    ("tEXt::Thumb::URI", thumbnail.uri.as_str()),
+                    ("tEXt::Thumb::MTime", "1700000000"),
+                ],
+            )
+            .expect("the entry");
+        // As another program's entry the app has heard of.
+        reader::note_written(&thumbnail.uri, ThumbnailFlavor::XLarge);
+        crate::test_support::harness::wait_until("the entry known", || probably_cached(&thumbnail));
+        let context = glib::MainContext::default();
+        let sharp = PreviewRequest {
+            pixels: 256,
+            ..request_of(&item, "image/jpeg")
+        };
+
+        let cut = context
+            .block_on(sharp_picture(sharp.clone(), Some(thumbnail.clone()), 200, 100))
+            .expect("a sharp picture");
+        let larger = context
+            .block_on(sharp_picture(sharp, Some(thumbnail), 600, 300))
+            .expect("a sharp picture");
+
+        assert_eq!((cut.width(), cut.height()), (200, 100));
+        assert_eq!(first_pixel(&cut), (0, 255, 0), "cut from the thumbnail");
+        let (red, green, _) = first_pixel(&larger);
+        assert!(red > 200 && green < 60, "decoded from the photo: {red}, {green}");
+    }
+
+    /// Callers asking for the same preview at once read or make it once:
+    /// the first leads and answers the others; one that stops first lets
+    /// a waiting caller lead instead.
+    ///
+    /// parity: HOME-040
+    #[gtk::test]
+    fn callers_of_one_preview_at_once_share_one_reading() {
+        let key: PreviewKey = ("file:///pictures/a.png".to_owned(), Some(1), 320);
+        let Turn::Lead(lead) = lead_or_join(&key) else {
+            panic!("the first caller leads");
+        };
+        let Turn::Join(answer) = lead_or_join(&key) else {
+            panic!("the second waits");
+        };
+        let texture = gdk::MemoryTexture::new(
+            1,
+            1,
+            gdk::MemoryFormat::R8g8b8a8,
+            &glib::Bytes::from(&[1_u8, 2, 3, 255]),
+            4,
+        )
+        .upcast::<gdk::Texture>();
+        lead.answer(Some(&texture));
+        assert_eq!(answer.try_recv().ok().flatten(), Some(texture));
+
+        let Turn::Lead(lead) = lead_or_join(&key) else {
+            panic!("answered, the next caller leads again");
+        };
+        let Turn::Join(answer) = lead_or_join(&key) else {
+            panic!("the next waits");
+        };
+        drop(lead);
+        assert!(
+            answer.try_recv().is_err(),
+            "a leader that stops lets the others lead"
+        );
+        assert!(matches!(lead_or_join(&key), Turn::Lead(_)));
     }
 
     /// A damaged picture is recorded in the cache's `fail/` folder, and a

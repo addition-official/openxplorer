@@ -95,6 +95,10 @@ struct LoadStart {
 /// How long Gallery's first listing reads before it shows the photos it
 /// read so far (HOME-039).
 const SHOW_READ_AFTER: std::time::Duration = std::time::Duration::from_millis(300);
+/// How long Gallery's first listing reads before it shows the photos read
+/// so far as soon as they fill the screen (HOME-040); a listing that ends
+/// sooner lays every photo out once.
+const SHOW_FULL_SCREEN_AFTER: std::time::Duration = std::time::Duration::from_millis(100);
 
 /// Gallery's first listing, once it shows the photos read so far.
 #[derive(Default)]
@@ -106,6 +110,19 @@ struct GalleryOpening {
     waiting: RefCell<Vec<Entry>>,
     /// Shows the photos read so far, while it has not.
     timer: RefCell<Option<glib::SourceId>>,
+    /// Lets the photos read so far show once they fill the screen.
+    early: RefCell<Option<glib::SourceId>>,
+    /// The photos read so far may show once they fill the screen.
+    may_show_early: std::cell::Cell<bool>,
+}
+
+impl GalleryOpening {
+    /// Stops the timers that have not fired.
+    fn stop_timers(&self) {
+        for timer in [self.timer.take(), self.early.take()].into_iter().flatten() {
+            timer.remove();
+        }
+    }
 }
 
 /// One listing of one tab.
@@ -374,7 +391,11 @@ impl BrowserWindow {
                     Some(opening) if opening.shown.get() => {
                         window.receive_gallery_batch(&batch_run, entries, opening);
                     }
-                    _ => window.receive_batch(&batch_run, entries),
+                    Some(opening) => {
+                        window.receive_batch(&batch_run, entries);
+                        window.show_gallery_read_if_full(&batch_run, opening);
+                    }
+                    None => window.receive_batch(&batch_run, entries),
                 }
             ),
             glib::clone!(
@@ -383,9 +404,7 @@ impl BrowserWindow {
                 move |result| {
                     let id = run.tab;
                     if let Some(opening) = &opening {
-                        if let Some(timer) = opening.timer.take() {
-                            timer.remove();
-                        }
+                        opening.stop_timers();
                         // The photos that waited, among those on screen,
                         // in one change.
                         let waiting = opening.waiting.take();
@@ -408,6 +427,22 @@ impl BrowserWindow {
     fn open_gallery_progressively(&self, run: &Rc<LoadRun>) -> Rc<GalleryOpening> {
         let opening = Rc::new(GalleryOpening::default());
         self.hold_gallery_layout(run.tab, true);
+        let early = glib::timeout_add_local_once(
+            SHOW_FULL_SCREEN_AFTER,
+            glib::clone!(
+                #[weak(rename_to = window)]
+                self,
+                #[strong]
+                run,
+                #[strong]
+                opening,
+                move || {
+                    opening.early.replace(None);
+                    opening.may_show_early.set(true);
+                    window.show_gallery_read_if_full(&run, &opening);
+                }
+            ),
+        );
         let timer = glib::timeout_add_local_once(
             SHOW_READ_AFTER,
             glib::clone!(
@@ -420,17 +455,38 @@ impl BrowserWindow {
                 move || {
                     // Fired: nothing is left to remove.
                     opening.timer.replace(None);
-                    if !window.imp().session.borrow().accepts(run.tab, run.generation) {
-                        return;
-                    }
-                    opening.shown.set(true);
-                    window.keep_gallery_rows_steady(run.tab, true);
-                    window.hold_gallery_layout(run.tab, false);
+                    window.show_gallery_read(&run, &opening);
                 }
             ),
         );
+        opening.early.replace(Some(early));
         opening.timer.replace(Some(timer));
         opening
+    }
+
+    /// Shows the photos Gallery's first listing read so far, and keeps
+    /// those on screen still from then on (HOME-039).
+    fn show_gallery_read(&self, run: &LoadRun, opening: &GalleryOpening) {
+        if opening.shown.get() || !self.imp().session.borrow().accepts(run.tab, run.generation) {
+            return;
+        }
+        opening.stop_timers();
+        opening.shown.set(true);
+        self.keep_gallery_rows_steady(run.tab, true);
+        self.hold_gallery_layout(run.tab, false);
+    }
+
+    /// Shows the photos read so far once they fill the screen, from
+    /// [`SHOW_FULL_SCREEN_AFTER`] on, without waiting for
+    /// [`SHOW_READ_AFTER`] (HOME-040): a large library's newest folder is
+    /// read first, so its photos are those at the top.
+    fn show_gallery_read_if_full(&self, run: &LoadRun, opening: &GalleryOpening) {
+        let full = self
+            .gallery_canvas_of(run.tab)
+            .is_some_and(|canvas| canvas.would_fill_screen());
+        if opening.may_show_early.get() && full {
+            self.show_gallery_read(run, opening);
+        }
     }
 
     /// Adds `entries`, photos Gallery's first listing read after showing

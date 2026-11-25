@@ -9,7 +9,12 @@
 //! The track maps its height to Gallery's whole scroll, top to bottom,
 //! and reads the months from the timeline the view hands it: each row's
 //! first photo's month at the fraction of the scroll that brings that row
-//! to the top. A thin bar marks where the view is now.
+//! to the top. A blue bar marks where the view is now, as Windows draws
+//! it: as wide as a year's digits plus a pixel each side, three pixels
+//! tall, and at a year's start just over that year's digits (measured on
+//! build 26200 at 1x: the bar x 28-57, y 28-30 over "2025" inked x 29-56,
+//! y 31-37). While the pointer is on the track, a short gray bar marks the
+//! pointer's place beside the month's tooltip.
 
 use std::cell::{Cell, RefCell};
 
@@ -30,11 +35,13 @@ type Step = Box<dyn Fn(bool)>;
 /// Runs with the month under the pointer and its height, or `None`.
 type Hover = Box<dyn Fn(Option<(String, f64)>)>;
 
-/// The mark of where the view is: a short bar at the track's left edge,
-/// clear of the years.
-const THUMB_WIDTH: i32 = 8;
-/// The room the years leave at their left for the mark.
-const YEAR_INSET: i32 = 12;
+/// The height of the bar that marks where the view is, and of the one
+/// that marks the pointer.
+const BAR_HEIGHT: i32 = 3;
+/// How far the bars reach beyond a year's digits each side.
+const BAR_OVERHANG: i32 = 1;
+/// The room beside the years, each side.
+const YEAR_PADDING: i32 = 4;
 
 /// A point of the timeline: a fraction of the scroll and the month there.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -58,6 +65,10 @@ mod imp {
         pub(super) down: std::cell::OnceCell<gtk::Button>,
         pub(super) track: std::cell::OnceCell<gtk::Widget>,
         pub(super) thumb: std::cell::OnceCell<gtk::Widget>,
+        /// The gray bar at the pointer while it is on the track.
+        pub(super) pointer_bar: std::cell::OnceCell<gtk::Widget>,
+        /// Where the pointer is on the track, in the scrubber's coordinates.
+        pub(super) pointer_y: Cell<Option<f64>>,
         pub(super) years: RefCell<Vec<gtk::Label>>,
         pub(super) marks: RefCell<Vec<Mark>>,
         /// Where the view is, as a fraction of its scroll.
@@ -132,8 +143,8 @@ mod imp {
             }
             if orientation == gtk::Orientation::Horizontal {
                 // Room for a year: four digits at the app's text size.
-                let year =
-                    self.obj().create_pango_layout(Some("2026")).pixel_size().0 + super::YEAR_INSET + 6;
+                let year = self.obj().create_pango_layout(Some("2026")).pixel_size().0
+                    + 2 * (super::YEAR_PADDING + super::BAR_OVERHANG);
                 minimum = minimum.max(year);
                 natural = natural.max(year);
             }
@@ -182,8 +193,13 @@ impl GalleryScrubber {
             button.set_parent(self);
             button
         };
-        let up = arrow(Icon::ChevronUp16, &ox_core::i18n::gettext("Scroll up"), true);
-        let down = arrow(Icon::ChevronDown16, &ox_core::i18n::gettext("Scroll down"), false);
+        // Solid arrows, as Windows draws them at the scrubber's ends.
+        let up = arrow(Icon::CaretUp12Filled, &ox_core::i18n::gettext("Scroll up"), true);
+        let down = arrow(
+            Icon::CaretDown12Filled,
+            &ox_core::i18n::gettext("Scroll down"),
+            false,
+        );
         let track = gtk::Box::builder().css_classes(["scrubber-track"]).build();
         track.set_parent(self);
         let thumb = gtk::Box::builder()
@@ -191,6 +207,13 @@ impl GalleryScrubber {
             .can_target(false)
             .build();
         thumb.set_parent(self);
+        let pointer_bar = gtk::Box::builder()
+            .css_classes(["scrubber-pointer"])
+            .can_target(false)
+            .build();
+        pointer_bar.set_parent(self);
+        pointer_bar.set_child_visible(false);
+        imp.pointer_bar.set(pointer_bar.upcast()).expect("built once");
         imp.up.set(up).expect("built once");
         imp.down.set(down).expect("built once");
         imp.track.set(track.clone().upcast()).expect("built once");
@@ -260,6 +283,13 @@ impl GalleryScrubber {
     /// The pointer is over the track at `fraction` of its height, or left
     /// it.
     pub(crate) fn hover_track(&self, fraction: Option<f64>) {
+        let pointer_y = fraction.and_then(|fraction| {
+            let track = self.imp().track.get()?;
+            let top = track.compute_point(self, &gtk::graphene::Point::zero())?.y();
+            Some(f64::from(top) + fraction.clamp(0.0, 1.0) * f64::from(track.height()))
+        });
+        self.imp().pointer_y.set(pointer_y);
+        self.queue_allocate();
         let shown = fraction.and_then(|fraction| {
             let month = self.month_at_fraction(fraction)?;
             let track = self.imp().track.get()?;
@@ -398,11 +428,6 @@ impl GalleryScrubber {
         down.allocate(width, arrow_height, -1, Some(translate(0, bottom)));
         let track_height = (bottom - arrow_height).max(1);
         track.allocate(width, track_height, -1, Some(translate(0, arrow_height)));
-        let thumb_height = 3;
-        #[expect(clippy::cast_possible_truncation, reason = "pixel positions")]
-        let thumb_y =
-            arrow_height + (imp.position.get() * f64::from(track_height - thumb_height)).round() as i32;
-        thumb.allocate(THUMB_WIDTH, thumb_height, -1, Some(translate(2, thumb_y)));
         let labels = imp.years.borrow();
         let heights: Vec<i32> = labels
             .iter()
@@ -413,23 +438,97 @@ impl GalleryScrubber {
             .iter()
             .zip(&heights)
             .map(|((fraction, _), height)| {
-                f64::from(arrow_height) + fraction * f64::from(track_height - height).max(0.0)
+                f64::from(arrow_height + BAR_HEIGHT)
+                    + fraction * f64::from(track_height - BAR_HEIGHT - height).max(0.0)
             })
             .collect();
         let lowest = f64::from(arrow_height + track_height - heights.iter().copied().max().unwrap_or(0));
-        let placed = spread_years(&wanted, f64::from(arrow_height), lowest);
+        let placed = spread_years(&wanted, f64::from(arrow_height + BAR_HEIGHT), lowest);
         for ((label, height), y) in labels.iter().zip(&heights).zip(placed) {
             label.set_child_visible(y.is_some());
             if let Some(y) = y {
                 #[expect(clippy::cast_possible_truncation, reason = "pixel positions")]
-                label.allocate(
-                    (width - YEAR_INSET).max(1),
-                    *height,
-                    -1,
-                    Some(translate(YEAR_INSET, y.round() as i32)),
-                );
+                label.allocate(width, *height, -1, Some(translate(0, y.round() as i32)));
             }
         }
+        // The bar: over a year's digits, where a year starting at the
+        // view's place would show them.
+        let (ink_left, ink_width, ink_top, label_height) = self.year_ink(width);
+        let (left, bar_width) = (ink_left - BAR_OVERHANG, ink_width + 2 * BAR_OVERHANG);
+        // Years start a bar's height down the track, so the bar fits over
+        // the first.
+        let label_top = f64::from(arrow_height + BAR_HEIGHT)
+            + imp.position.get() * f64::from(track_height - BAR_HEIGHT - label_height).max(0.0);
+        #[expect(clippy::cast_possible_truncation, reason = "pixel positions")]
+        let bar_y = (label_top.round() as i32 + ink_top - BAR_HEIGHT).clamp(
+            arrow_height,
+            (arrow_height + track_height - BAR_HEIGHT).max(arrow_height),
+        );
+        thumb.allocate(bar_width.max(1), BAR_HEIGHT, -1, Some(translate(left, bar_y)));
+        if let Some(pointer_bar) = imp.pointer_bar.get() {
+            pointer_bar.set_child_visible(imp.pointer_y.get().is_some());
+            if let Some(y) = imp.pointer_y.get() {
+                #[expect(clippy::cast_possible_truncation, reason = "pixel positions")]
+                let top = (y.round() as i32 - BAR_HEIGHT / 2).clamp(
+                    arrow_height,
+                    (arrow_height + track_height - BAR_HEIGHT).max(arrow_height),
+                );
+                pointer_bar.allocate(bar_width.max(1), BAR_HEIGHT, -1, Some(translate(left, top)));
+            }
+        }
+    }
+
+    /// Where a year's digits ink, laid out `width` wide as the year marks
+    /// are: their left edge, width and top within the mark, and the mark's
+    /// height. A year mark shown answers; without one, "2026" in the
+    /// scrubber's font stands in.
+    fn year_ink(&self, width: i32) -> (i32, i32, i32, i32) {
+        let labels = self.imp().years.borrow();
+        let (layout, offset_x, offset_y, height) = if let Some(label) = labels.first() {
+            let height = label.measure(gtk::Orientation::Vertical, width).1;
+            let (x, y) = label.layout_offsets();
+            (label.layout(), x, y, height)
+        } else {
+            let layout = self.create_pango_layout(Some("2026"));
+            let (text_width, text_height) = layout.pixel_size();
+            (layout, (width - text_width) / 2, 0, text_height)
+        };
+        let (ink, _) = layout.pixel_extents();
+        (offset_x + ink.x(), ink.width(), offset_y + ink.y(), height)
+    }
+
+    /// Where the bar that marks the view is, in the scrubber's coordinates,
+    /// with the left edge, width and top of the digits of the first year
+    /// marked; for tests.
+    #[cfg(test)]
+    pub(crate) fn bar_and_first_year(&self) -> Option<(gtk::graphene::Rect, (i32, i32, i32))> {
+        let bar = self.imp().thumb.get()?.compute_bounds(self)?;
+        let first = self.imp().years.borrow().first()?.compute_bounds(self)?;
+        let (left, width, top, _) = self.year_ink(self.width());
+        #[expect(clippy::cast_possible_truncation, reason = "pixel positions")]
+        Some((bar, (left, width, first.y().round() as i32 + top)))
+    }
+
+    /// The icons of the up and down arrows; for tests.
+    #[cfg(test)]
+    pub(crate) fn arrow_icons(&self) -> Vec<Option<String>> {
+        [self.imp().up.get(), self.imp().down.get()]
+            .into_iter()
+            .map(|button| {
+                button
+                    .and_then(gtk::Button::child)
+                    .and_downcast::<gtk::Image>()
+                    .and_then(|image| image.icon_name())
+                    .map(|name| name.to_string())
+            })
+            .collect()
+    }
+
+    /// Where the gray bar at the pointer is, while it shows; for tests.
+    #[cfg(test)]
+    pub(crate) fn pointer_bar(&self) -> Option<gtk::graphene::Rect> {
+        let bar = self.imp().pointer_bar.get()?;
+        bar.is_child_visible().then(|| bar.compute_bounds(self)).flatten()
     }
 
     /// The years marked, for tests.

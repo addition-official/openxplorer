@@ -39,6 +39,8 @@
 @define-color ox_accent #74beff;                   /* C14 visible: #4cc2ff */
 @define-color ox_accent_hover alpha(@ox_accent, .9);   /* C15 */
 @define-color ox_accent_pressed alpha(@ox_accent, .8);
+/* Gallery scrubber's place mark, measured on Windows 11 build 26200, dark, 1x. */
+@define-color ox_scrubber_mark #52bdf4;
 @define-color ox_on_accent #000000;                /* C16 */
 @define-color ox_on_accent_pressed alpha(@ox_on_accent, .5);   /* §4.11 */
 @define-color ox_accent_stroke alpha(white, .08);  /* E07 */

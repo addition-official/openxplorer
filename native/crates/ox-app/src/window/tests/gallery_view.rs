@@ -297,6 +297,81 @@ fn the_date_scrubber_marks_years_names_months_and_jumps_there() {
     });
 }
 
+/// The scrubber marks the view's place as Windows does: a bar three
+/// pixels tall, as wide as a year's digits and a pixel beyond each side,
+/// sitting on the digits of the year at the view's place and moving down
+/// with the scroll; the pointer on the track shows a gray bar of the same
+/// width there beside the month; its arrows are solid carets.
+///
+/// parity: HOME-028
+#[gtk::test]
+fn the_scrubbers_bar_sits_over_the_years_digits_and_follows_the_scroll() {
+    let home = PicturesHome::new();
+    for (index, date) in ["2026-11-10", "2025-06-10", "2024-05-10"].iter().enumerate() {
+        for copy in 0..30 {
+            photo(
+                &home.pictures().join(format!("Roll {index}/frame {copy}.png")),
+                640,
+                480,
+                date,
+            );
+        }
+    }
+    let test = gallery_window(&home);
+    test.window.set_default_size(900, 640);
+    tiles(&test);
+    let scrubber = test.window.gallery_scrubber().expect("Gallery's scrubber");
+    wait_until("the scrubber", || scrubber.is_mapped());
+    wait_for_frames(&test.window, 2);
+
+    // Whole pixels: x, y, width, height.
+    #[expect(clippy::cast_possible_truncation, reason = "pixel positions")]
+    let pixels = |rect: &gtk::graphene::Rect| {
+        (
+            rect.x().round() as i32,
+            rect.y().round() as i32,
+            rect.width().round() as i32,
+            rect.height().round() as i32,
+        )
+    };
+    let (bar, (left, width, digits_top)) = scrubber.bar_and_first_year().expect("the bar and a year");
+    let (x, y, bar_width, bar_height) = pixels(&bar);
+    assert_eq!(bar_height, 3, "{bar:?}");
+    assert_eq!(x, left - 1, "{bar:?} over digits from {left}");
+    assert_eq!(bar_width, width + 2, "{bar:?} over digits {width} wide");
+    assert_eq!(
+        y + 3,
+        digits_top,
+        "the bar's foot right over the digits at {digits_top}"
+    );
+
+    scrubber.click_at(1.0);
+    wait_until("the bar lower down", || {
+        wait_for_frames(&test.window, 1);
+        scrubber.bar_and_first_year().is_some_and(|(moved, _)| {
+            let (moved_x, moved_y, moved_width, _) = pixels(&moved);
+            moved_y > y + 100 && moved_x == x && moved_width == bar_width
+        })
+    });
+
+    scrubber.hover_track(Some(0.5));
+    wait_for_frames(&test.window, 2);
+    let pointer = pixels(&scrubber.pointer_bar().expect("the pointer's bar"));
+    assert_eq!((pointer.0, pointer.2, pointer.3), (x, bar_width, 3));
+    assert!(test.window.gallery_hovered_month().is_some());
+    scrubber.hover_track(None);
+    wait_for_frames(&test.window, 2);
+    assert_eq!(scrubber.pointer_bar(), None);
+
+    assert_eq!(
+        scrubber.arrow_icons(),
+        [
+            Some("ox-caret-up-12-filled-symbolic".to_owned()),
+            Some("ox-caret-down-12-filled-symbolic".to_owned())
+        ]
+    );
+}
+
 /// A photo's tooltip says where it is, its type, its date and its size,
 /// as Windows' Gallery does.
 ///

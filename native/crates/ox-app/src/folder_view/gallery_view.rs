@@ -620,6 +620,19 @@ impl GalleryCanvas {
         self.imp().steady.set(steady);
     }
 
+    /// Whether the photos listed would fill the part on screen, laid out
+    /// now: Gallery's first listing then shows them without waiting
+    /// (HOME-040).
+    pub(crate) fn would_fill_screen(&self) -> bool {
+        let imp = self.imp();
+        let width = self.width();
+        let (_, page) = self.shown_span();
+        width > 1
+            && page > 0.0
+            && f64::from(justify(&imp.aspects.borrow(), width, imp.row_height.get(), GALLERY_GAP).height)
+                >= page
+    }
+
     /// Whether the view shows the top of the photos, once it follows the
     /// rows that came above.
     pub(crate) fn at_top(&self) -> bool {
@@ -1023,11 +1036,45 @@ impl GalleryCanvas {
         CellOwners::unstyle_cell(tile.picture());
     }
 
+    /// The device pixels Gallery's thumbnails are asked at: twice the
+    /// rows' height.
+    fn thumbnail_pixels(&self) -> i32 {
+        self.imp().row_height.get() * 2 * self.scale_factor()
+    }
+
+    /// The request for `entry`'s thumbnail in `tile`: one for a tile on
+    /// screen is made before those of tiles beside it (HOME-040).
+    fn thumbnail_request(
+        &self,
+        tile: &GalleryTile,
+        entry: &ox_core::entry::Entry,
+    ) -> Option<crate::thumbnails::PreviewRequest> {
+        let request = self.owners().previews().request(entry, self.thumbnail_pixels())?;
+        let (canvas, tile) = (self.downgrade(), tile.downgrade());
+        Some(crate::thumbnails::PreviewRequest {
+            on_screen: crate::thumbnails::OnScreen::new(move || {
+                canvas
+                    .upgrade()
+                    .zip(tile.upgrade())
+                    .is_some_and(|(canvas, tile)| canvas.tile_on_screen(&tile))
+            }),
+            ..request
+        })
+    }
+
+    /// Whether `tile` shows on screen now.
+    fn tile_on_screen(&self, tile: &GalleryTile) -> bool {
+        let (top, page) = self.shown_span();
+        tile.is_child_visible()
+            && tile.compute_bounds(self).is_some_and(|bounds| {
+                f64::from(bounds.y() + bounds.height()) > top && f64::from(bounds.y()) < top + page
+            })
+    }
+
     /// Asks for `item`'s thumbnail at the size its row shows it.
     fn ask_preview(&self, tile: &GalleryTile, item: &FileItem) {
         let entry = item.entry();
-        let edge = self.imp().row_height.get() * 2;
-        let pixels = edge * self.scale_factor();
+        let pixels = self.thumbnail_pixels();
         let key = (entry.uri.clone(), entry.modified, pixels);
         if tile.asked().borrow().as_ref() == Some(&key) {
             return;
@@ -1046,14 +1093,34 @@ impl GalleryCanvas {
             tile.set_sharp(None);
             tile.sharp_asked().replace(None);
         }
-        let Some(request) = self.owners().previews().request(entry, pixels) else {
+        let Some(request) = self.thumbnail_request(tile, entry) else {
             tile.set_preview(None);
             return;
         };
         let picture = tile.picture().downgrade();
+        let (canvas, weak_tile) = (self.downgrade(), tile.downgrade());
         let task = glib::spawn_future_local(async move {
             let texture = crate::thumbnails::preview(request).await;
-            if let (Some(picture), Some(texture)) = (picture.upgrade(), texture) {
+            let Some((picture, texture)) = picture.upgrade().zip(texture) else {
+                return;
+            };
+            // A tile on screen whose sharp picture is cut from this very
+            // thumbnail draws that a moment later: drawing the thumbnail
+            // scaled first would cost a frame for nothing (HOME-040).
+            let sharpened_soon = canvas
+                .upgrade()
+                .zip(weak_tile.upgrade())
+                .is_some_and(|(canvas, tile)| {
+                    canvas.tile_on_screen(&tile)
+                        && tile
+                            .sharp_asked()
+                            .borrow()
+                            .as_ref()
+                            .is_some_and(|(_, (width, height))| {
+                                texture.width() >= *width && texture.height() >= *height
+                            })
+                });
+            if !sharpened_soon {
                 picture.offer(texture);
             }
         });
@@ -1083,10 +1150,13 @@ impl GalleryCanvas {
         let Some(request) = self.owners().previews().request(entry, edge) else {
             return;
         };
+        // Shrunk from the tile's thumbnail when that covers the tile, else
+        // from the photo itself (HOME-040).
+        let thumbnail = self.thumbnail_request(tile, entry);
         tile.sharp_asked().replace(Some((entry.uri.clone(), pixels)));
         let weak = tile.downgrade();
         let task = glib::spawn_future_local(async move {
-            let texture = crate::thumbnails::sharp_picture(request, pixels.0, pixels.1).await;
+            let texture = crate::thumbnails::sharp_picture(request, thumbnail, pixels.0, pixels.1).await;
             let Some(tile) = weak.upgrade() else {
                 return;
             };
