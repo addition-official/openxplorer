@@ -555,3 +555,30 @@ fn the_search_boxs_x_sits_left_of_the_magnifier_as_in_windows() {
     );
     assert!(magnifier.is_visible(), "the magnifier stays");
 }
+
+/// However long the path, the address bar keeps blank space after its
+/// last crumb, collapsing more crumbs into the « to make room, so a click
+/// there still edits the address, as in Windows 11 (a click on a crumb
+/// opens its folder instead).
+///
+/// parity: NAV-023, NAV-026
+#[gtk::test]
+fn a_long_path_keeps_blank_space_after_the_last_crumb_to_click() {
+    let fixture = Fixture::standard();
+    let deep = deep_folder(&fixture);
+    let test = TestWindow::open(&ox_core::location::file_uri(&deep));
+    let address = test.window.address_bar();
+    for width in [1320, 1000, 800] {
+        resize(&test, width);
+        wait_until("the crumbs to collapse", || !address.hidden_crumbs().is_empty());
+        let crumbs = address.crumb_buttons();
+        let strip = crumbs[0].parent().expect("the crumbs' strip");
+        let last = crumbs.last().expect("the folder's crumb");
+        let end = last.compute_bounds(&strip).expect("a shown crumb");
+        let room = f64::from(strip.width()) - f64::from(end.x() + end.width());
+        assert!(
+            room >= 40.0,
+            "{width}: {room} pixels of blank space after the last crumb"
+        );
+    }
+}

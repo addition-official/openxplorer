@@ -326,13 +326,26 @@ fn a_click_elsewhere_closes_the_menu_and_still_acts_there() {
     // The address bar starts editing the address, as a click on it does.
     session.open_by_click("New");
     let address_bar = session.test.window.address_bar().clone();
-    let on_address = session.on_screen(
-        &address_bar,
-        (
-            f64::from(address_bar.width()) * 0.9,
-            f64::from(address_bar.height()) / 2.0,
-        ),
+    // Blank space just past the last crumb: a fixed share of the bar's
+    // width can land on a crumb, which opens its folder, as in Windows,
+    // when the folder's path is long (check.py's temporary folders) and
+    // the search box takes Windows' 499 pixels.
+    let last = address_bar
+        .crumb_buttons()
+        .pop()
+        .expect("the folder's crumb")
+        .compute_bounds(&address_bar)
+        .expect("the crumb is laid out");
+    let blank = (
+        f64::from(last.x() + last.width()) + 20.0,
+        f64::from(address_bar.height()) / 2.0,
     );
+    let picked = address_bar.pick(blank.0, blank.1, gtk::PickFlags::DEFAULT);
+    assert!(
+        picked.is_some_and(|widget| widget.ancestor(gtk::Button::static_type()).is_none()),
+        "the point is blank space of the address bar, on no crumb or button"
+    );
+    let on_address = session.on_screen(&address_bar, blank);
     session.click_at(on_address);
     session.expect_only_open(None, "New open, a click on the address bar");
     let entry = address_bar.entry();
