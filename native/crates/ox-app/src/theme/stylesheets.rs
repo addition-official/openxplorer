@@ -336,9 +336,16 @@ mod tests {
         let hidden = rule_starting(&code, "window.hide-expand-arrows .sidebar .side-expander,");
         assert!(hidden.contains("window.hide-expand-arrows .sidebar .folder-tree treeexpander expander {"));
         assert!(hidden.contains("opacity: 0;"));
-        let revealed = rule_starting(&code, "window.hide-expand-arrows .sidebar:hover .side-expander,");
+        // The pointer is tracked by the pane's motion controller, not by
+        // GTK's :hover state on the pane, whose spread to a hovered row's
+        // ancestors changed across GTK 4 versions.
+        assert!(!code.contains(".sidebar:hover"), "no :hover on the pane");
+        let revealed = rule_starting(
+            &code,
+            "window.hide-expand-arrows .sidebar.pointer-over .side-expander,",
+        );
         for selector in [
-            "window.hide-expand-arrows .sidebar:hover .folder-tree treeexpander expander,",
+            "window.hide-expand-arrows .sidebar.pointer-over .folder-tree treeexpander expander,",
             "window.hide-expand-arrows .sidebar:focus-within .side-expander,",
             "window.hide-expand-arrows .sidebar:focus-within .folder-tree treeexpander expander {",
         ] {

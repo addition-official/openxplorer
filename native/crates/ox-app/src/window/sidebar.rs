@@ -60,6 +60,9 @@ pub(super) enum HiddenRow {
     Section,
 }
 
+/// The pane's class while the pointer is over it.
+const POINTER_OVER_CLASS: &str = "pointer-over";
+
 /// The class that dims a hidden row.
 const HIDDEN_ROW_CLASS: &str = "hidden-place";
 
@@ -183,6 +186,7 @@ impl Sidebar {
         self.open_places_in_tabs_on_ctrl_click(&list);
         self.open_menus_on_right_click(&list);
         self.collapse_sections_with_arrow_keys(&list);
+        self.track_the_pointer();
         self.toggle_sections_on_double_click(&list);
         let scroller = gtk::ScrolledWindow::builder()
             .hscrollbar_policy(gtk::PolicyType::Never)
@@ -207,6 +211,27 @@ impl Sidebar {
         imp.folder_tree
             .set(folder_tree)
             .expect("constructed runs once per object");
+    }
+
+    /// Marks the pane with `pointer-over` while the pointer is over it or
+    /// any row inside it, from which the skin shows the chevrons that
+    /// "Hide expand arrows" hides (SIDE-032), as Windows does. A motion
+    /// controller's contains-pointer, rather than GTK's :hover on the
+    /// pane, so it holds whichever GTK 4 version and compositor run it.
+    fn track_the_pointer(&self) {
+        let motion = gtk::EventControllerMotion::new();
+        motion.connect_contains_pointer_notify(glib::clone!(
+            #[weak(rename_to = sidebar)]
+            self,
+            move |motion| {
+                if motion.contains_pointer() {
+                    sidebar.add_css_class(POINTER_OVER_CLASS);
+                } else {
+                    sidebar.remove_css_class(POINTER_OVER_CLASS);
+                }
+            }
+        ));
+        self.add_controller(motion);
     }
 
     /// Draws a divider above every row that starts a new group of

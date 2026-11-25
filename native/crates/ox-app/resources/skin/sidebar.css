@@ -186,7 +186,10 @@ paned.workspace > separator.keyboard-focus {
    window/expand_arrows.rs), as Windows Explorer's navigation pane: the
    chevrons of This PC and Network and the folder tree's arrows stay
    hidden until the pointer is over the pane or keyboard focus is in it,
-   then fade in. Hidden arrows keep their room, so nothing moves. Without
+   then fade in. The pane's motion controller sets .pointer-over while it
+   holds the pointer (window/sidebar.rs), rather than GTK's :hover on the
+   pane, whose spread from a hovered row to its ancestors is not the same
+   in every GTK 4 version. Hidden arrows keep their room, so nothing moves. Without
    animations GTK skips the fade. The file list's folder arrows are the
    Expandable folders switch's. */
 window.hide-expand-arrows .sidebar .side-expander,
@@ -194,8 +197,8 @@ window.hide-expand-arrows .sidebar .folder-tree treeexpander expander {
   opacity: 0;
   transition: opacity 150ms ease-out;
 }
-window.hide-expand-arrows .sidebar:hover .side-expander,
-window.hide-expand-arrows .sidebar:hover .folder-tree treeexpander expander,
+window.hide-expand-arrows .sidebar.pointer-over .side-expander,
+window.hide-expand-arrows .sidebar.pointer-over .folder-tree treeexpander expander,
 window.hide-expand-arrows .sidebar:focus-within .side-expander,
 window.hide-expand-arrows .sidebar:focus-within .folder-tree treeexpander expander {
   opacity: 1;
