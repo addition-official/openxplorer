@@ -556,10 +556,11 @@ fn the_search_boxs_x_sits_left_of_the_magnifier_as_in_windows() {
     assert!(magnifier.is_visible(), "the magnifier stays");
 }
 
-/// However long the path, the address bar keeps blank space after its
-/// last crumb, collapsing more crumbs into the « to make room, so a click
-/// there still edits the address, as in Windows 11 (a click on a crumb
-/// opens its folder instead).
+/// However long the path, the address bar keeps 40 pixels of blank space
+/// after its last crumb, collapsing more crumbs into the « to make room,
+/// so a click there still edits the address, as in Windows 11 (a click on
+/// a crumb opens its folder instead); only the folder's own crumb, shown
+/// alone, may take the whole bar.
 ///
 /// parity: NAV-023, NAV-026
 #[gtk::test]
@@ -568,7 +569,7 @@ fn a_long_path_keeps_blank_space_after_the_last_crumb_to_click() {
     let deep = deep_folder(&fixture);
     let test = TestWindow::open(&ox_core::location::file_uri(&deep));
     let address = test.window.address_bar();
-    for width in [1320, 1000, 800] {
+    for width in (800..=1320).rev().step_by(20) {
         resize(&test, width);
         wait_until("the crumbs to collapse", || !address.hidden_crumbs().is_empty());
         let crumbs = address.crumb_buttons();
@@ -576,9 +577,16 @@ fn a_long_path_keeps_blank_space_after_the_last_crumb_to_click() {
         let last = crumbs.last().expect("the folder's crumb");
         let end = last.compute_bounds(&strip).expect("a shown crumb");
         let room = f64::from(strip.width()) - f64::from(end.x() + end.width());
-        assert!(
-            room >= 40.0,
-            "{width}: {room} pixels of blank space after the last crumb"
-        );
+        let shown = crumbs.len() - address.hidden_crumbs().len();
+        if width == 1320 {
+            assert!(shown > 1, "more than the folder's crumb fits at 1320 pixels");
+        }
+        // The folder's crumb alone may take the whole bar.
+        if shown > 1 {
+            assert!(
+                room >= 40.0,
+                "{width}: {room} pixels of blank space after the last crumb"
+            );
+        }
     }
 }
