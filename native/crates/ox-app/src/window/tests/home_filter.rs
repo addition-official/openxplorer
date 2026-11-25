@@ -59,6 +59,16 @@ fn filter_shows_on_home_alone_with_its_kinds() {
     wait_until("Filter on Home", || filter.is_visible());
     let sort = command(&test, "sort-command");
     assert!(!sort.is_sensitive(), "Sort is grayed on Home");
+    // Windows 11's funnel before the label, as its Filter button draws it.
+    let glyphs: Vec<String> = descendants::<gtk::Image>(&filter)
+        .iter()
+        .filter_map(|image| image.icon_name().map(|name| name.to_string()))
+        .collect();
+    assert_eq!(
+        glyphs.first().map(String::as_str),
+        Some(crate::icons::Icon::Filter.name()),
+        "the funnel comes first: {glyphs:?}"
+    );
     let mut pointer = Pointer::connect();
     click(&mut pointer, &test, &filter, None, Button::Primary);
     let menu = filter

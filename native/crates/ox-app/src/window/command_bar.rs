@@ -435,11 +435,10 @@ impl CommandBar {
                 OverflowEntry(std::rc::Rc::new(move || {
                     MenuItem::submenu(
                         &filter_label,
-                        Icon::ChevronDown,
+                        Icon::Filter,
                         WindowAction::HomeFilter,
                         menu.entries(),
                     )
-                    .without_glyph()
                     .into()
                 })),
             );
@@ -1191,16 +1190,13 @@ fn text_menu_content(label: &str, glyph: Icon) -> gtk::Box {
 /// How far New's menu opens left of where the shared menus open.
 const NEW_MENU_SHIFT: i32 = -2;
 
-/// Home's Filter ▾: a label and a chevron, as no funnel glyph is bundled,
-/// and a radio list of the kinds of file Recent and Favorites list
-/// (HOME-038), hidden until the tab shows Home.
+/// Home's Filter ▾: Windows 11's funnel (`Icon::Filter`, which the icons
+/// drawn from the user's Windows files replace when chosen), the label
+/// and a chevron, and a radio list of the kinds of file Recent and
+/// Favorites list (HOME-038), hidden until the tab shows Home.
 fn home_filter_button() -> gtk::MenuButton {
     let label = ox_core::i18n::gettext("Filter");
-    let content = gtk::Box::new(gtk::Orientation::Horizontal, 9);
-    content.append(&gtk::Label::new(Some(&label)));
-    let chevron = icons::image(Icon::ChevronDown, CARET_GLYPH);
-    chevron.add_css_class("chevron");
-    content.append(&chevron);
+    let content = text_menu_content(&label, Icon::Filter);
     let entries = super::home_page::HomeFilter::ALL
         .into_iter()
         .map(|filter| {
