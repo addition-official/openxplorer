@@ -71,3 +71,10 @@ popover.ox-menu list > row:focus-visible { box-shadow: inset 0 0 0 2px @ox_focus
 .settings-categories image { color: @ox_text; }
 window.ox .settings switch { border-color: @ox_text; }
 .settings .group-rows { border-color: @ox_text_tertiary; }
+/* This PC's capacity bar in the appearance's own colors, as Windows'
+   high contrast themes draw a progress bar in the system's: the
+   background with a border in the text color, the used part in the
+   accent, red when nearly full. */
+.landing .capacity > trough { background-color: @ox_bg; border-color: @ox_text; }
+.landing .capacity > trough > progress { background-color: @ox_accent; }
+.landing .capacity.full > trough > progress { background-color: @ox_critical_fill; }

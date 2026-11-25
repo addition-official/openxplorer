@@ -91,6 +91,11 @@
 @define-color ox_folder_picture_edge #ffffff;      /* a folder picture's photo edge */
 @define-color ox_success #6ccb5f;                  /* C34 connected */
 @define-color ox_caution #fce100;                  /* WinUI SystemFillColorCaution */
+/* This PC's capacity bar, measured on Windows 11's dark capture (ref-25) */
+@define-color ox_capacity_track #e6e6e6;           /* (230,230,230) */
+@define-color ox_capacity_border #bcbcbc;          /* (188,188,188) */
+@define-color ox_capacity_used #0070cb;            /* (0,112,203) */
+@define-color ox_capacity_full #da2626;            /* (218,38,38), not yet measured */
 
 /* Scroll bars and shadows */
 @define-color ox_scrollbar_thumb alpha(white, .55);        /* C40 */
