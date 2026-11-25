@@ -13,6 +13,14 @@
    ends belong to the Name and Size columns instead (see EDGE_GUTTER in
    src/folder_view/details.rs), and their cells and titles pad for them. */
 columnview.files { background-color: @ox_bg; color: @ox_text; }
+/* The table stands 12px in from the pane's left side and its rows span
+   it exactly: GTK lays a row out as wide as all the columns, so a row
+   inset by its own margin ran 12px past the table's end, where the list
+   cut its highlight and focus ring off square. Now both ends are drawn,
+   as Windows 11 draws them. Its right end is Size's, whose 14px end
+   gutter (EDGE_GUTTER) keeps the list's end padding, so the columns take
+   as much of the pane as they did. */
+columnview.files { margin: 0 0 0 12px; }
 columnview.files > header { border-bottom: 1px solid @ox_border; padding: 0; }
 /* "Show a line under column titles" off: no line, as in Windows 11; the
    titles keep their height. */
@@ -42,7 +50,7 @@ columnview.files > header > button:hover { background-color: @ox_hover; }
    overrides it. Name's title has its own class (column_titles.rs), as
    Choose Details can move Name down; the first title, whichever it is,
    keeps the 14px start. */
-columnview.files > header > button:first-child { padding-left: 26px; }
+columnview.files > header > button:first-child { padding-left: 14px; }
 columnview.files > header > button.name-title { min-width: 115px; }
 /* Every title is left-aligned, Size's too, as in Windows 11; the sizes
    under it stay right-aligned. Size's padding holds the 14px end. */
@@ -144,8 +152,12 @@ columnview.files > header > button.custom-sort {
    right, which keeps cells under their titles. */
 columnview.files > listview { background-color: @ox_bg; padding: 4px 0 8px 0; }
 columnview.files > listview > row {
-  margin: 1px 12px;
-  border-radius: 4px;
+  margin: 1px 0;
+  /* Windows 11's row corners are nearly square (ref-02, 100%): the ring's
+     corner pixel is lit, the one inside it 30% ring. Of the radii GTK
+     can draw, 1px comes closest (corner 79%, inside it none; 2px leaves
+     the corner 32%). The hover and selection fills share it. */
+  border-radius: 1px;
   padding: 0;
   color: @ox_text;
   background: none;
@@ -181,20 +193,24 @@ columnview.files > listview > row:focus-visible:not(.renaming) {
 }
 columnview.files > listview > row > cell {
   padding: 0 12px;
-  margin: 0 12px 0 -12px;
+  margin: 0;
   /* Equal-width figures line up sizes and dates (T14); Noto Sans's
      default figures already are, so this matters for other fonts. */
   font-feature-settings: "tnum" 1;
 }
-columnview.files > listview > row > cell:first-child { padding-left: 26px; }
+columnview.files > listview > row > cell:first-child { padding-left: 14px; }
 /* While folders show arrows (VIEW-035), the arrow takes the name cell's
    left padding and would start 6px before the row's edge, outside a
-   selected row's highlight. Rows then reach 10px further left, 2px from
-   the list's edge, and their cells move back by as much, so the arrow
-   sits 4px inside the highlight and nothing else moves. */
-columnview.files.has-folder-arrows > listview > row { margin-left: 2px; }
-columnview.files.has-folder-arrows > listview > row > cell { margin-left: -2px; margin-right: 2px; }
-columnview.files > listview > row > cell:last-child { padding-right: 26px; }
+   selected row's highlight. The table then starts 10px further left, 2px
+   from the pane's edge, and the first column's padding grows by as much,
+   so the arrow sits 4px inside the highlight and the names stay put. */
+columnview.files.has-folder-arrows { margin-left: 2px; }
+columnview.files.has-folder-arrows > header > button:first-child { padding-left: 24px; }
+columnview.files.has-folder-arrows > listview > row > cell:first-child { padding-left: 24px; }
+/* The last column's text ends 4px before the row's end, which leaves
+   Windows' 3 blank pixels between its ink and a selected row's ring
+   (ref-02). */
+columnview.files > listview > row > cell:last-child { padding-right: 4px; }
 /* The 21px icon is centred on a half pixel, which Chromium draws one
    pixel down. */
 columnview.files .row-icon { margin-top: 1px; }
