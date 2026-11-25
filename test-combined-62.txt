@@ -1,5 +1,9 @@
-STATUS: RUNNING (merged and pushed; GitHub Actions builds the deb)
+STATUS: DONE (deb ready; built by GitHub Actions)
 HEAD: test-combined-62 f6f2c0d4583b424e1ca761d5b139a69ff18215d3
+DEB: claude/test-combined-62-deb f90529ccf25c4a0f65bd8d9c39e8e38a457867e4
+  openxplorer_2.0.26+test62_all.deb (io.winspace.Development)
+SHA256: 73a0e46b1a2038bb3e892ff273b29e2cac5ff9333a5bad7eee91c8870c461a74
+RUN: https://github.com/addition-official/openxplorer/actions/runs/45695170084
 
 BRANCH: test-combined-62, started from deb 61's test-combined-61 067b01c5 (workflow file in the tree). Each tip was its branch's newest when merged and still is.
 
