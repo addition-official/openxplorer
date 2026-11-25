@@ -529,3 +529,29 @@ fn the_search_box_takes_windows_width_and_its_divider_is_remembered() {
     assert!(search_width() < 700, "a narrow window shrinks it");
     assert!(search_width() >= 173, "down to 173 pixels");
 }
+
+/// While the search box holds text, its X sits to the left of the
+/// magnifier, which stays, as Windows 11 draws a search (ref-29: the X's
+/// centre 35.5 pixels left of the magnifier's).
+///
+/// parity: SRCH-001
+#[gtk::test]
+fn the_search_boxs_x_sits_left_of_the_magnifier_as_in_windows() {
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    resize(&test, 1400);
+    let search = test.window.search_box().clone();
+    search.set_query("notes");
+    let (clear, magnifier) = search.clear_and_magnifier();
+    let centre = |widget: &gtk::Widget| {
+        let bounds = widget.compute_bounds(&search).expect("shown");
+        bounds.x() + bounds.width() / 2.0
+    };
+    wait_until("the X", || clear.is_visible() && clear.width() > 0);
+    let apart = centre(&magnifier) - centre(&clear);
+    assert!(
+        (apart - 35.5).abs() <= 1.0,
+        "the X 35.5 pixels left of the magnifier: {apart}"
+    );
+    assert!(magnifier.is_visible(), "the magnifier stays");
+}

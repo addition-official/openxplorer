@@ -214,6 +214,14 @@ impl SearchBox {
         self.imp().entry.set_text(text);
     }
 
+    /// The clear button's image and the magnifier, for tests.
+    #[cfg(test)]
+    pub(super) fn clear_and_magnifier(&self) -> (gtk::Widget, gtk::Widget) {
+        let imp = self.imp();
+        let clear = imp.entry.last_child().expect("the entry's clear icon");
+        (clear, imp.magnifier.get().upcast())
+    }
+
     /// The field the user types in, for tests.
     #[cfg(test)]
     pub(super) fn entry(&self) -> gtk::SearchEntry {
