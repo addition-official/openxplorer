@@ -994,12 +994,13 @@ impl TransferEngine {
         } else {
             replaced = self.copy_item(placement, selected, destination, batch.cancel, staging, None)?;
         }
+        let landed_at = destination.settled_uri();
         state.result.landed.push(Landed {
             source: source.uri(),
-            destination: destination.uri(),
+            destination: landed_at.clone(),
         });
         if replaced {
-            state.result.overwritten.push(destination.uri());
+            state.result.overwritten.push(landed_at);
         }
         Ok(ItemOutcome::Done)
     }

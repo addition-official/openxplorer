@@ -22,6 +22,7 @@
 //! | `mtp_adapter` | The production GIO adapter on a simulated phone |
 //! | `gio_integration` | The engine over the production GIO adapter |
 //! | `gio_engine` | File names that are not valid UTF-8 through GIO |
+//! | `google_drive` | Writing to a simulated Google Drive, and its read-only default |
 //! | `staging_cleanup` | Local staging cleanup through GIO |
 //! | `limits` | Free space, file size, names and links the destination cannot hold |
 
@@ -49,6 +50,8 @@ mod failures;
 mod gio_engine;
 #[path = "transfer_cases/gio_integration.rs"]
 mod gio_integration;
+#[path = "transfer_cases/google_drive.rs"]
+mod google_drive;
 #[path = "transfer_cases/limits.rs"]
 mod limits;
 #[path = "transfer_cases/modes.rs"]

@@ -163,8 +163,64 @@ pub(crate) struct FolderFacts {
     /// Its drive's file system may not be written, as a write-protected
     /// USB stick's.
     pub(crate) is_on_read_only_drive: bool,
-    /// It is on Google Drive or `OneDrive`, read-only for now (DEV-013).
-    pub(crate) is_cloud: bool,
+    /// It is on Google Drive or `OneDrive` and may not be changed now
+    /// (DEV-013), and why.
+    pub(crate) cloud: CloudFolder,
+}
+
+/// Whether a folder is on a cloud drive that may not be changed now
+/// (DEV-013), and so what its refusals say.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) enum CloudFolder {
+    /// Not on a cloud drive, or on Google Drive while Settings allow
+    /// changes to it.
+    #[default]
+    Writable,
+    /// On `OneDrive`, read-only for now: the owner's words.
+    ReadOnly,
+    /// On Google Drive while "Allow changes to Google Drive" is off.
+    GoogleDriveOff,
+    /// A top folder of Google Drive, which `GVfs` never changes: the
+    /// account's top folder, Shared with me or the list of shared drives.
+    GoogleDriveFixed,
+}
+
+impl CloudFolder {
+    /// What the folder at `uri` is.
+    pub(crate) fn of(uri: &str) -> Self {
+        use ox_core::location::cloud_writes::{
+            can_write_into_google_drive_folder, google_drive_writable, is_google_drive_location,
+        };
+        if !is_cloud_location(uri) {
+            return Self::Writable;
+        }
+        if !is_google_drive_location(uri) {
+            return Self::ReadOnly;
+        }
+        if !google_drive_writable() {
+            return Self::GoogleDriveOff;
+        }
+        if can_write_into_google_drive_folder(uri) {
+            Self::Writable
+        } else {
+            Self::GoogleDriveFixed
+        }
+    }
+
+    /// Why the folder, or its items, may not be changed.
+    fn refusal(self) -> &'static str {
+        match self {
+            Self::Writable | Self::ReadOnly => ox_core::i18n::gettext_static(
+                "Google Drive and OneDrive are read-only for now. Copy items to this PC to change them.",
+            ),
+            Self::GoogleDriveOff => ox_core::i18n::gettext_static(
+                "Google Drive is read-only. To change it, turn on Allow changes to Google Drive in Settings > Files & folders.",
+            ),
+            Self::GoogleDriveFixed => ox_core::i18n::gettext_static(
+                "Google Drive does not let this folder be changed here. Open My Drive or a folder in it.",
+            ),
+        }
+    }
 }
 
 /// Everything the rules read.
@@ -282,9 +338,9 @@ impl CommandFacts {
             FileCommand::New | FileCommand::Paste if folder.is_zip => {
                 ox_core::i18n::gettext_static("An archive is read-only. Extract it to add items.")
             }
-            FileCommand::New | FileCommand::Paste if folder.is_cloud => ox_core::i18n::gettext_static(
-                "Google Drive and OneDrive are read-only for now. Copy items to this PC to change them.",
-            ),
+            FileCommand::New | FileCommand::Paste if folder.cloud != CloudFolder::Writable => {
+                folder.cloud.refusal()
+            }
             FileCommand::New => ox_core::i18n::gettext_static("This folder is read-only."),
             FileCommand::Paste if !selection.has_inoperable => {
                 ox_core::i18n::gettext_static("This folder is read-only.")
@@ -313,9 +369,7 @@ impl CommandFacts {
             _ if selection.has_read_only && folder.is_zip => ox_core::i18n::gettext_static(
                 "Items in an archive are read-only. Copy them out or use Extract all.",
             ),
-            _ if selection.has_read_only && folder.is_cloud => ox_core::i18n::gettext_static(
-                "Google Drive and OneDrive are read-only for now. Copy items to this PC to change them.",
-            ),
+            _ if selection.has_read_only && folder.cloud != CloudFolder::Writable => folder.cloud.refusal(),
             _ if selection.has_read_only => ox_core::i18n::gettext_static("A previous version is read-only."),
             _ => ox_core::i18n::gettext_static("Rename one item at a time."),
         };
@@ -357,7 +411,7 @@ pub(crate) fn selection_facts(items: &[FileItem], locations: &LocationContext) -
     });
     let has_snapshot_roots = !locations.snapshot_roots.is_empty();
     let has_read_only = items.iter().any(|item| {
-        item.address_facts().read_only_by_path
+        item.address_facts().is_read_only(&item.entry().uri)
             || (has_snapshot_roots && locations.is_snapshot_location(&item.entry().uri))
     });
     let has_recent = items.iter().any(|item| item.address_facts().recent_row);
@@ -416,7 +470,7 @@ impl BrowserWindow {
                 let known = self.imp().read_only_drive.borrow();
                 known.1 && known.0 == folder_uri
             },
-            is_cloud: is_cloud_location(&folder_uri),
+            cloud: CloudFolder::of(&folder_uri),
         };
         let operations = self.imp().file_operations.borrow();
         let context = self.context();
@@ -831,5 +885,81 @@ mod tests {
         );
         assert!(!empty.allows(FileCommand::EmptyRecycleBin));
         assert!(!empty.allows(FileCommand::RestoreAll));
+    }
+
+    /// Google Drive folders take New and Paste only while Settings allow
+    /// changes to Google Drive; the top folders of a drive and `OneDrive`
+    /// never do, and each refusal says why (DEV-013).
+    ///
+    /// parity: DEV-013
+    #[test]
+    fn google_drive_takes_new_items_only_while_settings_allow_it() {
+        use ox_core::location::cloud_writes::{set_google_drive_writable, switch_lock};
+        let _lock = switch_lock();
+        let my_drive = "google-drive://alice@example.com/0AHomeId";
+        let folder = "google-drive://alice@example.com/0AHomeId/1FolderId";
+        let shared_with_me = "google-drive://alice@example.com/GVfsSharedWithMe";
+        let one_drive = "onedrive://alice@example.com/Documents";
+        let facts_for = |uri: &str| {
+            let mut facts = selected(1);
+            facts.folder.is_writable = LocationContext::default().is_writable_location(uri);
+            facts.folder.cloud = CloudFolder::of(uri);
+            facts.clipboard = ClipboardKind::Files;
+            facts
+        };
+
+        set_google_drive_writable(false);
+        for uri in [my_drive, folder] {
+            let facts = facts_for(uri);
+            assert_eq!(facts.folder.cloud, CloudFolder::GoogleDriveOff, "{uri}");
+            assert!(!facts.allows(FileCommand::New), "{uri}");
+            assert!(!facts.allows(FileCommand::Paste), "{uri}");
+            assert!(facts
+                .refusal(FileCommand::New)
+                .is_some_and(|reason| reason.contains("Allow changes to Google Drive")));
+        }
+
+        set_google_drive_writable(true);
+        for uri in [my_drive, folder] {
+            let facts = facts_for(uri);
+            assert_eq!(facts.folder.cloud, CloudFolder::Writable, "{uri}");
+            assert!(facts.allows(FileCommand::New), "{uri}");
+            assert!(facts.allows(FileCommand::Paste), "{uri}");
+        }
+        let fixed = facts_for(shared_with_me);
+        assert_eq!(fixed.folder.cloud, CloudFolder::GoogleDriveFixed);
+        assert!(!fixed.allows(FileCommand::New));
+        let other = facts_for(one_drive);
+        assert_eq!(other.folder.cloud, CloudFolder::ReadOnly);
+        assert!(!other.allows(FileCommand::New));
+        assert_eq!(
+            other.refusal(FileCommand::New),
+            Some("Google Drive and OneDrive are read-only for now. Copy items to this PC to change them.")
+        );
+        set_google_drive_writable(false);
+    }
+
+    /// An item on Google Drive is read-only while Settings say so, and
+    /// may be cut, renamed and deleted once they allow changes; My Drive
+    /// itself never (DEV-013).
+    ///
+    /// parity: DEV-013
+    #[test]
+    fn google_drive_items_follow_the_switch() {
+        use crate::folder_view::item::AddressFacts;
+        use ox_core::location::cloud_writes::{set_google_drive_writable, switch_lock};
+        let _lock = switch_lock();
+        let item = "google-drive://alice@example.com/0AHomeId/1FileId";
+        let my_drive = "google-drive://alice@example.com/0AHomeId";
+        let facts = AddressFacts::of(item);
+
+        set_google_drive_writable(false);
+        assert!(facts.is_read_only(item));
+        set_google_drive_writable(true);
+        assert!(!facts.is_read_only(item), "the same facts follow the switch");
+        assert!(AddressFacts::of(my_drive).is_read_only(my_drive));
+        assert!(AddressFacts::of("onedrive://alice@example.com/a.txt")
+            .is_read_only("onedrive://alice@example.com/a.txt"));
+        set_google_drive_writable(false);
     }
 }

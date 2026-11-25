@@ -302,6 +302,8 @@ fn every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages() {
         // Carrying the settings to another computer.
         "Export settings",
         "Import settings",
+        // Writing to Google Drive, off by default (DEV-013).
+        "Allow changes to Google Drive",
     ];
     for title in added_since {
         settings.row(title);

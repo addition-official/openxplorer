@@ -2,7 +2,8 @@
 //! Files & folders: Dolphin's view options, item counts in a folder's Size
 //! (VIEW-037), as its "Number of items", folder sizes (the Python "Folder
 //! sizes" section, SET-008), what Replace does with the file it replaces
-//! (OPS-028), and previews (VIEW-058), as Dolphin's Previews settings offer
+//! (OPS-028), whether Google Drive takes changes (DEV-013), and previews
+//! (VIEW-058), as Dolphin's Previews settings offer
 //! them, folded away, and two clipboard extras that Windows 11 File Explorer
 //! lacks, both on by default and each one able to be turned off: a picture
 //! pasted as a new file (CLIP-015) and the paths copied as text beside the
@@ -120,6 +121,16 @@ const DELETE_REMOVABLE_PERMANENTLY: RowText = RowText {
                windows erase",
 };
 
+const GOOGLE_DRIVE_CHANGES: RowText = RowText {
+    title: "Allow changes to Google Drive",
+    description: "Copies, moves, renames and deletes in Google Drive then change the files on your Drive, \
+                  and New and Paste add items there. Deleting there removes items for good: they do not \
+                  go to Drive's trash. Docs, Sheets and Slides files cannot be copied as files. Off: Google \
+                  Drive is read-only, and its files can be opened and copied to this PC.",
+    keywords: "google drive gdrive cloud online account gnome online accounts write writable read-only \
+               copy move rename delete upload new folder paste drag drop change edit",
+};
+
 const SHOW_PREVIEWS: RowText = RowText {
     title: "Show previews",
     description: "Pictures, videos and documents show their contents instead of an icon.",
@@ -222,6 +233,7 @@ pub(super) fn build(page: &SettingsPage) -> SettingsSection {
     files.append_group(&details_group(page));
     files.append_group(&replacing_group(page));
     files.append_group(&deleting_group(page));
+    files.append_group(&google_drive_group(page));
     files.append_group(&clipboard_group(page));
     files.append_group(&previews_group(page));
     files
@@ -403,6 +415,24 @@ fn deleting_group(page: &SettingsPage) -> SettingsGroup {
         read: |preferences| preferences.delete_removable_permanently,
         write: |on| PreferencesUpdate {
             delete_removable_permanently: Some(on),
+            ..PreferencesUpdate::default()
+        },
+    };
+    row.add_control(&page.preference_switch(binding), ControlName::RowTitle);
+    group.add_row(&row);
+    group
+}
+
+/// Whether Google Drive takes changes (DEV-013): off by default, the
+/// owner's read-only drive. Windows has no Google Drive, so "Behave like
+/// Windows Explorer" leaves it alone.
+fn google_drive_group(page: &SettingsPage) -> SettingsGroup {
+    let group = SettingsGroup::new(&ox_core::i18n::gettext("Google Drive"));
+    let row = SettingRow::new(GOOGLE_DRIVE_CHANGES);
+    let binding = PreferenceBinding {
+        read: |preferences| preferences.allow_google_drive_changes,
+        write: |on| PreferencesUpdate {
+            allow_google_drive_changes: Some(on),
             ..PreferencesUpdate::default()
         },
     };
