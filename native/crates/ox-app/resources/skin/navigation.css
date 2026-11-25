@@ -146,7 +146,9 @@ paned.address-search > separator { min-width: 8px; background: none; border: non
   box-shadow: none;
   outline: none;
   min-height: 32px;
-  padding: 0 9px 0 12px;
+  /* 20px at the right, so the clear X's centre is 35.5px left of the
+     magnifier's, as Windows 11 draws a search (ref-29). */
+  padding: 0 20px 0 12px;
   /* No gap after the hidden leading magnifier: the text starts 12px in. */
   border-spacing: 0;
   color: @ox_text;
