@@ -223,13 +223,85 @@ fn the_chevron_after_the_icon_lists_the_top_level_places() {
     ));
 
     chevron.emit_clicked();
-    let menu = open_menu(&test);
-    assert_eq!(menu.row_labels(), ["Home", "This PC", "Network", "Recycle Bin"]);
-    menu.row("Home").activate();
+    let list = root_list(&test);
+    let user = glib::home_dir()
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .expect("the home folder has a name");
+    let labels: Vec<String> = root_rows(&list).iter().map(|(label, _)| label.clone()).collect();
+    assert_eq!(
+        labels,
+        [
+            "Home",
+            "Gallery",
+            "Desktop",
+            "Documents",
+            "Downloads",
+            "Music",
+            "Pictures",
+            "Videos",
+            user.as_str(),
+            "This PC",
+            "Network",
+            "Recycle Bin"
+        ],
+        "Windows 11's list; Libraries and Control Panel left out"
+    );
+    assert!(descendants::<gtk::Image>(&list).is_empty(), "text only, no icons");
+    let rows = descendants::<gtk::ListBoxRow>(&list);
+    wait_until("the rows laid out", || rows[0].height() > 0);
+    assert_eq!(
+        list.child().expect("a list").width(),
+        ROOT_LIST_WIDTH,
+        "214 px wide"
+    );
+    assert!(
+        rows.iter().all(|row| row.height() == ROOT_ROW_HEIGHT),
+        "32 px rows"
+    );
+    let scroller = descendants::<gtk::ScrolledWindow>(&list).remove(0);
+    assert_eq!(
+        scroller.height(),
+        ROOT_ROW_HEIGHT * 10,
+        "ten rows, then it scrolls"
+    );
+    assert!(scroller.vadjustment().upper() > scroller.vadjustment().page_size());
+
+    rows[0].activate();
     let home = test.window.imp().locations.borrow().home_uri();
     wait_until("the home folder", || {
         test.window.current_uri() == Some(home.clone())
     });
+    assert!(!list.is_visible(), "choosing a row closes the list");
+}
+
+/// The width of the root chevron's list, as measured on Windows 11.
+const ROOT_LIST_WIDTH: i32 = 214;
+
+/// The height of its rows.
+const ROOT_ROW_HEIGHT: i32 = 32;
+
+/// The shown list of the chevron after the address bar's first icon.
+fn root_list(test: &TestWindow) -> gtk::Popover {
+    let address = test.window.address_bar();
+    let list = || {
+        descendants::<gtk::Popover>(address)
+            .into_iter()
+            .find(|popover| popover.is_visible() && popover.has_css_class("root-places"))
+    };
+    wait_until("the root list", || list().is_some());
+    list().expect("the root list")
+}
+
+/// Its rows' labels, top to bottom.
+fn root_rows(list: &gtk::Popover) -> Vec<(String, gtk::ListBoxRow)> {
+    descendants::<gtk::ListBoxRow>(list)
+        .into_iter()
+        .filter_map(|row| {
+            let label = descendants::<gtk::Label>(&row).into_iter().next()?;
+            Some((label.label().to_string(), row))
+        })
+        .collect()
 }
 
 #[gtk::test]
@@ -408,4 +480,78 @@ fn closing_a_crumbs_menu_gives_the_keyboard_back_to_the_crumb() {
         Some(current.clone().upcast()),
         "the keyboard is back on the crumb"
     );
+}
+
+/// The search box, at Windows 11's default width: 499 pixels in a window
+/// wide enough, 8 pixels after the address bar, which takes the rest of
+/// the row (ref-01, ref-24, ref-29: 1920 pixels wide). A drag of the
+/// divider between them changes it, and every window remembers it; a
+/// narrow window shrinks the search box first, down to 173 pixels.
+///
+/// parity: LOOK-012
+#[gtk::test]
+#[expect(clippy::cast_possible_truncation, reason = "widget widths are small")]
+fn the_search_box_takes_windows_width_and_its_divider_is_remembered() {
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    resize(&test, 1400);
+    let search = test.window.search_box().clone();
+    let address = test.window.address_bar();
+    let paned = test.window.search_divider();
+    // The drawn boxes, borders included, as the reference shots measure.
+    let drawn = |widget: &gtk::Widget| widget.compute_bounds(&paned).expect("shown");
+    let search_width = || drawn(search.upcast_ref()).width().round() as i32;
+    wait_until("Windows' default width", || search_width() == 499);
+    let gap = drawn(search.upcast_ref()).x()
+        - (drawn(address.upcast_ref()).x() + drawn(address.upcast_ref()).width());
+    assert!((gap - 8.0).abs() < 0.5, "8 pixels apart: {gap}");
+
+    paned.set_position(paned.width() - 8 - 320);
+    wait_until("the dragged width", || search_width() == 320);
+    wait_until("the width saved", || {
+        test.context.settings_data().preferences.search_box_width == Some(320)
+    });
+    resize(&test, 1200);
+    assert_eq!(search_width(), 320, "a wider or narrower window keeps it");
+    let second = test.open_beside(&fixture.uri());
+    resize(&second, 1400);
+    let second_paned = second.window.search_divider();
+    let second_search = second.window.search_box().clone();
+    wait_until("the other window's width", || {
+        second_search
+            .compute_bounds(&second_paned)
+            .is_some_and(|bounds| bounds.width().round() as i32 == 320)
+    });
+
+    paned.set_position(paned.width() - 8 - 700);
+    wait_until("a wide box", || search_width() == 700);
+    resize(&test, 1000);
+    assert!(search_width() < 700, "a narrow window shrinks it");
+    assert!(search_width() >= 173, "down to 173 pixels");
+}
+
+/// While the search box holds text, its X sits to the left of the
+/// magnifier, which stays, as Windows 11 draws a search (ref-29: the X's
+/// center 35.5 pixels left of the magnifier's).
+///
+/// parity: SRCH-001
+#[gtk::test]
+fn the_search_boxs_x_sits_left_of_the_magnifier_as_in_windows() {
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    resize(&test, 1400);
+    let search = test.window.search_box().clone();
+    search.set_query("notes");
+    let (clear, magnifier) = search.clear_and_magnifier();
+    let center = |widget: &gtk::Widget| {
+        let bounds = widget.compute_bounds(&search).expect("shown");
+        bounds.x() + bounds.width() / 2.0
+    };
+    wait_until("the X", || clear.is_visible() && clear.width() > 0);
+    let apart = center(&magnifier) - center(&clear);
+    assert!(
+        (apart - 35.5).abs() <= 1.0,
+        "the X 35.5 pixels left of the magnifier: {apart}"
+    );
+    assert!(magnifier.is_visible(), "the magnifier stays");
 }

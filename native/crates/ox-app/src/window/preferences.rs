@@ -70,6 +70,8 @@ pub(super) enum Preference {
     SidebarIconSize(u32),
     /// The folder tree's options (SIDE-028).
     FolderTree(FolderTreeOptions),
+    /// The search box's width, after the divider was dragged (LOOK-012).
+    SearchBoxWidth(i32),
 }
 
 impl Preference {
@@ -100,6 +102,7 @@ impl Preference {
             Preference::Sidebar(shown) => update.hide_sidebar = Some(!shown),
             Preference::SidebarIconSize(size) => update.sidebar_icon_size = Some(size),
             Preference::FolderTree(options) => update.folder_tree = Some(options),
+            Preference::SearchBoxWidth(width) => update.search_box_width = Some(f64::from(width)),
             Preference::DefaultLayout => {
                 update.sidebar_width = Some(f64::from(DEFAULT_SIDEBAR_WIDTH));
                 // An empty list clears every saved column width.
@@ -218,6 +221,7 @@ impl BrowserWindow {
         self.keep_sidebar_within_limit();
         self.reset_sidebar_on_double_click();
         self.install_sidebar_resizer();
+        self.install_search_divider();
         self.install_sidebar_toggle();
         self.install_folder_tree();
         self.follow_layout_reset();

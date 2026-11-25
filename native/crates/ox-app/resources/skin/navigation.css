@@ -12,7 +12,9 @@
 .navigation {
   background-color: @ox_chrome;
   border-bottom: 1px solid @ox_border;
-  padding: 6px 16px 4px 13px;
+  /* 11px at the right, as Windows 11's search box ends 11px from the
+     window's edge (ref-01: x 1410 to 1908 of 1920). */
+  padding: 6px 11px 4px 13px;
   min-height: 37px;
   border-spacing: 14px;
 }
@@ -134,14 +136,19 @@
 }
 
 /* ---- Search box ---- */
-.search-wrap { min-width: 233px; }
+.search-wrap { min-width: 173px; }
+/* The divider between the address bar and the search box
+   (src/window/search_divider.rs): Windows 11's 8px gap, which drags. */
+paned.address-search > separator { min-width: 8px; background: none; border: none; box-shadow: none; }
 .search-wrap entry {
   border: none;
   background: none;
   box-shadow: none;
   outline: none;
   min-height: 32px;
-  padding: 0 9px 0 12px;
+  /* 20px at the right, so the clear X's center is 35.5px left of the
+     magnifier's, as Windows 11 draws a search (ref-29). */
+  padding: 0 20px 0 12px;
   /* No gap after the hidden leading magnifier: the text starts 12px in. */
   border-spacing: 0;
   color: @ox_text;

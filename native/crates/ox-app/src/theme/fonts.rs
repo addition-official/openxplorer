@@ -501,7 +501,8 @@ fn selection_bar_rules(scale: f64) -> [String; 2] {
 /// Windows 11's Win32 menu rows, 24 pixels at 100% text (measured on its
 /// "Show more options" menu), and no least width: it is as wide as its
 /// longest row. The window menu (`system-menu`) has the 22-pixel rows of
-/// Windows 11's system menu (measured in the VM on 2026-11-24).
+/// Windows 11's system menu (measured in the VM on 2026-11-24). The root
+/// chevron's list (`root-places`) is as wide as its own 214 pixels.
 fn menu_rules(scale: f64) -> String {
     let row = 22.0 * scale + 10.0;
     let suggestion_row = 22.0 * scale + 18.0;
@@ -517,6 +518,7 @@ fn menu_rules(scale: f64) -> String {
          popover.ox-menu.compact > contents {{ min-width: {compact_width:.0}px; }}\n\
          popover.ox-menu.legacy list > row {{ min-height: {legacy_row:.0}px; }}\n\
          popover.ox-menu.legacy > contents {{ min-width: 0; }}\n\
+         popover.ox-menu.root-places > contents {{ min-width: 0; }}\n\
          popover.ox-menu.legacy.system-menu list > row {{ min-height: {system_row:.0}px; }}\n\
          popover.ox-menu list.address-suggestions > row {{ min-height: {suggestion_row:.0}px; }}"
     )

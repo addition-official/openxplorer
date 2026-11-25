@@ -106,10 +106,28 @@
               </object>
             </child>
             <child>
-              <object class="OxAddressBar" id="address_bar"/>
-            </child>
-            <child>
-              <object class="OxSearchBox" id="search_box"/>
+              <!-- The address bar and the search box, with the divider
+                   between them that sets the search box's width
+                   (src/window/search_divider.rs). The address bar takes
+                   what the window gains or loses; the search box keeps its
+                   width until the address bar is at its least. -->
+              <object class="GtkPaned" id="address_search">
+                <property name="orientation">horizontal</property>
+                <property name="hexpand">true</property>
+                <property name="resize-start-child">true</property>
+                <property name="shrink-start-child">false</property>
+                <property name="resize-end-child">false</property>
+                <property name="shrink-end-child">false</property>
+                <style>
+                  <class name="address-search"/>
+                </style>
+                <property name="start-child">
+                  <object class="OxAddressBar" id="address_bar"/>
+                </property>
+                <property name="end-child">
+                  <object class="OxSearchBox" id="search_box"/>
+                </property>
+              </object>
             </child>
           </object>
         </child>

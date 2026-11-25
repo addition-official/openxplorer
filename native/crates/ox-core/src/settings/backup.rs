@@ -420,7 +420,7 @@ mod tests {
             "itemCountsChosen": true, "remotePreviewsChosen": true,
             "menuStripPosition": "top", "columnHeaderStyle": "windows", "columnTitleLine": false,
             "shiftF10Classic": true, "f6LikeWindows": true, "networkInterval": 300,
-            "showDriveLetters": false, "textSize": 125, "sidebarWidth": 300,
+            "showDriveLetters": false, "textSize": 125, "sidebarWidth": 300, "searchBoxWidth": 320,
             "columnWidths": {"name": 320, "size": 90},
             "windowSize": {"width": 900, "height": 700, "maximized": true},
             "dialogSize": {"width": 800, "height": 600, "maximized": false},

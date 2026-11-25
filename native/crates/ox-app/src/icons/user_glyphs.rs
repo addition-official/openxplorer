@@ -130,7 +130,7 @@ pub(crate) const fn windows_source(icon: Icon) -> WindowsSource {
         Icon::MoreHorizontal => glyph(0xE712, "More"),
         Icon::MusicNote => glyph(0xE90B, "MusicInfo"),
         Icon::Open => glyph(0xE8E5, "OpenFile"),
-        Icon::Organization => glyph(0xE968, "Network"),
+        Icon::Organization | Icon::GlobeDesktop => glyph(0xE968, "Network"),
         Icon::PaintBrush => glyph(0xE771, "Personalize"),
         Icon::PanelLeft => glyph(0xE90C, "DockLeft"),
         Icon::PanelRight => glyph(0xE90D, "DockRight"),

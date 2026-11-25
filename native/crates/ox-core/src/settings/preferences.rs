@@ -38,6 +38,10 @@ const DEFAULT_NETWORK_INTERVAL: u32 = 60;
 /// Accepted sidebar widths, in pixels.
 pub const SIDEBAR_WIDTHS: RangeInclusive<u32> = 140..=560;
 
+/// The search box widths kept, in pixels: its least width to as wide as a
+/// large window's row leaves it (LOOK-012).
+pub const SEARCH_BOX_WIDTHS: RangeInclusive<u32> = 173..=1200;
+
 /// Accepted window widths, in pixels: from the window's minimum up.
 pub const WINDOW_WIDTHS: RangeInclusive<u32> = 670..=16_384;
 
@@ -330,6 +334,11 @@ pub struct Preferences {
     /// Sidebar width in pixels, once the user resized it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sidebar_width: Option<u32>,
+    /// The search box's width in pixels, once the user dragged the divider
+    /// between it and the address bar, as Windows remembers it; until
+    /// then Windows 11's default. Stored as `searchBoxWidth`.
+    #[serde(rename = "searchBoxWidth", skip_serializing_if = "Option::is_none")]
+    pub search_box_width: Option<u32>,
     /// Details-view column widths, once the user resized or reset them.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub column_widths: Option<ColumnWidths>,
@@ -836,6 +845,7 @@ impl Default for Preferences {
             show_drive_letters: true,
             text_size: DEFAULT_TEXT_SIZE,
             sidebar_width: None,
+            search_box_width: None,
             column_widths: None,
             window_size: None,
             dialog_size: None,
@@ -1131,6 +1141,9 @@ impl Preferences {
         let sidebar_width = update
             .sidebar_width
             .and_then(|width| bounded_width(width, SIDEBAR_WIDTHS));
+        let search_box_width = update
+            .search_box_width
+            .and_then(|width| bounded_width(width, SEARCH_BOX_WIDTHS));
         let column_widths = update.column_widths.as_deref().map(ColumnWidths::from_values);
 
         replace_if_some(&mut self.theme, update.theme);
@@ -1173,6 +1186,9 @@ impl Preferences {
             .filter(|size| SIDEBAR_ICON_SIZES.contains(size));
         replace_if_some(&mut self.sidebar_icon_size, icon_size);
         self.apply_hidden_sidebar_items(update);
+        if let Some(width) = search_box_width {
+            self.search_box_width = Some(width);
+        }
         if let Some(width) = sidebar_width {
             self.sidebar_width = Some(width);
         }
@@ -1388,6 +1404,8 @@ pub struct PreferencesUpdate {
     pub text_size: Option<u32>,
     /// New sidebar width in pixels; rounded when saved.
     pub sidebar_width: Option<f64>,
+    /// New search box width in pixels; rounded when saved.
+    pub search_box_width: Option<f64>,
     /// Replaces all column widths; an empty list resets them.
     pub column_widths: Option<Vec<ColumnWidth>>,
     /// New context menu style.
@@ -1626,6 +1644,7 @@ impl PreferencesUpdate {
             auto_index: flag("autoIndex"),
             text_size: values.get("textSize").and_then(read_text_size),
             sidebar_width: values.get("sidebarWidth").and_then(Value::as_f64),
+            search_box_width: values.get("searchBoxWidth").and_then(Value::as_f64),
             column_widths: values.get("columnWidths").and_then(read_column_widths),
             context_menu: text("contextMenu").and_then(ContextMenu::from_key),
             strip_position: text("menuStripPosition").and_then(StripPosition::from_key),

@@ -84,6 +84,10 @@ pub(crate) struct BrowserWindow {
     /// The search box that filters the folder.
     #[template_child]
     pub(super) search_box: TemplateChild<SearchBox>,
+    /// The address bar and the search box with the divider between them
+    /// (LOOK-012).
+    #[template_child]
+    pub(super) address_search: TemplateChild<gtk::Paned>,
     /// New, the edit commands, Sort, View, More, appearance and Details.
     #[template_child]
     pub(super) command_bar: TemplateChild<CommandBar>,

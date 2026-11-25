@@ -315,10 +315,7 @@ impl AddressBar {
         // The location's picture from the user's Windows icon files, when
         // they chose some (LOOK-030), else the app's glyph.
         icons::user_icons::show_icon(&imp.icon, role, icon, ICON_SIZE);
-        self.set_tooltip_text(Some(&ox_core::i18n::format_message(
-            "{address} · Click blank space or press Ctrl+L to edit",
-            &[("address", address)],
-        )));
+        // No tooltip, as Windows 11 File Explorer's address bar has none.
         let typing = self.mode() == AddressMode::Entry && imp.entry.focus_child().is_some();
         if !typing {
             imp.entry.set_text(address);
@@ -472,6 +469,12 @@ impl AddressBar {
     /// first to last.
     pub(super) fn hidden_crumbs(&self) -> Vec<gtk::Button> {
         self.imp().crumbs.hidden_crumbs()
+    }
+
+    /// The name of the icon at the bar's left end, for tests.
+    #[cfg(test)]
+    pub(super) fn shown_icon_name(&self) -> Option<String> {
+        self.imp().icon.icon_name().map(String::from)
     }
 
     /// The chevron after the icon and the « shown in its place, for tests.

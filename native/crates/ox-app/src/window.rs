@@ -143,10 +143,12 @@ mod quiet_tooltips;
 mod recycle_bin_place;
 mod relocated_files;
 mod result_location;
+mod root_places;
 mod rubber_band;
 mod run_on_open;
 mod saved_search;
 mod search_box;
+mod search_divider;
 mod search_layout;
 mod search_steps;
 mod select_matching;
@@ -321,6 +323,12 @@ impl BrowserWindow {
     /// The breadcrumbs or the editable address.
     fn address_bar(&self) -> &AddressBar {
         &self.imp().address_bar
+    }
+
+    /// The divider between the address bar and the search box, for tests.
+    #[cfg(test)]
+    pub(super) fn search_divider(&self) -> gtk::Paned {
+        self.imp().address_search.get()
     }
 
     /// The search box that filters the folder.

@@ -244,6 +244,9 @@ pub(crate) enum Icon {
     InvertSelection24,
     /// `laptop_20_regular`: This PC.
     Laptop,
+    /// `globe_desktop_20_regular`: the address bar's first icon on Network
+    /// and its servers, as Windows 11 draws it (reference ref-27).
+    GlobeDesktop,
     /// `link_20_regular`: Copy as path in the context menus, and New ▸
     /// Shortcut.
     Link,
@@ -455,6 +458,7 @@ impl Icon {
             Icon::Info => "ox-info-20-symbolic",
             Icon::InvertSelection24 => "ox-invert-selection-24-symbolic",
             Icon::Laptop => "ox-laptop-20-symbolic",
+            Icon::GlobeDesktop => "ox-globe-desktop-20-symbolic",
             Icon::Link | Icon::CopyAsPath => "ox-link-20-symbolic",
             Icon::MailColor20 => "ox-mail-20-color",
             Icon::MapNetworkDrive24 => "ox-map-network-drive-24-symbolic",
@@ -544,7 +548,7 @@ pub(crate) const COMMAND_ROLES: [Icon; 8] = [
 /// Every icon, in the order of [`Icon`]: for the tests that check each one
 /// ships, is recorded and resolves, and to find the icon a drawn name
 /// stands for ([`super::user_glyphs`]).
-pub(crate) const ALL_ICONS: [Icon; 128] = [
+pub(crate) const ALL_ICONS: [Icon; 129] = [
     Icon::Add,
     Icon::AddNetworkLocation24,
     Icon::Apps,
@@ -621,6 +625,7 @@ pub(crate) const ALL_ICONS: [Icon; 128] = [
     Icon::Info,
     Icon::InvertSelection24,
     Icon::Laptop,
+    Icon::GlobeDesktop,
     Icon::Link,
     Icon::MailColor20,
     Icon::MapNetworkDrive24,

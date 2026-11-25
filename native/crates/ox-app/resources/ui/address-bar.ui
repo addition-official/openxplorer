@@ -59,8 +59,12 @@
       </object>
     </child>
     <child>
-      <!-- #address-edit: the chevron that edits the address. -->
+      <!-- #address-edit: the chevron that edits the address with the
+           typed addresses listed. Hidden, as Windows 11 File Explorer's
+           address bar has nothing at its right end; F4, Alt+Down and
+           typing list the typed addresses. -->
       <object class="GtkButton" id="edit_button">
+        <property name="visible">false</property>
         <property name="tooltip-text" translatable="yes">Edit location (Ctrl+L)</property>
         <property name="valign">center</property>
         <style>

@@ -64,6 +64,36 @@ pub(super) fn address_icon(uri: &str, home_uri: &str) -> Icon {
     }
 }
 
+/// The icon at the left end of the address bar for `uri`, whose crumbs
+/// start at `first_crumb`: the root of the location's chain, as Windows 11
+/// File Explorer draws it (reference shots of build 26200, dark, 1x): a
+/// monochrome glyph, which the symbol font the user chose replaces
+/// (LOOK-031).
+pub(super) fn address_root_icon(uri: &str, first_crumb: Option<&str>, home_uri: &str) -> Icon {
+    const THIS_PC: Icon = Icon::Desktop;
+    const HOME: Icon = Icon::Home;
+    match Page::from_uri(uri) {
+        Some(Page::Home) => return HOME,
+        Some(Page::Network) => return Icon::GlobeDesktop,
+        Some(Page::Settings) => return Icon::Settings,
+        Some(Page::ThisPc) | None => {}
+    }
+    if VirtualPlace::from_uri(uri) == Some(VirtualPlace::Gallery) {
+        return Icon::Image;
+    }
+    if is_server_location(uri) {
+        return Icon::GlobeDesktop;
+    }
+    // Crumbs that start at a Home crumb are Home's; everything else on
+    // this computer is This PC's, the Recycle Bin too (ref-26).
+    let starts_at_home = first_crumb.is_some_and(|first| location::same_location(first, home_uri));
+    if starts_at_home {
+        HOME
+    } else {
+        THIS_PC
+    }
+}
+
 /// The title of a history step at `uri`, as its tab, the window and the
 /// Back and Forward menus name it: the location's title, or for a search
 /// there "Search Results in Documents", as Windows 11 File Explorer names
@@ -574,26 +604,17 @@ impl BrowserWindow {
             crumbs.push(search_crumb(&locations, uri));
         }
         let address = locations.display_location(uri);
-        let icon = step_icon(uri, &locations.home_uri(), is_search);
-        // The same place as the tab shows, for Windows icon files (LOOK-030).
-        let role = (!is_search)
-            .then(|| {
-                let drive_roots: Vec<String> = self
-                    .imp()
-                    .volumes
-                    .borrow()
-                    .iter()
-                    .filter(|row| row.kind == VolumeKind::Drive && !row.is_network())
-                    .filter_map(|row| row.uri().map(str::to_owned))
-                    .collect();
-                tab_icon(
-                    uri,
-                    &locations,
-                    (&self.network_locations(), &known_folders, &drive_roots),
-                )
-            })
-            .and_then(crate::icons::user_icons::role_of);
-        self.address_bar().show_location(&crumbs, &address, icon, role);
+        // The root of the location's chain, as Windows 11 draws it: This
+        // PC's monitor, Home's house or Network's glyph, also before search
+        // results (ref-29); its Windows icon file when the user chose some
+        // (LOOK-030).
+        let first_crumb = crumbs.first().map(|crumb| crumb.crumb.uri.as_str());
+        // Always Windows' monochrome glyph, from the symbol font when the
+        // user chose one, never a color picture of the icon files: Windows
+        // 11 draws its address bar's first icon as a glyph (ref-01, ref-24,
+        // ref-27).
+        let icon = address_root_icon(uri, first_crumb, &locations.home_uri());
+        self.address_bar().show_location(&crumbs, &address, icon, None);
     }
 
     /// Redraws the tab strip.
@@ -672,6 +693,51 @@ impl BrowserWindow {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// As Windows 11 draws the address bar's first icon (reference shots
+    /// ref-01, ref-24 to ref-27 and ref-29): the This PC monitor before a
+    /// standard folder, a drive, This PC, the Recycle Bin and search
+    /// results; Home's house before Home; Network's glyph before Network
+    /// and its servers. Inside the home folder, whose crumbs start at a
+    /// Home crumb, the house; Gallery its own glyph; Settings its gear.
+    ///
+    /// parity: NAV-025
+    #[test]
+    fn the_address_bars_icon_is_the_root_of_the_locations_chain() {
+        let home = "file:///home/demo";
+        let downloads = "file:///home/demo/Downloads";
+        let documents = "file:///home/demo/Documents";
+        let phone = "mtp://%5Busb%3A001%2C010%5D/";
+        let this_pc = Page::ThisPc.uri();
+        let cases = [
+            (downloads, Some(downloads), Icon::Desktop),
+            (
+                "file:///home/demo/Documents/RefTest",
+                Some(documents),
+                Icon::Desktop,
+            ),
+            ("file:///home/demo/Projects", Some(home), Icon::Home),
+            (home, Some(home), Icon::Home),
+            ("file:///srv/media", Some("file:///"), Icon::Desktop),
+            ("file:///", Some("file:///"), Icon::Desktop),
+            (this_pc, Some(this_pc), Icon::Desktop),
+            (TRASH_URI, Some(TRASH_URI), Icon::Desktop),
+            (phone, Some(phone), Icon::Desktop),
+            (Page::Home.uri(), Some(Page::Home.uri()), Icon::Home),
+            (Page::Network.uri(), Some(Page::Network.uri()), Icon::GlobeDesktop),
+            ("smb://nas/media", Some("smb://nas/"), Icon::GlobeDesktop),
+            (
+                ox_core::location::GALLERY_URI,
+                Some(ox_core::location::GALLERY_URI),
+                Icon::Image,
+            ),
+            (Page::Settings.uri(), Some(Page::Settings.uri()), Icon::Settings),
+        ];
+
+        for (uri, first, icon) in cases {
+            assert_eq!(address_root_icon(uri, first, home), icon, "{uri}");
+        }
+    }
     use crate::test_support::{studio_nas_mapped_drive, studio_nas_server};
     use ox_core::location::{RECENT_LOCATIONS_URI, RECENT_URI, TRASH_URI};
 
