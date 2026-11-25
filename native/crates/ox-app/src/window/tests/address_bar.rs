@@ -13,7 +13,8 @@ use gtk::{gdk, glib};
 use ox_core::settings::{PreferencesUpdate, Settings};
 
 use crate::locations::location_context;
-use crate::test_support::harness::{descendants, wait_for, wait_until, Fixture, TestWindow};
+use crate::test_support::harness::{descendants, wait_for, wait_for_frames, wait_until, Fixture, TestWindow};
+use crate::test_support::pointer::{screen_point, Button, Pointer};
 use crate::volumes::{MountControls, VolumeKind, VolumeRow, VolumeState};
 use crate::window::address_bar::AddressMode;
 use crate::window::menu_popover::MenuPopover;
@@ -533,13 +534,16 @@ fn the_search_box_takes_windows_width_and_its_divider_is_remembered() {
         - (drawn(address.upcast_ref()).x() + drawn(address.upcast_ref()).width());
     assert!((gap - 8.0).abs() < 0.5, "8 pixels apart: {gap}");
 
-    paned.set_position(paned.width() - 8 - 320);
-    wait_until("the dragged width", || search_width() == 320);
+    let mut pointer = Pointer::connect();
+    drag_the_divider(&mut pointer, &paned, 320);
+    // GTK's drag threshold may leave the handle a few pixels short.
+    let dragged = search_width();
+    assert!((dragged - 320).abs() <= 12, "dragged to about 320: {dragged}");
     wait_until("the width saved", || {
-        test.context.settings_data().preferences.search_box_width == Some(320)
+        test.context.settings_data().preferences.search_box_width == u32::try_from(dragged).ok()
     });
     resize(&test, 1200);
-    assert_eq!(search_width(), 320, "a wider or narrower window keeps it");
+    assert_eq!(search_width(), dragged, "a wider or narrower window keeps it");
     let second = test.open_beside(&fixture.uri());
     resize(&second, 1400);
     let second_paned = second.window.search_divider();
@@ -547,14 +551,39 @@ fn the_search_box_takes_windows_width_and_its_divider_is_remembered() {
     wait_until("the other window's width", || {
         second_search
             .compute_bounds(&second_paned)
-            .is_some_and(|bounds| bounds.width().round() as i32 == 320)
+            .is_some_and(|bounds| bounds.width().round() as i32 == dragged)
     });
 
-    paned.set_position(paned.width() - 8 - 700);
-    wait_until("a wide box", || search_width() == 700);
+    // The second window opened over the first.
+    second.window.set_visible(false);
+    wait_for_frames(&test.window, 3);
+    drag_the_divider(&mut pointer, &paned, 700);
+    let wide = search_width();
+    assert!((wide - 700).abs() <= 12, "dragged to about 700: {wide}");
     resize(&test, 1000);
-    assert!(search_width() < 700, "a narrow window shrinks it");
+    assert!(search_width() < wide, "a narrow window shrinks it");
     assert!(search_width() >= 173, "down to 173 pixels");
+    // The pointer goes back to where Xvfb starts it.
+    pointer.move_to(720, 500);
+}
+
+/// Drags the divider's handle with the real pointer until the search box
+/// is `width` pixels wide.
+fn drag_the_divider(pointer: &mut Pointer, paned: &gtk::Paned, width: i32) {
+    let middle = f64::from(paned.height()) / 2.0;
+    let handle = f64::from(paned.position()) + 4.0;
+    let (x, y) = screen_point(pointer, paned, (handle, middle), (720, 60));
+    // Where the handle's middle goes, from where it is.
+    let by = paned.width() - 8 - width - paned.position();
+    pointer.move_to(x, y);
+    pointer.press(Button::Primary);
+    let steps = 8;
+    for step in 1..=steps {
+        pointer.move_to(x + by * step / steps, y);
+        wait_for_frames(paned, 1);
+    }
+    pointer.release(Button::Primary);
+    wait_for_frames(paned, 2);
 }
 
 /// A narrow window squeezes the search box but is no drag of the divider:
@@ -571,13 +600,7 @@ fn a_narrow_window_squeezes_the_search_box_without_saving_it() {
     resize(&test, 1400);
     let search = test.window.search_box().clone();
     let paned = test.window.search_divider();
-    let search_width = || {
-        search
-            .compute_bounds(&paned)
-            .expect("shown")
-            .width()
-            .round() as i32
-    };
+    let search_width = || search.compute_bounds(&paned).expect("shown").width().round() as i32;
     wait_until("Windows' default width", || search_width() == 499);
 
     resize(&test, 760);

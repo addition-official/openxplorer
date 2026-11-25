@@ -16,8 +16,10 @@
 //! moves as the row's width changes (the address bar takes the
 //! difference, as its resize flags in `window.ui` ask); the divider is
 //! then put back where the search box gets its wanted width, as far as
-//! the address bar's least width allows. A move of the divider while the
-//! row keeps its width is the user's drag, whose width is saved.
+//! the address bar's least width allows. Only a move the user makes, a
+//! drag of the handle or a key on it, is saved: GTK also moves the divider
+//! as the window narrows, at a width it has already told of, and a width
+//! squeezed so is no choice of the user's.
 
 use std::cell::Cell;
 use std::rc::Rc;
@@ -38,12 +40,13 @@ pub(super) const DEFAULT_SEARCH_WIDTH: i32 = 499;
 const SAVE_DELAY: Duration = Duration::from_millis(300);
 
 /// The divider's state: the search box's wanted width, the row width it
-/// last saw, so a move that comes with a new width is the window's, not a
-/// drag, and a pending save.
+/// last saw, so a move that comes with a new width is the window's,
+/// whether the user is moving the divider, and a pending save.
 #[derive(Default)]
 struct DividerState {
     wanted: Cell<i32>,
     row_width: Cell<i32>,
+    user_moving: Cell<bool>,
     save: Cell<Option<glib::SourceId>>,
 }
 
@@ -58,6 +61,69 @@ fn handle_width(paned: &gtk::Paned) -> i32 {
 /// The handle's width in the stylesheet.
 const HANDLE_WIDTH: i32 = 8;
 
+/// Marks the moves the user makes: a drag that starts on the handle, which
+/// the paned's own gesture follows, and the paned's keys for its handle.
+fn follow_the_users_moves(paned: &gtk::Paned, state: &Rc<DividerState>) {
+    let drag = gtk::GestureDrag::new();
+    drag.set_propagation_phase(gtk::PropagationPhase::Capture);
+    drag.connect_drag_begin(glib::clone!(
+        #[strong]
+        state,
+        move |gesture, x, y| {
+            let Some(paned) = gesture.widget().and_downcast::<gtk::Paned>() else {
+                return;
+            };
+            let picked = paned.pick(x, y, gtk::PickFlags::DEFAULT);
+            let in_child = |child: Option<gtk::Widget>| {
+                child.is_some_and(|child| {
+                    picked
+                        .as_ref()
+                        .is_some_and(|picked| picked.is_ancestor(&child) || *picked == child)
+                })
+            };
+            state
+                .user_moving
+                .set(!in_child(paned.start_child()) && !in_child(paned.end_child()));
+        }
+    ));
+    for ended in ["drag-end", "cancel"] {
+        drag.connect_local(
+            ended,
+            false,
+            glib::clone!(
+                #[strong]
+                state,
+                move |_| {
+                    state.user_moving.set(false);
+                    None
+                }
+            ),
+        );
+    }
+    // Grouped with the paned's own drag gesture, which claims the press,
+    // so this one is not cancelled by it and sees the drag to its end.
+    let own = paned
+        .observe_controllers()
+        .iter::<glib::Object>()
+        .filter_map(Result::ok)
+        .find_map(|controller| controller.downcast::<gtk::GestureDrag>().ok());
+    paned.add_controller(drag.clone());
+    if let Some(own) = own {
+        drag.group_with(&own);
+    }
+    // The keys move the handle within the signal's own handler.
+    paned.connect_move_handle(glib::clone!(
+        #[strong]
+        state,
+        move |_, _| {
+            state.user_moving.set(true);
+            let state = state.clone();
+            glib::idle_add_local_once(move || state.user_moving.set(false));
+            false
+        }
+    ));
+}
+
 impl BrowserWindow {
     /// Gives the search box the saved or default width and saves a width
     /// the user drags the divider to.
@@ -69,6 +135,7 @@ impl BrowserWindow {
         let paned = self.imp().address_search.get();
         let state = Rc::new(DividerState::default());
         state.wanted.set(wanted);
+        follow_the_users_moves(&paned, &state);
         paned.connect_notify_local(
             Some("position"),
             glib::clone!(
@@ -81,8 +148,9 @@ impl BrowserWindow {
         );
     }
 
-    /// Saves the search box's width after the user moved the divider: a
-    /// move while the row kept its width.
+    /// Puts the divider back where the search box gets its wanted width
+    /// when the row's width changes, and saves the width the user moves
+    /// it to.
     fn follow_search_divider(&self, paned: &gtk::Paned, state: &Rc<DividerState>) {
         let total = paned.width();
         if total <= 0 {
@@ -102,6 +170,9 @@ impl BrowserWindow {
             if position != paned.position() || !paned.is_position_set() {
                 paned.set_position(position);
             }
+            return;
+        }
+        if !state.user_moving.get() {
             return;
         }
         let width = total - handle_width(paned) - paned.position();
