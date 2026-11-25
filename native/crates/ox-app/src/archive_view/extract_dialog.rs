@@ -171,6 +171,7 @@ fn info_button(frame: &DialogFrame, open_externally: &Rc<dyn Fn()>) -> (gtk::Men
     manager.set_halign(gtk::Align::Start);
     content.append(&manager);
     let popover = gtk::Popover::builder().child(&content).build();
+    crate::tooltip_guard::release_tooltip_on_close(&popover);
     manager.connect_clicked(glib::clone!(
         #[weak]
         frame,

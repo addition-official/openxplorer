@@ -77,6 +77,7 @@ mod imp {
         fn constructed(&self) {
             self.parent_constructed();
             self.obj().build();
+            crate::tooltip_guard::release_tooltip_on_close(&*self.obj());
         }
     }
 

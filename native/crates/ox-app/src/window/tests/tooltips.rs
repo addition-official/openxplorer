@@ -124,3 +124,126 @@ fn the_search_box_and_settings_back_button_have_no_tooltip() {
     assert_eq!(test.window.search_box().entry().tooltip_text(), None);
     assert_eq!(back.tooltip_text(), None);
 }
+
+/// A window closed, or hidden, while the real pointer rests on a row of
+/// the navigation pane whose name is cut short (its tooltip about to
+/// show) and the hidden chevrons fade in, logs no critical message: no
+/// tooltip timer or pointer query is left for a window that is gone
+/// (`Gdk-CRITICAL gdk_surface_get_device_position` killed the test
+/// process once). A user closing a window from the keyboard with the
+/// pointer over the pane does the same.
+///
+/// parity: SIDE-032, ACC-001
+#[gtk::test]
+fn closing_a_window_with_the_pointer_over_the_pane_logs_no_critical() {
+    use ox_core::settings::{PreferencesUpdate, Settings};
+
+    use super::right_drag::PROBE;
+    use crate::test_support::harness::wait_for;
+    use crate::test_support::pointer::{screen_point, Pointer};
+
+    let recorder = crate::test_support::gtk_log::LogRecorder::start();
+    let fixture = Fixture::standard();
+    let long = "A folder with a very long name that goes on past the edge of the pane";
+    fs::create_dir(fixture.path(long)).expect("fixture folder");
+    let mut pointer = Pointer::connect();
+    for hide in [false, true] {
+        let test = TestWindow::open(&fixture.uri_of(long));
+        Settings::open(test.settings_directory())
+            .update_preferences(&PreferencesUpdate {
+                hide_expand_arrows: Some(true),
+                ..PreferencesUpdate::default()
+            })
+            .expect("the settings file takes the change");
+        test.context.reload_settings();
+        test.activate("pin-folder", None);
+        wait_until("the pin", || {
+            test.window.sidebar().labels().contains(&long.to_owned())
+        });
+        test.window.present();
+        wait_for_frames(&test.window, 3);
+        let sidebar = test.window.sidebar();
+        let row = row_named(&test, long);
+        let on_row = screen_point(
+            &mut pointer,
+            sidebar.list(),
+            (120.0, sidebar.middle_of(long)),
+            PROBE,
+        );
+        let on_list = screen_point(&mut pointer, test.window.folder_pane(), (300.0, 200.0), PROBE);
+        pointer.glide(on_list, on_row, 10);
+        // Within GTK's tooltip delay, while the chevrons fade in.
+        wait_for(std::time::Duration::from_millis(100));
+        assert!(shown_tooltip(&row).is_some(), "the row's name is cut short");
+        if hide {
+            test.window.set_visible(false);
+        } else {
+            test.window.close();
+        }
+        drop(test);
+        // Longer than GTK's tooltip delay and the fade.
+        wait_for(std::time::Duration::from_millis(1200));
+    }
+    // Off every window, past the double-click time.
+    pointer.move_to(1430, 990);
+    wait_for(std::time::Duration::from_millis(700));
+    let criticals: Vec<String> = recorder
+        .warnings()
+        .into_iter()
+        .filter(|warning| warning.contains("CRITICAL") || warning.contains("gdk_surface_get_device_position"))
+        .collect();
+    assert!(criticals.is_empty(), "{criticals:?}");
+}
+
+/// A window destroyed right after one of its menus closed under the real
+/// pointer logs no critical message. The pointer over the Places menu
+/// makes the menu GTK 4.14's tooltip surface; the menu closes, the
+/// navigation pane comes back (which hides the Places button, and GTK
+/// then keeps the menu alive after its window), and the window goes
+/// before GTK hears of the pointer over the window again. GTK let go of
+/// the tooltip only for the window itself, so the timer later asked for
+/// the pointer's position on the menu, which had no surface left
+/// (`Gdk-CRITICAL gdk_surface_get_device_position`, which killed the test
+/// process in `the_navigation_pane_hides_and_a_places_button_lists_its_places`).
+///
+/// parity: SIDE-024
+#[gtk::test]
+fn a_window_destroyed_right_after_a_menu_closed_under_the_pointer_logs_no_critical() {
+    use super::right_drag::PROBE;
+    use crate::test_support::harness::wait_for;
+    use crate::test_support::pointer::{screen_point, Pointer};
+
+    let recorder = crate::test_support::gtk_log::LogRecorder::start();
+    let fixture = Fixture::standard();
+    let mut pointer = Pointer::connect();
+    let test = TestWindow::open(&fixture.uri());
+    test.window.present();
+    test.activate("sidebar", None);
+    wait_for_frames(&test.window, 3);
+    let places = test.window.places_button().clone();
+    places.popup();
+    let menu = places.popover().expect("the places menu");
+    wait_for_frames(&menu, 3);
+    let middle = (f64::from(menu.width()) / 2.0, f64::from(menu.height()) / 2.0);
+    let over = screen_point(&mut pointer, &menu, middle, PROBE);
+    pointer.move_to(over.0 + 1, over.1);
+    wait_for(std::time::Duration::from_millis(50));
+
+    places.popdown();
+    test.activate("sidebar", None);
+    drop(menu);
+    drop(places);
+    drop(test);
+    // Longer than GTK's tooltip delay.
+    wait_for(std::time::Duration::from_millis(1200));
+    // Off every window, past the double-click time.
+    pointer.move_to(1430, 990);
+    wait_for(std::time::Duration::from_millis(700));
+
+    let criticals: Vec<String> = recorder
+        .warnings()
+        .into_iter()
+        .filter(|warning| warning.contains("gdk_surface_get_device_position"))
+        .collect();
+    assert!(criticals.is_empty(), "{criticals:?}");
+}

@@ -331,6 +331,9 @@ mod imp {
             });
             popover.connect_closed(super::MenuPopover::forget_hover);
             popover.connect_closed(super::MenuPopover::clear_first_row_highlight);
+            // Run last of the handlers above, once the menu has let go of
+            // the pointer.
+            crate::tooltip_guard::release_tooltip_on_close(&*popover);
         }
 
         fn dispose(&self) {

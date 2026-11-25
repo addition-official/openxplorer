@@ -101,6 +101,7 @@ impl InfoBubble {
             .autohide(false)
             .css_classes(["info-bubble"])
             .build();
+        crate::tooltip_guard::release_tooltip_on_close(&popover);
         let button: InfoButton = glib::Object::new();
         button.set_child(Some(&icons::image(Icon::Info, INFO_GLYPH)));
         button.set_valign(gtk::Align::Center);

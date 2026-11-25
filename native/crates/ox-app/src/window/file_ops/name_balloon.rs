@@ -152,6 +152,7 @@ impl Balloon {
             .position(gtk::PositionType::Bottom)
             .css_classes([BALLOON_CLASS])
             .build();
+        crate::tooltip_guard::release_tooltip_on_close(&popover);
         popover.set_parent(editor);
         editor.connect_destroy(glib::clone!(
             #[strong]

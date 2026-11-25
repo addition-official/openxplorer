@@ -58,6 +58,7 @@ mod startup_trace;
 mod text_size;
 mod theme;
 mod thumbnails;
+mod tooltip_guard;
 mod typeahead;
 mod update;
 mod volumes;
