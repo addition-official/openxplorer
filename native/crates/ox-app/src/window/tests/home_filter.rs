@@ -57,16 +57,6 @@ fn filter_shows_on_home_alone_with_its_kinds() {
     let (fixture, test) = recent_home(&["plan.txt"]);
     let filter = filter_button(&test);
     wait_until("Filter on Home", || filter.is_visible());
-    // Windows' funnel before the label, as on every command.
-    let funnel = descendants::<gtk::Image>(&filter)
-        .into_iter()
-        .next()
-        .expect("Filter has a glyph");
-    assert_eq!(
-        funnel.icon_name().as_deref(),
-        Some(crate::icons::Icon::Filter.name()),
-        "the funnel comes first"
-    );
     let sort = command(&test, "sort-command");
     assert!(!sort.is_sensitive(), "Sort is grayed on Home");
     let mut pointer = Pointer::connect();

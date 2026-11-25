@@ -1237,14 +1237,12 @@ fn text_menu_content(label: &str, glyph: Icon) -> gtk::Box {
 /// How far New's menu opens left of where the shared menus open.
 const NEW_MENU_SHIFT: i32 = -2;
 
-/// Home's Filter ▾: the funnel, a label and a chevron, and a radio list of the kinds of file Recent and Favorites list
+/// Home's Filter ▾: a label and a chevron, as no funnel glyph is bundled,
+/// and a radio list of the kinds of file Recent and Favorites list
 /// (HOME-038), hidden until the tab shows Home.
 fn home_filter_button() -> gtk::MenuButton {
     let label = ox_core::i18n::gettext("Filter");
     let content = gtk::Box::new(gtk::Orientation::Horizontal, 9);
-    // Windows' funnel: the symbol font's Filter, Windows Explorer's own
-    // picture from its folder, else the bundled filter lines.
-    content.append(&icons::command_image(Icon::Filter, TEXT_COMMAND_GLYPH));
     content.append(&gtk::Label::new(Some(&label)));
     let chevron = icons::image(Icon::ChevronDown, CARET_GLYPH);
     chevron.add_css_class("chevron");
