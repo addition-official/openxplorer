@@ -180,16 +180,43 @@ fn ctrl_l_alt_d_the_chevron_and_blank_space_edit_the_whole_address() {
     assert_eq!(keys, ["<Control>l", "<Alt>d"]);
     let path = fixture.root().display().to_string();
     // As Windows 11 File Explorer (deb 60 next to Windows): no tooltip on
-    // the address bar, and nothing at its right end; F4 and Alt+Down
-    // still list the typed addresses.
+    // the address bar.
     assert_eq!(address.tooltip_text(), None, "no tooltip");
+    // The owner's history button at the right end shows by default; off
+    // in Settings, or with "Behave like Windows Explorer", the bar has
+    // nothing there, as Windows'. F4 and Alt+Down list the typed
+    // addresses either way.
     let history_button = descendants::<gtk::Button>(address)
         .into_iter()
-        .find(|button| button.action_name().as_deref() == Some("win.address-history"));
-    assert!(
-        history_button.is_none_or(|button| !button.is_visible()),
-        "no button at the right end"
+        .find(|button| button.action_name().as_deref() == Some("win.address-history"))
+        .expect("the history button");
+    assert!(history_button.is_visible(), "shown by default");
+    assert!(gtk::test_accessible_has_property(
+        &history_button,
+        gtk::AccessibleProperty::Label
+    ));
+    test.context.update_preferences(
+        ox_core::settings::PreferencesUpdate {
+            address_history_button: Some(false),
+            ..ox_core::settings::PreferencesUpdate::default()
+        },
+        |result| result.expect("saved"),
     );
+    wait_until("the button hidden", || !history_button.is_visible());
+    test.context.update_preferences(
+        ox_core::settings::PreferencesUpdate {
+            address_history_button: Some(true),
+            ..ox_core::settings::PreferencesUpdate::default()
+        },
+        |result| result.expect("saved"),
+    );
+    wait_until("the button back", || history_button.is_visible());
+    let windows = ox_core::settings::turn_on(&test.context.settings_data().preferences);
+    test.context
+        .update_preferences(windows, |result| result.expect("saved"));
+    wait_until("hidden by Behave like Windows Explorer", || {
+        !history_button.is_visible()
+    });
 
     // The bar's own click, which the icon and blank space reach; the
     // crumbs and chevrons claim theirs.
