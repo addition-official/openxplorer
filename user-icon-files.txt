@@ -1,6 +1,77 @@
 STATUS: DONE
-HEAD: icons-fluent-audit eb107bf2 (branched from origin/test-combined-61)
+HEAD: icons-explorer-assets 15e6091b (branched from icons-fluent-audit eb107bf2, which is origin/test-combined-61 plus round 18)
 QUESTION: none.
+NOTE: Round 19, Windows Explorer's own command pictures (LOOK-034; LOOK-032 was taken). Settings > Appearance > File icons has a new row "Windows Explorer icons folder" (Choose folder..., Clear) under the symbol font; only the path is stored (explorerIcons), nothing is bundled or copied. While Icons from Windows icon files is on, the folder's contrast-standard/theme-dark, contrast-standard/theme-light, contrast-black and contrast-white are listed off the main thread (names in any case; the Assets folder above images is accepted too) and the picture of the look drawn is used: theme-dark/theme-light by the app's appearance, contrast-black (dark) / contrast-white (light) in high contrast, redrawn when either changes. Pictures keep their own colors (two-tone accent included; our accent overlay steps aside) and are drawn at 16 px in the app's square, crisp at the window scale. Missing, damaged (not one svg element), unreadable or over 256 KiB pictures keep the app's icon. Without the folder nothing changes.
+NOTE: Where: command bar buttons, the View button and View menu, every menu row with a glyph (command_image / accented_image), the Details pane button, and the address bar's root. Not changed: navigation pane places, Home tiles, Settings, classic (legacy) menus, the navigation buttons.
+NOTE: Also changed so each command can take its own picture: new roles ViewMedium, ViewSmall (Medium/Small icons used Desktop and Grid, shared with other places) and ExtractAll (Extract all used Compress to's FolderZip); the item menu's Rotate left/right now use the RotateLeft/RotateRight roles (were ArrowCounterclockwise/ArrowClockwise, shared with Restore and Refresh); the "..." menu's Unpin from Quick access uses Icon::Unpin (was Icon::Pin).
+NOTE: Checked locally, not committed: all 252 mapped files (63 commands x 4 looks) of the user's FileExplorerAssets render through GDK's SVG loader once nested as the app nests them; contact sheets were sent in chat only. The user's FileExplorerAssets copy stays outside the repository (/tmp) and will be deleted at the end of this round.
+NOTE: Tests run (touched modules only): explorer_icons 5/5 (synthetic folder, made-up square pictures, four looks by color), settings_page:: 133/133 (new the_explorer_icons_folder_row_says_what_the_folder_draws), ox-core settings:: 151/151, command_bar 62/62, address_bar 40/40, menu_popover 21/21, windows_icon_files 4/4, view_styles 19/19, place_menus 11/11, sidebar:: 43/43, tab_menu 4/4, context_menus 27/28 as root (the permission test passes as nobody, 1/1), icons:: 55/56 (high_contrast_paints_the_place_glyphs_in_the_text_colour, the flake origin/test-combined-61 has too). parity/check.py passes; tools/check.py only fails on menu_popover.rs:2238/2288 (pre-existing). Clippy: only home_page.rs:431 and tests/nav_tree.rs:307, pre-existing. The .pot was regenerated; no .po file touched.
+NOTE: Commands that still have no picture from the folder: Back, Forward, Up (navigation buttons; Windows draws them from the font), See more (...), the New button's caret, Settings, the search box's glyph, Open, Open file location (windows.shortcut.opencontaining exists, but our row uses the generic folder icon), File name extensions (windows.showfileextensions exists, our row uses the generic document icon), Expand / Collapse in the navigation pane's menu (windows.expand/collapse exist, our rows use generic chevrons), Browse folders, Folders first, Larger/Smaller/Reset text size, the appearance choices, Privacy, Mail recipient, the Sort menu's field rows and the Search options rows (both shown without glyphs, as Windows' parity tests require). Files in the folder no command of ours uses yet: print, RunAsAdmin, PinToStartScreen, windows.unpinfromstartscreen, windows.sendto, windows.pasteshortcut, windows.mount, windows.burn.action, windows.discimage.burn, windows.diskformat, windows.install, windows.cleanup, windows.openfolder, windows.sortbycolumn, windows.searchoption*/searchfilter*, windows.customizemenu and others. Say which of these should get their own role.
+MAP (command (our icon) | file in Assets\images\<look>\)
+command bar New; menus New (Icon::Add) | windows.newitem.svg
+Cut (Icon::Cut) | windows.cut.svg
+Copy (Icon::Copy) | windows.copy.svg
+Paste (Icon::ClipboardPaste) | windows.paste.svg
+Rename (Icon::Rename) | windows.rename.svg
+Share (Icon::Share) | Windows.ModernShare.svg
+Delete (Icon::Delete) | windows.ribbondelete.svg
+Sort button; Sort by row (Icon::ArrowSort) | SortBy.svg
+View button (before the view is known); View submenu row (Icon::Grid) | View.svg
+New > Folder (Icon::FolderAdd) | newfolder.svg
+New > Shortcut; Create shortcut (Icon::Link) | link.svg
+Compress to (Icon::FolderZip) | Windows.Zip.Action.svg
+Rotate left (Icon::RotateLeft) | windows.rotate270.svg
+Rotate right (Icon::RotateRight) | windows.rotate90.svg
+Set as background (Icon::SetAsBackground) | windows.setdesktopwallpaper.svg
+Eject (Icon::ArrowEject) | windows.eject.svg
+Map network drive (Icon::MapNetworkDrive24) | windows.mapnetworkdrive.svg
+Disconnect network drive (Icon::DisconnectNetworkDrive24) | windows.disconnectnetworkdrive.svg
+Add a network location (Icon::AddNetworkLocation24) | windows.addnetworklocation.svg
+View: Details (menu and button) (Icon::TextDescription) | windows.iconsize.details.svg
+View: Extra large icons (Icon::ViewExtraLarge) | windows.iconsize.extralarge.svg
+View: Large icons (Icon::ViewLarge) | windows.iconsize.large.svg
+View: Medium icons (Icon::ViewMedium) | windows.iconsize.medium.svg
+View: Small icons (Icon::ViewSmall) | windows.iconsize.smallicon.svg
+View: List (Icon::TextColumnTwo) | windows.iconsize.list.svg
+View: Tiles (Icon::AppsListDetail) | windows.iconsize.tile.svg
+View: Content (Icon::ContentView) | windows.iconsize.content.svg
+View: Compact view (Icon::ArrowAutofitHeight) | windows.compactmode.svg
+View > Show: Navigation pane (Icon::PanelLeft) | windows.navpane.svg
+Details pane (button and View row) (Icon::PanelRight) | windows.readingpane.svg
+Preview pane (Icon::PanelRightGallery) | windows.previewpane.svg
+Item check boxes (Icon::CheckboxChecked) | windows.selectioncheckboxes.svg
+Hidden items; View > Show (Icon::Eye) | windows.showhiddenfiles.svg
+Undo (and Redo, mirrored, in the "..." menu) (Icon::ArrowUndo) | windows.undo.svg
+Redo (item menu) (Icon::ArrowRedo) | windows.redo.svg
+Select all (Icon::SelectAll24) | windows.selectall.svg
+Select none (Icon::SelectNone24) | windows.selectnone.svg
+Invert selection (Icon::InvertSelection24) | windows.invertselection.svg
+Options (Icon::Options24) | windows.folderoptions.svg
+Open in new tab (Icon::OpenInNewTab) | windows.opennewtab.svg
+Open in new window (Icon::OpenInNewWindow) | windows.opennewwindow.svg
+Open with (Icon::OpenWith) | windows.openwith.svg
+Copy as path (Icon::CopyAsPath) | windows.copyaspath.svg
+Properties (Icon::Wrench) | windows.properties.svg
+Properties (folder tree, Home) (Icon::Info) | windows.properties.svg
+Open in Terminal (Icon::WindowConsole) | windows.powershell.run.svg
+Pin to Quick access (Icon::Pin) | windows.pintohome.svg
+Unpin from Quick access (Icon::Unpin) | windows.unpinfromhome.svg
+Add to Favorites (Icon::Star) | windows.pintohomefile.svg
+Show more options (Icon::ShowMoreOptions) | expandtoclassic.svg
+Refresh (menu rows) (Icon::ArrowClockwise) | windows.refresh.svg
+Filter (Home) (Icon::Filter) | SearchFilter.svg
+Extract all (Icon::ExtractAll) | windows.compressedfile.extract.svg
+Group by (Icon::TextBulletList) | windows.groupbycolumn.svg
+Restore (Recycle Bin) (Icon::ArrowCounterclockwise) | windows.recyclebin.restoreitems.svg
+Empty Recycle Bin (Icon::DeleteDismiss) | windows.recyclebin.empty.svg
+Close (tab menu rows, title bar menu rows that are not legacy) (Icon::Dismiss) | windows.close.svg
+Close search (Icon::Dismiss16) | windows.searchclosetab.svg
+Search options (Icon::SearchSettings) | SearchAdvancedOptions.svg
+address bar root: Home (Icon::Home) | addressbar.home.svg
+address bar root: This PC (Icon::Desktop) | addressbar.desktop.svg
+address bar root: Gallery (Icon::Image) | addressbar.gallery.svg
+address bar root: Network (Icon::GlobeDesktop) | addressbar.network.svg
+ROUND 18
 NOTE: Round 18, Fluent asset audit, from the PC manager workflow. Every command bar, navigation, address bar, tab, View button and menu-row icon on the reference captures was cropped and scored against every 16 and 20 pixel regular and filled icon of the pinned @fluentui/svg-icons 1.1.343 (tarball SHA-1 2b74740b18af25923a00061d80a00245a207f5f9), each rasterized at 12 to 20 pixels and compared by ink overlap with the crop (1.000 = identical ink). Where the user's Segoe Fluent Icons glyph scored higher in rounds 15 to 17, Windows draws the font glyph and ours keeps it with the font on.
 NOTE: Added byte for byte to resources/icons, listed in SOURCES.md with their SHA-256 (awaiting the owner's review like the earlier additions): text_description_ltr_20_regular, desktop_16_regular, expand_up_right_20_regular, pin_off_20_regular. They draw with or without the symbol font where marked "Fluent always" below; where marked "Fluent without the font", the Segoe glyph wins with the font on.
 NOTE: New roles: Icon::ViewExtraLarge (desktop_20), Icon::OpenInNewTab (window_new_20, used by every "Open in new tab" row: place menus, folder tree, navigation pane, item menu, address menu), Icon::TextDescription; plain icons Icon::Desktop16, Icon::ExpandUpRight, Icon::PinOff so every bundled file is an icon's name. Large icons no longer use the font's E7F4 (Fluent's desktop_16 scores 0.937).
