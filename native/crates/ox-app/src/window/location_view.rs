@@ -596,7 +596,7 @@ impl BrowserWindow {
         // (LOOK-030).
         let first_crumb = crumbs.first().map(|crumb| crumb.crumb.uri.as_str());
         // Always Windows' monochrome glyph, from the symbol font when the
-        // user chose one, never a colour picture of the icon files: Windows
+        // user chose one, never a color picture of the icon files: Windows
         // 11 draws its address bar's first icon as a glyph (ref-01, ref-24,
         // ref-27).
         let icon = address_root_icon(uri, first_crumb, &locations.home_uri());
