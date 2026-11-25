@@ -264,6 +264,8 @@ pub(crate) const fn em_of(icon: Icon, size: i32) -> i32 {
         Icon::Pin if size == 14 => 10,
         // The search box's magnifier, 11 by 11.
         Icon::Search if size == 15 => 13,
+        // The command bar's "See more" dots, 16 by 3 at 20, as Windows'.
+        Icon::MoreHorizontal if size == 20 => 20,
         // Back, Forward, Up and Refresh beside the address bar: the
         // arrows ink their whole em, Windows' 12 by 12.
         Icon::ArrowLeft | Icon::ArrowRight | Icon::ArrowUp | Icon::ArrowClockwise if size == 16 => 12,
@@ -283,6 +285,37 @@ const CHEVRON_EM: i32 = 8;
 
 /// The font size of the caption buttons' glyphs.
 const CAPTION_EM: i32 = 10;
+
+/// The part of `icon`'s glyph Windows 11 File Explorer draws in its accent
+/// colour on the command bar and the menus' strip, as a rectangle of the
+/// em in sixteenths (left, top, right, bottom): measured on Windows'
+/// own command bar against the glyphs of Segoe Fluent Icons 1.54, as the
+/// rectangle whose part of the glyph best matches the blue there. `None`
+/// for a glyph drawn in one colour (Paste's accent cannot be measured on
+/// the references, where Paste is greyed).
+pub(crate) const fn accent_of(icon: Icon) -> Option<(i32, i32, i32, i32)> {
+    match icon {
+        // New's plus, inside its circle: the plus's own outline's bounds.
+        Icon::Add => Some((4, 4, 11, 11)),
+        // The two finger rings.
+        Icon::Cut => Some((0, 10, 15, 16)),
+        // The front sheet.
+        Icon::Copy => Some((5, 0, 15, 12)),
+        // The text in the box.
+        Icon::Rename => Some((3, 0, 12, 16)),
+        // The arrow.
+        Icon::Share => Some((4, 0, 15, 11)),
+        // The down arrow.
+        Icon::ArrowSort => Some((9, 0, 16, 14)),
+        _ => None,
+    }
+}
+
+/// Whether `icon` in a square of `size` pixels is drawn from the chosen
+/// symbol font now, rather than as the app's own icon.
+pub(crate) fn draws_from_font(icon: Icon, size: i32) -> bool {
+    drawn_name(icon, size) != icon.name()
+}
 
 /// The glyph of `icon` in a square of `size` pixels: a dismiss X in a
 /// square of 15 pixels or less is a caption or dialog button, which

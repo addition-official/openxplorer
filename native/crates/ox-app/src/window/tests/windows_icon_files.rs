@@ -242,6 +242,16 @@ fn the_windows_glyphs_come_from_the_chosen_symbol_font() {
             "{glyph} in the menu: {menu_glyphs:?}"
         );
     }
+    // The strip's Copy shows Windows' accent part, its front sheet, over
+    // the glyph.
+    assert!(
+        descendants::<gtk::Image>(&menu)
+            .iter()
+            .any(|image| image.has_css_class("glyph-accent")
+                && image.is_mapped()
+                && image.icon_name().as_deref() == Some("ox-win-copy-20-box18-symbolic")),
+        "Copy's accent part shows"
+    );
     menu.popdown();
 
     test.context.update_preferences(

@@ -52,6 +52,11 @@ use overflow::OverflowLayout;
 /// Windows 11's command bar does (ui-spec.md I01; measured at 1x).
 const ICON_COMMAND_GLYPH: i32 = 18;
 
+/// The square of "See more"'s dots: 20 pixels, the font's More glyph at a
+/// 20-pixel em inks 16 by 3, as Windows 11's does (measured with the real
+/// font against its command bar); the app's own dots grow with it.
+const MORE_GLYPH: i32 = 20;
+
 /// The square of the glyph of a command with a label.
 const TEXT_COMMAND_GLYPH: i32 = 18;
 
@@ -1105,7 +1110,7 @@ fn separator() -> gtk::Separator {
 
 fn icon_button(command: &IconCommand) -> gtk::Button {
     let button = gtk::Button::builder()
-        .child(&icons::image(command.glyph, ICON_COMMAND_GLYPH))
+        .child(&icons::accented_image(command.glyph, ICON_COMMAND_GLYPH))
         .tooltip_text(ox_core::i18n::gettext(command.tooltip))
         .action_name(command.action.detailed_name())
         .valign(gtk::Align::Center)
@@ -1121,7 +1126,7 @@ fn icon_button(command: &IconCommand) -> gtk::Button {
 /// `arrow`).
 fn text_menu_content(label: &str, glyph: Icon) -> gtk::Box {
     let content = gtk::Box::new(gtk::Orientation::Horizontal, 9);
-    content.append(&icons::image(glyph, TEXT_COMMAND_GLYPH));
+    content.append(&icons::accented_image(glyph, TEXT_COMMAND_GLYPH));
     content.append(&gtk::Label::new(Some(label)));
     let chevron = icons::image(Icon::ChevronDown, CARET_GLYPH);
     chevron.add_css_class("chevron");
@@ -1184,7 +1189,7 @@ fn extract_all_button() -> gtk::Button {
 fn more_button() -> (gtk::MenuButton, MenuPopover) {
     let menu = MenuPopover::new(more_menu(&MoreMenuState::default()));
     let button = gtk::MenuButton::builder()
-        .child(&icons::image(Icon::MoreHorizontal, ICON_COMMAND_GLYPH))
+        .child(&icons::image(Icon::MoreHorizontal, MORE_GLYPH))
         .tooltip_text(ox_core::i18n::gettext("See more"))
         .popover(&menu)
         .valign(gtk::Align::Center)

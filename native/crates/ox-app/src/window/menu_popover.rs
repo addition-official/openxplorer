@@ -1176,7 +1176,7 @@ impl MenuPopover {
             .halign(gtk::Align::Center)
             .valign(gtk::Align::Center)
             .build();
-        face.append(&icons::image(item.glyph, ROW_ICON));
+        face.append(&icons::accented_image(item.glyph, ROW_ICON));
         let label = gtk::Label::builder()
             .label(&item.label)
             .ellipsize(gtk::pango::EllipsizeMode::End)
