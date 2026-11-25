@@ -1,0 +1,56 @@
+STATUS: RUNNING (merged and pushed; GitHub Actions builds the deb)
+HEAD: test-combined-62 f6f2c0d4583b424e1ca761d5b139a69ff18215d3
+
+BRANCH: test-combined-62, started from deb 61's test-combined-61 067b01c5 (workflow file in the tree). Each tip was its branch's newest when merged and still is.
+
+REQUIRED TESTS:
+- Sidebar SIGTRAP: FAIL. In the long run (the touched-module filters below, deb 61's set plus a few more, in one process) the process still died with SIGTRAP on "Gdk-CRITICAL gdk_surface_get_device_position: assertion 'GDK_IS_SURFACE (surface)' failed" in window::tests::sidebar::the_navigation_pane_hides_and_a_places_button_lists_its_places, the same test as deb 61, although pass-4-tooltip-crash 3cede575 is in the tree. (That run reached it in a second process: the first died earlier, see the next point.) The sidebar tests alone in one process: 22 of 22 passed. So the crash still needs some earlier test in the same process; this fix covers the Places-menu case it tests, not the one this run meets.
+- window::tests::command_bar_switch::a_click_elsewhere_closes_the_menu_and_still_acts_there: PASS (pass-5-root-icon's new tip fixes it).
+- theme::stylesheets::tests::the_rules_name_colours_only_by_token: PASS (this-pc-look's colour tokens fix it).
+
+MERGES (in the order given):
+- pass-4-tooltip-crash 3cede575 -> 42b3c3fc: no conflicts.
+- pass-5-root-icon 2d28aab3 -> c9bdc52b. Its new "Show the address bar's history button" setting met the tree's "Show Select items matching... in the ... menu" (home-like-windows-2) in the same places; both kept: the preference fields, their defaults and updates, the Behave like Windows Explorer lines (both off there), the Settings test rows and the settings round-trip test (both keys changed).
+- this-pc-look c74dc2cc -> b7c248fe: no conflicts.
+- title-hyphen-default 1d01125f -> 4c8994ef: generated files only (.pot regenerated). Its removal of the hyphen setting is complete: no row, no Behave like Windows Explorer line; the old hyphenInWindowTitles key is only named in the test that checks it is dropped.
+- home-like-windows-2 860f298a -> cda817a0, icons-fluent-audit eb107bf2 -> f6f2c0d4: no conflicts.
+- icons-explorer-assets not merged, as asked.
+
+SKIPPED: none.
+
+TESTS RUN HERE (isolated under Xvfb):
+- ox-core lib settings:: : 151 of 151 passed.
+- ox-app lib, 729 tests (deb 61's filters plus command_bar_switch, title_bar, landing, location_view and the window title tests), one process, continued after each crash in a new process:
+  - FINDING, crash: window::tests::landing_pages::a_drive_tile_has_the_drive_menu_and_its_properties dies with SIGTRAP on "Gtk-CRITICAL gtk_native_get_surface: assertion 'GTK_IS_NATIVE (self)' failed", even run alone. It does so alone on test-combined-61 067b01c5 too, and just after pass-4-tooltip-crash (42b3c3fc); in deb 61's long run it failed without crashing; on test-combined-60 it passed. So it came with deb 61's merges, not this deb's.
+  - The sidebar crash above.
+  - 15 failures, all also failing in deb 61: address_bar::the_search_boxs_x_sits_left_of_the_magnifier_as_in_windows; address_input::left_and_right_stop_at_the_first_chevron_and_the_last_crumb; context_menus::a_folder_without_write_permission_keeps_new_and_paste_and_shows_the_error (as on test-combined-58 and 60); focus::tab_after_escaping_the_address_goes_round_in_explorers_order_with_every_stop_shown; home_page (8): a_quick_access_tile_shows_its_name_its_location_and_a_pin, a_quick_access_tiles_menu_draws_no_ring_around_its_rows, compact_view_draws_quick_access_tiles_closer, home_has_no_band_under_the_titles_and_its_tiles_do_not_touch, home_is_spaced_as_windows_11_home, the_keyboard_comes_back_to_the_item_whose_menu_closed, the_quick_access_heading_is_a_pill_around_its_title, the_tiles_stand_as_windows_11s_beside_the_details_pane; home_recent::a_recent_rows_menu_draws_the_chosen_fonts_glyphs; narrow_windows::commands_that_do_not_fit_move_into_see_more; panes_layout::the_status_bar_view_buttons_are_flat_side_by_side_with_the_view_on_a_gray_square (all window::tests::).
+  - Fixed since deb 61: the stylesheet test, the command bar click test, landing_pages::a_drive_tile_menu_is_the_file_menu_with_windows_drive_items, landing_pages::drive_tiles_are_laid_out_as_the_tiles_view and nav_tree::a_real_click_on_a_drive_s_chevron_lists_its_folder_tree now pass.
+  - Everything else run passed.
+No full suite.
+
+CORRECTION to deb 61's status: its ox-app count ("688 passed, 1 failed") was wrong. In that run a failing test's result often printed on a line of its own, after its panic, and with the process crashed no summary listed them; I counted only failures printed on the test's own line. Read properly, deb 61's run had 20 failures before the crash (the 15 above, the stylesheet test, the landing pages' a_drive_tile_has_the_drive_menu_and_its_properties, a_drive_tile_menu_is_the_file_menu_with_windows_drive_items and drive_tiles_are_laid_out_as_the_tiles_view, and nav_tree::a_real_click_on_a_drive_s_chevron_lists_its_folder_tree). Its status file has the same correction appended.
+
+CHECKS HERE: cargo check of the workspace (and of all targets): no errors or warnings; rustfmt clean; parity check, i18n check and sync-docs --check pass. No .po file touched. On top of upstream main 5243f3ea: 738 commits, all by addition-official <239187859+addition-official@users.noreply.github.com> (author and committer) except the owner's 2 #366 commits by AKolenda; no trailers. No status/*.txt or status/*.md in the tree. No release build here; GitHub Actions builds and checks the deb.
+
+CHANGES (everything since deb 61, in plain words):
+- Tooltip fix (pass-4-tooltip-crash): when any of the app's popovers (menus, choice lists, info bubbles, the address bar's suggestions, rename balloons and others) closes in a window that stays open, the app asks GTK to look at the pointer again, so GTK's tooltip points at the window under the pointer and is let go when that window closes. Aimed at the test-run crash above.
+- Address bar (pass-5-root-icon): the root chevron's list is Windows 11's whole list: after This PC the mounted removable and optical drives, then Network and the Recycle Bin, then the folders on the Desktop. The owner's history button at the address bar's right end (lists typed addresses) is back and on by default, with a new setting "Show the address bar's history button" under Settings > General > Address bar; Behave like Windows Explorer turns it off, as Windows 11 has nothing there. The editable-address setting's description now says the switch for one window is in the address's own menu.
+- This PC capacity bar (this-pc-look): its colours are now theme colours (light, dark and high contrast) instead of fixed values; high contrast draws it in the appearance's own colours.
+- Window titles (title-hyphen-default): every window is now titled with a hyphen, "Documents - OpenXplorer", "Settings - OpenXplorer", and an archive's "Photos.zip - Compressed folder", for everyone. The setting "Separate window titles with a hyphen (like Windows)" is removed, with its Behave like Windows Explorer line; a saved value of it is ignored and dropped on the next save.
+- Quick access tiles (home-like-windows-2): tiles sized and spaced as Windows 11 measures them (264 by 58 pixels, 20 apart across and 2 down, 5-pixel corners), filled under the pointer and when selected as Windows 11 does in dark mode; the light theme keeps the item colours. The first tile's name and the pills sit where Windows puts them.
+- Icons (icons-fluent-audit): four Fluent UI System Icons added byte for byte: the View button's Details lines and the Large/Extra large icons' monitor, Open in new tab's new-window glyph, Unpin's crossed pin and Show more options' expand arrow.
+
+NEW TEXT (verbatim; U+2014 marks where the text itself has an em dash):
+New:
+- "Show the address bar's history button" (setting title)
+- "A button at the right end of the address bar lists the addresses you typed. Off, the address bar has nothing there, as in Windows 11; F4 still lists them." (its description)
+- "address bar history button typed addresses list drop-down f4 windows" (its search keywords)
+Changed:
+- "New windows show the address as text you can type in instead of breadcrumbs. While you edit an address, right-click it to switch one window." (was "New windows show the address as text you can type in instead of breadcrumbs. Right-click the address bar to switch one window.")
+Removed (the hyphen setting and the em-dash titles):
+- "Separate window titles with a hyphen (like Windows)"
+- "Titles a window \"Documents - OpenXplorer\", as Windows writes \"Documents - File Explorer\", instead of \"Documents U+2014 OpenXplorer\"."
+- "window title caption taskbar alt tab hyphen dash em dash separator windows explorer"
+- "{place} U+2014 OpenXplorer" and "{name} U+2014 Compressed folder" (the em-dash titles; "{place} - OpenXplorer" and "{name} - Compressed folder" remain)
+
+QUESTION: none.
