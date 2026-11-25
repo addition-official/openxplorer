@@ -207,6 +207,8 @@ fn the_keyboard_reaches_the_collapsed_crumbs_through_the_overflow_button() {
 #[gtk::test]
 fn the_chevron_after_the_icon_lists_the_top_level_places() {
     let _fixture = Fixture::standard();
+    // A folder on the Desktop, which Windows lists last.
+    fs::create_dir_all(glib::home_dir().join("Desktop/Zeta")).expect("a Desktop folder");
     let test = TestWindow::open(ox_core::location::PC_URI);
     let address = test.window.address_bar();
     let (chevron, overflow) = address.strip_buttons();
@@ -243,7 +245,8 @@ fn the_chevron_after_the_icon_lists_the_top_level_places() {
             user.as_str(),
             "This PC",
             "Network",
-            "Recycle Bin"
+            "Recycle Bin",
+            "Zeta"
         ],
         "Windows 11's list; Libraries and Control Panel left out"
     );

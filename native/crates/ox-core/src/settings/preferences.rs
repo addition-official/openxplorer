@@ -532,6 +532,13 @@ pub struct Preferences {
     /// gives Windows 11's "…" menu. Stored as `selectMatchingInMoreMenu`.
     #[serde(rename = "selectMatchingInMoreMenu", skip_serializing_if = "is_true")]
     pub select_matching_in_more_menu: bool,
+    /// The address bar shows its history button at its right end, which
+    /// lists the typed addresses (NAV-043), as the owner's 2.0.0 release
+    /// has it. On by default; stored only when off, which gives Windows
+    /// 11's address bar, with nothing there. Stored as
+    /// `addressHistoryButton`.
+    #[serde(rename = "addressHistoryButton", skip_serializing_if = "is_true")]
+    pub address_history_button: bool,
     /// The sidebar's icon size in pixels (16, 22, 32 or 48), or 0 for the
     /// automatic size (Dolphin's Places panel Icon Size). Stored only when
     /// chosen.
@@ -883,6 +890,7 @@ impl Default for Preferences {
             more_navigation_pane_items: true,
             more_tab_menu_items: true,
             select_matching_in_more_menu: true,
+            address_history_button: true,
             sidebar_icon_size: 0,
             hidden_sidebar_sections: Vec::new(),
             hidden_sidebar_places: Vec::new(),
@@ -1181,6 +1189,7 @@ impl Preferences {
             &mut self.select_matching_in_more_menu,
             update.select_matching_in_more_menu,
         );
+        replace_if_some(&mut self.address_history_button, update.address_history_button);
         let icon_size = update
             .sidebar_icon_size
             .filter(|size| SIDEBAR_ICON_SIZES.contains(size));
@@ -1499,6 +1508,8 @@ pub struct PreferencesUpdate {
     pub more_tab_menu_items: Option<bool>,
     /// Show Select items matching… in the "…" menu.
     pub select_matching_in_more_menu: Option<bool>,
+    /// Show the address bar's history button, or Windows' address bar.
+    pub address_history_button: Option<bool>,
     /// New sidebar icon size; one of [`SIDEBAR_ICON_SIZES`] or ignored.
     pub sidebar_icon_size: Option<u32>,
     /// Replaces the hidden sidebar sections; up to 16 short ASCII keys,
@@ -1693,6 +1704,7 @@ impl PreferencesUpdate {
             more_navigation_pane_items: flag("moreNavigationPaneItems"),
             more_tab_menu_items: flag("moreTabMenuItems"),
             select_matching_in_more_menu: flag("selectMatchingInMoreMenu"),
+            address_history_button: flag("addressHistoryButton"),
             sidebar_icon_size: values
                 .get("sidebarIconSize")
                 .and_then(Value::as_u64)
@@ -2661,6 +2673,19 @@ mod tests {
     /// parity: TAB-060, SIDE-034
     #[test]
     fn tab_menu_and_navigation_pane_extras_start_on_and_are_stored_when_off() {
+        // The address bar's history button follows the same rule.
+        let mut button = Preferences::default();
+        assert!(
+            button.address_history_button,
+            "on by default, as the owner's 2.0.0"
+        );
+        assert!(serde_json::to_value(&button).expect("serializable")["addressHistoryButton"].is_null());
+        button.apply(&PreferencesUpdate::from_json(&json!({"addressHistoryButton": false})).expect("valid"));
+        assert!(!button.address_history_button);
+        assert_eq!(
+            serde_json::to_value(&button).expect("serializable")["addressHistoryButton"],
+            json!(false)
+        );
         let keys = ["moreTabMenuItems", "moreNavigationPaneItems"];
         let mut preferences = Preferences::default();
         assert!(preferences.more_tab_menu_items && preferences.more_navigation_pane_items);

@@ -89,6 +89,7 @@ pub const WINDOWS_SETTINGS: &[WindowsSetting] = &[
     like_windows!("moreNavigationPaneItems", more_navigation_pane_items, false, "Show more items in the navigation pane"),
     like_windows!("moreTabMenuItems", more_tab_menu_items, false, "Show more items in the tab menu"),
     like_windows!("selectMatchingInMoreMenu", select_matching_in_more_menu, false, "Show Select items matching… in the … menu"),
+    like_windows!("addressHistoryButton", address_history_button, false, "Show the address bar's history button"),
     like_windows!("columnHeaderStyle", column_header_style, ColumnHeaderStyle::Windows, "Column header style"),
     like_windows!("columnTitleLine", column_title_line, false, "Show a line under column titles"),
     like_windows!("nameColumnWindowsWidth", name_column_windows_width, true, "Name column starts at Windows' width (256 px)"),

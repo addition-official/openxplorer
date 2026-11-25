@@ -5,11 +5,14 @@
 //! ten rows tall and scrolling past them with a thin scroll bar. Its rows,
 //! in Windows' order: Home, Gallery, Desktop, Documents, Downloads, Music,
 //! Pictures, Videos, the user's own folder by its folder name, This PC,
-//! then Network and the Recycle Bin. What Windows lists below This PC was
-//! not seen yet; Libraries and Control Panel, which the app has no page
-//! for, are left out. Choosing a row goes there in the tab.
+//! Libraries, its removable and optical drives, Network, Control Panel,
+//! the Recycle Bin, then the Desktop's own folders (seen whole on build
+//! 26200 on 2026-11-25). Libraries and Control Panel, which the app has no
+//! page for, are left out; a drive is listed while it is mounted, as one
+//! without a disc has no folder to open. Choosing a row goes there.
 
 use gtk::prelude::*;
+use gtk::subclass::prelude::*;
 use gtk::{gdk, glib};
 use ox_core::location::{file_uri, GALLERY_URI, NETWORK_URI, PC_URI, TRASH_URI};
 use ox_core::places::{KnownFolder, Place};
@@ -47,6 +50,8 @@ pub(super) fn root_places(
     home: &str,
     known_folders: &[Place],
     user: &std::path::Path,
+    drives: &[(String, String)],
+    desktop_folders: &[(String, String)],
 ) -> Vec<(String, String)> {
     let mut rows = vec![
         (ox_core::i18n::gettext("Home"), home.to_owned()),
@@ -63,11 +68,13 @@ pub(super) fn root_places(
     if let Some(name) = user.file_name() {
         rows.push((name.to_string_lossy().into_owned(), file_uri(user)));
     }
-    rows.extend([
-        (ox_core::i18n::gettext("This PC"), PC_URI.to_owned()),
-        (ox_core::i18n::gettext("Network"), NETWORK_URI.to_owned()),
-        (ox_core::i18n::gettext("Recycle Bin"), TRASH_URI.to_owned()),
-    ]);
+    rows.push((ox_core::i18n::gettext("This PC"), PC_URI.to_owned()));
+    // Windows lists Libraries here, which the app has no page for.
+    rows.extend(drives.iter().cloned());
+    rows.push((ox_core::i18n::gettext("Network"), NETWORK_URI.to_owned()));
+    // Windows lists Control Panel here, which the app has no page for.
+    rows.push((ox_core::i18n::gettext("Recycle Bin"), TRASH_URI.to_owned()));
+    rows.extend(desktop_folders.iter().cloned());
     rows
 }
 
@@ -88,11 +95,59 @@ fn row(label: &str) -> gtk::ListBoxRow {
 }
 
 impl BrowserWindow {
-    /// Opens the list under the chevron `anchor`, its first row selected
+    /// Opens the list under the chevron `anchor`, once the Desktop's
+    /// folders are listed (off the main thread), its first row selected
     /// for the keyboard.
     pub(super) fn show_places_menu(&self, anchor: &gtk::Widget) {
         let home = self.home_location();
-        let places = root_places(&home, &self.context().known_folders(), &glib::home_dir());
+        let known_folders = self.context().known_folders();
+        let desktop = known_folders
+            .iter()
+            .find(|place| place.known_folder == Some(KnownFolder::Desktop))
+            .map(|place| place.uri.clone())
+            .filter(|uri| !ox_core::location::same_location(uri, &file_uri(&glib::home_dir())));
+        let drives = self.removable_drives();
+        let show_hidden = self.shows_hidden_files();
+        glib::spawn_future_local(glib::clone!(
+            #[weak(rename_to = window)]
+            self,
+            #[weak]
+            anchor,
+            async move {
+                let desktop_folders = match desktop {
+                    Some(uri) => super::crumb_menus::list_subfolders(&uri, show_hidden).await,
+                    None => Vec::new(),
+                };
+                let desktop_folders: Vec<(String, String)> = desktop_folders
+                    .into_iter()
+                    .map(|folder| (folder.name, folder.uri))
+                    .collect();
+                let places = root_places(
+                    &home,
+                    &known_folders,
+                    &glib::home_dir(),
+                    &drives,
+                    &desktop_folders,
+                );
+                window.popup_places_list(&anchor, places);
+            }
+        ));
+    }
+
+    /// The mounted removable and optical drives, by name, which Windows'
+    /// list shows after This PC (its CD drive, seen on build 26200).
+    fn removable_drives(&self) -> Vec<(String, String)> {
+        self.imp()
+            .volumes
+            .borrow()
+            .iter()
+            .filter(|row| matches!(row.art(), crate::icons::Art::RemovableDrive(_)))
+            .filter_map(|row| Some((row.label.clone(), row.uri()?.to_owned())))
+            .collect()
+    }
+
+    /// Opens `places` as the text list under `anchor`.
+    fn popup_places_list(&self, anchor: &gtk::Widget, places: Vec<(String, String)>) {
         let list = gtk::ListBox::builder()
             .selection_mode(gtk::SelectionMode::Browse)
             .activate_on_single_click(true)
@@ -182,7 +237,16 @@ mod tests {
             place(KnownFolder::Videos, "Videos"),
         ];
 
-        let rows = root_places("file:///home/demo", &known, Path::new("/home/demo"));
+        let drives = [("CD Drive".to_owned(), "file:///media/demo/CD".to_owned())];
+        let desktop = [("Zeta".to_owned(), "file:///home/demo/Desktop/Zeta".to_owned())];
+
+        let rows = root_places(
+            "file:///home/demo",
+            &known,
+            Path::new("/home/demo"),
+            &drives,
+            &desktop,
+        );
 
         let labels: Vec<&str> = rows.iter().map(|(label, _)| label.as_str()).collect();
         assert_eq!(
@@ -198,9 +262,13 @@ mod tests {
                 "Videos",
                 "demo",
                 "This PC",
+                "CD Drive",
                 "Network",
-                "Recycle Bin"
-            ]
+                "Recycle Bin",
+                "Zeta"
+            ],
+            "Windows' order (seen on build 26200): Libraries after This PC and Control Panel \
+             before the Recycle Bin are left out"
         );
         assert_eq!(rows[3].1, "file:///home/demo/Documents");
         assert_eq!(rows[8].1, "file:///home/demo");

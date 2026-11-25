@@ -21,6 +21,8 @@ impl BrowserWindow {
         let preferences = self.context().settings_data().preferences;
         self.address_bar()
             .set_always_editable(preferences.editable_location);
+        self.address_bar()
+            .show_history_button(preferences.address_history_button);
         self.add_action_entries([
             toggle_action(
                 WindowAction::EditableLocation,
@@ -51,6 +53,12 @@ impl BrowserWindow {
     /// Whether the crumbs show the full path from `/`.
     pub(super) fn shows_full_path(&self) -> bool {
         self.full_path_state().unwrap_or(false)
+    }
+
+    /// Shows or hides the history button as the settings now say.
+    pub(super) fn follow_history_button_preference(&self) {
+        let shown = self.context().settings_data().preferences.address_history_button;
+        self.address_bar().show_history_button(shown);
     }
 
     /// Takes up a full-path option another window saved.

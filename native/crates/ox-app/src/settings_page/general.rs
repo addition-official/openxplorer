@@ -91,10 +91,17 @@ const FULL_PATH: RowText = RowText {
     keywords: "show full path in the address bar breadcrumbs crumbs location bar path root",
 };
 
+const HISTORY_BUTTON: RowText = RowText {
+    title: "Show the address bar's history button",
+    description: "A button at the right end of the address bar lists the addresses you typed. \
+                  Off, the address bar has nothing there, as in Windows 11; F4 still lists them.",
+    keywords: "address bar history button typed addresses list drop-down f4 windows",
+};
+
 const EDITABLE_ADDRESS: RowText = RowText {
     title: "Type addresses instead of breadcrumbs in new windows",
     description: "New windows show the address as text you can type in instead of breadcrumbs. \
-                  Right-click the address bar to switch one window.",
+                  While you edit an address, right-click it to switch one window.",
     keywords: "make the address bar editable in new windows breadcrumbs location bar type text",
 };
 
@@ -269,6 +276,16 @@ fn address_group(page: &SettingsPage) -> SettingsGroup {
     };
     editable.add_control(&page.preference_switch(editable_location), ControlName::RowTitle);
     group.add_row(&editable);
+    let history = SettingRow::new(HISTORY_BUTTON);
+    let history_button = PreferenceBinding {
+        read: |preferences| preferences.address_history_button,
+        write: |on| PreferencesUpdate {
+            address_history_button: Some(on),
+            ..PreferencesUpdate::default()
+        },
+    };
+    history.add_control(&page.preference_switch(history_button), ControlName::RowTitle);
+    group.add_row(&history);
     group
 }
 

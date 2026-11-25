@@ -296,6 +296,9 @@ fn every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages() {
         // The owner's Select items matching… in "…", which can be turned
         // off for Windows' menu (CMD-007).
         "Show Select items matching… in the … menu",
+        // The owner's address bar history button, which Windows lacks
+        // (NAV-043, SET-020).
+        "Show the address bar's history button",
         // Carrying the settings to another computer.
         "Export settings",
         "Import settings",

@@ -799,9 +799,8 @@ fn first_address_stop(test: &TestWindow) -> gtk::Widget {
     }
 }
 
-/// The address bar's stops among `visited`: the chevron or «, then each
-/// crumb shown; no history chevron, which Windows 11's address bar has
-/// not.
+/// The address bar's stops among `visited`: the chevron or «, each crumb
+/// shown, then the history chevron, which shows by default.
 fn address_stops_follow_the_crumbs(test: &TestWindow, visited: &[(Stop, gtk::Widget)]) {
     let address = test.window.address_bar();
     let in_address: Vec<gtk::Widget> = visited
@@ -826,12 +825,11 @@ fn address_stops_follow_the_crumbs(test: &TestWindow, visited: &[(Stop, gtk::Wid
         crumbs.as_slice(),
         "then every crumb shown"
     );
-    assert_eq!(in_address.len(), crumbs.len() + 1, "and nothing after them");
     assert!(
-        !in_address
-            .iter()
-            .any(|stop| stop.has_css_class("address-chevron")),
-        "no history chevron"
+        in_address
+            .last()
+            .is_some_and(|last| last.has_css_class("address-chevron")),
+        "then the history chevron"
     );
 }
 
