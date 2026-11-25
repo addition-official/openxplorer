@@ -1,0 +1,82 @@
+STATUS: RUNNING (merged and pushed; GitHub Actions builds the deb)
+HEAD: test-combined-61 067b01c541926ffdb070cfb6c1260b87c7b0dccb
+
+BRANCH: test-combined-61, started from deb 60's test-combined-60 14a8bf9f. Version 2.0.26 from upstream, so the deb is 2.0.26+test61.
+
+MERGES:
+- upstream main 5243f3ea (AKolenda/openxplorer, OpenXplorer 2.0.26; fetched from upstream, where it is the tip) -> 10c9bf5e. 38 new upstream commits: our 32 PRs as squashes, and the owner's 6 (#395, #429, #430, #431 release, #432, #433). 45 files conflicted. Resolved as asked:
+  - every conflicted file started from ours (test-combined-60 has fixes made after the PR branches were cut);
+  - then the owner's commits were applied onto them in order, 3-way (#395, #430, #429, #432, #433). All applied cleanly except one hunk of application/state.rs (#395's imports), resolved by hand. Each owner commit's change was then checked to be in the tree (its patch reverses cleanly, or the file equals upstream's): #429, #430, #431 and #433 fully; #395 and #432 too, the only differences being state.rs's import line (the tree's SavedWindows) and #433 rewriting #432's lines.
+  - theme/system/tests.rs: upstream's file (#395). Our side had re-added an older the_inverse_high_contrast_theme_is_dark that called a function #395 removed.
+  - The only other upstream difference kept: #427's squash updates window/tests/look.rs's classic and compact menu width checks (Win32 look, and room for the distributions' wider font).
+  - .pot, markdown.json and the docs Markdown regenerated.
+- fe16fcd5 fix(merge): ox-core integration.rs exported the wallpaper portal's names twice after the auto-merge (both sides added the same lines); once now. A scan for other lines the merge doubled found none.
+- Then the 9 tips, in the order given (each was the current tip when merged; icons-command-bar moved during the run and its new tip was merged too):
+  - pass-14-menu-check 2335dd3a -> e9454736: no conflicts.
+  - pass-10-recent-strip d03a326b -> f3aff38f: no conflicts (its tip is deb 60's 2845e107 plus one commit, cut from test-combined-59).
+  - home-like-windows-2 df05dc92 -> 2ac9c2aa, pass-4-tree-expand dca0c14d -> 5825f4db, details-row-end e9815473 -> 51c72153, this-pc-look c407208f -> c9a2db4f, icons-command-bar 6bba472f -> ac0f6a19: no conflicts.
+  - pass-5-root-icon 5e6d3bed -> 123aced6. icons/icon.rs: both new icons (the tree's Copy as path sharing Link's glyph, pass-5's GlobeDesktop); ALL_ICONS 129.
+  - gallery-no-flash 73065680 -> 16dd7378: no conflicts.
+  - icons-command-bar's newer tip 39907895 -> 067b01c5: no conflicts.
+- ef1b0c4b fix(merge), two parity check failures the merges made:
+  - pass-4-tree-expand's 11195f20 rewrote window/tests/tooltips.rs and dropped no_tooltip_stays_over_a_menu_the_rename_box_or_the_next_folder, VIEW-073's only test (and with it the only use of two test helpers, which warned as unused). The test is back, unchanged, as window/tests/tooltip_hiding.rs, beside pass-4's new tooltips.rs; VIEW-073's note names the new file.
+  - home-like-windows-2 (Home's Filter) and gallery-no-flash (Gallery opens without flashing) both added a feature HOME-038. Gallery's is HOME-039 now, with its code comments and test markers.
+
+SKIPPED: none.
+
+TESTS RUN HERE (touched modules only, isolated under Xvfb; filters from the files the merges changed):
+- ox-core lib (integration::terminal, integration::custom_command, settings::, windows_glyphs, search::live): 174 of 174 passed. ox-core's integration_terminal tests: 36 of 36 passed.
+- ox-app lib, 690 tests (window tests address_bar, address_input, chrome, closing, command_bar, expand_arrows, focus, folder_options, gallery_view, home_filter, home_page, home_recent, look, memory, narrow_windows, nav_tree, panes_layout, sidebar, sidebar_sections, single_click, tooltip_hiding, tooltips, typed_addresses, view_styles, windows_icon_files, context_menus, menu_popover, title_bar_menu, this_pc_views, landing_pages, submenu_hover; and icons::, theme::, settings_page::, folder_view gallery/justified/column_widths/cells, window sidebar/menu_popover/title_bar_menu/this_pc_views/single_click/folder_options/command_bar, application::state, test_support::pointer, windows_glyphs), run before icons-command-bar's last commit: 688 passed, 1 failed, 1 crashed:
+  - FINDING, this-pc-look: theme::stylesheets::tests::the_rules_name_colours_only_by_token fails, "raw colours in the skin: [rgb, rgb, rgb, rgb]". c407208f writes This PC's capacity bar and tiles in landing.css with rgb(230, 230, 230), rgb(188, 188, 188), rgb(0, 112, 203) and rgb(218, 38, 38), which follow neither dark mode nor high contrast. Not changed here: the tokens for light, dark and high contrast are the branch's design call.
+  - FINDING, crash: the ox-app process died with SIGTRAP on "Gdk-CRITICAL gdk_surface_get_device_position: assertion 'GDK_IS_SURFACE (surface)' failed" in window::tests::sidebar::the_navigation_pane_hides_and_a_places_button_lists_its_places, the same critical and test as deb 50's pass-19 crash. pass-19's fix (be77d70d, the test pointer no longer moves at teardown) is in the tree. That test passes alone, and the 66 tests after it passed in a new process. The same filters on test-combined-60 14a8bf9f did not crash (647 passed, 9 failed there, most of which pass now). So something these merges add, run before it, again leaves GTK's tooltip timer asking for the pointer's position on a window that is gone; likely one of the new pointer tests (nav_tree, single_click, tooltips) or pass-4's tooltip changes, not narrowed down further here.
+- After icons-command-bar's 39907895, its modules again (command_bar, icons::): 113 passed, 1 failed:
+  - FINDING, pass-5-root-icon: window::tests::command_bar_switch::a_click_elsewhere_closes_the_menu_and_still_acts_there fails, "timed out waiting for the address to be edited". It passes just before the pass-5 merge (ac0f6a19) and fails just after (123aced6) and on pass-5-root-icon's own tip 5e6d3bed, so the branch's address bar changes break it, not the merge. (Not in the first run's filters, which took window::tests::command_bar:: only.)
+No full suite, as asked.
+
+CHECKS HERE: cargo check of the workspace (and of all targets): no errors or warnings; rustfmt clean; parity check, i18n check and sync-docs --check pass. No .po file touched. On top of upstream main 5243f3ea: 723 commits, all by addition-official <239187859+addition-official@users.noreply.github.com> (author and committer) except the owner's 2 #366 commits by AKolenda, as before; none with trailers. (Upstream's own squash commits of our PRs, in upstream main, carry upstream's Co-authored-by lines.) No status/*.txt or status/*.md in the tree. No release build here; GitHub Actions builds and checks the deb.
+
+CHANGES (everything since deb 60, in plain words):
+From the owner (upstream 2.0.26):
+- Dark desktops beyond GNOME (#395): the System theme now follows a dark KDE Plasma, Cinnamon, COSMIC, Xfce or MATE desktop. It reads GNOME's color-scheme first, then the desktop portal's color scheme (which KDE, Cinnamon and COSMIC set), then any GTK theme name with "dark" in it (which Xfce and MATE set), and follows changes.
+- The desktop's own terminal (#430): Open in Terminal, scripts run from a drop and Open with's custom commands now know Ptyxis, Ghostty, Alacritty, WezTerm, foot, Tilix and Terminator, and open the terminal the desktop is set to use. A terminal named in xdg-terminals.list that the app cannot start itself opens through xdg-terminal-exec, which is also the last resort when no known terminal is installed.
+- Single click opens items (#429): Folder Options > General > "Click items as follows" now works. With single-click, a plain click on an item's icon or name opens it in every view; resting the pointer on an item selects it (Ctrl adds, Shift extends); the pointer is a hand over items, and names are underlined always or only when pointed at. Ctrl, Shift and Alt clicks, check boxes, arrows, rubber bands and drags work as before. Saved as preferences only when they differ from Windows' default.
+- Release 2.0.26 (#431) and two test fixes for slower distribution build machines (#432, #433, the photo decoder memory test).
+- Upstream also took our 32 PRs; the tree keeps our newer versions of them.
+From our branches:
+- Classic menu check marks (pass-14-menu-check): a checked item in a classic menu draws Windows' small Win32 check.
+- Compact menu strip (pass-10-recent-strip): the strip's buttons now sit 65 pixels apart, as measured on Windows 11.
+- Home like Windows 11 (home-like-windows-2): Home's command bar gets "Filter", to list only some kinds of files in Recent and Favorites (All File Types, Documents-type choices such as PDF, Presentations, Spreadsheets), Windows 11's "..." menu (a new setting, off by default, adds "Select items matching..." back to it), and a heading pill; tiles sized as Windows 11 sets them; Sort grayed on Home; the menu's edge as Windows draws it.
+- Navigation pane as a tree (pass-4-tree-expand): drives, shares and folders in the navigation pane expand as a tree. A row's tooltip shows only when its name is cut short. Tooltips are kept to where Windows 11 has them: the Details button says "Show or hide the details pane.", Paste says "Paste (Ctrl+V)", the caption buttons say "Restore Down" and "Close"; the pane's resize handle, the folder tree's rows, the search box and Settings' Back button no longer show tooltips. Hidden expand arrows show from the pane's own pointer tracking.
+- Details rows (details-row-end): a selected row's right end is drawn whole and rounded like its left, with Windows' corners and the gap before the focus ring.
+- This PC look (this-pc-look): group headers, the capacity bar and tiles drawn as in Windows 11.
+- Command bar and menu glyphs (icons-command-bar): the View button shows the view on screen (Large icons as Windows' monitor), pins are filled, command and menu glyphs are two-tone as in Windows 11, Filter gets its funnel; a symbol font that cannot be read now says why.
+- Address bar root (pass-5-root-icon): the start of the address bar's chain shows the location's root as its first icon (Network as Windows' globe with a monitor), kept monochrome with icon files on; Windows' places are listed as text under the root chevron; no tooltip or history button; typed addresses show while typing; Windows' 499-pixel search box behind a divider it remembers; the search box's clear X where Windows 11 draws it.
+- Gallery without flashing (gallery-no-flash): Gallery lays its photos out once as it opens, with the heading's row from the start, shows the photos read within 300 ms, and keeps rows on screen still as more come.
+
+NEW TEXT (every new or changed UI text, verbatim, from the template):
+- Adds Select items matching…, which selects the items whose names match a pattern, to the command bar's … menu. Off, the … menu looks like Windows 11's.
+- OpenXplorer cannot read it ({reason}), so its own glyphs are shown
+- Show Select items matching… in the … menu
+- select items matching pattern wildcard more options menu command bar windows
+- Restore Down
+- Filter
+- Paste (Ctrl+V)
+- Show or hide the details pane.
+- Underline icon titles consistent with my _browser
+- Underline icon titles only when I _point at them
+- _Single-click to open an item (point to select)
+- All File Types
+- No files of this kind. Choose All File Types in Filter to list every file.
+- PDF
+- Presentations
+- Spreadsheets
+- More folders in {name}…
+- Alacritty
+- Ghostty
+- Ptyxis
+- Terminator
+- Tilix
+- WezTerm
+- foot
+- Copies to USB sticks and FUSE drives work, and a move keeps its originals until the copy is on the drive. Right-click menus, "Show more options", the address bar, Network, views, Tiles, the Details pane, Open with, New, shortcuts, the clipboard, tabs, error messages and drives behave as in Windows 11. Screen readers, the keyboard and high contrast are better supported. Office and OpenDocument files show in the Preview pane. Settings can be exported and imported, and one switch, "Behave like Windows Explorer", sets every setting that has a Windows behavior.
+- Folder Options can now open items with a single click, pointing at an item selects it, and "Open in Terminal" opens the terminal the desktop is set to use, including Ghostty and any terminal xdg-terminal-exec knows. The System theme follows a dark KDE Plasma, Cinnamon, Xfce or MATE desktop, not only GNOME.
