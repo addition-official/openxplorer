@@ -672,13 +672,19 @@ fn home_has_no_band_under_the_titles_and_its_tiles_do_not_touch() {
         let view = if compact { "Compact" } else { "normal" };
         // Home is drawn again for the Compact view: the rows take their
         // new pitch once it is laid out.
+        // Home lists Recent anew after each drawing, once GVfs has read
+        // it: the list is measured only once it is there.
+        let listed = || !home_page::list_names(body(&test)).is_empty();
         wait_until("Home laid out", || {
             crate::test_support::harness::wait_for_frames(&test.window, 2);
-            let rows = home_page::metrics(body(&test)).rows;
-            rows.first()
-                .is_some_and(|row| (bounds(&test, row).height - pitch).abs() <= 1)
+            listed()
+                && home_page::metrics(body(&test))
+                    .rows
+                    .first()
+                    .is_some_and(|row| (bounds(&test, row).height - pitch).abs() <= 1)
         });
         crate::test_support::harness::wait_for_frames(&test.window, 4);
+        wait_until("the list still there", listed);
         let metrics = home_page::metrics(body(&test));
         let middle = |widget: &gtk::Widget| {
             let place = bounds(&test, widget);

@@ -295,10 +295,9 @@ pub(super) fn file_menu(
         Icon::Folder,
         WindowAction::OpenFileLocationOf,
     );
-    let copy_path = target(message_id("Copy as path"), Icon::Copy, WindowAction::CopyPathOf)
-        .with_shortcut("Ctrl+Shift+C");
+    let copy_path = copy_path_item(&target);
     let properties =
-        target(message_id("Properties"), Icon::Info, WindowAction::PropertiesOf).with_shortcut("Alt+Enter");
+        target(message_id("Properties"), Icon::Wrench, WindowAction::PropertiesOf).with_shortcut("Alt+Enter");
     let cut = target(message_id("Cut"), Icon::Cut, WindowAction::CutFolder).with_shortcut("Ctrl+X");
     let copy = target(message_id("Copy"), Icon::Copy, WindowAction::CopyFolder).with_shortcut("Ctrl+C");
     let rename = target(message_id("Rename"), Icon::Rename, WindowAction::RenameFolder).with_shortcut("F2");
@@ -452,6 +451,18 @@ impl HomeFilter {
     }
 }
 
+/// A Home file's Copy as path, with the file list's glyph, which a
+/// chosen symbol font draws in both menus alike (LOOK-031); `target`
+/// makes the menu's items for the file.
+fn copy_path_item(target: &impl Fn(&str, Icon, WindowAction) -> MenuItem) -> MenuItem {
+    target(
+        message_id("Copy as path"),
+        Icon::CopyAsPath,
+        WindowAction::CopyPathOf,
+    )
+    .with_shortcut("Ctrl+Shift+C")
+}
+
 /// Whether the file named `name` has a type, as Windows judges it for its
 /// Open row: an extension after its name.
 fn has_type(name: &str) -> bool {
@@ -519,12 +530,9 @@ pub(super) fn recent_file_menu(
         Icon::Dismiss,
         WindowAction::RemoveFromRecent,
     );
-    // The file list's glyph for Copy as path, so both menus draw the same
-    // from Windows' symbol font (LOOK-031).
-    let copy_path = target(message_id("Copy as path"), Icon::Link, WindowAction::CopyPathOf)
-        .with_shortcut("Ctrl+Shift+C");
+    let copy_path = copy_path_item(&target);
     let properties =
-        target(message_id("Properties"), Icon::Info, WindowAction::PropertiesOf).with_shortcut("Alt+Enter");
+        target(message_id("Properties"), Icon::Wrench, WindowAction::PropertiesOf).with_shortcut("Alt+Enter");
     let copy = target(message_id("Copy"), Icon::Copy, WindowAction::CopyFolder).with_shortcut("Ctrl+C");
     match style {
         MenuStyle::Compact => {

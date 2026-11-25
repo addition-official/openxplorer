@@ -191,12 +191,16 @@ mod tests {
             chosen = larger;
         }
 
+        let scale_before = crate::icons::scaled(100);
         let skin = crate::theme::Skin::detached();
         skin.set_desktop_text(desktop);
         assert_eq!(skin.text_size(), default, "the chosen size stays");
         assert_eq!(skin.drawn_text_size().percent(), 125, "Large Text");
         skin.set_uses_desktop_font(true);
         assert_eq!(skin.drawn_text_size().percent(), 150, "the desktop font's size");
+        // A skin on no display leaves the app's icon scale alone, which the
+        // windows of every later test in the process draw with.
+        assert_eq!(crate::icons::scaled(100), scale_before, "the icon scale stays");
         assert_eq!(
             font_family_rule("Noto Sans"),
             "window.ox, window.ox popover, tooltip { font-family: \"Noto Sans\", sans-serif; }\n"
