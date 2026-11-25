@@ -139,6 +139,11 @@ popover.ox-menu.legacy list > row label { margin-top: 2px; }
 popover.ox-menu.legacy list > row .submenu-arrow { color: @ox_legacy_menu_text; margin-left: 0; }
 popover.ox-menu.legacy list > row:disabled .submenu-arrow { color: @ox_legacy_menu_text_disabled; }
 popover.ox-menu.legacy list > row .legacy-arrow-slot { min-width: 16px; margin-left: 49px; margin-right: 4px; }
+/* A checked item's small check, a font glyph in Windows' Win32 menu: its
+   ink 8 by 6 pixels (src/window/menu_popover.rs), 14 to 21 px in from the
+   menu's edge, in the text's color, and resting on the text's baseline
+   (measured on Windows 11's desktop menu, View, 1x dark, 2026-11-25). */
+popover.ox-menu.legacy list > row image.legacy-check { margin-top: 4px; }
 /* The title bar's window menu (src/window/title_bar_menu.rs), as Windows 11
    draws its system menu (measured in the VM on 2026-11-24, 100 %): 22px
    rows (src/theme/fonts.rs), the small glyph's ink 16px in from the

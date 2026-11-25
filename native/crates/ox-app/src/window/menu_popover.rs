@@ -46,6 +46,8 @@ mod height;
 mod inspection;
 #[cfg(test)]
 pub(crate) use inspection::row_label;
+#[cfg(test)]
+pub(super) use inspection::CheckLook;
 mod items;
 mod motion;
 
@@ -2186,6 +2188,13 @@ fn item_content(item: &MenuItem, check: CheckMark, marks: MarkColumn, glyphs: Gl
 /// The edge of the small glyphs of Windows' window menu (Marlett's).
 const SYSTEM_MENU_GLYPH: i32 = 10;
 
+/// The edge of a classic (Win32) menu's check mark: Windows draws a small
+/// font glyph beside a checked item, its ink 8 by 6 pixels at 100 %
+/// (measured on its desktop menu's View submenu, 1x dark, 2026-11-25),
+/// which the checkmark glyph's ink (15 by 11 of its 20 units) covers at
+/// 10 (measured live: 11 covered 9 by 7).
+pub(super) const LEGACY_CHECK: i32 = 10;
+
 /// How a row of a legacy menu is drawn.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 struct RowLook {
@@ -2210,6 +2219,26 @@ fn legacy_row_shows_glyph(item: &MenuItem) -> bool {
     item.action == MenuAction::Window(super::window_action::WindowAction::Share)
 }
 
+/// `icon` drawn `size` pixels square with `class`, centered over an empty
+/// column `edge` pixels square, as wide as the text-only rows' own, so the
+/// labels line up: a classic menu's small glyphs and marks, drawn in the
+/// row's text color.
+fn small_glyph_slot(icon: Icon, size: i32, class: &str, edge: i32) -> gtk::Widget {
+    let image = icons::image(icon, size);
+    image.add_css_class(class);
+    image.set_halign(gtk::Align::Center);
+    image.set_valign(gtk::Align::Center);
+    let slot = gtk::Overlay::new();
+    slot.set_child(Some(
+        &gtk::DrawingArea::builder()
+            .content_width(edge)
+            .content_height(edge)
+            .build(),
+    ));
+    slot.add_overlay(&image);
+    slot.upcast()
+}
+
 /// A legacy menu's row, as Windows 11 lays out its Win32 menu: one 16px
 /// column for the check mark or the icon (empty for a text-only row), the
 /// label with its access key underlined when `access_key` says where, and
@@ -2220,7 +2249,15 @@ fn legacy_item_content(item: &MenuItem, check: CheckMark, look: RowLook) -> gtk:
     let content = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     let edge = crate::icons::scaled(ROW_GLYPH);
     let glyph: gtk::Widget = if check == CheckMark::Checked {
-        mark_slot(item, check)
+        // Windows' Win32 menu marks a checked item with a small check, and
+        // a chosen one of a group with a small round bullet, in the
+        // glyph column, centered, in the text's color: no accent, no box.
+        let (mark, size, class) = if item.dot_mark {
+            (Icon::CircleSmallFilled, ROW_GLYPH, "legacy-dot")
+        } else {
+            (Icon::Checkmark, LEGACY_CHECK, "legacy-check")
+        };
+        small_glyph_slot(mark, size, class, edge)
     } else if let Some(image) = item
         .application_icon
         .as_deref()
@@ -2230,21 +2267,7 @@ fn legacy_item_content(item: &MenuItem, check: CheckMark, look: RowLook) -> gtk:
     } else if item.shows_glyph && item.legacy_glyph {
         // Windows' window menu draws Restore, Minimize, Maximize and Close
         // with small Marlett glyphs.
-        let image = icons::image(item.glyph, SYSTEM_MENU_GLYPH);
-        image.add_css_class("system-menu-glyph");
-        image.set_halign(gtk::Align::Center);
-        image.set_valign(gtk::Align::Center);
-        // Over an empty column as wide as the text-only rows' own, so the
-        // labels line up.
-        let slot = gtk::Overlay::new();
-        slot.set_child(Some(
-            &gtk::DrawingArea::builder()
-                .content_width(edge)
-                .content_height(edge)
-                .build(),
-        ));
-        slot.add_overlay(&image);
-        slot.upcast()
+        small_glyph_slot(item.glyph, SYSTEM_MENU_GLYPH, "system-menu-glyph", edge)
     } else if item.shows_glyph && (look.submenu || legacy_row_shows_glyph(item)) {
         let image = icons::image(item.glyph, ROW_GLYPH);
         if item.glyph_look.mirrored {
