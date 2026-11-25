@@ -236,6 +236,8 @@ impl BrowserWindow {
                 (remembers || !is_recent) && (shows_recent_files || !is_recent_files)
             }));
         }
+        // Drives and shares expand to their folders (SIDE-033).
+        let entries = self.add_folder_trees(entries);
         let (rows, anything_hidden) = self.shown_sidebar_rows(entries);
         self.sidebar().set_capacity_bars(more_items);
         self.sidebar().set_rows(rows, anything_hidden);

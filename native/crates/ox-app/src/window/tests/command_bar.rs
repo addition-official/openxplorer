@@ -105,7 +105,7 @@ fn the_command_bar_has_the_current_controls_in_order() {
             "|",
             "Cut (Ctrl+X)",
             "Copy (Ctrl+C)",
-            "Paste files (Ctrl+V)",
+            "Paste (Ctrl+V)",
             "Rename (F2)",
             "Share",
             "Delete (Delete)",
@@ -144,7 +144,7 @@ fn the_edit_commands_follow_the_selection_with_their_python_tooltips() {
         assert_eq!(button.tooltip_text().as_deref(), Some(tooltip));
     }
     let paste = command_button(&test, "win.paste");
-    assert_eq!(paste.tooltip_text().as_deref(), Some("Paste files (Ctrl+V)"));
+    assert_eq!(paste.tooltip_text().as_deref(), Some("Paste (Ctrl+V)"));
     test.window.folder_model().select_only(1);
     for (action, _) in edit_commands {
         assert!(

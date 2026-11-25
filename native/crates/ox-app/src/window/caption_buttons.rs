@@ -111,8 +111,8 @@ impl Caption {
         match (self, state) {
             (Caption::Minimize, _) => ox_core::i18n::gettext_static("Minimize"),
             (Caption::Maximize, WindowState::Normal) => ox_core::i18n::gettext_static("Maximize"),
-            (Caption::Maximize, WindowState::Maximized) => ox_core::i18n::gettext_static("Restore"),
-            (Caption::Close, _) => ox_core::i18n::gettext_static("Close window"),
+            (Caption::Maximize, WindowState::Maximized) => ox_core::i18n::gettext_static("Restore Down"),
+            (Caption::Close, _) => ox_core::i18n::gettext_static("Close"),
         }
     }
 
@@ -368,6 +368,14 @@ mod tests {
         assert_eq!(Caption::Maximize.glyph(normal), Icon::Maximize);
         assert_eq!(Caption::Maximize.tooltip(normal), "Maximize");
         assert_eq!(Caption::Maximize.glyph(maximized), Icon::SquareMultiple);
-        assert_eq!(Caption::Maximize.tooltip(maximized), "Restore");
+        assert_eq!(Caption::Maximize.tooltip(maximized), "Restore Down");
+    }
+
+    /// The caption buttons are named as Windows 11 names them.
+    #[test]
+    fn the_caption_buttons_take_windows_names() {
+        let normal = WindowState::Normal;
+        assert_eq!(Caption::Minimize.tooltip(normal), "Minimize");
+        assert_eq!(Caption::Close.tooltip(normal), "Close");
     }
 }

@@ -190,7 +190,24 @@ impl FolderTree {
                         .build(),
                 );
                 tree.handle_clicks(&content, item);
-                let expander = gtk::TreeExpander::builder().child(&content).build();
+                let expander = gtk::TreeExpander::builder()
+                    .child(&content)
+                    .has_tooltip(true)
+                    .build();
+                expander.connect_query_tooltip(|expander, _, _, _, tooltip| {
+                    let cut_short = expander
+                        .child()
+                        .and_then(|content| content.last_child())
+                        .and_downcast::<gtk::Label>()
+                        .filter(|name| name.layout().is_ellipsized());
+                    match cut_short {
+                        Some(name) => {
+                            tooltip.set_text(Some(&name.text()));
+                            true
+                        }
+                        None => false,
+                    }
+                });
                 item.set_child(Some(&expander));
             }
         ));
@@ -234,7 +251,9 @@ impl FolderTree {
             .as_ref()
             .and_then(model::row_file)
             .map(|file| file.parse_name());
-        expander.set_tooltip_text(path.as_deref());
+        // The path is for screen readers; as in Windows' navigation pane,
+        // the row shows a tooltip only while its name is cut short.
+        item.set_accessible_description(path.as_deref().unwrap_or_default());
         item.set_accessible_label(&name);
         expander.set_list_row(row.as_ref());
         let Some(row) = row else {

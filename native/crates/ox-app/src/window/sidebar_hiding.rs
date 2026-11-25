@@ -49,6 +49,7 @@ impl BrowserWindow {
                 window.sidebar().toggle_section(key);
             }),
             text_action(WindowAction::ToggleComputer, BrowserWindow::toggle_computer),
+            text_action(WindowAction::ToggleFolder, BrowserWindow::toggle_folder),
             plain_action(WindowAction::SidebarMoreOptions, |window| {
                 window.sidebar().show_more_options();
             }),

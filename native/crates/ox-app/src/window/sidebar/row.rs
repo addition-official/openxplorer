@@ -18,7 +18,7 @@ use crate::window::widget_tree::descendants;
 use crate::window::window_action::WindowAction;
 
 use super::super::saved_search::saved_search_target;
-use super::entries::{EjectButton, RowExpander, RowLevel, RowTarget, Section, SidebarEntry};
+use super::entries::{EjectButton, ExpanderKind, RowExpander, RowLevel, RowTarget, Section, SidebarEntry};
 
 /// Glyphs and art are 16 pixels, as Windows 11's navigation pane icons
 /// (owner decision 2026-11-06; the web's were 18 and 19).
@@ -27,6 +27,9 @@ const ART_SIZE: i32 = 16;
 
 /// The expander chevron of This PC and Network (`icon('down')` at 9px).
 const EXPANDER_SIZE: i32 = 9;
+
+/// How much further in each level of the tree sits, in pixels.
+const LEVEL_STEP: i32 = 16;
 
 /// The class of the chevron of This PC and Network.
 const CHEVRON_CLASS: &str = "side-expander";
@@ -63,6 +66,27 @@ fn row_icon(icon: Art, chosen_size: u32) -> ArtImage {
     let image = ArtImage::new(icon, size);
     image.add_css_class(class);
     image
+}
+
+/// The tooltip `row` shows now: as in Windows 11's navigation pane,
+/// only while its name is cut short with an ellipsis, and then the full
+/// name; `None` while the whole name shows.
+pub(in crate::window) fn shown_tooltip(row: &gtk::ListBoxRow) -> Option<String> {
+    let name = descendants::<gtk::Label>(row)
+        .into_iter()
+        .find(|label| label.has_css_class("name"))?;
+    name.layout().is_ellipsized().then(|| name.text().to_string())
+}
+
+/// Shows `row`'s tooltip only while its name is cut short.
+fn tooltip_when_cut_short(row: &gtk::ListBoxRow) {
+    row.connect_query_tooltip(|row, _, _, _, tooltip| match shown_tooltip(row) {
+        Some(text) => {
+            tooltip.set_text(Some(&text));
+            true
+        }
+        None => false,
+    });
 }
 
 fn name_label(text: &str) -> gtk::Label {
@@ -111,6 +135,11 @@ fn row_content(entry: &SidebarEntry, look: RowLook, collapsed: bool) -> gtk::Box
     // The gaps are CSS margins on the parts (see `.side-entry` in
     // resources/skin/sidebar.css), so no box spacing.
     let content = gtk::Box::builder().css_classes(["side-entry"]).build();
+    // Each level past the second sits one 16-pixel step further in, as
+    // Windows' tree indents its folders; the CSS places the first two.
+    if let RowLevel::Nested(depth) = entry.level {
+        content.set_margin_start(i32::from(depth.saturating_sub(2)) * LEVEL_STEP);
+    }
     if entry.level == RowLevel::Group {
         if let Some(chevron) = section_chevron(entry.section, !collapsed) {
             content.append(&chevron);
@@ -121,8 +150,11 @@ fn row_content(entry: &SidebarEntry, look: RowLook, collapsed: bool) -> gtk::Box
     }
     let icon = row_icon(entry.icon, look.icon_size);
     if matches!(entry.icon, Art::Network(_)) {
-        // The network pipe says what it means (`.side-icon.shared`).
-        icon.set_tooltip_text(Some(&ox_core::i18n::gettext("Network share")));
+        // The network pipe says what it means to screen readers; Windows
+        // shows no tooltip on the pane's glyphs.
+        icon.update_property(&[gtk::accessible::Property::Description(&ox_core::i18n::gettext(
+            "Network share",
+        ))]);
     }
     content.append(&icon);
     content.append(&name_and_capacity(entry, look.capacity_bars));
@@ -181,7 +213,11 @@ fn row_chevron(expander: &RowExpander, name: &str) -> gtk::Button {
         .focus_on_click(false)
         .can_focus(false)
         .build();
-    WindowAction::ToggleComputer.assign_with_target_to(&button, &expander.uri.to_variant());
+    let action = match expander.kind {
+        ExpanderKind::Computer => WindowAction::ToggleComputer,
+        ExpanderKind::Folder => WindowAction::ToggleFolder,
+    };
+    action.assign_with_target_to(&button, &expander.uri.to_variant());
     let (glyph, label) = if expander.expanded {
         (
             Icon::ChevronDown16,
@@ -194,7 +230,7 @@ fn row_chevron(expander: &RowExpander, name: &str) -> gtk::Button {
         )
     };
     button.set_child(Some(&icons::image(glyph, EXPANDER_SIZE)));
-    button.set_tooltip_text(Some(&label));
+    // Windows' chevrons show no tooltip; screen readers hear the label.
     button.update_property(&[gtk::accessible::Property::Label(&label)]);
     button
 }
@@ -215,7 +251,7 @@ fn draw_chevron(chevron: &gtk::Button, section: Section, expanded: bool) {
         )
     };
     chevron.set_child(Some(&icons::image(glyph, EXPANDER_SIZE)));
-    chevron.set_tooltip_text(Some(&label));
+    // Windows' chevrons show no tooltip; screen readers hear the label.
     chevron.update_property(&[gtk::accessible::Property::Label(&label)]);
 }
 
@@ -256,7 +292,7 @@ fn placement_classes(entry: &SidebarEntry) -> Vec<&'static str> {
         RowLevel::Place => {}
         RowLevel::Group => classes.push("group"),
         RowLevel::Child => classes.push("indent"),
-        RowLevel::Grandchild => classes.push("indent2"),
+        RowLevel::Grandchild | RowLevel::Nested(_) => classes.push("indent2"),
     }
     if entry.expander.is_some() {
         classes.push("expandable");
@@ -277,16 +313,18 @@ pub(super) fn sidebar_row(entry: &SidebarEntry, look: RowLook, collapsed: bool) 
     overlay.add_overlay(&selection_bar());
     let row = gtk::ListBoxRow::builder()
         .child(&overlay)
-        .tooltip_text(&entry.tooltip)
+        .has_tooltip(true)
         .css_classes(placement_classes(entry))
         .accessible_role(gtk::AccessibleRole::TreeItem)
         .build();
+    tooltip_when_cut_short(&row);
     // The visible label names the row; the address is its description.
     // GTK 4.16 and later send the level to screen readers; 4.14 does not.
     let level = match entry.level {
         RowLevel::Place | RowLevel::Group => 1,
         RowLevel::Child => 2,
         RowLevel::Grandchild => 3,
+        RowLevel::Nested(depth) => i32::from(depth) + 1,
     };
     row.update_property(&[
         gtk::accessible::Property::Label(&entry.label),
@@ -296,7 +334,7 @@ pub(super) fn sidebar_row(entry: &SidebarEntry, look: RowLook, collapsed: bool) 
     match entry.level {
         RowLevel::Place => {}
         RowLevel::Group => row.update_state(&[gtk::accessible::State::Expanded(Some(!collapsed))]),
-        RowLevel::Child | RowLevel::Grandchild => row.set_visible(!collapsed),
+        RowLevel::Child | RowLevel::Grandchild | RowLevel::Nested(_) => row.set_visible(!collapsed),
     }
     if let Some(expander) = &entry.expander {
         row.update_state(&[gtk::accessible::State::Expanded(Some(expander.expanded))]);

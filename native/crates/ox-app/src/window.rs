@@ -131,6 +131,7 @@ mod network_sign_out;
 mod notice_card;
 mod open_several;
 mod pane_content;
+mod pane_folders;
 mod picker;
 mod place_commands;
 mod place_editor;

@@ -100,7 +100,7 @@ const EDIT_COMMANDS: [IconCommand; 6] = [
         glyph: Icon::ClipboardPaste,
         action: WindowAction::Paste,
         name: crate::i18n::message_id("Paste"),
-        tooltip: crate::i18n::message_id("Paste files (Ctrl+V)"),
+        tooltip: crate::i18n::message_id("Paste (Ctrl+V)"),
         compact: InCompactWindow::Kept,
     },
     IconCommand {
@@ -686,6 +686,9 @@ impl CommandBar {
         let imp = self.imp();
         icons::set_icon(&imp.details_glyph, Icon::PanelRight, TEXT_COMMAND_GLYPH);
         WindowAction::DetailsPane.assign_to(&*imp.details_toggle);
+        // Windows 11's tooltip (checked in Windows 11 26200).
+        imp.details_toggle
+            .set_tooltip_text(Some(&ox_core::i18n::gettext("Show or hide the details pane.")));
         let details_toggle = imp.details_toggle.get().upcast();
         imp.hidden_when_compact.borrow_mut().push(details_toggle);
     }

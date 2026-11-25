@@ -221,10 +221,6 @@ msgstr ""
 msgid "Search filenames and paths"
 msgstr ""
 
-#: crates/ox-app/resources/ui/search-box.ui
-msgid "Search names in this folder and its subfolders. Folders cached in Settings → Search are searched faster."
-msgstr ""
-
 #: crates/ox-app/resources/ui/search-info-strip.ui
 msgid "Cache this folder"
 msgstr ""
@@ -251,10 +247,6 @@ msgstr ""
 
 #: crates/ox-app/resources/ui/settings-page.ui
 msgid "Back to files"
-msgstr ""
-
-#: crates/ox-app/resources/ui/settings-page.ui
-msgid "Close Settings and return to your folders"
 msgstr ""
 
 #: crates/ox-app/resources/ui/settings-page.ui
@@ -365,7 +357,7 @@ msgstr ""
 msgid "Browse without extracting the entire archive."
 msgstr ""
 
-#: crates/ox-app/resources/ui/update-dialog.ui crates/ox-app/src/archive_view/browser.rs crates/ox-app/src/dialog/frame.rs crates/ox-app/src/dialog/window.rs crates/ox-app/src/properties/window.rs crates/ox-app/src/window/help.rs crates/ox-app/src/window/network_info_bar.rs crates/ox-app/src/window/shortcuts_window.rs crates/ox-app/src/window/title_bar_menu.rs crates/ox-app/src/window/type_applications.rs
+#: crates/ox-app/resources/ui/update-dialog.ui crates/ox-app/src/archive_view/browser.rs crates/ox-app/src/dialog/frame.rs crates/ox-app/src/dialog/window.rs crates/ox-app/src/properties/window.rs crates/ox-app/src/window/caption_buttons.rs crates/ox-app/src/window/help.rs crates/ox-app/src/window/network_info_bar.rs crates/ox-app/src/window/shortcuts_window.rs crates/ox-app/src/window/title_bar_menu.rs crates/ox-app/src/window/type_applications.rs
 msgid "Close"
 msgstr ""
 
@@ -2980,7 +2972,7 @@ msgstr ""
 msgid "Previous versions come from snapshot and backup folders."
 msgstr ""
 
-#: crates/ox-app/src/properties/versions_panel.rs crates/ox-app/src/window/caption_buttons.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/title_bar_menu.rs crates/ox-core/src/ops/undo.rs
+#: crates/ox-app/src/properties/versions_panel.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/title_bar_menu.rs crates/ox-core/src/ops/undo.rs
 msgid "Restore"
 msgstr ""
 
@@ -5726,16 +5718,16 @@ msgstr ""
 msgid "Cache disabled; this root’s indexed names were removed."
 msgstr ""
 
-#: crates/ox-app/src/window/caption_buttons.rs
-msgid "Close window"
-msgstr ""
-
 #: crates/ox-app/src/window/caption_buttons.rs crates/ox-app/src/window/title_bar_menu.rs
 msgid "Maximize"
 msgstr ""
 
 #: crates/ox-app/src/window/caption_buttons.rs crates/ox-app/src/window/title_bar_menu.rs
 msgid "Minimize"
+msgstr ""
+
+#: crates/ox-app/src/window/caption_buttons.rs
+msgid "Restore Down"
 msgstr ""
 
 #: crates/ox-app/src/window/choose_details.rs
@@ -5890,7 +5882,7 @@ msgid "Paste"
 msgstr ""
 
 #: crates/ox-app/src/window/command_bar.rs
-msgid "Paste files (Ctrl+V)"
+msgid "Paste (Ctrl+V)"
 msgstr ""
 
 #: crates/ox-app/src/window/command_bar.rs
@@ -5931,6 +5923,10 @@ msgstr ""
 
 #: crates/ox-app/resources/ui/details-pane.ui crates/ox-app/src/window/command_bar.rs crates/ox-app/src/window/context_menu/entries.rs crates/ox-app/src/window/share.rs
 msgid "Share"
+msgstr ""
+
+#: crates/ox-app/src/window/command_bar.rs
+msgid "Show or hide the details pane."
 msgstr ""
 
 #: crates/ox-app/src/window/command_bar.rs
@@ -7931,6 +7927,11 @@ msgstr ""
 msgid "Open all"
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/pane_folders.rs
+msgid "More folders in {name}…"
+msgstr ""
+
 #: crates/ox-app/src/window/picker.rs
 msgid "Choose one file."
 msgstr ""
@@ -8658,10 +8659,6 @@ msgstr ""
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/sidebar_hiding.rs
 msgid "Could not save the sidebar: {error}"
-msgstr ""
-
-#: crates/ox-app/src/window/sidebar_resizer.rs
-msgid "Drag to resize sidebar · double-click to reset"
 msgstr ""
 
 #: crates/ox-app/src/window/sidebar_resizer.rs

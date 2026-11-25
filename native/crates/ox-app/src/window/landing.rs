@@ -117,7 +117,7 @@ fn label(text: &str, css_class: &str) -> gtk::Label {
 
 /// Adds a bar under `texts` once GIO has measured the file system at
 /// `uri`, and "N free of M" as a line under it `with_text`, else as the
-/// bar's tooltip. Never blocks: the tile or row is drawn first.
+/// bar's accessible description. Never blocks: the tile or row is drawn first.
 pub(super) fn show_capacity(texts: &gtk::Box, uri: &str, with_text: bool) {
     let file = gio::File::for_uri(uri);
     // Held weakly until GIO answers, so measuring never keeps a tile that
@@ -140,7 +140,9 @@ pub(super) fn show_capacity(texts: &gtk::Box, uri: &str, with_text: bool) {
                 window.update_details_pane();
             }
         } else {
-            bar.set_tooltip_text(Some(&capacity.text()));
+            // Windows' navigation pane shows no tooltip; screen readers
+            // hear how full the drive is.
+            bar.update_property(&[gtk::accessible::Property::Description(&capacity.text())]);
         }
     });
 }

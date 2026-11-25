@@ -203,8 +203,9 @@ fn the_open_place_is_highlighted_and_every_row_is_titled_with_its_path() {
     let test = with_fixture_pinned(&fixture);
     let pin = row_named(&test, "Example projects");
     assert!(pin.is_selected());
-    let path = fixture.root().to_string_lossy().into_owned();
-    assert_eq!(pin.tooltip_text().as_deref(), Some(path.as_str()));
+    // The path is the row's description; as in Windows 11, the row shows
+    // a tooltip only while its name is cut short.
+    assert_eq!(pin.tooltip_text(), None);
 
     test.window.sidebar().select(&format!("{}/", fixture.uri()));
     assert!(pin.is_selected(), "a trailing slash is the same place");
@@ -240,7 +241,11 @@ fn pins_show_the_pin_mark_and_open_in_a_background_tab_on_a_middle_click() {
         .into_iter()
         .find(|image| matches!(image.art(), Some(Art::Network(_))))
         .expect("a share pin shows the network pipe");
-    assert_eq!(art.tooltip_text().as_deref(), Some("Network share"));
+    assert_eq!(
+        art.tooltip_text(),
+        None,
+        "Windows shows no tooltip on the pane's glyphs"
+    );
     let pin_marks = descendants::<gtk::Image>(&work)
         .into_iter()
         .filter(|image| image.has_css_class("pin"))
@@ -366,9 +371,8 @@ fn a_volume_to_mount_is_not_dragged_and_a_drop_mounts_it() {
     assert!(sidebar.drop_spot_at(local_disk).is_some());
     wait_until("Local Disk's capacity bar", || {
         let bars = descendants::<gtk::ProgressBar>(&row_named(&test, "Local Disk"));
-        bars.iter().any(|bar| {
-            bar.has_css_class("capacity") && bar.tooltip_text().is_some_and(|t| t.contains(" free of "))
-        })
+        bars.iter()
+            .any(|bar| bar.has_css_class("capacity") && bar.tooltip_text().is_none())
     });
 
     let volume = SidebarEntry {
@@ -407,10 +411,9 @@ fn the_resizer_is_a_titled_separator_that_the_keys_move() {
     let resizer = test.window.sidebar_resizer();
     let handle = test.window.sidebar_handle();
     assert_eq!(resizer.accessible_role(), gtk::AccessibleRole::Separator);
-    assert_eq!(
-        handle.tooltip_text().as_deref(),
-        Some("Drag to resize sidebar · double-click to reset")
-    );
+    // As Windows' pane divider, no tooltip.
+    assert_eq!(handle.tooltip_text(), None);
+    assert_eq!(resizer.tooltip_text(), None);
     assert!(resizer.grab_focus(), "the resizer is a Tab stop");
     assert!(handle.has_css_class("keyboard-focus"), "focus lights the handle");
     let workspace = test.window.workspace();
