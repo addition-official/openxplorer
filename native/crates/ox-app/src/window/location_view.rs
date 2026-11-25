@@ -16,7 +16,6 @@ use ox_core::location::{
 };
 use ox_core::ops::JournalDirection;
 use ox_core::places::{KnownFolder, NetworkLocation, Place};
-use ox_core::windows_icons::IconRole;
 
 use crate::icons::{Art, Icon, Storage, Tint};
 use crate::locations::Page;
@@ -70,9 +69,29 @@ pub(super) fn address_icon(uri: &str, home_uri: &str) -> Icon {
 /// File Explorer draws it (reference shots of build 26200, dark, 1x), and
 /// the Windows icon file role drawn instead when the user chose icon files
 /// (LOOK-030).
-pub(super) fn address_root_icon(uri: &str, first_crumb: Option<&str>, home_uri: &str) -> (Icon, IconRole) {
-    let _ = (uri, first_crumb, home_uri);
-    (Icon::FileFolder, IconRole::Folder)
+pub(super) fn address_root_icon(uri: &str, first_crumb: Option<&str>, home_uri: &str) -> Icon {
+    const THIS_PC: Icon = Icon::Desktop;
+    const HOME: Icon = Icon::Home;
+    match Page::from_uri(uri) {
+        Some(Page::Home) => return HOME,
+        Some(Page::Network) => return Icon::Organization,
+        Some(Page::Settings) => return Icon::Settings,
+        Some(Page::ThisPc) | None => {}
+    }
+    if VirtualPlace::from_uri(uri) == Some(VirtualPlace::Gallery) {
+        return Icon::Image;
+    }
+    if is_server_location(uri) {
+        return Icon::Organization;
+    }
+    // Crumbs that start at a Home crumb are Home's; everything else on
+    // this computer is This PC's, the Recycle Bin too (ref-26).
+    let starts_at_home = first_crumb.is_some_and(|first| location::same_location(first, home_uri));
+    if starts_at_home {
+        HOME
+    } else {
+        THIS_PC
+    }
 }
 
 /// The title of a history step at `uri`, as its tab, the window and the
@@ -571,25 +590,13 @@ impl BrowserWindow {
             crumbs.push(search_crumb(&locations, uri));
         }
         let address = locations.display_location(uri);
-        let icon = step_icon(uri, &locations.home_uri(), is_search);
-        // The same place as the tab shows, for Windows icon files (LOOK-030).
-        let role = (!is_search)
-            .then(|| {
-                let drive_roots: Vec<String> = self
-                    .imp()
-                    .volumes
-                    .borrow()
-                    .iter()
-                    .filter(|row| row.kind == VolumeKind::Drive && !row.is_network())
-                    .filter_map(|row| row.uri().map(str::to_owned))
-                    .collect();
-                tab_icon(
-                    uri,
-                    &locations,
-                    (&self.network_locations(), &known_folders, &drive_roots),
-                )
-            })
-            .and_then(crate::icons::user_icons::role_of);
+        // The root of the location's chain, as Windows 11 draws it: This
+        // PC's monitor, Home's house or Network's glyph, also before search
+        // results (ref-29); its Windows icon file when the user chose some
+        // (LOOK-030).
+        let first_crumb = crumbs.first().map(|crumb| crumb.crumb.uri.as_str());
+        let icon = address_root_icon(uri, first_crumb, &locations.home_uri());
+        let role = crate::icons::user_icons::role_of(crate::icons::Art::Glyph(icon));
         self.address_bar().show_location(&crumbs, &address, icon, role);
     }
 
@@ -682,75 +689,36 @@ mod tests {
     fn the_address_bars_icon_is_the_root_of_the_locations_chain() {
         let home = "file:///home/demo";
         let downloads = "file:///home/demo/Downloads";
-        let cases: [(&str, Option<&str>, Icon, IconRole); 14] = [
-            (downloads, Some(downloads), Icon::Desktop, IconRole::ThisPc),
+        let documents = "file:///home/demo/Documents";
+        let phone = "mtp://%5Busb%3A001%2C010%5D/";
+        let this_pc = Page::ThisPc.uri();
+        let cases = [
+            (downloads, Some(downloads), Icon::Desktop),
             (
                 "file:///home/demo/Documents/RefTest",
-                Some("file:///home/demo/Documents"),
+                Some(documents),
                 Icon::Desktop,
-                IconRole::ThisPc,
             ),
-            (
-                "file:///home/demo/Projects",
-                Some(home),
-                Icon::Home,
-                IconRole::Home,
-            ),
-            (home, Some(home), Icon::Home, IconRole::Home),
-            (
-                "file:///srv/media",
-                Some("file:///"),
-                Icon::Desktop,
-                IconRole::ThisPc,
-            ),
-            ("file:///", Some("file:///"), Icon::Desktop, IconRole::ThisPc),
-            (
-                Page::ThisPc.uri(),
-                Some(Page::ThisPc.uri()),
-                Icon::Desktop,
-                IconRole::ThisPc,
-            ),
-            (TRASH_URI, Some(TRASH_URI), Icon::Desktop, IconRole::ThisPc),
-            (
-                "mtp://%5Busb%3A001%2C010%5D/",
-                Some("mtp://%5Busb%3A001%2C010%5D/"),
-                Icon::Desktop,
-                IconRole::ThisPc,
-            ),
-            (
-                Page::Home.uri(),
-                Some(Page::Home.uri()),
-                Icon::Home,
-                IconRole::Home,
-            ),
-            (
-                Page::Network.uri(),
-                Some(Page::Network.uri()),
-                Icon::Organization,
-                IconRole::Network,
-            ),
-            (
-                "smb://nas/media",
-                Some("smb://nas/"),
-                Icon::Organization,
-                IconRole::Network,
-            ),
+            ("file:///home/demo/Projects", Some(home), Icon::Home),
+            (home, Some(home), Icon::Home),
+            ("file:///srv/media", Some("file:///"), Icon::Desktop),
+            ("file:///", Some("file:///"), Icon::Desktop),
+            (this_pc, Some(this_pc), Icon::Desktop),
+            (TRASH_URI, Some(TRASH_URI), Icon::Desktop),
+            (phone, Some(phone), Icon::Desktop),
+            (Page::Home.uri(), Some(Page::Home.uri()), Icon::Home),
+            (Page::Network.uri(), Some(Page::Network.uri()), Icon::Organization),
+            ("smb://nas/media", Some("smb://nas/"), Icon::Organization),
             (
                 ox_core::location::GALLERY_URI,
                 Some(ox_core::location::GALLERY_URI),
                 Icon::Image,
-                IconRole::Gallery,
             ),
-            (
-                Page::Settings.uri(),
-                Some(Page::Settings.uri()),
-                Icon::Settings,
-                IconRole::Settings,
-            ),
+            (Page::Settings.uri(), Some(Page::Settings.uri()), Icon::Settings),
         ];
 
-        for (uri, first, icon, role) in cases {
-            assert_eq!(address_root_icon(uri, first, home), (icon, role), "{uri}");
+        for (uri, first, icon) in cases {
+            assert_eq!(address_root_icon(uri, first, home), icon, "{uri}");
         }
     }
     use crate::test_support::{studio_nas_mapped_drive, studio_nas_server};
