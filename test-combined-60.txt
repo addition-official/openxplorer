@@ -1,5 +1,9 @@
-STATUS: RUNNING (merged and pushed; GitHub Actions builds the deb)
+STATUS: DONE (deb ready; built by GitHub Actions)
 HEAD: test-combined-60 14a8bf9f8e455fa24304d39d9dce20b5e28d42a6
+DEB: claude/test-combined-60-deb 3ed7f5641e39907d5ebcdb12e7264526e9971142
+  openxplorer_2.0.25+test60_all.deb (io.winspace.Development)
+SHA256: d84b5e625b1451eba8558affe02e8c7de6fb7ed22fbfade0304e19d3f391af18
+RUN: https://github.com/addition-official/openxplorer/actions/runs/45514888946
 
 BRANCH: test-combined-60, started from deb 59's test-combined-59 c20dd197 (the workflow file is in the tree).
 
