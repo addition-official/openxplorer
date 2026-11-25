@@ -626,4 +626,59 @@ mod tests {
         assert!((corner.x() - 8.0).abs() <= 1.0, "8 px in: {}", corner.x());
         assert!((corner.y() - 31.0).abs() <= 1.0, "31 px down: {}", corner.y());
     }
+
+    /// A checked item of the window menu, "Use system title bar and
+    /// borders" while the desktop draws the frame, shows the classic
+    /// Win32 menu's small check in the glyph column, in the text's color,
+    /// not Windows 11's larger check (deb 60), the same check a classic
+    /// right-click menu draws, as "Show This PC" in the navigation pane's.
+    ///
+    /// parity: LOOK-032
+    #[gtk::test]
+    fn the_window_menus_check_is_the_classic_menus_small_check() {
+        use super::super::menu_popover::{CheckLook, LEGACY_CHECK};
+        use crate::test_support::harness::{settle, wait_until, Fixture, TestWindow};
+
+        let fixture = Fixture::standard();
+        let test = TestWindow::open(&fixture.uri());
+        test.activate("theme", Some("dark"));
+        test.activate("system-title-bar", None);
+        wait_until("the desktop's frame", || {
+            test.window.uses_system_decorations() && test.window.is_visible()
+        });
+        test.window.open_window_menu_from_keyboard();
+        settle();
+        let menu = test.window.title_bar_menu().expect("the window menu");
+        let in_window_menu = menu.check_marks();
+        menu.popdown();
+
+        let classic = MenuPopover::new(Vec::new());
+        classic.set_legacy_look(true, false);
+        classic.set_entries(vec![MenuEntry::Item(MenuItem {
+            check: ItemCheck::Fixed(true),
+            ..MenuItem::new("Show This PC", Icon::Desktop, WindowAction::ShowSection)
+        })]);
+        classic.set_parent(&test.window.imp().tab_bar.get());
+        classic.popup();
+        settle();
+        let in_classic_menu = classic.check_marks();
+        classic.popdown();
+        classic.unparent();
+        test.activate("system-title-bar", None);
+        wait_until("the app's own frame", || {
+            !test.window.uses_system_decorations() && test.window.is_visible()
+        });
+
+        let small = crate::icons::image(Icon::Checkmark, LEGACY_CHECK);
+        let expected = CheckLook {
+            icon: small.icon_name().map(|name| name.to_string()),
+            pixels: small.pixel_size(),
+            text_color: true,
+        };
+        assert_eq!(
+            in_window_menu,
+            [("Use system title bar and borders".to_owned(), expected.clone())]
+        );
+        assert_eq!(in_classic_menu, [("Show This PC".to_owned(), expected)]);
+    }
 }

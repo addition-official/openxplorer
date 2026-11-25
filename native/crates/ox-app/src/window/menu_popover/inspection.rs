@@ -155,6 +155,28 @@ impl MenuPopover {
         gesture.emit_by_name::<()>("released", &[&1_i32, &x, &y]);
     }
 
+    /// How each checked row draws its check mark, by the row's label, for
+    /// tests.
+    pub(crate) fn check_marks(&self) -> Vec<(String, CheckLook)> {
+        self.rows()
+            .into_iter()
+            .filter(|row| row.has_css_class("checked"))
+            .filter_map(|row| {
+                let content = row.child()?;
+                let mark = crate::window::widget_tree::descendants::<gtk::Image>(&content)
+                    .into_iter()
+                    .next()?;
+                let label = row_label_widget(&row)?;
+                let look = CheckLook {
+                    icon: mark.icon_name().map(|name| name.to_string()),
+                    pixels: mark.pixel_size(),
+                    text_color: mark.color() == label.color(),
+                };
+                Some((label.text().to_string(), look))
+            })
+            .collect()
+    }
+
     /// The labels of the rows showing a check mark, for tests.
     pub(crate) fn checked_labels(&self) -> Vec<String> {
         let checked = self.rows().into_iter().filter(|row| row.has_css_class("checked"));
@@ -310,4 +332,15 @@ pub(crate) fn row_label(row: &gtk::ListBoxRow) -> Option<String> {
     let label = crate::window::widget_tree::children(&content)
         .find_map(|child| child.downcast::<gtk::Label>().ok())?;
     Some(label.text().to_string())
+}
+
+/// How a checked row draws its check mark, for tests.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct CheckLook {
+    /// The mark's icon.
+    pub(crate) icon: Option<String>,
+    /// Its size in pixels.
+    pub(crate) pixels: i32,
+    /// Whether it is drawn in the row's text color.
+    pub(crate) text_color: bool,
 }
