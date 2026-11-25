@@ -143,7 +143,8 @@ fn every_place_of_a_window_takes_the_files_pictures() {
     // Windows 11 draws its address bar (reference shots ref-01, ref-24):
     // never a colour picture of the files.
     let address = test.window.address_bar().location_icon();
-    assert_eq!(address.icon_name().as_deref(), Some("ox-home-20-symbolic"));
+    let name = address.icon_name().map(String::from).unwrap_or_default();
+    assert!(name.ends_with("-symbolic"), "a glyph, not a picture: {name:?}");
 
     test.window
         .add_tab(crate::locations::Page::Home.uri())

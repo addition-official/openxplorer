@@ -66,9 +66,9 @@ pub(super) fn address_icon(uri: &str, home_uri: &str) -> Icon {
 
 /// The icon at the left end of the address bar for `uri`, whose crumbs
 /// start at `first_crumb`: the root of the location's chain, as Windows 11
-/// File Explorer draws it (reference shots of build 26200, dark, 1x), and
-/// the Windows icon file role drawn instead when the user chose icon files
-/// (LOOK-030).
+/// File Explorer draws it (reference shots of build 26200, dark, 1x): a
+/// monochrome glyph, which the symbol font the user chose replaces
+/// (LOOK-031).
 pub(super) fn address_root_icon(uri: &str, first_crumb: Option<&str>, home_uri: &str) -> Icon {
     const THIS_PC: Icon = Icon::Desktop;
     const HOME: Icon = Icon::Home;
@@ -595,9 +595,12 @@ impl BrowserWindow {
         // results (ref-29); its Windows icon file when the user chose some
         // (LOOK-030).
         let first_crumb = crumbs.first().map(|crumb| crumb.crumb.uri.as_str());
+        // Always Windows' monochrome glyph, from the symbol font when the
+        // user chose one, never a colour picture of the icon files: Windows
+        // 11 draws its address bar's first icon as a glyph (ref-01, ref-24,
+        // ref-27).
         let icon = address_root_icon(uri, first_crumb, &locations.home_uri());
-        let role = crate::icons::user_icons::role_of(crate::icons::Art::Glyph(icon));
-        self.address_bar().show_location(&crumbs, &address, icon, role);
+        self.address_bar().show_location(&crumbs, &address, icon, None);
     }
 
     /// Redraws the tab strip.
