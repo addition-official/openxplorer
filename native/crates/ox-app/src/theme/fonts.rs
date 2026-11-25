@@ -125,8 +125,9 @@ const FONT_SIZES: &[FontSize] = &[
     font(".landing .quiet", 12.0),
     font(".landing .notice", 12.0),
     font(".landing .primary", 12.0),
-    // This PC's tiles and group headers, as the folder views draw theirs.
-    font(".landing .group-header", 12.0),
+    // This PC's group titles, as Windows 11's (ref-25: 11-pixel capitals,
+    // regular weight), and its tiles, as the folder views draw theirs.
+    font(".landing .group-header", 15.0),
     font(".landing flowbox.drive-tiles", 12.0),
     font(".landing .drive-tiles .card-sub", 12.0),
     // The network dialogs (`.modal` and `.auth-*` in style.css; the title

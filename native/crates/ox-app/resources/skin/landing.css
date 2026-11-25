@@ -6,11 +6,11 @@
 .landing { background-color: @ox_bg; }
 .landing .page { padding: 25px 28px; }
 /* As the icon view's padding (gridview.files). */
-.landing .page.this-pc { padding: 4px 12px 8px 8px; }
+.landing .page.this-pc { padding: 4px 12px 8px 2px; }
 
 /* ---- Group headers (the details view's, with a chevron) ---- */
 window.ox .landing button.group-header {
-  padding: 10px 8px 4px 8px;
+  padding: 5px 8px 0 1px;
   margin: 2px 0 0 0;
   min-height: 0;
   border: none;
@@ -24,12 +24,12 @@ window.ox .landing button.group-header:focus-visible {
   outline: 2px solid @ox_item_focus_outer;
   outline-offset: -2px;
 }
-.landing .group-header .group-title { font-weight: 600; color: @ox_text; }
+.landing .group-header .group-title { font-weight: normal; color: @ox_text; }
 .landing .group-header separator { background-color: @ox_border; min-height: 1px; }
 .landing .group-header image { color: @ox_muted; }
 
 /* ---- Tiles (the Tiles view's, VIEW-071) ---- */
-flowbox.drive-tiles { background: none; padding: 2px 4px 6px 4px; }
+flowbox.drive-tiles { background: none; padding: 0 4px 6px 3px; }
 flowbox.drive-tiles > flowboxchild {
   border-radius: 4px;
   padding: 8px;
@@ -48,11 +48,20 @@ flowbox.drive-tiles > flowboxchild:focus-visible {
   box-shadow: inset 0 0 0 3px @ox_item_focus_inner;
 }
 .landing .drive-tiles .tile-name { color: @ox_text; }
+/* Windows sets the name and its free line 2 pixels in from the bar. */
+.landing .drive-tiles .tile-bar-fixed > label { margin-left: 1px; }
+/* "42.0 GB free of 62.8 GB" in Windows' lighter gray, (222,222,222) on
+   its dark page. */
+.landing .drive-tiles .card-sub { color: alpha(@ox_text, 0.91); }
 /* This PC in the other views (this_pc_views.rs): Details and Small icons
    or List rows have no tile padding, so they stand as far apart as a
    folder's rows; Content rows are a line apart; the icon sizes keep a
    tile's padding around the icon and its name. */
 flowbox.drive-tiles.pc-details > flowboxchild { padding: 0 0 0 12px; margin: 0; }
+/* Windows sets a tile's name 26 pixels below the header's text (ref-25):
+   the tile's lines sit 6 pixels higher in its box, which keeps its
+   height (TILE_CHROME) and stays clear of the header. */
+flowbox.drive-tiles.pc-tiles > flowboxchild { padding: 2px 8px 14px 8px; }
 flowbox.drive-tiles.pc-list > flowboxchild { padding: 2px; margin: 0; }
 flowbox.drive-tiles.pc-content > flowboxchild { margin: 0; border-radius: 0; border-bottom: 1px solid @ox_border; }
 flowbox.drive-tiles.pc-icons > flowboxchild { padding: 6px; }
@@ -73,26 +82,28 @@ window.ox .landing button.pc-title {
 window.ox .landing button.pc-title:hover { background-color: @ox_hover; }
 .landing .card-sub { color: @ox_muted; }
 
-/* A drive's capacity bar: Windows 11's thin bar under the name, accent
-   blue, red once the drive is 90% full. */
-.landing .capacity { min-height: 6px; margin: 4px 0 3px 0; }
-/* The trough's 1px outline is an inset shadow rather than a border, so
-   the fill covers it, as Explorer's capacity bar does, without a negative
-   margin: GTK warns that a node with one reports a size below zero. */
+/* A drive's capacity bar, as Windows 11's This PC draws it in both
+   themes (measured on its dark capture): 13px tall with a 1px
+   (188,188,188) border, a light (230,230,230) track, the used part
+   Windows' (0,112,203) blue, red once the drive is 90% full, square
+   corners; 14px under the name's ink, 5px above the free space's. */
+.landing .capacity { min-height: 13px; margin: 1px 0 1px 0; }
 .landing .capacity > trough {
-  min-height: 8px;
-  background-color: @ox_hover;
-  border: none;
-  box-shadow: inset 0 0 0 1px @ox_border;
-  border-radius: 1px;
+  min-height: 11px;
+  background-color: rgb(230, 230, 230);
+  border: 1px solid rgb(188, 188, 188);
+  box-shadow: none;
+  border-radius: 0;
 }
 .landing .capacity > trough > progress {
-  min-height: 8px;
-  background-color: @ox_accent;
+  min-height: 11px;
+  background-color: rgb(0, 112, 203);
   border: none;
-  border-radius: 1px;
+  border-radius: 0;
 }
-.landing .capacity.full > trough > progress { background-color: @ox_critical_fill; }
+/* Windows' red for a nearly full drive: not yet measured on a capture
+   (NEED VM REF); (218,38,38) as reported. */
+.landing .capacity.full > trough > progress { background-color: rgb(218, 38, 38); }
 .landing .quiet { color: @ox_muted; }
 /* Line heights: GTK multiplies the font's own line height (16px for Noto
    Sans at 11px, 17px at 12px), so `line-height:1.7` at 12px is 1.2 and
