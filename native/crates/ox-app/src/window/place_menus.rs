@@ -277,7 +277,7 @@ fn drive_menu(
         ),
         item(
             ox_core::i18n::gettext_static("Open in new window"),
-            Icon::WindowNew,
+            Icon::OpenInNewWindow,
             WindowAction::OpenWindow,
             uri,
         ),
@@ -293,7 +293,7 @@ fn drive_menu(
     let removals = removal_items(uri, kind, controls);
     let properties: MenuEntry = MenuItem::with_text_target(
         &ox_core::i18n::gettext("Properties"),
-        Icon::Info,
+        Icon::Wrench,
         WindowAction::PropertiesOf,
         uri,
     )
@@ -362,13 +362,18 @@ fn quick_access_pin_menu(
                     .with_shortcut("Enter")
                     .into(),
                 target("Open in new tab", Icon::Add, WindowAction::OpenTab).into(),
-                target("Open in new window", Icon::WindowNew, WindowAction::OpenWindow).into(),
-                target("Unpin from Quick access", Icon::Pin, WindowAction::Unpin).into(),
+                target(
+                    "Open in new window",
+                    Icon::OpenInNewWindow,
+                    WindowAction::OpenWindow,
+                )
+                .into(),
+                target("Unpin from Quick access", Icon::Unpin, WindowAction::Unpin).into(),
                 compress_to_item(uri).into(),
-                target("Copy as path", Icon::Link, WindowAction::CopyPathOf)
+                target("Copy as path", Icon::CopyAsPath, WindowAction::CopyPathOf)
                     .with_shortcut("Ctrl+Shift+C")
                     .into(),
-                target("Properties", Icon::Info, WindowAction::PropertiesOf)
+                target("Properties", Icon::Wrench, WindowAction::PropertiesOf)
                     .with_shortcut("Alt+Enter")
                     .into(),
                 MenuEntry::Divider,
@@ -409,7 +414,7 @@ fn network_entries(location: &NetworkLocation, caching: Option<Caching>, pinned:
         ),
         item(
             ox_core::i18n::gettext_static("Open in new window"),
-            Icon::WindowNew,
+            Icon::OpenInNewWindow,
             WindowAction::OpenWindow,
             uri,
         ),
@@ -461,7 +466,7 @@ fn network_entries(location: &NetworkLocation, caching: Option<Caching>, pinned:
     if is_readable {
         entries.push(item(
             ox_core::i18n::gettext_static("Properties"),
-            Icon::Info,
+            Icon::Wrench,
             WindowAction::PropertiesOf,
             uri,
         ));
@@ -487,7 +492,7 @@ fn recent_files_entries() -> Vec<MenuEntry> {
         ),
         item(
             ox_core::i18n::gettext_static("Open in new window"),
-            Icon::WindowNew,
+            Icon::OpenInNewWindow,
             WindowAction::OpenWindow,
             RECENT_URI,
         ),
@@ -524,7 +529,7 @@ fn recycle_bin_entries(has_items: bool) -> Vec<MenuEntry> {
         ),
         item(
             ox_core::i18n::gettext_static("Open in new window"),
-            Icon::WindowNew,
+            Icon::OpenInNewWindow,
             WindowAction::OpenWindow,
             TRASH_URI,
         ),
@@ -551,7 +556,7 @@ fn recent_locations_entries() -> Vec<MenuEntry> {
         ),
         item(
             ox_core::i18n::gettext_static("Open in new window"),
-            Icon::WindowNew,
+            Icon::OpenInNewWindow,
             WindowAction::OpenWindow,
             uri,
         ),

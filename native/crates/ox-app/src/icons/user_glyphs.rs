@@ -80,6 +80,13 @@ pub(crate) const fn windows_source(icon: Icon) -> WindowsSource {
         // glyphs; these are the nearest glyphs of Microsoft's table, drawn
         // in the bar's colour as Cut's is.
         Icon::RotateLeft => glyph(0xE80D, "RotateMapLeft"),
+        // The menus' rows, as Windows 11 draws them, each matched against
+        // the real font on Windows' own menus (ref-04 and ref-31).
+        Icon::CopyAsPath => glyph(0xE62F, "CopyTo"),
+        Icon::OpenWith => glyph(0xE7AC, "OpenWith"),
+        Icon::OpenInNewWindow => glyph(0xE8A7, "OpenInNewWindow"),
+        Icon::Unpin => glyph(0xE77A, "Unpin"),
+        Icon::ShowMoreOptions => glyph(0xE93A, "ShowMoreOptions"),
         Icon::RotateRight => glyph(0xE80C, "RotateMapRight"),
         Icon::ArrowUndo => glyph(0xE7A7, "Undo"),
         Icon::ArrowUp => glyph(0xE74A, "Up"),
@@ -391,6 +398,11 @@ fn full_glyph_name(icon: Icon) -> String {
 const fn glyph_key(icon: Icon) -> &'static str {
     match icon {
         Icon::RotateLeft => "ox-rotate-left-20-symbolic",
+        Icon::CopyAsPath => "ox-copy-as-path-20-symbolic",
+        Icon::OpenWith => "ox-open-with-20-symbolic",
+        Icon::OpenInNewWindow => "ox-open-in-new-window-20-symbolic",
+        Icon::Unpin => "ox-unpin-16-symbolic",
+        Icon::ShowMoreOptions => "ox-show-more-options-20-symbolic",
         Icon::RotateRight => "ox-rotate-right-20-symbolic",
         Icon::SetAsBackground => "ox-set-as-background-20-symbolic",
         _ => icon.name(),

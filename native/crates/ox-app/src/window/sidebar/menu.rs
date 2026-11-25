@@ -58,7 +58,7 @@ pub(in crate::window) fn pin_menu(uri: &str, caching: Option<Caching>, editable:
         .into(),
         MenuItem::with_text_target(
             &ox_core::i18n::gettext("Open in new window"),
-            Icon::WindowNew,
+            Icon::OpenInNewWindow,
             WindowAction::OpenWindow,
             uri,
         )
@@ -105,7 +105,7 @@ pub(in crate::window) fn pin_menu(uri: &str, caching: Option<Caching>, editable:
     entries.extend([
         MenuItem::with_text_target(
             &ox_core::i18n::gettext("Unpin from Quick access"),
-            Icon::Pin,
+            Icon::Unpin,
             WindowAction::Unpin,
             uri,
         )
@@ -120,7 +120,7 @@ pub(in crate::window) fn pin_menu(uri: &str, caching: Option<Caching>, editable:
         .into(),
         MenuItem::with_text_target(
             &ox_core::i18n::gettext("Properties"),
-            Icon::Info,
+            Icon::Wrench,
             WindowAction::PropertiesOf,
             uri,
         )
@@ -172,7 +172,7 @@ fn open_elsewhere_items(uri: &str) -> Vec<MenuEntry> {
         .into(),
         MenuItem::with_text_target(
             &ox_core::i18n::gettext("Open in new window"),
-            Icon::WindowNew,
+            Icon::OpenInNewWindow,
             WindowAction::OpenWindow,
             uri,
         )
@@ -225,7 +225,7 @@ pub(super) fn head_menu(section: Section, uri: &str, state: &HeadMenuState) -> V
         entries.push(
             MenuItem::new(
                 &ox_core::i18n::gettext("Properties"),
-                Icon::Info,
+                Icon::Wrench,
                 WindowAction::SystemProperties,
             )
             .into(),
@@ -428,12 +428,17 @@ impl Sidebar {
         );
         vec![
             target("Open in new tab", Icon::Add, WindowAction::OpenTab).into(),
-            target("Open in new window", Icon::WindowNew, WindowAction::OpenWindow).into(),
-            target("Unpin from Quick access", Icon::Pin, WindowAction::Unpin).into(),
+            target(
+                "Open in new window",
+                Icon::OpenInNewWindow,
+                WindowAction::OpenWindow,
+            )
+            .into(),
+            target("Unpin from Quick access", Icon::Unpin, WindowAction::Unpin).into(),
             compress.into(),
-            target("Copy as path", Icon::Link, WindowAction::CopyPathOf).into(),
+            target("Copy as path", Icon::CopyAsPath, WindowAction::CopyPathOf).into(),
             new.into(),
-            target("Properties", Icon::Info, WindowAction::PropertiesOf)
+            target("Properties", Icon::Wrench, WindowAction::PropertiesOf)
                 .with_shortcut("Alt+Enter")
                 .into(),
             MenuEntry::Divider,

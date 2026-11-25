@@ -240,7 +240,7 @@ fn folder_open_items(facts: &ItemFacts) -> Vec<MenuEntry> {
     };
     let new_window = MenuItem::with_text_target(
         &ox_core::i18n::gettext("Open in new window"),
-        Icon::WindowNew,
+        Icon::OpenInNewWindow,
         WindowAction::OpenWindow,
         &facts.navigation_uri,
     );
@@ -397,7 +397,7 @@ fn open_with_chooser(facts: &ItemFacts) -> MenuItem {
     } else {
         ox_core::i18n::gettext_static("Open with…")
     };
-    for_one_item(item(label, Icon::Apps, WindowAction::OpenWith), facts, true)
+    for_one_item(item(label, Icon::OpenWith, WindowAction::OpenWith), facts, true)
 }
 
 /// The classic menu's applications. For a file, "Open with…", or with
@@ -451,7 +451,7 @@ pub(super) fn open_with_submenu(facts: &ItemFacts) -> MenuEntry {
     choices.extend([MenuEntry::Divider, for_one_item(another, facts, true).into()]);
     let open_with = MenuItem::submenu(
         ox_core::i18n::gettext_static("Open with"),
-        Icon::Apps,
+        Icon::OpenWith,
         WindowAction::OpenWith,
         choices,
     );
@@ -600,7 +600,7 @@ fn duplicate_item() -> MenuEntry {
 fn copy_path_item() -> MenuEntry {
     item(
         ox_core::i18n::gettext_static("Copy as path"),
-        Icon::Link,
+        Icon::CopyAsPath,
         WindowAction::CopyPath,
     )
     .with_shortcut("Ctrl+Shift+C")
@@ -807,7 +807,7 @@ fn copy_item(item: MenuItem, targets: &SendToTargets) -> MenuItem {
 fn properties_item() -> MenuEntry {
     item(
         ox_core::i18n::gettext_static("Properties"),
-        Icon::Info,
+        Icon::Wrench,
         WindowAction::Properties,
     )
     .with_shortcut("Alt+Enter")
@@ -829,7 +829,7 @@ fn show_more_options_item() -> MenuEntry {
 pub(crate) fn more_options_item(action: WindowAction) -> MenuEntry {
     item(
         ox_core::i18n::gettext_static("Show more options"),
-        Icon::MoreHorizontal,
+        Icon::ShowMoreOptions,
         action,
     )
     .into()
@@ -1260,7 +1260,7 @@ pub(crate) fn background_menu(
     open_group.push(
         item(
             ox_core::i18n::gettext_static("Open folder with…"),
-            Icon::Apps,
+            Icon::OpenWith,
             WindowAction::OpenWith,
         )
         .into(),
@@ -1312,7 +1312,7 @@ pub(crate) fn background_menu(
         ],
         vec![item(
             ox_core::i18n::gettext_static("Properties"),
-            Icon::Info,
+            Icon::Wrench,
             WindowAction::Properties,
         )
         .with_shortcut("Alt+Enter")
@@ -1493,7 +1493,7 @@ pub(crate) fn page_background_menu(
                 second.push(
                     item(
                         ox_core::i18n::gettext_static("Properties"),
-                        Icon::Info,
+                        Icon::Wrench,
                         WindowAction::SystemProperties,
                     )
                     .into(),
@@ -1613,7 +1613,7 @@ pub(crate) fn zip_background_menu() -> Vec<MenuEntry> {
 pub(crate) fn recycle_bin_item_menu(is_single: bool) -> Vec<MenuEntry> {
     let properties = item(
         ox_core::i18n::gettext_static("Properties"),
-        Icon::Info,
+        Icon::Wrench,
         WindowAction::Properties,
     )
     .with_shortcut("Alt+Enter");

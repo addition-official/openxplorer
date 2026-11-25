@@ -193,9 +193,9 @@ fn the_windows_glyphs_come_from_the_chosen_symbol_font() {
     std::fs::create_dir_all(&fonts).expect("a fonts folder");
     let font = fonts.join("SegoeIcons.ttf");
     // Add, AddTo (New's circled plus), Back, Cancel (the tab's close
-    // button), Copy (the menu strip) and Info (Properties); Cut is left
-    // out.
-    let codepoints = [0xE710, 0xECC8, 0xE72B, 0xE711, 0xE8C8, 0xE946];
+    // button), Copy (the menu strip) and Repair (Properties' wrench); Cut
+    // is left out.
+    let codepoints = [0xE710, 0xECC8, 0xE72B, 0xE711, 0xE8C8, 0xE90F];
     std::fs::write(&font, SyntheticFont::with_codepoints(&codepoints).build()).expect("written");
     let folders = FolderLocations::new(home.home.clone(), &home.config);
     let test = TestWindow::open_with_standard_folders(&file_uri(&home.home), folders, |_| {});
@@ -236,7 +236,7 @@ fn the_windows_glyphs_come_from_the_chosen_symbol_font() {
         .iter()
         .filter_map(|image| image.icon_name().map(String::from))
         .collect();
-    for glyph in ["ox-win-copy-20-box18-symbolic", "ox-win-info-20-box18-symbolic"] {
+    for glyph in ["ox-win-copy-20-box18-symbolic", "ox-win-wrench-20-box18-symbolic"] {
         assert!(
             menu_glyphs.iter().any(|name| name == glyph),
             "{glyph} in the menu: {menu_glyphs:?}"
