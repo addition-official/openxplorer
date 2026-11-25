@@ -1098,8 +1098,8 @@ fn the_more_and_view_menus_show_windows_glyphs() {
     for (label, glyph) in [
         ("Extra large icons", Icon::ViewExtraLarge),
         ("Large icons", Icon::ViewLarge),
-        ("Medium icons", Icon::Desktop),
-        ("Small icons", Icon::Grid),
+        ("Medium icons", Icon::ViewMedium),
+        ("Small icons", Icon::ViewSmall),
         ("List", Icon::TextColumnTwo),
         ("Details", Icon::TextDescription),
         ("Tiles", Icon::AppsListDetail),

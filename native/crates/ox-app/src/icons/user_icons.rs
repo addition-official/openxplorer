@@ -127,6 +127,8 @@ pub(crate) fn role_of(art: Art) -> Option<IconRole> {
         Art::Glyph(Icon::Laptop) | Art::TintedGlyph(Icon::Laptop, Tint::ThisPc) => IconRole::ThisPc,
         Art::Glyph(Icon::Organization) | Art::TintedGlyph(Icon::Organization, _) => IconRole::Network,
         Art::Glyph(Icon::Settings) => IconRole::Settings,
+        // A phone or other portable device This PC lists.
+        Art::Glyph(Icon::Phone) => IconRole::PortableDevice,
         Art::TintedGlyph(_, Tint::KnownFolder(folder)) => known_folder_role(folder)?,
         Art::Network(network) => network_role(network)?,
         // File icons' document with a zipper has no Windows picture.
@@ -374,6 +376,7 @@ fn show_role(image: &gtk::Image, role: Option<IconRole>, fallback: Icon, size: i
     let pixels = super::scaled(size);
     match role.and_then(|role| texture_of(role, pixels, image.scale_factor())) {
         Some(texture) => {
+            image.remove_css_class(super::EXPLORER_CLASS);
             image.set_paintable(Some(&texture));
             image.set_pixel_size(pixels);
         }

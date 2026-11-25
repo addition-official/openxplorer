@@ -107,7 +107,7 @@ pub(crate) const fn windows_source(icon: Icon) -> WindowsSource {
         Icon::Copy => glyph(0xE8C8, "Copy"),
         Icon::Cut => glyph(0xE8C6, "Cut"),
         Icon::Delete => glyph(0xE74D, "Delete"),
-        Icon::Desktop => glyph(0xE7F4, "TVMonitor"),
+        Icon::Desktop | Icon::ViewMedium => glyph(0xE7F4, "TVMonitor"),
         // The thin X of a tab's Close and a menu's "Close tab"; a caption
         // or dialog button draws `ChromeClose` instead ([`glyph_at`]).
         Icon::Dismiss | Icon::Dismiss16 => glyph(0xE711, "Cancel"),
@@ -115,8 +115,8 @@ pub(crate) const fn windows_source(icon: Icon) -> WindowsSource {
         Icon::Eye => glyph(0xE890, "View"),
         Icon::Folder => glyph(0xE8B7, "Folder"),
         Icon::FolderAdd => glyph(0xE8F4, "NewFolder"),
-        Icon::FolderZip => glyph(0xF012, "ZipFolder"),
-        Icon::Grid => glyph(0xE8A9, "ViewAll"),
+        Icon::FolderZip | Icon::ExtractAll => glyph(0xF012, "ZipFolder"),
+        Icon::Grid | Icon::ViewSmall => glyph(0xE8A9, "ViewAll"),
         Icon::HardDrive => glyph(0xEDA2, "HardDrive"),
         Icon::History => glyph(0xE81C, "History"),
         Icon::Home => glyph(0xE80F, "Home"),
@@ -133,7 +133,6 @@ pub(crate) const fn windows_source(icon: Icon) -> WindowsSource {
         Icon::Organization | Icon::GlobeDesktop => glyph(0xE968, "Network"),
         Icon::PaintBrush => glyph(0xE771, "Personalize"),
         Icon::PanelLeft => glyph(0xE90C, "DockLeft"),
-        Icon::PanelRight => glyph(0xE90D, "DockRight"),
         Icon::PanelRightGallery => glyph(0xE8A1, "PreviewLink"),
         Icon::Pause16 => glyph(0xE769, "Pause"),
         Icon::Phone => glyph(0xE8EA, "CellPhone"),
@@ -188,7 +187,13 @@ pub(crate) const fn windows_source(icon: Icon) -> WindowsSource {
         | Icon::ViewExtraLarge
         | Icon::OpenInNewTab
         | Icon::TextDescription
-        | Icon::Desktop16 => {
+        | Icon::Desktop16
+        // The Details pane button: Windows' two-tone pane, the outline in
+        // the text colour and the open pane in the accent, as Fluent's
+        // regular and filled panel_right draw it; the font's DockRight is
+        // one colour.
+        | Icon::PanelRight
+        | Icon::PanelRightFilled => {
             WindowsSource::None("Windows draws the Fluent UI System Icons file the app bundles")
         }
         Icon::ArrowSwap
@@ -419,6 +424,9 @@ const fn glyph_key(icon: Icon) -> &'static str {
         Icon::ViewLarge => "ox-view-large-20-symbolic",
         Icon::ViewExtraLarge => "ox-view-extra-large-20-symbolic",
         Icon::OpenInNewTab => "ox-open-in-new-tab-20-symbolic",
+        Icon::ViewMedium => "ox-view-medium-20-symbolic",
+        Icon::ViewSmall => "ox-view-small-20-symbolic",
+        Icon::ExtractAll => "ox-extract-all-20-symbolic",
         Icon::RotateRight => "ox-rotate-right-20-symbolic",
         Icon::SetAsBackground => "ox-set-as-background-20-symbolic",
         _ => icon.name(),

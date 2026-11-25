@@ -562,6 +562,7 @@ fn escape_leaves_the_search_and_shows_every_row_again() {
             "Icons from Windows icon files",
             "Windows icon files",
             "Windows symbol font",
+            "Windows Explorer icons folder",
             "Use system window decorations",
             "Compact view",
             "Column header style",
@@ -653,9 +654,10 @@ fn every_setting_of_the_python_page_has_a_row() {
 /// to do, as Restore previous with no handler recorded (INT-030), or the
 /// Super+E switch outside KDE Plasma (INT-033), or Clear while no Windows
 /// icon file is chosen (LOOK-030).
-const ROWS_FOLLOWING_THEIR_STATE: [&str; 6] = [
+const ROWS_FOLLOWING_THEIR_STATE: [&str; 7] = [
     "Windows icon files",
     "Windows symbol font",
+    "Windows Explorer icons folder",
     "Restore the previous file handlers",
     "Give ZIP files back to the previous app",
     "Open ZIP files from other apps with OpenXplorer",
@@ -1720,11 +1722,12 @@ fn icons_from_windows_icon_files_are_off_until_chosen() {
         .expect("Appearance has File icons");
     let titles: Vec<&str> = file_icons.rows().iter().map(|row| row.text().title).collect();
     assert_eq!(
-        titles[titles.len() - 3..],
+        titles[titles.len() - 4..],
         [
             "Icons from Windows icon files",
             "Windows icon files",
-            "Windows symbol font"
+            "Windows symbol font",
+            "Windows Explorer icons folder"
         ]
     );
     let font_row = settings.row("Windows symbol font");
@@ -1782,6 +1785,72 @@ fn icons_from_windows_icon_files_are_off_until_chosen() {
     wait_until("the switch to be saved off", || {
         !settings.saved_preferences().use_icon_files
     });
+}
+
+/// "Windows Explorer icons folder" says no folder is chosen until one is,
+/// then the folder's name and how many of the commands it draws once
+/// Windows icon files are on; Clear forgets it. The folder and its
+/// pictures are made up in the test, never Windows'.
+///
+/// parity: LOOK-034
+#[gtk::test]
+fn the_explorer_icons_folder_row_says_what_the_folder_draws() {
+    use crate::icons::explorer_icons;
+
+    let settings = SettingsTest::open();
+    let row = settings.row("Windows Explorer icons folder");
+    assert_eq!(row.shown_description(), "No folder chosen");
+    let clear = row
+        .controls()
+        .into_iter()
+        .filter_map(|control| control.downcast::<gtk::Button>().ok())
+        .find(|button| button.label().as_deref() == Some("Clear"))
+        .expect("a Clear button");
+    assert!(!clear.is_sensitive(), "nothing to clear");
+    let folder = tempfile::tempdir().expect("a temporary folder");
+    let images = folder.path().join("images");
+    let dark = images.join("contrast-standard/theme-light");
+    std::fs::create_dir_all(&dark).expect("a look folder");
+    std::fs::write(
+        dark.join("windows.cut.svg"),
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 16 16\"><rect width=\"16\" height=\"16\"/></svg>",
+    )
+    .expect("written");
+    settings
+        .page
+        .save_preferences(ox_core::settings::PreferencesUpdate {
+            explorer_icons: Some(images.display().to_string()),
+            ..ox_core::settings::PreferencesUpdate::default()
+        });
+    wait_until("the folder to be saved", || {
+        settings.saved_preferences().explorer_icons.is_some()
+    });
+    assert_eq!(
+        row.shown_description(),
+        "images · used while Icons from Windows icon files is on"
+    );
+    assert!(clear.is_sensitive());
+    settings
+        .page
+        .save_preferences(ox_core::settings::PreferencesUpdate {
+            use_icon_files: Some(true),
+            ..ox_core::settings::PreferencesUpdate::default()
+        });
+    let wanted = explorer_icons::mapped_files().len();
+    wait_until("the row to count the pictures", || {
+        row.shown_description() == format!("images · 1 of {wanted} pictures")
+    });
+    clear.emit_clicked();
+    wait_until("the folder to be forgotten", || {
+        settings.saved_preferences().explorer_icons.is_none()
+    });
+    assert_eq!(explorer_icons::status(), explorer_icons::Status::Off);
+    settings
+        .page
+        .save_preferences(ox_core::settings::PreferencesUpdate {
+            use_icon_files: Some(false),
+            ..ox_core::settings::PreferencesUpdate::default()
+        });
 }
 
 /// "Run installed apps' launchers on double-click" is off, as opening never

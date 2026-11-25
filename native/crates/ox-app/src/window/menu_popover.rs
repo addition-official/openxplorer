@@ -2143,7 +2143,7 @@ fn item_content(item: &MenuItem, check: CheckMark, marks: MarkColumn, glyphs: Gl
             if !item.glyph_look.mirrored && !item.glyph_look.accent {
                 return icons::accented_image(item.glyph, ROW_ICON);
             }
-            let image = icons::image(item.glyph, ROW_ICON);
+            let image = icons::command_image(item.glyph, ROW_ICON);
             if item.glyph_look.mirrored {
                 image.add_css_class("mirrored");
             }

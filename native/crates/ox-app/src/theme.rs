@@ -207,7 +207,17 @@ impl Skin {
         self.providers().draw_palette(appearance);
         self.providers()
             .draw_accent(self.accent(), appearance, self.imp().neutral_items.get());
+        self.draw_explorer_icons();
         self.emit_by_name::<()>(APPEARANCE_CHANGED, &[]);
+    }
+
+    /// Has Windows Explorer's own pictures drawn in the copy for the
+    /// appearance and contrast drawn now (LOOK-034).
+    fn draw_explorer_icons(&self) {
+        crate::icons::explorer_icons::set_look(
+            self.appearance() == Appearance::Dark,
+            self.imp().contrast.get() == Contrast::High,
+        );
     }
 
     /// The text size the user chose, which Ctrl+plus steps from and
@@ -318,6 +328,7 @@ impl Skin {
             return;
         }
         self.providers().draw_contrast(contrast);
+        self.draw_explorer_icons();
     }
 
     /// Calls `callback` whenever the palette or the theme choice changed;

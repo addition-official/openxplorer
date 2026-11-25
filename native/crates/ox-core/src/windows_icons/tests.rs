@@ -12,16 +12,18 @@ use crate::test_support::temporary_folder;
 fn roles_of(library: IconLibrary) -> Vec<IconRole> {
     IconRole::ALL
         .into_iter()
-        .filter(|role| role.source().0 == library)
+        .filter(|role| role.sources().iter().any(|(source, _, _)| *source == library))
         .collect()
 }
 
 /// The group IDs of `library`'s roles, each once: several roles may share
 /// a group.
 fn groups_of(library: IconLibrary) -> Vec<u16> {
-    let mut groups: Vec<u16> = roles_of(library)
+    let mut groups: Vec<u16> = IconRole::ALL
         .into_iter()
-        .map(|role| role.source().1)
+        .flat_map(IconRole::sources)
+        .filter(|(source, _, _)| *source == library)
+        .map(|(_, group, _)| *group)
         .collect();
     groups.sort_unstable();
     groups.dedup();
@@ -285,4 +287,101 @@ fn the_cache_follows_the_chosen_files() {
         [unrelated],
         "only the reader's own folders are removed"
     );
+}
+
+/// Every Windows file Explorer draws icons from is recognized by its name,
+/// with or without `.mun`, in any letter case; another file is not.
+///
+/// parity: LOOK-030
+#[test]
+fn every_explorer_icon_file_is_recognized() {
+    for (name, library) in [
+        ("imageres.dll.mun", IconLibrary::Imageres),
+        ("SHELL32.DLL", IconLibrary::Shell32),
+        ("DDORes.dll.mun", IconLibrary::Ddores),
+        ("wpdshext.dll.mun", IconLibrary::Wpdshext),
+        ("networkexplorer.dll.mun", IconLibrary::NetworkExplorer),
+        ("netshell.dll.mun", IconLibrary::Netshell),
+        ("ntshrui.dll.mun", IconLibrary::Ntshrui),
+        ("zipfldr.dll.mun", IconLibrary::Zipfldr),
+        ("mydocs.dll.mun", IconLibrary::Mydocs),
+        ("mycomput.dll.mun", IconLibrary::Mycomput),
+        ("ExplorerFrame.dll.mun", IconLibrary::ExplorerFrame),
+        ("dmdskres.dll", IconLibrary::Dmdskres),
+    ] {
+        let path = Path::new("/mnt/windows/SystemResources").join(name);
+        assert_eq!(IconLibrary::of_file(&path), Some(library), "{name}");
+    }
+    assert_eq!(IconLibrary::of_file(Path::new("/srv/notepad.exe")), None);
+    for role in IconRole::ALL {
+        assert!(!role.sources().is_empty(), "{role:?} has a source");
+        assert_eq!(role.source(), role.sources()[0], "{role:?}");
+    }
+}
+
+/// A role takes its images from the file of its first source the user
+/// chose, whatever the order of the chosen files: imageres' ZIP folder
+/// before zipfldr's, and zipfldr's when imageres is not chosen; a phone
+/// from wpdshext.dll, else DDORes.dll. Each file's group is looked up in
+/// that file only.
+///
+/// parity: LOOK-030
+#[test]
+fn each_role_takes_its_first_chosen_source() {
+    let folder = temporary_folder();
+    let cache = folder.path().join("cache");
+    let source_group = |role: IconRole, library: IconLibrary| -> u16 {
+        role.sources()
+            .iter()
+            .find(|(source, _, _)| *source == library)
+            .map(|(_, group, _)| *group)
+            .expect("a source in that file")
+    };
+    let write = |name: &str, groups: &[u16]| {
+        let path = folder.path().join(name);
+        std::fs::write(&path, SyntheticIconFile::with_groups(groups).build()).expect("written");
+        path
+    };
+    // The cache folder a role's images were read into tells the file.
+    let drawn_from = |files: &[PathBuf], role: IconRole| -> Option<PathBuf> {
+        let loaded = load_icons(files, &cache);
+        let image = loaded.images(role).first()?;
+        image.path.parent().map(Path::to_path_buf)
+    };
+    let zip_in_imageres = source_group(IconRole::ZipFolder, IconLibrary::Imageres);
+    let zip_in_zipfldr = source_group(IconRole::ZipFolder, IconLibrary::Zipfldr);
+    // zipfldr.dll also has imageres' number, which is not its role's.
+    let zipfldr = write("zipfldr.dll.mun", &[zip_in_zipfldr, zip_in_imageres]);
+    let imageres = write("imageres.dll.mun", &[zip_in_imageres]);
+    let from_imageres = drawn_from(std::slice::from_ref(&imageres), IconRole::ZipFolder);
+    let from_zipfldr = drawn_from(std::slice::from_ref(&zipfldr), IconRole::ZipFolder);
+    assert!(from_imageres.is_some() && from_zipfldr.is_some());
+    assert_ne!(from_imageres, from_zipfldr);
+    assert_eq!(
+        drawn_from(&[zipfldr.clone(), imageres], IconRole::ZipFolder),
+        from_imageres,
+        "imageres first, whatever the order chosen"
+    );
+    let only_imageres_number = write("zipfldr.dll", &[zip_in_imageres]);
+    assert_eq!(
+        drawn_from(&[only_imageres_number], IconRole::ZipFolder),
+        None,
+        "zipfldr's role is looked up by zipfldr's number"
+    );
+
+    let phone_in_wpdshext = source_group(IconRole::PortableDevice, IconLibrary::Wpdshext);
+    let phone_in_ddores = source_group(IconRole::PortableDevice, IconLibrary::Ddores);
+    let ddores = write("DDORes.dll.mun", &[phone_in_ddores]);
+    let wpdshext = write("wpdshext.dll.mun", &[phone_in_wpdshext]);
+    let from_wpdshext = drawn_from(std::slice::from_ref(&wpdshext), IconRole::PortableDevice);
+    let from_ddores = drawn_from(std::slice::from_ref(&ddores), IconRole::PortableDevice);
+    assert!(from_wpdshext.is_some() && from_ddores.is_some());
+    assert_eq!(
+        drawn_from(&[ddores, wpdshext], IconRole::PortableDevice),
+        from_wpdshext,
+        "wpdshext first"
+    );
+    // A file no role draws from yet is read and gives nothing.
+    let frame = write("ExplorerFrame.dll.mun", &[1, 2]);
+    assert_eq!(load_icons(&[frame], &cache).found(), 0);
 }

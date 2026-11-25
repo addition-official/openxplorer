@@ -37,6 +37,7 @@ mod art;
 mod art_image;
 mod composition;
 mod emblem;
+pub(crate) mod explorer_icons;
 pub(crate) mod file_icons;
 mod file_type;
 mod icon;
@@ -99,6 +100,18 @@ pub(crate) fn image(icon: Icon, size: i32) -> gtk::Image {
     image
 }
 
+/// A new image of `icon` at `size` logical pixels, as [`image`] makes,
+/// for a command of the command bar, a menu row, the View button or a
+/// pane button: Windows Explorer's own picture of the command from the
+/// folder the user chose, when there is one ([`explorer_icons`],
+/// LOOK-034).
+pub(crate) fn command_image(icon: Icon, size: i32) -> gtk::Image {
+    let image = decorative_image();
+    image.add_css_class(GLYPH_CLASS);
+    set_icon_at(&image, icon, size, explorer_icons::Spot::Command);
+    image
+}
+
 /// An empty image, centred in its allocation and hidden from assistive
 /// technology (see the module documentation).
 fn decorative_image() -> gtk::Image {
@@ -116,14 +129,47 @@ fn decorative_image() -> gtk::Image {
 /// else the bundled icon. The image is drawn again when the text size
 /// changes.
 pub(crate) fn set_icon(image: &gtk::Image, icon: Icon, size: i32) {
-    draw_icon(image, icon, size, scaled(size));
-    SCALED_IMAGES.with_borrow_mut(|images| images.remember(image, icon, size));
+    let spot = SCALED_IMAGES.with_borrow(|images| images.spot_of(image));
+    set_icon_at(image, icon, size, spot);
 }
+
+/// Shows `icon` in `image` as [`set_icon`] does, as an image in `spot`,
+/// which it keeps: in a command or address bar spot, Windows Explorer's
+/// own picture from the folder the user chose, when there is one.
+pub(crate) fn set_icon_at(image: &gtk::Image, icon: Icon, size: i32, spot: explorer_icons::Spot) {
+    draw_icon(image, icon, size, scaled(size), spot);
+    SCALED_IMAGES.with_borrow_mut(|images| images.remember(image, icon, size, spot));
+}
+
+/// The CSS class of an image showing a picture of Windows Explorer's
+/// icons folder, which is drawn again when the look or the scale changes.
+pub(crate) const EXPLORER_CLASS: &str = "explorer-icon";
 
 /// Shows `icon` in `image`, `pixels` logical pixels square, as the icon of
 /// a `size`-pixel square at 100% text: the font's glyph keeps the em it has
-/// in that square, so it grows with the square.
-fn draw_icon(image: &gtk::Image, icon: Icon, size: i32, pixels: i32) {
+/// in that square, so it grows with the square. In `spot`, Windows
+/// Explorer's own picture is shown instead when the chosen folder has it,
+/// its 16-pixel square at 16 pixels of the square (all of a smaller one).
+fn draw_icon(image: &gtk::Image, icon: Icon, size: i32, pixels: i32, spot: explorer_icons::Spot) {
+    let em = size.min(16);
+    if let Some(texture) = explorer_icons::texture_of(icon, spot, size, em, pixels, image.scale_factor()) {
+        if !image.has_css_class(EXPLORER_CLASS) {
+            image.add_css_class(EXPLORER_CLASS);
+            image.connect_scale_factor_notify(|image| {
+                if !image.has_css_class(EXPLORER_CLASS) {
+                    return;
+                }
+                let shown = SCALED_IMAGES.with_borrow(|images| images.shown_in(image));
+                if let Some((icon, size, spot)) = shown {
+                    draw_icon(image, icon, size, scaled(size), spot);
+                }
+            });
+        }
+        image.set_paintable(Some(&texture));
+        image.set_pixel_size(pixels);
+        return;
+    }
+    image.remove_css_class(EXPLORER_CLASS);
     let name = user_glyphs::drawn_name(icon, size);
     image.set_icon_name(Some(name));
     image.set_pixel_size(pixels);
@@ -135,7 +181,7 @@ fn draw_icon(image: &gtk::Image, icon: Icon, size: i32, pixels: i32) {
 /// draws in its accent colour ([`user_glyphs::accent_of`]) over it: the
 /// same glyph, in the accent colour, clipped to that part.
 pub(crate) fn accented_image(icon: Icon, size: i32) -> gtk::Widget {
-    let base = image(icon, size);
+    let base = command_image(icon, size);
     let Some((left, top, right, bottom)) = user_glyphs::accent_of(icon) else {
         return base.upcast();
     };
@@ -162,15 +208,62 @@ pub(crate) fn accented_image(icon: Icon, size: i32) -> gtk::Widget {
     clip.set_margin_start(x);
     clip.set_margin_top(y);
     overlay.add_overlay(&clip);
+    // Windows Explorer's own picture has its accent part already.
+    let accent_shown = move |clip: &accent_clip::AccentClip| {
+        clip.set_visible(
+            user_glyphs::draws_from_font(icon, size)
+                && !explorer_icons::draws(icon, explorer_icons::Spot::Command),
+        );
+    };
     let shown = clip.downgrade();
     user_glyphs::follow_status(move |_| {
         let Some(clip) = shown.upgrade() else {
             return false;
         };
-        clip.set_visible(user_glyphs::draws_from_font(icon, size));
+        accent_shown(&clip);
+        true
+    });
+    let shown = clip.downgrade();
+    explorer_icons::follow_status(move |_| {
+        let Some(clip) = shown.upgrade() else {
+            return false;
+        };
+        accent_shown(&clip);
         true
     });
     overlay.upcast()
+}
+
+/// `base`, an image of a 20-unit Fluent icon `size` pixels square, under
+/// `accent` drawn in the accent colour and clipped to `part`, a rectangle
+/// of the 20-unit square (left, top, right, bottom): the open Details
+/// pane's two-tone glyph, whose pane alone Windows 11 tints. `base` must
+/// have no parent. Returns the overlay and the clipped part, which the
+/// caller shows and hides.
+pub(crate) fn with_accent_part(
+    base: &gtk::Image,
+    accent: Icon,
+    size: i32,
+    (left, top, right, bottom): (f64, f64, f64, f64),
+) -> (gtk::Overlay, gtk::Widget) {
+    let overlay = gtk::Overlay::builder()
+        .child(base)
+        .accessible_role(gtk::AccessibleRole::Presentation)
+        .halign(gtk::Align::Center)
+        .valign(gtk::Align::Center)
+        .build();
+    let pixels = f64::from(scaled(size));
+    let at = |units: f64| to_pixels(units * pixels / 20.0);
+    let (x, y) = (at(left), at(top));
+    let image = image(accent, size);
+    image.add_css_class("glyph-accent");
+    let clip = accent_clip::AccentClip::new(&image, (x, y), (at(right) - x, at(bottom) - y));
+    clip.set_halign(gtk::Align::Start);
+    clip.set_valign(gtk::Align::Start);
+    clip.set_margin_start(x);
+    clip.set_margin_top(y);
+    overlay.add_overlay(&clip);
+    (overlay, clip.upcast())
 }
 
 /// `units` logical pixels, rounded to whole pixels.
@@ -186,23 +279,39 @@ thread_local! {
     static SCALED_IMAGES: RefCell<ScaledImages> = RefCell::new(ScaledImages::default());
 }
 
-/// The images shown by [`set_icon`], each with its icon and its size at
-/// 100% text, by the image's address.
+/// What an image shows: the image, its icon, its size at 100% text and
+/// its spot.
+type ScaledImage = (glib::WeakRef<gtk::Image>, Icon, i32, explorer_icons::Spot);
+
+/// The images shown by [`set_icon`], each with its icon, its size at 100%
+/// text and its spot, by the image's address.
 #[derive(Default)]
 struct ScaledImages {
-    images: HashMap<usize, (glib::WeakRef<gtk::Image>, Icon, i32)>,
+    images: HashMap<usize, ScaledImage>,
     /// How many there were after the last pruning.
     pruned_at: usize,
 }
 
 impl ScaledImages {
-    fn remember(&mut self, image: &gtk::Image, icon: Icon, size: i32) {
+    fn remember(&mut self, image: &gtk::Image, icon: Icon, size: i32, spot: explorer_icons::Spot) {
         let key = image.as_ptr() as usize;
-        self.images.insert(key, (image.downgrade(), icon, size));
+        self.images.insert(key, (image.downgrade(), icon, size, spot));
         if self.images.len() > (2 * self.pruned_at).max(256) {
-            self.images.retain(|_, (image, _, _)| image.upgrade().is_some());
+            self.images
+                .retain(|_, (image, _, _, _)| image.upgrade().is_some());
             self.pruned_at = self.images.len();
         }
+    }
+
+    /// What `image` shows, while it is the image remembered there.
+    fn shown_in(&self, image: &gtk::Image) -> Option<(Icon, i32, explorer_icons::Spot)> {
+        let (kept, icon, size, spot) = self.images.get(&(image.as_ptr() as usize))?;
+        (kept.upgrade().as_ref() == Some(image)).then_some((*icon, *size, *spot))
+    }
+
+    /// The spot `image` was last shown in, plain for a new image.
+    fn spot_of(&self, image: &gtk::Image) -> explorer_icons::Spot {
+        self.shown_in(image).map(|(_, _, spot)| spot).unwrap_or_default()
     }
 }
 
@@ -246,17 +355,17 @@ pub(crate) fn set_icon_scale(scale: f64) {
 /// Draws every image [`set_icon`] showed again, with the glyph and size
 /// it takes now.
 pub(crate) fn redraw_scaled_images() {
-    let images: Vec<(gtk::Image, Icon, i32)> = SCALED_IMAGES.with_borrow(|images| {
+    let images: Vec<(gtk::Image, Icon, i32, explorer_icons::Spot)> = SCALED_IMAGES.with_borrow(|images| {
         images
             .images
             .values()
-            .filter_map(|(image, icon, size)| Some((image.upgrade()?, *icon, *size)))
+            .filter_map(|(image, icon, size, spot)| Some((image.upgrade()?, *icon, *size, *spot)))
             .collect()
     });
-    for (image, icon, size) in images {
+    for (image, icon, size, spot) in images {
         // An image now showing something else is left as it is.
-        if image.icon_name().is_some() {
-            draw_icon(&image, icon, size, scaled(size));
+        if image.icon_name().is_some() || image.has_css_class(EXPLORER_CLASS) {
+            draw_icon(&image, icon, size, scaled(size), spot);
         }
     }
 }

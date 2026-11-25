@@ -127,12 +127,13 @@ mod tests {
     /// alone, each with why. Any other title with the word "Windows", in
     /// any letter case, must have its line in [`WINDOWS_SETTINGS`].
     #[rustfmt::skip]
-    const NOT_SET_BY_THE_SWITCH: [(&str, &str); 9] = [
+    const NOT_SET_BY_THE_SWITCH: [(&str, &str); 10] = [
         ("Behave like Windows Explorer", "the switch itself"),
         ("Show letters on mapped network folders", "deliberately not part of the switch"),
         ("Icons from Windows icon files", "needs icon files the user supplies; names Windows as a place"),
         ("Windows icon files", "names Windows only as where the icon files come from"),
         ("Windows symbol font", "names Windows only as where the font comes from"),
+        ("Windows Explorer icons folder", "names Windows only as where the pictures come from"),
         ("Open new windows in split view", "the app's own windows, not Microsoft Windows"),
         ("Open windows", "the app's own windows, not Microsoft Windows"),
         ("Type addresses instead of breadcrumbs in new windows", "the app's own windows, not Microsoft Windows"),

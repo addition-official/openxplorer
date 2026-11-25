@@ -585,6 +585,13 @@ pub struct Preferences {
     /// stored, never the font. Stored only when chosen.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub symbol_font: Option<String>,
+    /// The folder of Windows 11 File Explorer's own command icons the user
+    /// chose (`FileExplorerExtensions\Assets\images` or a copy of it), as
+    /// an absolute path, whose pictures draw the command bar, menus and
+    /// address bar while [`Self::use_icon_files`] is on (LOOK-034); only
+    /// the path is stored, never the pictures. Stored only when chosen.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub explorer_icons: Option<String>,
     /// The icon each kind of item shows, where the user chose one
     /// (LOOK-029); see [`super::file_icons`]. Stored only when there is
     /// one.
@@ -894,6 +901,7 @@ impl Default for Preferences {
             use_icon_files: false,
             icon_files: Vec::new(),
             symbol_font: None,
+            explorer_icons: None,
             file_icons: FileIcons::new(),
             restore_session: false,
             startup_folder: None,
@@ -1085,6 +1093,13 @@ impl Preferences {
                 self.symbol_font = None;
             } else if is_symbol_font_path(font) {
                 self.symbol_font = Some(font.clone());
+            }
+        }
+        if let Some(folder) = &update.explorer_icons {
+            if folder.is_empty() {
+                self.explorer_icons = None;
+            } else if is_folder_path(folder) {
+                self.explorer_icons = Some(folder.clone());
             }
         }
         if let Some(icons) = &update.file_icons {
@@ -1527,6 +1542,9 @@ pub struct PreferencesUpdate {
     /// The Windows symbol font to read glyphs from; empty forgets it. A
     /// path that is not an absolute `.ttf` or `.otf` path is ignored.
     pub symbol_font: Option<String>,
+    /// The folder of Windows Explorer's command icons; empty forgets it. A
+    /// path that is not absolute is ignored.
+    pub explorer_icons: Option<String>,
     /// Replaces the chosen file icons; kinds and icons the app does not
     /// know are dropped.
     pub file_icons: Option<FileIcons>,
@@ -1707,6 +1725,7 @@ impl PreferencesUpdate {
             use_icon_files: flag("useIconFiles"),
             icon_files: values.get("iconFiles").and_then(read_keys),
             symbol_font: text("symbolFont").map(str::to_owned),
+            explorer_icons: text("explorerIcons").map(str::to_owned),
             file_icons: values.get("fileIcons").and_then(read_file_icons),
             restore_session: flag("restoreSession"),
             startup_folder: text("startupFolder").map(str::to_owned),
@@ -1832,6 +1851,12 @@ fn canonical_icon_files(files: &[String]) -> Vec<String> {
         }
     }
     kept
+}
+
+/// Whether `path` can be a chosen folder: absolute, of a sane length and
+/// without control characters.
+fn is_folder_path(path: &str) -> bool {
+    path.starts_with('/') && path.len() <= MAX_PLACE_LOCATION && !path.contains(char::is_control)
 }
 
 /// Whether `path` may name the symbol font: an absolute path of at most
@@ -2019,6 +2044,37 @@ mod tests {
         assert_eq!(preferences.symbol_font.as_deref(), Some("/srv/fonts/SEGMDL2.TTF"));
         preferences.apply(&choose(""));
         assert_eq!(preferences.symbol_font, None, "empty forgets it");
+    }
+
+    /// The Windows Explorer icons folder is unset by default and not stored
+    /// until chosen; only an absolute path is taken, and an empty one
+    /// forgets it (LOOK-034).
+    ///
+    /// parity: LOOK-034
+    #[test]
+    fn the_explorer_icons_folder_is_unset_by_default_and_takes_only_absolute_paths() {
+        let mut preferences = Preferences::default();
+        assert_eq!(preferences.explorer_icons, None);
+        let stored = serde_json::to_value(&preferences).expect("serializable");
+        assert!(stored.get("explorerIcons").is_none(), "not stored until chosen");
+        let choose = |path: &str| PreferencesUpdate {
+            explorer_icons: Some(path.to_owned()),
+            ..PreferencesUpdate::default()
+        };
+        preferences.apply(&choose("/mnt/windows/Assets/images"));
+        let stored = serde_json::to_value(&preferences).expect("serializable");
+        let read = PreferencesUpdate::from_json(&stored).expect("an update");
+        assert_eq!(read.explorer_icons.as_deref(), Some("/mnt/windows/Assets/images"));
+        for refused in ["Assets/images", "/srv/new\nline"] {
+            preferences.apply(&choose(refused));
+            assert_eq!(
+                preferences.explorer_icons.as_deref(),
+                Some("/mnt/windows/Assets/images"),
+                "{refused}"
+            );
+        }
+        preferences.apply(&choose(""));
+        assert_eq!(preferences.explorer_icons, None, "empty forgets it");
     }
 
     /// Only absolute paths of `.dll`, `.mun` and `.exe` files are kept,

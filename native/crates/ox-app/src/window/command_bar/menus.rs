@@ -325,9 +325,9 @@ pub(in crate::window) fn view_glyph_size(view: FolderView) -> i32 {
 /// The glyph Windows 11's View menu draws for `size`.
 fn icon_size_glyph(size: IconSize) -> Icon {
     if size == IconSize::MEDIUM {
-        Icon::Desktop
+        Icon::ViewMedium
     } else if size == IconSize::SMALL {
-        Icon::Grid
+        Icon::ViewSmall
     } else if size == IconSize::LARGE {
         // Windows' smaller monitor (desktop_16_regular).
         Icon::ViewLarge
@@ -709,7 +709,7 @@ fn folder_commands(state: &MoreMenuState) -> Vec<MenuEntry> {
         ),
         FolderPin::Pinned(uri) => MenuItem::with_text_target(
             &gettext("Unpin from Quick access"),
-            Icon::Pin,
+            Icon::Unpin,
             WindowAction::Unpin,
             uri,
         ),

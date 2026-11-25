@@ -76,6 +76,19 @@ pub(crate) enum Icon {
     /// Extra large icons on the View button and in the View menu: draws
     /// `desktop_20_regular`, Windows' own, with or without the font.
     ViewExtraLarge,
+    /// Medium icons on the View button and in the View menu: draws
+    /// `desktop_20_regular` with the font's monitor, as Desktop does; a
+    /// role of its own so Windows Explorer's icons folder can draw it.
+    ViewMedium,
+    /// Small icons on the View button and in the View menu: draws the
+    /// grid with the font's `ViewAll`, as Grid does; a role of its own so
+    /// Windows Explorer's icons folder can draw it.
+    ViewSmall,
+    /// Extract all, in the command bar and the menus: draws the zipped
+    /// folder with the font's compressed-folder glyph, as Compress to
+    /// does; a role of its own so Windows Explorer's icons folder can draw
+    /// its own picture.
+    ExtractAll,
     /// The menus' Open in new tab: draws `window_new_20_regular`, Windows'
     /// own, with or without the font.
     OpenInNewTab,
@@ -290,6 +303,9 @@ pub(crate) enum Icon {
     PanelLeft,
     /// `panel_right_20_regular`: the details pane toggle.
     PanelRight,
+    /// `panel_right_20_filled`: the open Details pane's filled pane, drawn
+    /// in the accent over [`Icon::PanelRight`] on the Details button.
+    PanelRightFilled,
     /// `panel_right_gallery_20_regular`: View > Preview pane.
     PanelRightGallery,
     /// `pause_16_regular`: pausing an action in the progress window.
@@ -442,7 +458,7 @@ impl Icon {
             Icon::Cut => "ox-cut-20-symbolic",
             Icon::Delete => "ox-delete-20-symbolic",
             Icon::DeleteDismiss => "ox-delete-dismiss-20-symbolic",
-            Icon::Desktop | Icon::ViewExtraLarge => "ox-desktop-20-symbolic",
+            Icon::Desktop | Icon::ViewExtraLarge | Icon::ViewMedium => "ox-desktop-20-symbolic",
             Icon::ViewLarge | Icon::Desktop16 => "ox-desktop-16-symbolic",
             Icon::TextDescription => "ox-text-description-ltr-20-symbolic",
             Icon::DisconnectNetworkDrive24 => "ox-disconnect-network-drive-24-symbolic",
@@ -464,8 +480,8 @@ impl Icon {
             Icon::FileFolder => "ox-file-folder-flat",
             Icon::Folder => "ox-folder-20-symbolic",
             Icon::FolderAdd => "ox-folder-add-20-symbolic",
-            Icon::FolderZip => "ox-folder-zip-20-symbolic",
-            Icon::Grid => "ox-grid-20-symbolic",
+            Icon::FolderZip | Icon::ExtractAll => "ox-folder-zip-20-symbolic",
+            Icon::Grid | Icon::ViewSmall => "ox-grid-20-symbolic",
             Icon::HardDrive => "ox-hard-drive-20-symbolic",
             Icon::HeadphonesColor20 => "ox-headphones-20-color",
             Icon::HeadphonesColor32 => "ox-headphones-32-color",
@@ -494,6 +510,7 @@ impl Icon {
             Icon::PaintBrush => "ox-paint-brush-20-symbolic",
             Icon::PanelLeft => "ox-panel-left-20-symbolic",
             Icon::PanelRight => "ox-panel-right-20-symbolic",
+            Icon::PanelRightFilled => "ox-panel-right-20-filled-symbolic",
             Icon::PanelRightGallery => "ox-panel-right-gallery-20-symbolic",
             Icon::Pause16 => "ox-pause-16-symbolic",
             Icon::Phone => "ox-phone-20-symbolic",
@@ -557,7 +574,7 @@ impl Icon {
 /// The roles that draw another icon's bundled file but take a glyph of
 /// their own from the Windows symbol font (LOOK-031): they are not in
 /// [`ALL_ICONS`], whose names match the vendored files one to one.
-pub(crate) const COMMAND_ROLES: [Icon; 11] = [
+pub(crate) const COMMAND_ROLES: [Icon; 14] = [
     Icon::RotateLeft,
     Icon::RotateRight,
     Icon::SetAsBackground,
@@ -569,12 +586,15 @@ pub(crate) const COMMAND_ROLES: [Icon; 11] = [
     Icon::ViewLarge,
     Icon::ViewExtraLarge,
     Icon::OpenInNewTab,
+    Icon::ViewMedium,
+    Icon::ViewSmall,
+    Icon::ExtractAll,
 ];
 
 /// Every icon, in the order of [`Icon`]: for the tests that check each one
 /// ships, is recorded and resolves, and to find the icon a drawn name
 /// stands for ([`super::user_glyphs`]).
-pub(crate) const ALL_ICONS: [Icon; 133] = [
+pub(crate) const ALL_ICONS: [Icon; 134] = [
     Icon::Add,
     Icon::AddNetworkLocation24,
     Icon::Apps,
@@ -665,6 +685,7 @@ pub(crate) const ALL_ICONS: [Icon; 133] = [
     Icon::PaintBrush,
     Icon::PanelLeft,
     Icon::PanelRight,
+    Icon::PanelRightFilled,
     Icon::PanelRightGallery,
     Icon::Pause16,
     Icon::Phone,

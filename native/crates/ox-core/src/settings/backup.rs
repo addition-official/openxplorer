@@ -228,6 +228,7 @@ pub fn missing_paths(data: &SettingsData) -> Vec<String> {
         .icon_files
         .iter()
         .chain(preferences.symbol_font.as_ref())
+        .chain(preferences.explorer_icons.as_ref())
         .map(PathBuf::from);
     let mut missing = Vec::new();
     for path in locations.chain(files) {
@@ -447,7 +448,8 @@ mod tests {
             "homeQuickAccess": true, "favorites": ["file:///home/demo/Plans/q3.txt"],
             "homeFolded": ["recent"], "galleryFolders": ["file:///home/demo/Photos"],
             "useIconFiles": true, "iconFiles": ["/mnt/windows/imageres.dll.mun"],
-            "symbolFont": "/mnt/windows/SegoeIcons.ttf", "fileIcons": {"zip": "zip-document"},
+            "symbolFont": "/mnt/windows/SegoeIcons.ttf", "explorerIcons": "/mnt/windows/Assets/images",
+            "fileIcons": {"zip": "zip-document"},
             "restoreSession": true, "startupFolder": "file:///home/demo/Plans",
             "beginInSplitView": true, "tabSwitchesSplitPanes": true,
             "folderTree": {"shown": true, "showHidden": true},
