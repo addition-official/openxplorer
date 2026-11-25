@@ -1,7 +1,17 @@
 STATUS: DONE
-HEAD: pass-4-tree-expand 99bc5a4c (from test-combined-60 14a8bf9f; git rev-parse origin/pass-4-tree-expand for the full hash)
-QUESTION: none
+HEAD: pass-4-tree-expand 8271867c (from test-combined-60 14a8bf9f; git rev-parse origin/pass-4-tree-expand for the full hash)
+QUESTION: On deb 60 under KDE Plasma (Wayland), with "Hide expand arrows" on: (1) Do This PC's and Network's chevrons show when the setting is turned off? (2) With it on, do they show while keyboard focus is in the pane (click a row, then press Down)? (3) Which Plasma and GTK 4 versions (kinfo; dpkg -l libgtk-4-1), and is display scaling fractional (for example 125%)? The fade works on X11, Weston and KWin 5.27 here, so the answers narrow down what differs.
 NOTE: Tree expansion and the tooltip audit, from the user's deb 60 comparison with Windows 11. Expand arrows: on this build "Hide expand arrows" works as Windows' option does (shots: with the pointer outside the pane the chevrons draw nothing, with the pointer over it they fade in, 150 ms); I could not reproduce "no chevrons even hovered" under Xvfb/X11. If deb 60 still shows none while hovering, please note the session type (Wayland or X11) and whether keyboard focus in the pane shows them. Before this branch, the only chevrons were This PC's, Network's and the discovered computers'; drives, Local Disk, shares and folders had none, so nothing below This PC could be expanded. That is what this branch adds. Indent measurements below; "NEED VM REF" for an expanded drive.
+
+WAYLAND HOVER CHECK (after the user's report: KDE Plasma, kwin_wayland, GTK 4 Wayland backend)
+The navigation pane uses no motion controller for this. GTK puts the pane in its :hover state while the pointer is over it or any row inside it, and resources/skin/sidebar.css fades the chevrons in from that (window.hide-expand-arrows .sidebar:hover .side-expander), or while keyboard focus is in the pane (:focus-within).
+Built app at 8271867c (the same code as 99bc5a4c), "Hide expand arrows" on, dark theme, real pointer motion from xdotool on a private Xvfb, passed into the compositor's window:
+| compositor (app as a native Wayland client, GDK_BACKEND=wayland) | pointer over the file list | moved from the list into the pane | back out to the list | from outside the window straight into the pane |
+| Weston 13 (x11 backend, nested) | hidden | shown | hidden | shown |
+| KWin 5.27.11 (kwin_wayland --x11-display, nested, software compositing) | hidden | shown | hidden | shown |
+| X11 (Xvfb, GDK_BACKEND=x11) | hidden | shown | hidden | shown |
+Not reproduced, so nothing was changed in the app. The X11 case is now an automated real-input test (nav_tree::hidden_chevrons_show_while_the_real_pointer_is_over_the_pane: list -> pane, pane -> list, outside the window -> pane, then a click on the faded-in chevron expands the drive); Wayland compositors give no XTEST, so the Weston and KWin rows were checked by hand with screenshots. Not covered here: Plasma 6, a real (not nested) KWin session, fractional scaling, a touchpad or tablet as the pointer.
+PASS nav_tree::hidden_chevrons_show_while_the_real_pointer_is_over_the_pane, 3 runs in a row
 
 VISIBLE CHANGES (pass-4-tree-expand)
 - Every mounted drive under This PC (Local Disk included) and every network share under Network (a saved location, or a share inside an expanded computer) has a chevron before its icon. Clicking it lists the drive's or share's folders under it; clicking again hides them. Right on the row lists them (the keyboard stays on the row), Right again moves to the first folder, Left moves back to the parent, Left on an expanded row collapses it. A double-click on the row opens it and lists its folders.
