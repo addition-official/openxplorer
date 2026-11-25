@@ -649,6 +649,18 @@ pub struct Preferences {
     /// default, as in Windows. Stored only when on.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub open_folders_in_own_window: bool,
+    /// A plain click opens an item and pointing at it selects it (Folder
+    /// Options' "Single-click to open an item (point to select)"). Off by
+    /// default, as in Windows: a double-click opens. Stored only when on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub single_click_open: bool,
+    /// With single-click on, the names of items are always underlined
+    /// (Folder Options' "Underline icon titles consistent with my
+    /// browser"); off, only the name pointed at is (Windows' default,
+    /// "Underline icon titles only when I point at them"). Stored only
+    /// when on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub underline_titles_always: bool,
     /// Items show no infotip on hover (Folder Options' "Show pop-up
     /// description for folder and desktop items" off). Stored only when
     /// on, as are the next four.
@@ -881,6 +893,8 @@ impl Default for Preferences {
             show_extensions: false,
             preview_pane: false,
             open_folders_in_own_window: false,
+            single_click_open: false,
+            underline_titles_always: false,
             hide_infotips: false,
             hide_status_bar: false,
             hide_preview_handlers: false,
@@ -930,14 +944,16 @@ impl Preferences {
         replace_if_some(&mut self.preview_pane, update.preview_pane);
     }
 
-    /// Folder Options' choices that only it sets: how folders open, the
-    /// infotips, the status bar, the Preview pane's contents, typing in the
+    /// Folder Options' choices that only it sets: how folders open, how
+    /// a click opens an item, the infotips, the status bar, the Preview pane's contents, typing in the
     /// file list and what searches look at.
     fn apply_folder_options(&mut self, update: &PreferencesUpdate) {
         replace_if_some(
             &mut self.open_folders_in_own_window,
             update.open_folders_in_own_window,
         );
+        replace_if_some(&mut self.single_click_open, update.single_click_open);
+        replace_if_some(&mut self.underline_titles_always, update.underline_titles_always);
         replace_if_some(&mut self.hide_infotips, update.hide_infotips);
         replace_if_some(&mut self.hide_status_bar, update.hide_status_bar);
         replace_if_some(&mut self.hide_preview_handlers, update.hide_preview_handlers);
@@ -1513,6 +1529,10 @@ pub struct PreferencesUpdate {
     pub preview_pane: Option<bool>,
     /// See [`Preferences::open_folders_in_own_window`].
     pub open_folders_in_own_window: Option<bool>,
+    /// See [`Preferences::single_click_open`].
+    pub single_click_open: Option<bool>,
+    /// See [`Preferences::underline_titles_always`].
+    pub underline_titles_always: Option<bool>,
     /// See [`Preferences::hide_infotips`].
     pub hide_infotips: Option<bool>,
     /// See [`Preferences::hide_status_bar`].
@@ -1670,6 +1690,8 @@ impl PreferencesUpdate {
             show_extensions: flag("showExtensions"),
             preview_pane: flag("previewPane"),
             open_folders_in_own_window: flag("openFoldersInOwnWindow"),
+            single_click_open: flag("singleClickOpen"),
+            underline_titles_always: flag("underlineTitlesAlways"),
             hide_infotips: flag("hideInfotips"),
             hide_status_bar: flag("hideStatusBar"),
             hide_preview_handlers: flag("hidePreviewHandlers"),
@@ -2484,6 +2506,8 @@ mod tests {
     fn folder_options_choices_are_stored_only_when_changed() {
         let keys = [
             "openFoldersInOwnWindow",
+            "singleClickOpen",
+            "underlineTitlesAlways",
             "hideInfotips",
             "hideStatusBar",
             "hidePreviewHandlers",
@@ -2501,6 +2525,7 @@ mod tests {
         };
         preferences.apply(&all(true));
         assert!(preferences.open_folders_in_own_window && preferences.hide_infotips);
+        assert!(preferences.single_click_open && preferences.underline_titles_always);
         assert!(preferences.hide_status_bar && preferences.hide_preview_handlers);
         assert!(preferences.type_into_search_box && preferences.search_contents);
         let stored = serde_json::to_value(&preferences).expect("serializable preferences");
