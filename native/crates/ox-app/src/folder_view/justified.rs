@@ -121,7 +121,7 @@ pub(crate) struct Change {
 }
 
 /// Lays out `aspects`, the items after `change`, keeping `kept`, rows of
-/// `old` on screen, exactly as they are (HOME-038): the items changed
+/// `old` on screen, exactly as they are (HOME-039): the items changed
 /// only below them are laid out again below them, and those changed only
 /// above them above them, every row there filling the width. Returns the
 /// layout and how far down the kept rows moved, for the scroll position
@@ -422,7 +422,7 @@ mod tests {
     /// exactly as they were, moved down by what was added above them;
     /// the rows above fill the width; a change among them is refused.
     ///
-    /// parity: HOME-038
+    /// parity: HOME-039
     #[test]
     fn rows_on_screen_stay_as_photos_come_above_and_below_them() {
         let aspects = |count: usize, from: usize| -> Vec<Option<f64>> {
@@ -499,7 +499,7 @@ mod tests {
     /// A filled layout's last row reaches the width: stretched when that
     /// keeps it near the target, else joined to the row before it.
     ///
-    /// parity: HOME-038
+    /// parity: HOME-039
     #[test]
     fn a_filled_layout_ends_with_a_full_row() {
         for count in 1..40 {

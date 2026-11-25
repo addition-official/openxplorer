@@ -366,7 +366,7 @@ impl BrowserWindow {
     }
 
     /// Holds, or lets go of, the layout of the panes that show tab `id`
-    /// while its first listing of Gallery reads folders (HOME-038).
+    /// while its first listing of Gallery reads folders (HOME-039).
     pub(super) fn hold_gallery_layout(&self, id: TabId, held: bool) {
         for pane in self.panes_showing(id, held) {
             pane.gallery().canvas().hold_layout(held);
@@ -375,7 +375,7 @@ impl BrowserWindow {
 
     /// Keeps the rows on screen of the panes that show tab `id` as they
     /// are, or no longer, while its first listing of Gallery still reads
-    /// folders after showing the photos read so far (HOME-038).
+    /// folders after showing the photos read so far (HOME-039).
     pub(super) fn keep_gallery_rows_steady(&self, id: TabId, steady: bool) {
         for pane in self.panes_showing(id, steady) {
             pane.gallery().canvas().keep_rows_steady(steady);

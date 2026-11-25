@@ -93,7 +93,7 @@ struct LoadStart {
 }
 
 /// How long Gallery's first listing reads before it shows the photos it
-/// read so far (HOME-038).
+/// read so far (HOME-039).
 const SHOW_READ_AFTER: std::time::Duration = std::time::Duration::from_millis(300);
 
 /// Gallery's first listing, once it shows the photos read so far.
@@ -351,7 +351,7 @@ impl BrowserWindow {
     }
 
     /// Lists Gallery for tab `id`: the photos of its folders, read on a
-    /// thread of their own (HOME-019, HOME-038).
+    /// thread of their own (HOME-019, HOME-039).
     fn list_gallery_tab(&self, mode: LoadMode, run: Rc<LoadRun>, batch_run: Rc<LoadRun>) -> loader::Listing {
         let hidden = if self.folder_pane().model().shows_hidden() {
             HiddenItems::Include
@@ -360,7 +360,7 @@ impl BrowserWindow {
         };
         // A first listing shows nothing until it read for a moment, then
         // the photos read so far, and keeps those on screen as they are
-        // while it reads on (HOME-038); a listing again keeps the rows
+        // while it reads on (HOME-039); a listing again keeps the rows
         // until it ends anyway.
         let opening = (mode == LoadMode::Navigate).then(|| self.open_gallery_progressively(&run));
         let batch_opening = opening.clone();
@@ -434,7 +434,7 @@ impl BrowserWindow {
     }
 
     /// Adds `entries`, photos Gallery's first listing read after showing
-    /// some, without moving those on screen (HOME-038): older ones go
+    /// some, without moving those on screen (HOME-039): older ones go
     /// below them and, once the view left the top, newer ones above
     /// them, each in a change of its own; those that belong among them,
     /// or above them while the view shows the top, wait for the end.

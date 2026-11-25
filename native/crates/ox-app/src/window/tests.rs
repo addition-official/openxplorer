@@ -133,6 +133,7 @@ mod tab_dragging;
 mod tabs;
 mod text_field_tab_keys;
 mod tiles_and_content;
+mod tooltip_hiding;
 mod tooltips;
 mod typed_addresses;
 mod undo_without_recycle_bin;

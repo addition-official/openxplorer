@@ -588,7 +588,7 @@ fn small_print_is_drawn_as_sharp_as_the_original_shrunk_to_the_tile() {
 /// heading's row is there from the first frame and no empty page shows
 /// while the folders are still read.
 ///
-/// parity: HOME-038
+/// parity: HOME-039
 #[gtk::test]
 fn gallery_shows_what_it_read_and_keeps_the_rows_on_screen_still() {
     let home = PicturesHome::new();

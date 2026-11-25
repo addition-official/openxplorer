@@ -372,7 +372,7 @@ mod tests {
     /// Gallery's walk reads each folder's subfolders newest first, by
     /// date modified; a search keeps the folder's own order.
     ///
-    /// parity: HOME-038
+    /// parity: HOME-039
     #[test]
     fn newest_folders_are_walked_first_when_asked() {
         let base = tempfile::tempdir().unwrap();

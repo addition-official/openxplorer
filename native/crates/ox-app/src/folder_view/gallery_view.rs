@@ -481,11 +481,11 @@ mod imp {
         /// Runs when what is on screen changed: the heading follows.
         pub(super) on_shown: RefCell<Vec<Box<dyn Fn()>>>,
         /// Gallery's first listing is still reading folders: the photos are
-        /// laid out once it ends (HOME-038).
+        /// laid out once it ends (HOME-039).
         pub(super) held: Cell<bool>,
         /// Gallery's first listing shows what it read and still reads: the
         /// rows on screen stay as they are while photos come above and
-        /// below them (HOME-038).
+        /// below them (HOME-039).
         pub(super) steady: Cell<bool>,
         /// How far the rows on screen moved down at the last change, for
         /// the scroll position to follow once GTK lays the canvas out.
@@ -603,7 +603,7 @@ impl GalleryCanvas {
     }
 
     /// Lays nothing out while `held`, Gallery's first listing still reading
-    /// folders, then every photo at once (HOME-038): a layout of the first
+    /// folders, then every photo at once (HOME-039): a layout of the first
     /// folder's photos would be replaced by another as each later folder's
     /// came, every tile moving and its thumbnail drawn again.
     pub(crate) fn hold_layout(&self, held: bool) {
@@ -613,7 +613,7 @@ impl GalleryCanvas {
     }
 
     /// Keeps the rows on screen as they are while `steady`, Gallery's
-    /// first listing showing what it read so far (HOME-038): photos found
+    /// first listing showing what it read so far (HOME-039): photos found
     /// later are laid out above and below them, and the scroll position
     /// follows those above, so nothing on screen moves.
     pub(crate) fn keep_rows_steady(&self, steady: bool) {
@@ -819,7 +819,7 @@ impl GalleryCanvas {
         let key = (width, imp.row_height.get());
         if imp.held.get() {
             // The first listing is still reading folders: nothing is laid
-            // out until every photo is known (HOME-038).
+            // out until every photo is known (HOME-039).
             if imp.laid_for.get() != HELD_LAYOUT {
                 imp.layout.replace(Layout::default());
                 imp.laid_for.set(HELD_LAYOUT);
@@ -864,7 +864,7 @@ impl GalleryCanvas {
     /// places them; tiles of rows further off are freed for others.
     fn place_tiles(&self, width: i32) {
         // Rows came above those on screen: the view follows them down, so
-        // what shows stays where it was (HOME-038). The viewport took the
+        // what shows stays where it was (HOME-039). The viewport took the
         // canvas's new height before laying it out.
         let shift = self.imp().shift.take();
         if shift != 0 {
@@ -1765,7 +1765,7 @@ impl GalleryView {
         }
         // The heading keeps its row whenever Gallery's page shows, from
         // before the first photo is found and while none on screen has a
-        // date, so the photos never move down when dates arrive (HOME-038).
+        // date, so the photos never move down when dates arrive (HOME-039).
         heading.set_visible(true);
         let timeline = canvas.timeline();
         let adjustment = self.vadjustment();
