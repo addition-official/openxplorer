@@ -196,6 +196,9 @@ pub(crate) const fn windows_source(icon: Icon) -> WindowsSource {
         | Icon::PanelRightFilled => {
             WindowsSource::None("Windows draws the Fluent UI System Icons file the app bundles")
         }
+        Icon::CaretDown12Filled | Icon::CaretUp12Filled => {
+            WindowsSource::None("Gallery's scrubber arrows; not yet checked against Microsoft's table")
+        }
         Icon::ArrowSwap
         | Icon::Braces
         | Icon::Markdown

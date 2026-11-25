@@ -37,6 +37,8 @@
 @define-color ox_accent #0067c0;                   /* C14 */
 @define-color ox_accent_hover alpha(@ox_accent, .9);   /* C15 */
 @define-color ox_accent_pressed alpha(@ox_accent, .8);
+/* Gallery scrubber's place mark; not measured in the light theme. */
+@define-color ox_scrubber_mark @ox_accent;
 @define-color ox_on_accent #ffffff;                /* C16 */
 @define-color ox_on_accent_pressed alpha(@ox_on_accent, .7);   /* §4.11 */
 @define-color ox_accent_stroke alpha(white, .08);  /* E07 */

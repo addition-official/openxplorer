@@ -47,6 +47,12 @@ pub(crate) const AFTER_FIRST_BATCH: &str = "ox:gallery#after-first-batch";
 
 /// How much of a photo is read for its date: EXIF sits at the start.
 const EXIF_HEAD: u64 = 256 * 1024;
+/// How much of a JPEG is read first: its EXIF is one segment of at most
+/// 64 KiB, after the start marker and at most a JFIF header, and its size
+/// follows soon after. Only a JPEG whose size comes later is read on, to
+/// [`EXIF_HEAD`]: a scan of thousands of photos reads a quarter as much
+/// (HOME-040).
+const JPEG_HEAD: u64 = 68 * 1024;
 /// How long later batches are merged before they reach the window.
 const BATCH_MERGE: Duration = Duration::from_millis(200);
 /// The most folders Gallery watches for changes.
@@ -233,8 +239,18 @@ fn read_photo_facts(entry: &Entry) -> PhotoFacts {
     let Some(path) = gio::File::for_uri(&entry.uri).path() else {
         return PhotoFacts::default();
     };
+    let is_jpeg = entry.content_type.as_deref() == Some("image/jpeg");
     let mut head = Vec::new();
-    let read = std::fs::File::open(&path).and_then(|file| file.take(EXIF_HEAD).read_to_end(&mut head));
+    let read = std::fs::File::open(&path).and_then(|mut file| {
+        let first = (&mut file)
+            .take(if is_jpeg { JPEG_HEAD } else { EXIF_HEAD })
+            .read_to_end(&mut head)?;
+        let short = u64::try_from(first).is_ok_and(|first| first == JPEG_HEAD);
+        if is_jpeg && short && crate::picture_guard::declared_dimensions(&head).is_none() {
+            file.take(EXIF_HEAD - JPEG_HEAD).read_to_end(&mut head)?;
+        }
+        Ok(first)
+    });
     let exif = entry
         .content_type
         .as_deref()
@@ -420,5 +436,41 @@ mod tests {
             date_taken_in(&with).and_then(|seconds| i64::try_from(seconds).ok()),
             Some(expected)
         );
+    }
+
+    /// A JPEG is read in a shorter head first; one whose size comes after
+    /// long segments (colour profiles, a large preview) is read on, so its
+    /// date taken and size are found all the same.
+    ///
+    /// parity: HOME-040
+    #[gtk::test]
+    fn a_jpeg_with_long_segments_before_its_size_is_read_on() {
+        let with = crate::test_support::pictures::jpeg_bytes(0x0033_6699, Some("2025:12:24 10:00:00"));
+        // SOI, then EXIF's APP1 segment.
+        let exif_end = 4 + usize::from(u16::from_be_bytes([with[4], with[5]]));
+        let mut bytes = with[..exif_end].to_vec();
+        for _ in 0..2 {
+            // An APP2 segment of 40,000 bytes, as a colour profile's.
+            bytes.extend_from_slice(&[0xff, 0xe2]);
+            bytes.extend_from_slice(&40_002_u16.to_be_bytes());
+            bytes.extend(std::iter::repeat_n(0_u8, 40_000));
+        }
+        bytes.extend_from_slice(&with[exif_end..]);
+        assert!(bytes.len() as u64 > JPEG_HEAD);
+        let folder = tempfile::tempdir().expect("a folder");
+        let path = folder.path().join("long.jpg");
+        std::fs::write(&path, &bytes).expect("the photo");
+        let entry = ox_core::entry::inspect(&gio::File::for_path(&path).uri(), None).expect("the entry");
+
+        let facts = read_photo_facts(&entry);
+
+        let expected = glib::DateTime::from_local(2025, 12, 24, 10, 0, 0.0)
+            .expect("a date")
+            .to_unix();
+        assert_eq!(
+            facts.taken.and_then(|seconds| i64::try_from(seconds).ok()),
+            Some(expected)
+        );
+        assert_eq!(facts.pixel_size, Some((64, 48)));
     }
 }

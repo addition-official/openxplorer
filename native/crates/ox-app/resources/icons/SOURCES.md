@@ -5,6 +5,10 @@ Every icon the native app shows is one of these files, copied byte for byte
 from its upstream set; none is drawn by the app or edited here. The product
 owner approved the set and its mapping on 2026-09-27.
 
+Added on 2026-11-25 to match Windows 11 File Explorer's Gallery, whose date
+scrubber has solid up and down arrows at its ends, from the same pinned package
+and awaiting the owner's review: `caret_up_12_filled` and `caret_down_12_filled`.
+
 Added on 2026-11-25 to match Windows 11 File Explorer's address bar, whose
 first icon on Network is a globe with a monitor (reference ref-27), from the
 same pinned package and awaiting the owner's review: `globe_desktop_20_regular`
@@ -95,6 +99,8 @@ it.
 | `actions/ox-checkmark-20-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/checkmark_20_regular.svg` | 9ad90a13e5d3dd6309544d09a14817b7e609015db6e6c60ecd44ef120d2b3470 |
 | `actions/ox-chevron-double-left-16-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/chevron_double_left_16_regular.svg` | 9bb0f038fd84313dce771fdcd12500fb54bed2dc4e94916b5101a8e0d7a3b10c |
 | `actions/ox-chevron-double-right-16-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/chevron_double_right_16_regular.svg` | 67f59dacb708a2662ffedef5c63e360e08ec225af5959ca87a9ca0cfc862c2ba |
+| `actions/ox-caret-down-12-filled-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/caret_down_12_filled.svg` | 26774cdc489e3ab64ae72701ecaa7de73640965a38dc23e97cf78370dc9c7512 |
+| `actions/ox-caret-up-12-filled-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/caret_up_12_filled.svg` | d24095127826b731be88cdfb190de14998d6c8447b516c46b2b9ecb198ffccb6 |
 | `actions/ox-chevron-down-16-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/chevron_down_16_regular.svg` | 33efa668d236d70a945c00cbbd3fda019994794a5b5a2e17f5e66aac19abd199 |
 | `actions/ox-chevron-down-20-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/chevron_down_20_regular.svg` | 2584741754fe0e27641d7423ff96e675167119889fbc1e5129516973cbfb136a |
 | `actions/ox-chevron-left-16-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/chevron_left_16_regular.svg` | 51d4eeb4a620aec50aa0aed834830f5d7e035203c0cf15f87cf11a8e76f56bab |

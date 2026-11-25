@@ -810,12 +810,13 @@ gallery.files > child.gallery-tile.keyboard-focus {
 gallery.files > child.gallery-tile.cut > picture,
 gallery.files > child.gallery-tile.drag-source > picture,
 gallery.files > child.gallery-tile.hidden-item > picture { opacity: .5; }
-.gallery-view scrubber { min-width: 44px; margin: 0 4px 12px 0; color: @ox_muted; }
+.gallery-view scrubber { min-width: 40px; margin: 0 4px 12px 0; color: @ox_muted; }
 .gallery-view scrubber .scrubber-arrow { min-height: 20px; min-width: 20px; padding: 2px; }
 .gallery-view scrubber .scrubber-track { min-width: 40px; }
 .gallery-view scrubber .scrubber-track:hover { background-color: alpha(@ox_text, .04); border-radius: 4px; }
 .gallery-view scrubber .scrubber-year { font-size: smaller; }
-.gallery-view scrubber .scrubber-thumb { min-height: 3px; border-radius: 2px; background-color: @ox_accent; }
+.gallery-view scrubber .scrubber-thumb { min-height: 3px; background-color: @ox_scrubber_mark; }
+.gallery-view scrubber .scrubber-pointer { min-height: 3px; background-color: @ox_muted; }
 /* The month under the pointer on the scrubber, drawn as a tooltip. */
 .gallery-view .gallery-scrubber-month {
   background-color: @ox_tooltip;
