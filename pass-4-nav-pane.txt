@@ -1,4 +1,105 @@
 STATUS: DONE
+HEAD: pass-4-tree-expand 99bc5a4c (from test-combined-60 14a8bf9f; git rev-parse origin/pass-4-tree-expand for the full hash)
+QUESTION: none
+NOTE: Tree expansion and the tooltip audit, from the user's deb 60 comparison with Windows 11. Expand arrows: on this build "Hide expand arrows" works as Windows' option does (shots: with the pointer outside the pane the chevrons draw nothing, with the pointer over it they fade in, 150 ms); I could not reproduce "no chevrons even hovered" under Xvfb/X11. If deb 60 still shows none while hovering, please note the session type (Wayland or X11) and whether keyboard focus in the pane shows them. Before this branch, the only chevrons were This PC's, Network's and the discovered computers'; drives, Local Disk, shares and folders had none, so nothing below This PC could be expanded. That is what this branch adds. Indent measurements below; "NEED VM REF" for an expanded drive.
+
+VISIBLE CHANGES (pass-4-tree-expand)
+- Every mounted drive under This PC (Local Disk included) and every network share under Network (a saved location, or a share inside an expanded computer) has a chevron before its icon. Clicking it lists the drive's or share's folders under it; clicking again hides them. Right on the row lists them (the keyboard stays on the row), Right again moves to the first folder, Left moves back to the parent, Left on an expanded row collapses it. A double-click on the row opens it and lists its folders.
+- Folders are listed by name (ignoring case), without files, and without hidden folders unless hidden items are shown. Each folder that holds folders has its own chevron. On a local disk, that is checked on a worker thread right after listing, stopping at the first folder found. On a network share the chevron shows until the folder is expanded, as in Windows. Each level is 16 px further in than its parent; a row with a chevron keeps its icon in its level's column.
+- Listing is off the main loop (GIO's asynchronous listing). A share that needs mounting is mounted first, asking for a password only if it wants one. A folder that cannot be read collapses again. At most 1,000 folders are listed under one folder; then a row "More folders in {name}…" opens the folder.
+- With "Expand to current folder" on (the pane's empty-space menu, off by default), the trees open down to the folder the tab shows, one level as each listing arrives, and highlight it. Expanding or collapsing anything by hand stops that until the next navigation.
+- The row with the keyboard keeps it when the pane's rows are redrawn.
+- Tooltips: see the table below. Navigation pane rows show a tooltip only while the name is cut with "…", and then the full name; the chevrons, the network glyph, the capacity bars and the resize handle have none; the Details button shows "Show or hide the details pane.".
+
+NEW OR CHANGED TEXTS
+- New: "More folders in {name}…" (the row after the first 1,000 folders).
+- New: "Show or hide the details pane." (Details button tooltip; Windows' text, confirmed in the VM).
+- Changed: "Paste files (Ctrl+V)" -> "Paste (Ctrl+V)" (NEED VM REF for the exact text); "Restore" -> "Restore Down" and "Close window" -> "Close" (caption buttons).
+- No longer shown as tooltips: "Expand {section}" / "Collapse {section}" (now accessible names only), "Network share" (now an accessible description), a drive's "{free} free of {size}" in the pane (accessible description), "Drag to resize sidebar · double-click to reset" (removed), the search box's "Search names in this folder and its subfolders. Folders cached in Settings → Search are searched faster." (removed), Settings' Back button "Close Settings and return to your folders" (removed), folder tree rows' full paths (now accessible descriptions).
+
+MEASUREMENTS (script, 1x, dark; px from the window's left edge; Windows from reference/ref-25-this-pc.png)
+| row | Windows chevron | ours chevron | Windows icon | ours icon | Windows text | ours text |
+| This PC (top level) | 10-15 | 13-19 | 26-41 | 30-41 | 47 | 58 |
+| Local Disk (level 1) | NEED VM REF | 29-35 | NEED VM REF | 45-58 | NEED VM REF | 75 |
+| folder (level 2) | NEED VM REF | 45-51 | NEED VM REF | 61-74 | NEED VM REF | 90 |
+| folder (level 3) | NEED VM REF | 63-65 | NEED VM REF | 77-90 | NEED VM REF | 106 |
+Row pitch: Windows 24 px, ours 32 px. The top-level offsets and the 32 px pitch are existing layout decisions that other tests pin (pinned_rows_line_up_with_home_on_the_32_pixel_pitch), so they are reported, not changed here. NEED VM REF: a shot of This PC > Local Disk (C:) expanded with one folder expanded, same setup as reference/, to measure the level step.
+
+TOOLTIPS (widget | Windows | ours before | ours after)
+| navigation pane row (Home, Gallery, pins, drives, folders) | only when the name is cut with "…", the full name (user, deb 60 vs Windows 11) | always: the name or the path | only when cut short: the full name |
+| navigation pane chevrons | none (user) | "Expand X" / "Collapse X" | none |
+| network glyph on a share row | none | "Network share" | none |
+| drive capacity bar in the pane | none (no bars in Windows' pane) | "{free} free of {size}" | none |
+| eject button on a removable drive's row | no such button in Windows | "Eject" / "Disconnect" | unchanged (icon-only control with no Windows twin) |
+| pane resize handle | none | "Drag to resize sidebar · double-click to reset" | none |
+| Places button (pane hidden) | no such button | "Places (F9 shows the navigation pane)" | unchanged, NEED VM REF |
+| folder tree row | only when cut short (as the pane) | the full path | only when cut short: the full name |
+| tab | NEED VM REF | the full address | unchanged |
+| tab close button | NEED VM REF ("Close tab (Ctrl+W)"?) | "Close tab" | unchanged |
+| new tab button | NEED VM REF ("New tab (Ctrl+T)"?) | "New tab (Ctrl+T)" | unchanged |
+| tab list scroll buttons | NEED VM REF | "Scroll tab list backward/forward" | unchanged |
+| Cut | "Cut (Ctrl+X)" (user) | "Cut (Ctrl+X)" | unchanged |
+| Copy | "Copy (Ctrl+C)" | "Copy (Ctrl+C)" | unchanged |
+| Paste | "Paste (Ctrl+V)", NEED VM REF | "Paste files (Ctrl+V)" | "Paste (Ctrl+V)" |
+| Rename | "Rename (F2)", NEED VM REF | "Rename (F2)" | unchanged |
+| Share | "Share", NEED VM REF | "Share" | unchanged |
+| Delete | "Delete (Delete)", NEED VM REF | "Delete (Delete)" / "Delete permanently (Delete)" | unchanged |
+| "…" See more | "See more", NEED VM REF | "See more" | unchanged |
+| New, Sort, View (labeled) | NEED VM REF | none | unchanged |
+| Extract all (labeled) | NEED VM REF | "Extract all files from this archive" | unchanged |
+| Details button | "Show or hide the details pane." (confirmed) | none | "Show or hide the details pane." |
+| Preview label of that button | "Show or hide the preview pane." NEED VM REF | no Preview label on the button | n/a |
+| Settings gear | no such button | "Settings (Ctrl+,)" | unchanged (icon-only, no Windows twin) |
+| Update button | no such button | update notice | unchanged |
+| Back / Forward / Up / Refresh | NEED VM REF ("Back to X (Alt + Left Arrow)", "Forward to X (Alt + Right Arrow)", "Up to "X" (Alt + Up Arrow)", "Refresh "X" (F5)"?) | "Back to X" / "Forward to X" / "Up to "X"" / "Refresh "X"" | unchanged until confirmed |
+| Stop (Refresh while loading) | NEED VM REF | "Stop" (not translated) | unchanged |
+| address bar (whole bar, crumbs, chevrons, edit button) | left to pass 5 (pass-5-root-icon) | several | unchanged here |
+| search box | NEED VM REF (likely none) | long explanation of the search cache | none |
+| search results strip buttons (Cache, Save, Keep, Clear, filters) | no such strip (Windows' Search options menu differs) | their names / explanations | unchanged, NEED VM REF |
+| status bar Details / Large icons buttons | NEED VM REF | "Details view" / "Large icons" | unchanged |
+| status bar watch note, update button | no such items | explanations | unchanged |
+| file list rows (infotip) | Type, Size, Date modified (infotip; option "Show pop-up description") | infotip | unchanged |
+| Details view cells | full text only when cut | full text only when cut | unchanged |
+| folder arrows in Details, item check boxes, Select all | NEED VM REF | "Expand"/"Collapse", "Select", "Select all" | unchanged |
+| Gallery photo tiles | NEED VM REF | path, type, date, size | unchanged |
+| Home page rows | NEED VM REF (comment says Windows shows the whole name) | the whole name, always | unchanged |
+| Home switcher chevron | NEED VM REF | "Recent and Favorites" | unchanged |
+| This PC drive tile capacity bar (icon layouts) | NEED VM REF | "{free} free of {size}" | unchanged |
+| This PC saved share tile | NEED VM REF | its address | unchanged |
+| Details pane values | NEED VM REF (comment cites Windows 11's cut values) | the whole value, always | unchanged |
+| Settings page Back to files | no Settings page in Explorer | "Close Settings and return to your folders" | none |
+| Settings page icon-only actions (back arrow, row chevrons, index actions, icon choices) | no Settings page | their names | unchanged (icon-only) |
+| Properties windows (close, values, Security, Previous versions) | NEED VM REF | names, full values, explanations | unchanged |
+| dialogs (close buttons, sign-in, Open with, extract info, Folder Options grayed-out reasons, picker) | NEED VM REF | names and reasons | unchanged |
+| caption buttons | "Minimize", "Maximize", "Restore Down", "Close" | "Minimize", "Maximize", "Restore", "Close window" | "Minimize", "Maximize", "Restore Down", "Close" |
+| transfer panel Pause/Resume/Cancel | NEED VM REF | names | unchanged |
+| notice and info bar close buttons | NEED VM REF | "Dismiss" / "Close" | unchanged |
+| context menu icon strip (Cut, Copy, Rename, Share, Delete) | NEED VM REF (Windows shows e.g. "Cut (Ctrl+X)"?) | the label; with the reason when disabled | unchanged |
+| split-view pane captions | no split view in Windows | the address | unchanged |
+Placement: GTK places tooltips below the pointer; Windows put the Details tooltip above and to the left of the button. Not changed (GTK decides).
+
+PASS tests written first and failing before the change, then passing (real input with XTEST where marked):
+PASS nav_tree::a_real_click_on_a_drive_s_chevron_lists_its_folder_tree (XTEST clicks; Alpha with a chevron, Beta without, no files or hidden folders, Inner one level further in, 16 px steps, collapse)
+PASS nav_tree::right_and_left_open_and_close_a_drive (XTEST keys)
+PASS nav_tree::a_real_double_click_on_a_drive_opens_it_and_lists_its_folders (XTEST)
+PASS nav_tree::a_drive_with_thousands_of_folders_lists_the_first_thousand (1,500 folders)
+PASS nav_tree::the_tree_opens_to_the_current_folder_only_with_the_option_on
+PASS nav_tree::hidden_chevrons_show_while_the_real_pointer_is_over_the_pane (XTEST hover, then a click on the faded-in chevron expands the drive)
+PASS tooltips::navigation_pane_rows_show_a_tooltip_only_when_their_name_is_cut_short, tooltips::the_details_button_says_it_shows_or_hides_the_details_pane, tooltips::folder_tree_rows_carry_no_fixed_tooltip, tooltips::the_search_box_and_settings_back_button_have_no_tooltip; caption_buttons::the_caption_buttons_take_windows_names
+PASS touched groups re-run: nav_pane, tests::sidebar (incl. sidebar_sections, sidebar_layout), expand_arrows, folder_tree, network (114), explorer_keys, more_explorer_keys, tests::command_bar, chrome, closing, tests::search, settings_page (132), template messages, searching_from_a_big_home
+PASS updated tests: expand_arrows counts 3 chevrons (This PC, Local Disk, Network); sidebar_sections' Right on Local Disk keeps the keyboard on its (redrawn) row; sidebar and sidebar_sections no longer expect the removed tooltips; command_bar expects "Paste (Ctrl+V)"; closing expects "Close"; home_page expects no search box tooltip
+PASS live, private Xvfb, unprivileged user, throwaway HOME, xdotool: Local Disk expanded to /, dev expanded to its folders, folders without subfolders without a chevron, hide-arrows on and off, Details tooltip; no CRITICAL, panic or signal in the app's stderr
+PASS i18n check (pot regenerated, no .po touched); parity check; rustfmt; Clippy clean for the changed files
+NOT RUN: the full test suite (asked to run only the touched tests); check.py end to end (Clippy -D warnings fails on unchanged main with this toolchain); Wayland session for the hover fade
+NOT TESTED: a real SMB share's folders (no network here; the share path uses the same listing, mount and sign-in as opening it); a drive with hundreds of thousands of folders beyond the 1,000-row cap
+
+VM CHECK (tree)
+1. Expand This PC > Local Disk (C:) > Users in the navigation pane. Look for: the indent of each level (capture at 1x dark like reference/ for script measurement), whether every folder shows a chevron before it is expanded or only folders with subfolders, and whether expanding a drive with the keyboard (Right) keeps focus on the drive.
+2. Hover a pinned folder whose name fits, then one whose name is cut with "…". Look for: no tooltip, then the full name.
+3. Hover each command bar button (Cut, Copy, Paste, Rename, Share, Delete, New, Sort, View, "…", Details or Preview), Back, Forward, Up, Refresh, the tab, its close button, the new-tab button, the search box and the status bar's two view buttons. Look for: the exact tooltip text of each, or none.
+
+----- Earlier status (pass-4-nav-pane, before the deb 60 comparison) -----
+STATUS: DONE
 HEAD: pass-4-nav-pane d17c3b4c (git rev-parse origin/pass-4-nav-pane for the full hash)
 QUESTION: none
 NOTE: Fixed in the navigation pane: a pin from a menu, the command bar or Home goes last (it went above Desktop); a file dragged onto a pin's edge goes into that folder (it showed the pin line and failed with "Could not pin"); dragging the pane's edge saves its width (GtkPaned's claim canceled the saving gesture); a failed Eject, Safely remove or Disconnect puts the tabs back on the drive (they stayed at Home), and a busy drive is refused in Windows' words; a double-click on This PC, Network, a discovered computer or a folder-tree folder expands or collapses it, after the button is released, without opening the place a second time; Home and Gallery offer Open in new tab and Open in new window. After the VM check (Windows 11 26200): the pane's empty-space menu starts with Show This PC and Show Network (both checked, hiding and showing those sections), Show all folders and Expand to current folder (Windows' name, off by default; Show libraries left out, as there are no libraries), then the app's own items. With the option off, the folder tree no longer opens down to the folder shown. Behavior change: the tree used to always follow; tests that rely on that turn the option on. Network in the pane lists the computers discovery found (going to Network or expanding Network in the pane discovers; nothing at startup), each with its own chevron that lists its shared folders under it, mounting and asking for a password through the app's sign-in, as opening the computer does. Double-click This PC and focus after Click Home then Down already matched. Crash found (pre-existing on unchanged main, test harness only so far): a window destroyed within the double-click time of a click on it leaves GTK state that corrupts memory in a later window (free(): invalid pointer / g_object_unref on a finalized object / SIGSEGV). A probe on main crashed 10 of 25 runs (open This PC from the pane, click its chevron, end the test, then a real drag in a new window); waiting 700 ms before the window is destroyed made it 0 of 25. Memcheck saw nothing, and the root cause in GTK is not found. The real-input tests now move the pointer away and wait past the double-click time before ending, as drag_escape already did. In the built app, 10 rounds of the same steps with Ctrl+W right after the click did not crash. Merged pass-1-copy-move, pass-2-undo-redo and pass-3-rename (clean merges). Left as owner decisions: the "Unpinned. The folder was not deleted." toast (SIDE-009 note) and focus moving to the file list after a place is clicked (SEL-020; the VM check confirms Windows does the same). Found, not changed, outside this pass: the folder pane's "This location is unavailable" text shows fully selected after a click on a pin to a deleted folder or when the drive shown is unplugged.
