@@ -580,3 +580,143 @@ fn small_print_is_drawn_as_sharp_as_the_original_shrunk_to_the_tile() {
         );
     }
 }
+
+/// Opening Gallery shows the photos it read within a moment, without
+/// waiting for every folder, and then never moves or blanks a tile on
+/// screen: photos found later go below the rows on screen, and, once the
+/// view left the top, above them with the view following them down; the
+/// heading's row is there from the first frame and no empty page shows
+/// while the folders are still read.
+///
+/// parity: HOME-038
+#[gtk::test]
+fn gallery_shows_what_it_read_and_keeps_the_rows_on_screen_still() {
+    let home = PicturesHome::new();
+    // The Pictures folder's own photos are read first; its subfolders
+    // hold newer and older ones.
+    for index in 0..60 {
+        let date = format!("2026-{:02}-{:02}", 3 + index / 15, 1 + index % 15);
+        photo(
+            &home.pictures().join(format!("now {index:02}.png")),
+            64 + (index % 7) * 24,
+            64,
+            &date,
+        );
+    }
+    for index in 0..30 {
+        let date = format!("2026-{:02}-{:02}", 8 + index / 10, 1 + index % 10);
+        photo(
+            &home.pictures().join(format!("Newer/new {index:02}.png")),
+            96,
+            64,
+            &date,
+        );
+    }
+    for index in 0..40 {
+        let date = format!("2025-{:02}-{:02}", 1 + index / 10, 1 + index % 10);
+        photo(
+            &home.pictures().join(format!("Older/old {index:02}.png")),
+            64,
+            96,
+            &date,
+        );
+    }
+    let test = TestWindow::open_with_standard_folders(
+        &ox_core::location::file_uri(&home.home),
+        home.locations(),
+        |_| {},
+    );
+    // The walk waits before any photo, then after the first folder's
+    // photos, as on a large library or a slow drive.
+    let walk = crate::test_support::held::hold(super::gallery::GALLERY);
+    let rest = crate::test_support::held::hold(crate::folder_view::gallery::AFTER_FIRST_BATCH);
+    test.window
+        .navigate(super::gallery::GALLERY)
+        .expect("Gallery opens");
+    wait_until("Gallery", || {
+        test.window.current_uri().as_deref() == Some(super::gallery::GALLERY)
+    });
+    let page = || test.window.folder_pane().page();
+    let empty = Some(crate::window::folder_pane::PanePage::Empty);
+    wait_for_frames(&test.window, 5);
+    assert_ne!(page(), empty, "no empty page before any photo is found");
+    assert!(
+        test.window.gallery_heading_row_shown(),
+        "the heading's row is there before any photo"
+    );
+    drop(walk);
+    // The photos read so far show while the other folders still wait.
+    let shown = tiles(&test);
+    assert_eq!(test.names().len(), 60);
+    assert!(shown.iter().all(|tile| tile.name.starts_with("now ")));
+    assert_ne!(page(), empty, "no empty page while reading");
+    assert!(test.window.gallery_heading_row_shown());
+    // Away from the top, with every tile on screen drawn.
+    test.window.gallery_scroll_to(300.0);
+    wait_until("the thumbnails on screen", || {
+        let tiles = test.window.gallery_tiles();
+        !tiles.is_empty() && tiles.iter().all(|tile| tile.thumbnail)
+    });
+    wait_for_frames(&test.window, 2);
+    let on_screen = |test: &TestWindow| {
+        let scroll = test.window.gallery_scroll();
+        test.window
+            .gallery_tiles()
+            .into_iter()
+            .map(|tile| {
+                (
+                    tile.name,
+                    (tile.x, tile.y - scroll, tile.width, tile.height),
+                    tile.thumbnail,
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+    let before = on_screen(&test);
+    // Every frame from here on draws those tiles where they were, drawn.
+    let moved = std::rc::Rc::new(std::cell::RefCell::new(Vec::<String>::new()));
+    let watched = test.window.clone();
+    let record = std::rc::Rc::clone(&moved);
+    let expected = before.clone();
+    let watch = test.window.add_tick_callback(move |_, _| {
+        let scroll = watched.gallery_scroll();
+        let now = watched.gallery_tiles();
+        for (name, place, _) in &expected {
+            let tile = now.iter().find(|tile| tile.name == *name);
+            let same = tile.is_some_and(|tile| {
+                tile.thumbnail && (tile.x, tile.y - scroll, tile.width, tile.height) == *place
+            });
+            if !same {
+                record.borrow_mut().push(format!(
+                    "{name}: {place:?} became {:?}",
+                    tile.map(|tile| (tile.x, tile.y - scroll, tile.thumbnail))
+                ));
+            }
+        }
+        glib::ControlFlow::Continue
+    });
+    drop(rest);
+    test.wait_for_listing("Gallery");
+    wait_for_frames(&test.window, 5);
+    watch.remove();
+    let names = test.names();
+    assert_eq!(names.len(), 130);
+    assert!(
+        names[..30].iter().all(|name| name.starts_with("new ")),
+        "{names:?}"
+    );
+    assert!(
+        names[30..90].iter().all(|name| name.starts_with("now ")),
+        "{names:?}"
+    );
+    assert!(
+        names[90..].iter().all(|name| name.starts_with("old ")),
+        "{names:?}"
+    );
+    assert_eq!(moved.borrow().first(), None, "a tile on screen moved or blanked");
+    assert_eq!(on_screen(&test), before);
+    assert!(
+        test.window.gallery_scroll() > 300.0,
+        "the view followed the photos above"
+    );
+}

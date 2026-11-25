@@ -33,7 +33,7 @@ use super::cells::CellOwners;
 use super::gallery_scrubber::GalleryScrubber;
 use super::icon_size::IconSize;
 use super::item::FileItem;
-use super::justified::{justify, Layout};
+use super::justified::{justify, steady, Change, Layout};
 use super::sort_roles::photo_date;
 
 /// Pixels between tiles and between rows.
@@ -87,6 +87,9 @@ pub(crate) struct TileState {
     /// The size of the picture drawn, in pixels.
     pub(crate) drawn: Option<(i32, i32)>,
 }
+
+/// The width and row height a held layout is "made" for: no real one.
+const HELD_LAYOUT: (i32, i32) = (-1, -1);
 
 /// The aspect ratio (width over height) of `item`'s photo as shown, if
 /// its size was read.
@@ -477,6 +480,16 @@ mod imp {
         pub(super) tooltip_text: RefCell<Option<TooltipText>>,
         /// Runs when what is on screen changed: the heading follows.
         pub(super) on_shown: RefCell<Vec<Box<dyn Fn()>>>,
+        /// Gallery's first listing is still reading folders: the photos are
+        /// laid out once it ends (HOME-038).
+        pub(super) held: Cell<bool>,
+        /// Gallery's first listing shows what it read and still reads: the
+        /// rows on screen stay as they are while photos come above and
+        /// below them (HOME-038).
+        pub(super) steady: Cell<bool>,
+        /// How far the rows on screen moved down at the last change, for
+        /// the scroll position to follow once GTK lays the canvas out.
+        pub(super) shift: Cell<i32>,
         /// The view is told of a change once GTK is idle again.
         pub(super) shown_pending: Cell<bool>,
         pub(super) _item: std::marker::PhantomData<FileItem>,
@@ -532,7 +545,7 @@ mod imp {
                 return (1, 1, -1, -1);
             }
             let width = if for_size > 0 { for_size } else { 800 };
-            let height = self.obj().layout_for(width).height.max(1);
+            let height = self.obj().height_for(width).max(1);
             (height, height, -1, -1)
         }
 
@@ -589,12 +602,57 @@ impl GalleryCanvas {
         self.model()?.item(position).and_downcast::<FileItem>()
     }
 
+    /// Lays nothing out while `held`, Gallery's first listing still reading
+    /// folders, then every photo at once (HOME-038): a layout of the first
+    /// folder's photos would be replaced by another as each later folder's
+    /// came, every tile moving and its thumbnail drawn again.
+    pub(crate) fn hold_layout(&self, held: bool) {
+        if self.imp().held.replace(held) != held {
+            self.relayout();
+        }
+    }
+
+    /// Keeps the rows on screen as they are while `steady`, Gallery's
+    /// first listing showing what it read so far (HOME-038): photos found
+    /// later are laid out above and below them, and the scroll position
+    /// follows those above, so nothing on screen moves.
+    pub(crate) fn keep_rows_steady(&self, steady: bool) {
+        self.imp().steady.set(steady);
+    }
+
+    /// Whether the view shows the top of the photos, once it follows the
+    /// rows that came above.
+    pub(crate) fn at_top(&self) -> bool {
+        let shift = f64::from(self.imp().shift.get());
+        self.vadjustment()
+            .is_none_or(|adjustment| adjustment.value() + shift < 1.0)
+    }
+
+    /// The newest and oldest dates of the photos in the rows kept on
+    /// screen, while Gallery's first listing keeps them steady.
+    pub(crate) fn kept_dates(&self) -> Option<(Option<i64>, Option<i64>)> {
+        let rows = self.steady_rows()?;
+        let (first, last) = {
+            let layout = self.imp().layout.borrow();
+            (layout.rows[rows.start].start, layout.rows[rows.end - 1].end - 1)
+        };
+        let date = |position: usize| {
+            let item = self.item(u32::try_from(position).ok()?)?;
+            photo_date(item.entry())
+        };
+        Some((date(first), date(last)))
+    }
+
     /// Lists `model`, or nothing.
     pub(crate) fn set_model(&self, model: Option<&gtk::MultiSelection>) {
         let imp = self.imp();
         if imp.model.borrow().as_ref() == model {
             return;
         }
+        // Another listing: the first one's hold goes with it.
+        imp.held.set(false);
+        imp.steady.set(false);
+        imp.shift.set(0);
         if let Some(old) = imp.model.take() {
             for handler in imp.model_handlers.take() {
                 old.disconnect(handler);
@@ -662,6 +720,8 @@ impl GalleryCanvas {
         let Some(model) = self.model() else {
             return;
         };
+        // The rows on screen, while they are kept as they are.
+        let kept = self.steady_rows();
         let new: Vec<Option<f64>> = (position..position + added)
             .map(|position| aspect_of(model.item(position).and_downcast::<FileItem>().as_ref()))
             .collect();
@@ -671,17 +731,57 @@ impl GalleryCanvas {
             let end = (start + removed as usize).min(aspects.len());
             aspects.splice(start..end, new);
         }
+        let change = Change {
+            position: position as usize,
+            removed: removed as usize,
+            added: added as usize,
+        };
+        if let Some(kept) = kept {
+            let (width, height) = imp.laid_for.get();
+            let laid = steady(
+                &imp.layout.borrow(),
+                kept,
+                &imp.aspects.borrow(),
+                change,
+                (width, height, GALLERY_GAP),
+            );
+            if let Some((layout, shift)) = laid {
+                imp.layout.replace(layout);
+                imp.shift.set(imp.shift.get() + shift);
+                // The tiles keep their photos; GTK places them anew.
+                self.queue_resize();
+                self.notify_shown();
+                return;
+            }
+        }
         self.relayout();
     }
 
-    /// Lays the tiles out again once GTK lays the canvas out, every tile
-    /// bound anew, as positions moved.
+    /// The rows on screen in the layout as laid out, while Gallery's first
+    /// listing keeps them steady and they are laid out for the canvas.
+    fn steady_rows(&self) -> Option<std::ops::Range<usize>> {
+        let imp = self.imp();
+        let laid = imp.laid_for.get();
+        if !imp.steady.get() || imp.held.get() || laid.0 < 1 || laid != (self.width(), imp.row_height.get()) {
+            return None;
+        }
+        // The scroll position as it will be once it follows the rows that
+        // came above since GTK last laid the canvas out.
+        let (top, page) = self.shown_span();
+        let top = top + f64::from(imp.shift.get());
+        let layout = imp.layout.borrow();
+        #[expect(clippy::cast_possible_truncation, reason = "layout coordinates are small")]
+        let rows = layout.rows_between(top as i32, (top + page).ceil() as i32);
+        (!rows.is_empty()).then_some(rows)
+    }
+
+    /// Lays the tiles out again once GTK lays the canvas out. A tile keeps
+    /// its photo, and what it draws, wherever that photo goes; only a tile
+    /// for another photo starts again.
     fn relayout(&self) {
         let imp = self.imp();
         imp.laid_for.set((0, 0));
-        for tile in imp.tiles.borrow().iter() {
-            tile.slot().show(None);
-        }
+        imp.shift.set(0);
         self.queue_resize();
         self.notify_shown();
     }
@@ -717,12 +817,33 @@ impl GalleryCanvas {
     fn layout_for(&self, width: i32) -> std::cell::Ref<'_, Layout> {
         let imp = self.imp();
         let key = (width, imp.row_height.get());
+        if imp.held.get() {
+            // The first listing is still reading folders: nothing is laid
+            // out until every photo is known (HOME-038).
+            if imp.laid_for.get() != HELD_LAYOUT {
+                imp.layout.replace(Layout::default());
+                imp.laid_for.set(HELD_LAYOUT);
+            }
+            return imp.layout.borrow();
+        }
         if imp.laid_for.get() != key {
             let layout = justify(&imp.aspects.borrow(), width, imp.row_height.get(), GALLERY_GAP);
             imp.layout.replace(layout);
             imp.laid_for.set(key);
         }
         imp.layout.borrow()
+    }
+
+    /// How tall the layout is at `width`. Asked at another width than the
+    /// one laid out, as GTK may ask, the layout laid out stays: it may
+    /// keep rows on screen as they are, which a new one would not.
+    fn height_for(&self, width: i32) -> i32 {
+        let imp = self.imp();
+        let laid = imp.laid_for.get();
+        if imp.held.get() || laid == (0, 0) || laid.0 == width {
+            return self.layout_for(width).height;
+        }
+        justify(&imp.aspects.borrow(), width, imp.row_height.get(), GALLERY_GAP).height
     }
 
     /// The layout at the canvas's width now.
@@ -742,6 +863,15 @@ impl GalleryCanvas {
     /// Binds tiles to the items of the rows near the part on screen and
     /// places them; tiles of rows further off are freed for others.
     fn place_tiles(&self, width: i32) {
+        // Rows came above those on screen: the view follows them down, so
+        // what shows stays where it was (HOME-038). The viewport took the
+        // canvas's new height before laying it out.
+        let shift = self.imp().shift.take();
+        if shift != 0 {
+            if let Some(adjustment) = self.vadjustment() {
+                adjustment.set_value(adjustment.value() + f64::from(shift));
+            }
+        }
         let (top, page) = self.shown_span();
         let beyond = page * ROWS_KEPT_BEYOND;
         let places: Vec<(usize, super::justified::Place)> = {
@@ -752,16 +882,33 @@ impl GalleryCanvas {
                 .map(|item| (item, layout.places[item]))
                 .collect()
         };
-        let wanted: Vec<usize> = places.iter().map(|(item, _)| *item).collect();
+        // The photos wanted, by object, at their positions now.
+        let wanted: std::collections::HashMap<FileItem, usize> = places
+            .iter()
+            .filter_map(|(position, _)| {
+                let item = self.item(u32::try_from(*position).ok()?)?;
+                Some((item, *position))
+            })
+            .collect();
         let imp = self.imp();
         let mut tiles = imp.tiles.borrow_mut();
-        // Tiles already showing a wanted item keep it.
+        // Tiles already showing a wanted photo keep it, and what they draw,
+        // wherever it moved.
         let mut free: Vec<GalleryTile> = Vec::new();
         let mut bound: Vec<(usize, GalleryTile)> = Vec::new();
         for tile in tiles.drain(..) {
-            match tile.slot().position().map(|position| position as usize) {
-                Some(position) if wanted.binary_search(&position).is_ok() => bound.push((position, tile)),
-                _ => free.push(tile),
+            match tile.slot().item().and_then(|item| wanted.get(&item).copied()) {
+                Some(position) => {
+                    if tile.slot().position() != u32::try_from(position).ok() {
+                        #[expect(
+                            clippy::cast_possible_truncation,
+                            reason = "a listing has fewer than u32::MAX items"
+                        )]
+                        self.bind_tile(&tile, position as u32);
+                    }
+                    bound.push((position, tile));
+                }
+                None => free.push(tile),
             }
         }
         let rtl = self.direction() == gtk::TextDirection::Rtl;
@@ -1585,6 +1732,12 @@ impl GalleryView {
             .vadjustment()
     }
 
+    /// Whether the heading's row shows, for tests.
+    #[cfg(test)]
+    pub(crate) fn heading_row_shown(&self) -> bool {
+        self.imp().heading.get().is_some_and(WidgetExt::is_visible)
+    }
+
     /// The month the scrubber shows under the pointer, while it shows.
     #[cfg(test)]
     pub(crate) fn hovered_month(&self) -> Option<String> {
@@ -1610,9 +1763,10 @@ impl GalleryView {
         if heading.text() != text {
             heading.set_text(&text);
         }
-        // The heading keeps its row while photos show, even when none on
-        // screen has a date, so the photos never jump up and down.
-        heading.set_visible(canvas.n_items() > 0);
+        // The heading keeps its row whenever Gallery's page shows, from
+        // before the first photo is found and while none on screen has a
+        // date, so the photos never move down when dates arrive (HOME-038).
+        heading.set_visible(true);
         let timeline = canvas.timeline();
         let adjustment = self.vadjustment();
         let span = adjustment.upper() - adjustment.page_size();

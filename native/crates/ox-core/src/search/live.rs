@@ -79,6 +79,10 @@ pub struct LiveSearch {
     /// What reads the archives the walk passes, to find what they hold
     /// by name; `None` leaves archives closed.
     pub archives: Option<ArchiveBrowser>,
+    /// Whether each folder's subfolders are walked newest first, by date
+    /// modified, as Gallery shows the newest photos first; otherwise in
+    /// the order the folder lists them.
+    pub newest_folders_first: bool,
 }
 
 /// Whether `uri` is one of the system's own folders or inside one.
@@ -183,7 +187,7 @@ impl Walk<'_> {
         let enumerator = file
             .enumerate_children(ATTRIBUTES, gio::FileQueryInfoFlags::NONE, Some(self.cancellable))
             .map_err(EntryError::from)?;
-        let mut subfolders = Vec::new();
+        let mut subfolders: Vec<(Option<i64>, PendingFolder)> = Vec::new();
         let outcome = loop {
             let info = match enumerator.next_file(Some(self.cancellable)) {
                 Ok(Some(info)) => info,
@@ -197,10 +201,13 @@ impl Walk<'_> {
             }
             let entry = entry_from_info(&enumerator.child(&info), &info);
             if self.search.subfolders && self.enters(&entry) && folder.depth < MAX_DEPTH {
-                subfolders.push(PendingFolder {
-                    uri: entry.uri.clone(),
-                    depth: folder.depth + 1,
-                });
+                subfolders.push((
+                    entry.modified,
+                    PendingFolder {
+                        uri: entry.uri.clone(),
+                        depth: folder.depth + 1,
+                    },
+                ));
             }
             let members = self.archive_matches(&entry);
             if self.matches(&entry) && !self.keep(entry) {
@@ -212,7 +219,11 @@ impl Walk<'_> {
         };
         // Closing only releases the enumerator.
         let _ = enumerator.close(gio::Cancellable::NONE);
-        Ok(outcome?.map(|()| subfolders))
+        if self.search.newest_folders_first {
+            // Stable: folders of one date keep the folder's order.
+            subfolders.sort_by_key(|(modified, _)| std::cmp::Reverse(*modified));
+        }
+        Ok(outcome?.map(|()| subfolders.into_iter().map(|(_, folder)| folder).collect()))
     }
 
     /// Whether the walk enters `entry`: a real folder, not a link, a share
@@ -316,6 +327,7 @@ mod tests {
             subfolders: true,
             system_directories: true,
             archives: None,
+            newest_folders_first: false,
         }
     }
 
@@ -355,6 +367,34 @@ mod tests {
         assert!(!end.is_truncated);
         assert!(walks_subfolders(&gio::File::for_path(root).uri()));
         assert!(!walks_subfolders("smb://server/share/Work"));
+    }
+
+    /// Gallery's walk reads each folder's subfolders newest first, by
+    /// date modified; a search keeps the folder's own order.
+    ///
+    /// parity: HOME-038
+    #[test]
+    fn newest_folders_are_walked_first_when_asked() {
+        let base = tempfile::tempdir().unwrap();
+        let root = base.path();
+        let ages = [("Spring", 300), ("Winter", 100), ("Autumn", 200), ("Summer", 400)];
+        for (name, age) in ages {
+            fs::create_dir(root.join(name)).unwrap();
+            fs::write(root.join(name).join(format!("{name}.png")), "x").unwrap();
+            let when = std::time::SystemTime::now() - std::time::Duration::from_secs(age * 86_400);
+            fs::File::open(root.join(name))
+                .unwrap()
+                .set_modified(when)
+                .unwrap();
+        }
+        let mut search = search_of(root, "*.png", 500);
+        search.newest_folders_first = true;
+        let mut order = Vec::new();
+        walk_search(&search, &gio::Cancellable::new(), &mut |batch| {
+            order.extend(batch.into_iter().map(|entry| entry.name));
+        })
+        .expect("the folder can be walked");
+        assert_eq!(order, ["Winter.png", "Autumn.png", "Spring.png", "Summer.png"]);
     }
 
     /// parity: SRCH-036

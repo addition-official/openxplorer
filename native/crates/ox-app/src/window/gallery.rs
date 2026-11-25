@@ -29,6 +29,7 @@ use super::view_style::group_pane;
 use super::window_action::WindowAction;
 use super::BrowserWindow;
 use crate::folder_view::gallery::GalleryWatch;
+use crate::folder_view::gallery_view::GalleryCanvas;
 use crate::folder_view::groups::Grouping;
 use crate::folder_view::icon_size::IconSize;
 use crate::folder_view::sort_roles::{SortBy, SortRole, SortState};
@@ -364,6 +365,48 @@ impl BrowserWindow {
         true
     }
 
+    /// Holds, or lets go of, the layout of the panes that show tab `id`
+    /// while its first listing of Gallery reads folders (HOME-038).
+    pub(super) fn hold_gallery_layout(&self, id: TabId, held: bool) {
+        for pane in self.panes_showing(id, held) {
+            pane.gallery().canvas().hold_layout(held);
+        }
+    }
+
+    /// Keeps the rows on screen of the panes that show tab `id` as they
+    /// are, or no longer, while its first listing of Gallery still reads
+    /// folders after showing the photos read so far (HOME-038).
+    pub(super) fn keep_gallery_rows_steady(&self, id: TabId, steady: bool) {
+        for pane in self.panes_showing(id, steady) {
+            pane.gallery().canvas().keep_rows_steady(steady);
+        }
+    }
+
+    /// The canvas of the pane that shows tab `id` in Gallery, the active
+    /// one first.
+    pub(super) fn gallery_canvas_of(&self, id: TabId) -> Option<GalleryCanvas> {
+        self.panes_showing(id, true)
+            .first()
+            .map(|pane| pane.gallery().canvas().clone())
+    }
+
+    /// The panes that show tab `id`, or every pane unless `only_showing`.
+    fn panes_showing(&self, id: TabId, only_showing: bool) -> Vec<FolderPane> {
+        let (active, beside) = {
+            let session = self.imp().session.borrow();
+            (session.is_active(id), session.beside_active() == Some(id))
+        };
+        let shown = self.folder_pane().clone();
+        self.folder_panes()
+            .into_iter()
+            .filter(|pane| {
+                let shows = if **pane == shown { active } else { beside };
+                shows || !only_showing
+            })
+            .cloned()
+            .collect()
+    }
+
     /// Whether the active tab shows Gallery.
     pub(super) fn shows_gallery(&self) -> bool {
         self.current_uri().as_deref() == Some(GALLERY_URI)
@@ -495,12 +538,22 @@ impl BrowserWindow {
         f64::from(self.folder_pane().gallery().canvas().width())
     }
 
+    /// Whether Gallery's heading row shows.
+    pub(crate) fn gallery_heading_row_shown(&self) -> bool {
+        self.folder_pane().gallery().heading_row_shown()
+    }
+
     /// The heading over the photos.
     pub(crate) fn gallery_heading(&self) -> Option<String> {
         let pane = self.folder_pane();
         pane.shows_gallery()
             .then(|| pane.gallery().heading_text())
             .flatten()
+    }
+
+    /// Gallery's scroll position.
+    pub(crate) fn gallery_scroll(&self) -> f64 {
+        self.folder_pane().gallery().vadjustment().value()
     }
 
     /// Scrolls Gallery to `y`, clamped.
