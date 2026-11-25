@@ -1,4 +1,24 @@
 STATUS: DONE
+UPDATE 2026-11-25 (window titles: the hyphen for everyone)
+BRANCH: title-hyphen-default 1d01125f2c4b13c20dae3faa4f44f62915130d63, cut from origin/test-combined-60 (14a8bf9f; no test-combined-61 existed). PR text: pr-title-hyphen.md.
+QUESTION: none.
+VISIBLE CHANGES
+1. Every window title takes Windows' hyphen, for everyone, with no setting (this replaces the owner's em dash):
+   browsing window: "<location> — OpenXplorer" → "<location> - OpenXplorer" (e.g. "Documents — OpenXplorer" → "Documents - OpenXplorer"; search: "notes - Search Results in Documents — OpenXplorer" → "notes - Search Results in Documents - OpenXplorer")
+   Settings: "Settings — OpenXplorer" → "Settings - OpenXplorer"
+   archive window: "<name> — Compressed folder" → "<name> - Compressed folder" (e.g. "Photos.zip — Compressed folder" → "Photos.zip - Compressed folder")
+   unchanged, no dash: Properties, progress window, Open with, Software updates and the other dialogs.
+2. Removed Settings row (Appearance > Layout, under "Use system window decorations"), text verbatim: title "Separate window titles with a hyphen (like Windows)", description "Titles a window "Documents - OpenXplorer", as Windows writes "Documents - File Explorer", instead of "Documents — OpenXplorer".", search keywords "window title caption taskbar alt tab hyphen dash em dash separator windows explorer".
+3. Behave like Windows Explorer no longer lists "Separate window titles with a hyphen (like Windows)" (its WINDOWS_SETTINGS line is removed; the guard test every_line_reads_and_writes_the_same_setting passes).
+4. A stored hyphenInWindowTitles (from builds with the setting) is ignored on load and dropped on the next save.
+5. Interface guide (docs.json, regenerated Markdown), "Use your desktop's window frame": "Separate window titles with a hyphen (like Windows), just below, titles windows "Documents - OpenXplorer" as Windows writes "Documents - File Explorer", instead of "Documents — OpenXplorer"; Behave like Windows Explorer turns it on." → "Window titles read "Documents - OpenXplorer", with a hyphen, as Windows writes "Documents - File Explorer"." native/README.md likewise.
+6. .pot regenerated: drops "{place} — OpenXplorer", "{name} — Compressed folder" and the removed row's title, description and keywords. No .po touched. zh_CN had translated both em-dash titles; until it translates "{name} - Compressed folder", its archive window title reads "Compressed folder" in English.
+Parity: LOOK-033 rewritten (the hyphen for everyone, no setting); TAB-045's native note updated.
+PASS new tests: ox-core settings::tests::preferences::the_retired_title_hyphen_setting_is_ignored; ox-app title_bar::window_titles_take_windows_hyphen (replaces window_titles_take_a_hyphen_like_windows_when_asked). Eleven older tests now expect the hyphen titles (history, gallery, search_layout, search_history, home_page, address_bar, tab_moves, archives, title_bar).
+PASS touched tests, Rust 1.92, run_isolated as the unprivileged user: ox-core settings 151; ox-app title_bar 14, settings_page 134, window_decorations 7, windows_mode 3, history 40, gallery 30, search_layout 14, search_history 7, home_page 33, address_bar 36, tab_moves 27. rustfmt --check, Clippy -D warnings (ox-core, ox-app), i18n check, sync-docs, parity/check.py pass.
+FAIL archives: 27 of 30; a_compressed_tar_is_browsed_and_extracted_unless_archives_open_elsewhere, a_password_zip_says_so_and_offers_the_archive_manager, open_in_archive_manager_hands_the_zip_to_the_desktop time out waiting for a default application, as on unchanged origin/test-combined-59 and -60 here. The archive title test (opening_a_zip_browses_it_and_opens_a_member_as_a_private_copy) passes.
+NOTE: no live desktop check or capture was made for this change (not asked); the titles are covered by the window tests above.
+
 UPDATE 2026-11-25 (deb 60: the classic menus' check mark)
 BRANCH: pass-14-menu-check 2335dd3aac01438dcb3f0270a20c69af6b417ce7, cut from origin/test-combined-60 (14a8bf9f).
 QUESTION: none.
