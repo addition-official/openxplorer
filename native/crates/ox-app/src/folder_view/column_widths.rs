@@ -40,10 +40,20 @@ pub(crate) const fn settings_column(column: SortColumn) -> Column {
     }
 }
 
-/// The part of `column`'s width that is the list's end padding.
+/// How far the table stands in from the pane's left side
+/// (`columnview.files { margin: 0 12px }` in folder-views.css): the rows
+/// span the table exactly, so a selected row's highlight and focus ring
+/// are drawn whole at both ends, and the inset that used to be Name's
+/// part of the list's padding is the table's.
+const TABLE_INSET: u32 = 12;
+
+/// The part of `column`'s width that is the list's end padding: Name keeps
+/// what the table's inset does not already give it, so every column
+/// starts where it did.
 const fn edge_gutter(column: SortColumn) -> u32 {
     match column {
-        SortColumn::Name | SortColumn::Size => EDGE_GUTTER,
+        SortColumn::Name => EDGE_GUTTER - TABLE_INSET,
+        SortColumn::Size => EDGE_GUTTER,
         _ => 0,
     }
 }
@@ -236,7 +246,7 @@ mod tests {
     /// parity: VIEW-028
     #[test]
     fn a_dragged_column_stops_at_its_limits() {
-        assert_eq!(clamped_fixed_width(SortColumn::Name, 40), 140 + 14);
+        assert_eq!(clamped_fixed_width(SortColumn::Name, 40), 140 + 2);
         assert_eq!(clamped_fixed_width(SortColumn::Name, 400), 400);
         assert_eq!(clamped_fixed_width(SortColumn::Modified, 2000), 1000);
         assert_eq!(clamped_fixed_width(SortColumn::Type, 10), 80);
@@ -266,7 +276,7 @@ mod tests {
     #[test]
     fn the_end_columns_hold_the_lists_padding() {
         assert_eq!(fixed_width(SortColumn::Name, None), NO_FIXED_WIDTH);
-        assert_eq!(fixed_width(SortColumn::Name, Some(300)), 314);
+        assert_eq!(fixed_width(SortColumn::Name, Some(300)), 302);
         assert_eq!(fixed_width(SortColumn::Modified, Some(152)), 152);
         assert_eq!(fixed_width(SortColumn::Size, Some(90)), 104);
     }
@@ -275,7 +285,7 @@ mod tests {
     #[test]
     fn saved_widths_leave_out_the_end_columns_padding() {
         assert_eq!(saved_width(SortColumn::Size, 104), Some(90.0));
-        assert_eq!(saved_width(SortColumn::Name, 314), Some(300.0));
+        assert_eq!(saved_width(SortColumn::Name, 302), Some(300.0));
         assert_eq!(saved_width(SortColumn::Type, 135), Some(135.0));
         assert_eq!(
             saved_width(SortColumn::Name, -1),

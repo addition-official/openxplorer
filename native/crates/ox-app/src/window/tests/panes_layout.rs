@@ -197,21 +197,27 @@ fn cell_and_title_x(test: &TestWindow, row: &gtk::Widget) -> (Vec<i32>, Vec<i32>
     (cell_x, title_x)
 }
 
-/// Rows are inset 12 pixels on each side. While folders show arrows
-/// (VIEW-035) a row reaches 10 pixels further left, so the arrows sit
-/// inside its highlight; its cells stay under the titles either way.
+/// The table stands 12 pixels in from each side of its pane and its rows
+/// span it exactly, so a selected row's highlight and focus ring end
+/// inside the table at both sides, rounded, never cut off where the
+/// columns end. While folders show arrows (VIEW-035) the table reaches 10
+/// pixels further left, so the arrows sit inside a row's highlight; the
+/// cells stay under the titles either way.
 ///
 /// parity: VIEW-001, VIEW-035, LOOK-014
 #[gtk::test]
 fn rows_are_inset_12_pixels_and_their_cells_sit_under_the_titles() {
     let fixture = Fixture::standard();
     let test = laid_out(&fixture.uri());
-    let list = bounds(&test, test.window.folder_pane().details().column_view());
+    let column_view = test.window.folder_pane().details().column_view().clone();
+    let list = bounds(&test, &column_view);
+    let pane = bounds(&test, &column_view.parent().expect("the list scrolls"));
+    assert_eq!(list.x - pane.x, 12, "the table stands 12 pixels in");
     let row = first_row(&test);
     let row_place = bounds(&test, &row);
     assert_eq!(
         (row_place.x, row_place.width, row_place.height),
-        (list.x + 12, list.width - 24, 30),
+        (list.x, list.width, 30),
         "folders show no arrows by default, as in Explorer"
     );
     let (cell_x, title_x) = cell_and_title_x(&test, &row);
@@ -220,9 +226,15 @@ fn rows_are_inset_12_pixels_and_their_cells_sit_under_the_titles() {
     save_expandable_folders(&test, true);
     let row = first_row(&test);
     let row_place = bounds(&test, &row);
+    let list_with_arrows = bounds(&test, &column_view);
+    assert_eq!(
+        list_with_arrows.x,
+        list.x - 10,
+        "the table reaches 10 pixels further left"
+    );
     assert_eq!(
         (row_place.x, row_place.width, row_place.height),
-        (list.x + 2, list.width - 14, 30),
+        (list_with_arrows.x, list_with_arrows.width, 30),
         "the fixture has folders, so rows make room for their arrows"
     );
     let (cell_x, title_x) = cell_and_title_x(&test, &row);
