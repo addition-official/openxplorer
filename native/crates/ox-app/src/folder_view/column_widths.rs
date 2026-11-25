@@ -41,7 +41,7 @@ pub(crate) const fn settings_column(column: SortColumn) -> Column {
 }
 
 /// How far the table stands in from the pane's left side
-/// (`columnview.files { margin: 0 12px }` in folder-views.css): the rows
+/// (`columnview.files { margin: 0 0 0 12px }` in folder-views.css): the rows
 /// span the table exactly, so a selected row's highlight and focus ring
 /// are drawn whole at both ends, and the inset that used to be Name's
 /// part of the list's padding is the table's.
@@ -135,9 +135,11 @@ pub(crate) fn scaled_width(width: u32, scale: f64) -> u32 {
 /// `9,999,999 KB`, 9.5 GB, as Windows' Size column writes it.
 pub(crate) const SIZE_THAT_FITS: u64 = 9_999_999 * 1024;
 
-/// A Size cell's padding beside its text, without the list's end gutter:
-/// 12 pixels at the start and 26 at the end, 14 of them the gutter
-/// (folder-views.css), and 2 more so rounding never cuts the last digit.
+/// A Size cell's room beside its text, without the list's end gutter:
+/// 12 pixels at the start and 26 at the end, 14 of them the gutter, and 2
+/// more so rounding never cuts the last digit. The cell pads only 4 at
+/// its end (folder-views.css), so its sizes stand near a selected row's
+/// ring, as in Windows; the column keeps the width it had.
 const SIZE_TEXT_PADDING: i32 = 12 + 26 - 14 + 2;
 
 /// The narrowest width Size may have, in the pixels settings save, when

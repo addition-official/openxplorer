@@ -13,12 +13,14 @@
    ends belong to the Name and Size columns instead (see EDGE_GUTTER in
    src/folder_view/details.rs), and their cells and titles pad for them. */
 columnview.files { background-color: @ox_bg; color: @ox_text; }
-/* The table stands 12px in from the pane's sides and its rows span it
-   exactly: GTK lays a row out as wide as all the columns, so a row
+/* The table stands 12px in from the pane's left side and its rows span
+   it exactly: GTK lays a row out as wide as all the columns, so a row
    inset by its own margin ran 12px past the table's end, where the list
    cut its highlight and focus ring off square. Now both ends are drawn,
-   rounded, as Windows 11 draws them. */
-columnview.files { margin: 0 12px; }
+   as Windows 11 draws them. Its right end is Size's, whose 14px end
+   gutter (EDGE_GUTTER) keeps the list's end padding, so the columns take
+   as much of the pane as they did. */
+columnview.files { margin: 0 0 0 12px; }
 columnview.files > header { border-bottom: 1px solid @ox_border; padding: 0; }
 /* "Show a line under column titles" off: no line, as in Windows 11; the
    titles keep their height. */
@@ -151,7 +153,11 @@ columnview.files > header > button.custom-sort {
 columnview.files > listview { background-color: @ox_bg; padding: 4px 0 8px 0; }
 columnview.files > listview > row {
   margin: 1px 0;
-  border-radius: 4px;
+  /* Windows 11's row corners are nearly square (ref-02, 100%): the ring's
+     corner pixel is lit, the one inside it 30% ring. Of the radii GTK
+     can draw, 1px comes closest (corner 79%, inside it none; 2px leaves
+     the corner 32%). The hover and selection fills share it. */
+  border-radius: 1px;
   padding: 0;
   color: @ox_text;
   background: none;
@@ -201,7 +207,10 @@ columnview.files > listview > row > cell:first-child { padding-left: 14px; }
 columnview.files.has-folder-arrows { margin-left: 2px; }
 columnview.files.has-folder-arrows > header > button:first-child { padding-left: 24px; }
 columnview.files.has-folder-arrows > listview > row > cell:first-child { padding-left: 24px; }
-columnview.files > listview > row > cell:last-child { padding-right: 26px; }
+/* The last column's text ends 4px before the row's end, which leaves
+   Windows' 3 blank pixels between its ink and a selected row's ring
+   (ref-02). */
+columnview.files > listview > row > cell:last-child { padding-right: 4px; }
 /* The 21px icon is centred on a half pixel, which Chromium draws one
    pixel down. */
 columnview.files .row-icon { margin-top: 1px; }

@@ -163,7 +163,7 @@ fn in_a_900_pixel_window_name_gives_way_before_the_list_scrolls() {
         let room = column_room(&test, pane);
         let fits = room.columns <= room.shown + 1.0;
         assert!(
-            fits || room.name == 140 + 14,
+            fits || room.name == 140 + 2,
             "{what}: the columns fit, or Name is at its narrowest before the list scrolls: Name {} pixels, {} of {} shown",
             room.name,
             room.shown,
@@ -209,7 +209,7 @@ fn a_split_tab_beside_the_details_pane_at_1366_pixels_reaches_every_column() {
     for (index, pane) in panes.iter().enumerate() {
         let room = column_room(&test, pane);
         let fits = room.columns <= room.shown + 1.0;
-        let scrolls = room.name == 140 + 14 && room.columns > room.shown;
+        let scrolls = room.name == 140 + 2 && room.columns > room.shown;
         assert!(
             fits || scrolls,
             "pane {index}: Name {} pixels, {} of {} pixels shown",
