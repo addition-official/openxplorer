@@ -474,6 +474,12 @@ impl AddressBar {
         self.imp().crumbs.hidden_crumbs()
     }
 
+    /// The name of the icon at the bar's left end, for tests.
+    #[cfg(test)]
+    pub(super) fn shown_icon_name(&self) -> Option<String> {
+        self.imp().icon.icon_name().map(String::from)
+    }
+
     /// The chevron after the icon and the « shown in its place, for tests.
     #[cfg(test)]
     pub(super) fn strip_buttons(&self) -> (gtk::Button, gtk::Button) {

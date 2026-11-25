@@ -16,6 +16,7 @@ use ox_core::location::{
 };
 use ox_core::ops::JournalDirection;
 use ox_core::places::{KnownFolder, NetworkLocation, Place};
+use ox_core::windows_icons::IconRole;
 
 use crate::icons::{Art, Icon, Storage, Tint};
 use crate::locations::Page;
@@ -62,6 +63,16 @@ pub(super) fn address_icon(uri: &str, home_uri: &str) -> Icon {
     } else {
         Icon::FileFolder
     }
+}
+
+/// The icon at the left end of the address bar for `uri`, whose crumbs
+/// start at `first_crumb`: the root of the location's chain, as Windows 11
+/// File Explorer draws it (reference shots of build 26200, dark, 1x), and
+/// the Windows icon file role drawn instead when the user chose icon files
+/// (LOOK-030).
+pub(super) fn address_root_icon(uri: &str, first_crumb: Option<&str>, home_uri: &str) -> (Icon, IconRole) {
+    let _ = (uri, first_crumb, home_uri);
+    (Icon::FileFolder, IconRole::Folder)
 }
 
 /// The title of a history step at `uri`, as its tab, the window and the
@@ -658,6 +669,90 @@ impl BrowserWindow {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// As Windows 11 draws the address bar's first icon (reference shots
+    /// ref-01, ref-24 to ref-27 and ref-29): the This PC monitor before a
+    /// standard folder, a drive, This PC, the Recycle Bin and search
+    /// results; Home's house before Home; Network's glyph before Network
+    /// and its servers. Inside the home folder, whose crumbs start at a
+    /// Home crumb, the house; Gallery its own glyph; Settings its gear.
+    ///
+    /// parity: NAV-025
+    #[test]
+    fn the_address_bars_icon_is_the_root_of_the_locations_chain() {
+        let home = "file:///home/demo";
+        let downloads = "file:///home/demo/Downloads";
+        let cases: [(&str, Option<&str>, Icon, IconRole); 14] = [
+            (downloads, Some(downloads), Icon::Desktop, IconRole::ThisPc),
+            (
+                "file:///home/demo/Documents/RefTest",
+                Some("file:///home/demo/Documents"),
+                Icon::Desktop,
+                IconRole::ThisPc,
+            ),
+            (
+                "file:///home/demo/Projects",
+                Some(home),
+                Icon::Home,
+                IconRole::Home,
+            ),
+            (home, Some(home), Icon::Home, IconRole::Home),
+            (
+                "file:///srv/media",
+                Some("file:///"),
+                Icon::Desktop,
+                IconRole::ThisPc,
+            ),
+            ("file:///", Some("file:///"), Icon::Desktop, IconRole::ThisPc),
+            (
+                Page::ThisPc.uri(),
+                Some(Page::ThisPc.uri()),
+                Icon::Desktop,
+                IconRole::ThisPc,
+            ),
+            (TRASH_URI, Some(TRASH_URI), Icon::Desktop, IconRole::ThisPc),
+            (
+                "mtp://%5Busb%3A001%2C010%5D/",
+                Some("mtp://%5Busb%3A001%2C010%5D/"),
+                Icon::Desktop,
+                IconRole::ThisPc,
+            ),
+            (
+                Page::Home.uri(),
+                Some(Page::Home.uri()),
+                Icon::Home,
+                IconRole::Home,
+            ),
+            (
+                Page::Network.uri(),
+                Some(Page::Network.uri()),
+                Icon::Organization,
+                IconRole::Network,
+            ),
+            (
+                "smb://nas/media",
+                Some("smb://nas/"),
+                Icon::Organization,
+                IconRole::Network,
+            ),
+            (
+                ox_core::location::GALLERY_URI,
+                Some(ox_core::location::GALLERY_URI),
+                Icon::Image,
+                IconRole::Gallery,
+            ),
+            (
+                Page::Settings.uri(),
+                Some(Page::Settings.uri()),
+                Icon::Settings,
+                IconRole::Settings,
+            ),
+        ];
+
+        for (uri, first, icon, role) in cases {
+            assert_eq!(address_root_icon(uri, first, home), (icon, role), "{uri}");
+        }
+    }
     use crate::test_support::{studio_nas_mapped_drive, studio_nas_server};
     use ox_core::location::{RECENT_LOCATIONS_URI, RECENT_URI, TRASH_URI};
 
