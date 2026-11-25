@@ -166,6 +166,3 @@ pub use terminal::{
 pub use wallpaper_portal::{
     open_picture, set_wallpaper_file, wallpaper_portal_version, WallpaperError, WALLPAPER_INTERFACE,
 };
-pub use wallpaper_portal::{
-    open_picture, set_wallpaper_file, wallpaper_portal_version, WallpaperError, WALLPAPER_INTERFACE,
-};
