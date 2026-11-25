@@ -107,18 +107,25 @@ fn an_smb_path_has_server_share_and_folder_crumbs_with_the_uri_encoded() {
 }
 
 /// Left and Right stop at the last crumb and at the chevron before the
-/// first, which takes the keyboard as the crumbs do.
+/// first, which takes the keyboard as the crumbs do. Where the first
+/// crumbs are collapsed behind the «, as the test's long temporary path is
+/// beside Windows' 499 pixel search box, the « takes the chevron's place
+/// and Left from the first crumb shown goes on to it; This PC's one crumb
+/// always fits, so the chevron itself is tried there.
 ///
 /// parity: NAV-018
 #[gtk::test]
 fn left_and_right_stop_at_the_first_chevron_and_the_last_crumb() {
     let fixture = Fixture::standard();
     let test = TestWindow::open(&fixture.uri_of("Documents"));
-    let crumbs = test.window.address_bar().crumb_buttons();
-    let (chevron, _) = test.window.address_bar().strip_buttons();
-    let first = crumbs.first().expect("crumbs");
+    let address = test.window.address_bar();
+    let crumbs = address.crumb_buttons();
+    let (chevron, overflow) = address.strip_buttons();
+    let hidden = address.hidden_crumbs().len();
+    let first = &crumbs[hidden];
     let last = crumbs.last().expect("crumbs");
     let before_last = &crumbs[crumbs.len() - 2];
+    let first_stop = if hidden == 0 { &chevron } else { &overflow };
 
     last.grab_focus();
     assert!(press_key(&crumb_box(&test), gdk::Key::Right));
@@ -126,12 +133,28 @@ fn left_and_right_stop_at_the_first_chevron_and_the_last_crumb() {
     press_key(&crumb_box(&test), gdk::Key::Left);
     assert!(before_last.has_focus());
     first.grab_focus();
+    assert!(first.has_focus(), "the first crumb shown takes the keyboard");
+    press_key(&crumb_box(&test), gdk::Key::Left);
+    assert!(first_stop.has_focus(), "Left goes on to the chevron or «");
+    press_key(&crumb_box(&test), gdk::Key::Left);
+    assert!(first_stop.has_focus(), "and stops there");
+    press_key(&crumb_box(&test), gdk::Key::Right);
+    assert!(first.has_focus());
+
+    test.window.navigate(ox_core::location::PC_URI).expect("This PC");
+    wait_until("This PC's crumb", || {
+        address.crumb_buttons().len() == 1 && address.hidden_crumbs().is_empty()
+    });
+    let pc = address.crumb_buttons()[0].clone();
+    pc.grab_focus();
+    assert!(press_key(&crumb_box(&test), gdk::Key::Right));
+    assert!(pc.has_focus(), "Right stops at the only crumb");
     press_key(&crumb_box(&test), gdk::Key::Left);
     assert!(chevron.has_focus(), "Left goes on to the chevron");
     press_key(&crumb_box(&test), gdk::Key::Left);
     assert!(chevron.has_focus(), "and stops there");
     press_key(&crumb_box(&test), gdk::Key::Right);
-    assert!(first.has_focus());
+    assert!(pc.has_focus());
 }
 
 /// parity: NAV-018
