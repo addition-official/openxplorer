@@ -79,13 +79,21 @@ const ROW_ICON: i32 = 20;
 const TILE_ICON: i32 = 48;
 /// Pixels of the glyph a standard folder shows on its folder.
 const TILE_EMBLEM: i32 = 20;
-/// A Quick access tile's box: its folder and three lines of text, and
-/// how high it is. Windows 11's Home puts tiles 284 pixels apart across
-/// and 60 down (reference ref-38, measured by script); the box is
-/// narrower than that so the last tile of a row needs only its own width,
-/// and five tiles fit beside the Details pane in a 1920-pixel window, as
-/// in Windows.
-const TILE_CONTENT: (i32, i32) = (200, 60);
+/// A Quick access tile's box, which the hover and the selection fill,
+/// edge included, as Windows 11's Home draws it (references ref-39 and
+/// ref-40, measured by script): 264 by 58 pixels, 284 apart across and
+/// 60 down (ref-38), so 20 pixels between boxes across and 2 down. A
+/// row's last tile needs only its box, and five fit beside the Details
+/// pane in a 1920-pixel window, as in Windows.
+const TILE_CONTENT: (i32, i32) = (264, 58);
+/// The tile box's edge (`flowbox.home-tiles > flowboxchild`), drawn only
+/// under the pointer and when selected.
+const TILE_EDGE: i32 = 2;
+/// Pixels from the box's left edge to its folder's box: Windows draws
+/// the folder 79 pixels in, and the drawing starts 3 pixels into its box.
+const TILE_FOLDER_INSET: i32 = 76;
+/// Pixels between two rows of tiles: the row pitch, 60, less the box.
+const TILE_ROW_GAP: i32 = 60 - TILE_CONTENT.1;
 /// Pixels between a tile's folder box and its text: the name starts 57
 /// pixels right of the folder's drawing, as in Windows (ref-38).
 const TILE_TEXT_GAP: i32 = 12;
@@ -96,7 +104,7 @@ const TILE_PIN_GAP: i32 = 2;
 /// does the list's rows: the folder and its three lines still fit, with
 /// a few pixels left above and below, so a pin never touches the name of
 /// the tile under it.
-const COMPACT_TILE_HEIGHT: i32 = 54;
+const COMPACT_TILE_HEIGHT: i32 = 52;
 /// Pixels of the pin glyph under a pinned folder's location.
 const PIN_GLYPH: i32 = 12;
 /// Most tiles a row of Quick access holds; the pane's width decides.
@@ -650,7 +658,7 @@ fn folder_tile(place: &Place, locations: &LocationContext, compact: bool) -> Ite
     ))]);
     lines.append(&pin);
     let content = gtk::Box::new(gtk::Orientation::Horizontal, TILE_TEXT_GAP);
-    content.set_margin_start(8);
+    content.set_margin_start(TILE_FOLDER_INSET - TILE_EDGE);
     content.append(&icon);
     content.append(&lines);
     let height = if compact {
@@ -658,7 +666,10 @@ fn folder_tile(place: &Place, locations: &LocationContext, compact: bool) -> Ite
     } else {
         TILE_CONTENT.1
     };
-    content.set_size_request(TILE_CONTENT.0 - 8, height);
+    content.set_size_request(
+        TILE_CONTENT.0 - TILE_FOLDER_INSET - TILE_EDGE,
+        height - 2 * TILE_EDGE,
+    );
     let child = gtk::FlowBoxChild::builder()
         .child(&content)
         .name(&place.uri)
@@ -709,12 +720,21 @@ const LOCATION_WIDTH: i32 = 300;
 /// the pills, 51 from the pills' middle to the column headers', and the
 /// first row right under the headers, one row (36 pixels) from theirs.
 const SECTION_INDENT: i32 = 14;
-/// Quick access's tiles stand further in than the heading: their folders
-/// about 92 pixels from the pane's edge, as in Windows 11.
-const TILES_INDENT: i32 = 76;
+/// Quick access's tiles stand further in than the heading: their boxes
+/// start 8 pixels in, so their folders are about 92 pixels from the
+/// pane's edge, as in Windows 11 (the page's 8 pixels, these 8 and
+/// [`TILE_FOLDER_INSET`]).
+const TILES_INDENT: i32 = 8;
+/// Where "Folders you pin to Quick access show here." starts in Quick
+/// access's body: 84 pixels from the pane's edge, as before the tiles'
+/// boxes reached left of their folders.
+const TILES_EMPTY_INDENT: i32 = 68;
 const LIST_INDENT: i32 = 48;
-const TILES_BELOW_HEADING: i32 = 1;
-const PILLS_BELOW_TILES: i32 = 45;
+/// Measured on Windows 11's Home with Quick access unfolded (ref-38): the
+/// first tile's name 38 pixels under the heading's text, and the pills'
+/// middle 33 pixels under the last tile's box.
+const TILES_BELOW_HEADING: i32 = 7;
+const PILLS_BELOW_TILES: i32 = 21;
 const HEADER_BELOW_PILLS: i32 = 19;
 /// The narrowest Name gets in a narrow window, and the narrowest Date
 /// accessed and File location.
@@ -1557,7 +1577,11 @@ fn item_box(page: &gtk::Box, items: Vec<Item>, section: Section, rows: bool) -> 
         } else {
             u32::try_from(TILE_GAP).unwrap_or(0)
         })
-        .row_spacing(0)
+        .row_spacing(if rows {
+            0
+        } else {
+            u32::try_from(TILE_ROW_GAP).unwrap_or(0)
+        })
         .valign(gtk::Align::Start)
         .css_classes(if rows {
             ["drive-tiles", "home-rows"]
@@ -1836,9 +1860,11 @@ pub(super) fn render(
         .map(|place| folder_tile(place, locations, is_compact(page)))
         .collect();
     if tiles.is_empty() {
-        quick_body.append(&empty_label(ox_core::i18n::gettext_static(
+        let empty = empty_label(ox_core::i18n::gettext_static(
             "Folders you pin to Quick access show here.",
-        )));
+        ));
+        empty.set_margin_start(TILES_EMPTY_INDENT);
+        quick_body.append(&empty);
     } else {
         quick_body.append(&item_box(page, tiles, Section::QuickAccess, false));
     }

@@ -188,6 +188,50 @@ mod tests {
         );
     }
 
+    /// Home's Quick access tiles fill as Windows 11's do in the dark theme
+    /// (ref-39 and ref-40, measured by script): a #272727 box with a
+    /// 2-pixel #343434 edge under the pointer, and the same box with a
+    /// 2-pixel #4cc2ff edge when selected. The light theme keeps the item
+    /// colours, as no light reference was measured.
+    ///
+    /// parity: HOME-013
+    #[test]
+    fn homes_tiles_fill_as_windows_in_the_dark_theme() {
+        let defined = |appearance, token: &str| {
+            palette(appearance)
+                .lines()
+                .find_map(|line| {
+                    line.trim()
+                        .strip_prefix(&format!("@define-color {token} "))
+                        .map(str::to_owned)
+                })
+                .map(|value| {
+                    let value = value.split("/*").next().unwrap_or_default();
+                    value.trim().trim_end_matches(';').trim().to_lowercase()
+                })
+        };
+        let dark: Vec<Option<String>> = [
+            "ox_home_tile_hover",
+            "ox_home_tile_hover_stroke",
+            "ox_home_tile_selected",
+            "ox_home_tile_selected_stroke",
+        ]
+        .iter()
+        .map(|token| defined(Appearance::Dark, token))
+        .collect();
+        assert_eq!(
+            dark,
+            ["#272727", "#343434", "#272727", "#4cc2ff"].map(|value| Some(value.to_owned()))
+        );
+        let rules = without_comments(RULES);
+        for rule in [
+            "flowbox.home-tiles > flowboxchild:hover { background-color: @ox_home_tile_hover; border-color: @ox_home_tile_hover_stroke; }",
+            "flowbox.home-tiles > flowboxchild:selected { background-color: @ox_home_tile_selected; border-color: @ox_home_tile_selected_stroke; }",
+        ] {
+            assert!(rules.contains(rule), "the skin has {rule}");
+        }
+    }
+
     /// A colour written into a rule would not follow the appearance.
     #[test]
     fn the_rules_name_colours_only_by_token() {

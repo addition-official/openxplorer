@@ -129,7 +129,14 @@ window.ox .landing button.home-tab:focus-visible {
    about 284 px apart across and 60 down: a 48 px folder and three lines. */
 .landing .home-quick-fold .group-title { font-size: 14px; }
 window.ox .landing flowbox.home-tiles { padding: 0; }
-window.ox .landing flowbox.home-tiles > flowboxchild { padding: 0; margin: 0; }
+window.ox .landing flowbox.home-tiles > flowboxchild { padding: 0; margin: 0; border: 2px solid transparent; border-radius: 5px; }
+/* A tile's box under the pointer and selected, as Windows 11's Home
+   fills it (ref-39 and ref-40): a 264 by 58 px box with 5 px corners and
+   a 2 px edge, grey under the pointer and accent blue when selected. */
+window.ox .landing flowbox.home-tiles > flowboxchild:hover { background-color: @ox_home_tile_hover; border-color: @ox_home_tile_hover_stroke; }
+window.ox .landing flowbox.home-tiles > flowboxchild:selected { background-color: @ox_home_tile_selected; border-color: @ox_home_tile_selected_stroke; }
+window.ox .landing flowbox.home-tiles > flowboxchild:selected:hover { background-color: @ox_home_tile_selected; border-color: @ox_home_tile_selected_stroke; }
+window.ox .landing flowbox.home-tiles > flowboxchild:active { background-color: @ox_home_tile_selected; }
 .landing .home-tiles .home-tile-location { color: @ox_muted; }
 .landing .home-tiles .home-pin { color: @ox_muted; }
 /* The list's column headers, as the Details view's. */
