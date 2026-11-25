@@ -1,6 +1,60 @@
 STATUS: DONE
-HEAD: user-icon-files fb1ba943 (Local Disk back to the plain drive, 32)
-QUESTION: none.
+HEAD: icons-command-bar 79f8836e (branched from origin/test-combined-60 14a8bf9f)
+QUESTION: ROOT CAUSE NEEDS ONE RUN ON THE USER'S PC. In this container, test-combined-60 draws the command bar, menus, tabs, address bar and pane from a synthetic font chosen from a path in the home folder (captured and tested), so the setting, the reading, the icon theme and the widgets all work; what differs on the user's PC is the font file itself. Please, on the PC: (1) run `python3 check-symbol-font.py ~/path/to/SegoeIcons.ttf` (the script is at the root of this branch; it only reads the file, and with fontTools installed it also lists the command bar's glyphs) and send its output; (2) send what Settings > Appearance > File icons says on the "Windows symbol font" row in deb 60 (it says how many glyphs the font gave, or "none of these glyphs"); (3) with icons-command-bar's deb, the row and the log (journalctl or a terminal start) now say why a font cannot be read. (4) For the View button, which Segoe Fluent codepoints draw Windows' eight shapes (see VIEW BUTTON below)? (5) Is PinnedFill really U+E842 in the user's font (a filled pin)?
+NOTE: Round 14, branch icons-command-bar, from the PC manager workflow's deb 60 reports.
+
+ROOT CAUSE, so far
+- Not the codepoints: the command bar asks for exactly Windows' list (Cut E8C6, Copy E8C8, Paste E77F, Rename E8AC, Share E72D, Delete E74D, Sort E8CB, More E712, Back E72B, ...); New asks for AddTo ECC8, the circled plus, because Windows' New inks 15x15, which ECC8 gives at a 16-pixel em (you measured) and E710 does not (13x13).
+- Not the setting or the timing: preferences.symbolFont and useIconFiles are read at startup and on every change (app_context follows the settings), menus are built when they open, after the font was read, and every image already shown is drawn again when the font is read.
+- Not the path: a font in ~/.local/share/fonts is read and drawn (the window test now chooses it there). The app reads the file itself; it never registers the font with fontconfig or Pango, so the family name ("Segoe Fluent Icons") does not matter and no sandbox or portal is involved (the deb is not sandboxed).
+- Not the icon theme here: the glyphs are written as symbolic SVGs into ~/.cache/winspace/windows-glyphs/<key>/hicolor/scalable/actions and that folder is added to GTK's icon theme search path; the system hicolor index.theme here lists scalable/actions, as Debian's and Ubuntu's do.
+- Most likely: the reader refuses the user's SegoeIcons.ttf as a whole (if its outlines are CFF, "OTTO", or a table the reader requires is missing), and until now it said nothing: every glyph fell back to the app's own and the row said the font had none of the glyphs. That fits "the bundled glyphs everywhere". The script above tells which check fails; deb 61 with this branch would say it on the row.
+FIXED meanwhile: the reason now reaches the Settings row ("OpenXplorer cannot read it (the file is not a TrueType font), so its own glyphs are shown") and the log; a font that cannot be read is not cached, so a replaced file is read again.
+
+VISIBLE CHANGES on icons-command-bar
+1. View button shows the view on screen (Windows does), instead of always the 2x2 grid: the glyph of the view's own item in the View menu, set when a window opens, when a folder's own view applies and when the view changes. Measured at 1x in Details: lines, built-in 14x11, font 16 (Windows 16x10).
+2. With the symbol font: the navigation pane's pins (14-pixel square) and Home's Quick access pins (12) use PinnedFill U+E842 (filled), menus' "Pin to Quick access" keeps the outline Pin E718. NOT DONE: a filled pin without the font needs a new bundled icon (Fluent's pin_16_filled) outside the owner-approved set in resources/icons/SOURCES.md; the owner has to approve adding it.
+3. The Settings row and the log say why a symbol font cannot be read (above).
+4. Home's Recent chip already asks for History U+E81C (clock with circular arrow) and Favorites for FavoriteStar U+E734; with the font read, they show those. There is no Shared chip in the app (Windows' Shared lists OneDrive shares), so nothing to match.
+
+VIEW BUTTON, Windows' glyph per view (measured on ref-01 and ref-11 to ref-17, ink at 1x) | ours now (the View menu's glyph)
+Details      | four plain lines, 16x10                 | TextBulletList (bulleted lines) E8FD, built-in 14x11: lines with bullets, not plain lines
+Extra large  | a monitor on a stand, 14x14             | RectangleLandscape: a plain rectangle, no stand
+Large        | a smaller monitor, 12x12                | RectangleLandscape: a plain rectangle
+Medium       | a small monitor with stand lines, 10x12 | Desktop E7F4 (monitor)
+Small icons  | 2x2 rounded squares, 14x14              | Grid E8A9 (ViewAll)
+List         | two columns of lines, 16x10             | TextColumnTwo EA37 (List)
+Tiles        | two rows of circle and line, 16x12      | AppsListDetail ECA5 (Tiles)
+Content      | three rows of circle and lines, 14x14   | ContentView
+Please identify the Segoe Fluent codepoints of the Details, Extra large and Large shapes (QUESTION 4); the View menu's items and the button will both take them.
+
+ICON AUDIT, place | Windows source | ours with the user's setup (when the font is read) | ours with nothing chosen
+command bar New | ECC8 AddTo (circled plus) | ECC8 | Fluent add (plus)
+command bar Cut, Copy, Paste, Rename, Share, Delete | E8C6, E8C8, E77F, E8AC, E72D, E74D | same | Fluent cut, copy, clipboard paste, rename, share, delete
+command bar Sort | E8CB | E8CB | Fluent arrow sort
+command bar View | per view (table above) | per view (changed) | per view (changed)
+command bar "..." | E712 More | E712 | Fluent more horizontal
+command bar carets | E70D at 8 | E70D at 8 | Fluent chevron down
+compact menu strip | Cut, Copy, Rename, Share, Delete as above | same | Fluent
+compact menu rows | each row's Windows glyph (Open, Open with, Compress to, Copy as path, Properties E946, Open in Terminal, Show more options) | per the glyph table in user_glyphs.rs | Fluent
+classic menu | no glyphs for most rows, app pictures for some | text only where Windows has none | same
+navigation buttons | E72B, E72A, E74A, E72C at 12 | same | Fluent arrows
+address bar | place icon (picture), crumb chevrons E76C at 11, history chevron E70D at 12 | same | Fluent
+tab strip | tab place icon (picture), + E710 at 14, x E711 at 13 | same | Fluent
+title bar | E921, E922/E923, E8BB at 10 | same | Fluent subtract, maximize, dismiss
+status bar view toggles | E8FD, E80A | same | Fluent
+navigation pane rows | imageres/shell32 pictures (icon files) | the pictures | Fluent tinted glyphs
+navigation pane pins | E842 PinnedFill (filled) | E842 (changed) | Fluent pin outline (filled needs approval)
+Home chips | History E81C, FavoriteStar E734 | same | Fluent history, star
+Home Quick access pins | E842 | E842 (changed) | Fluent pin outline
+This PC, Network, Recycle Bin, drives | imageres pictures (round 12 groups) | the pictures | Fluent glyphs and drive pictures
+file type icons | imageres pictures | the pictures | the app's colored pictures
+NEED VM REF (no reference shows them): the navigation pane's right-click menu (ref-31 exists, but the snapshot hook cannot open it here), Properties' other tabs' glyphs, the copy and replace dialogs (ref-33 covers only the delete question), error dialogs, Gallery, the tab strip's menu glyphs other than Close tab and Duplicate, Settings rows' glyphs.
+
+PASS round 14 on 79f8836e: cargo fmt; cargo clippy -p ox-core -p ox-app --all-targets --no-deps -D warnings (clean); python3 native/tools/i18n.py check (the .pot gains the new row sentence; no .po touched); ox-core windows_glyphs 5/5 (an unreadable font says why and is not cached); ox-app windows_icon_files 4/4 (font from ~/.local/share/fonts; the folder menu's strip Copy and Properties row draw from it), icons:: 52/52, settings_page:: 132/132, the_view_button_shows_the_view_on_screen 1/1 (new), view_styles 19/19, split_view 10/10, command_bar 61/61, sidebar 73/73, home_page 33/33.
+NOT RUN round 14: the full suite; the user's real font.
+
+ROUND 13 (continued)
 NOTE: Branding checked on the user's sheet by the PC manager workflow: Home (shell32 51380, a house), Gallery (shell32 51586, a picture stack), the Settings tab (shell32 16826, a gear), Script (imageres 68, a window with gears), Program and Shortcut (imageres 15, a window with a blue pane) and This PC and network computers (imageres 109, a plain monitor) carry no Windows logo or Microsoft branding; kept. No group in use now is branded.
 NOTE: Round 13, from the PC manager workflow: Local Disk must not show the drive with the Windows logo (imageres 36) on a system that is not Windows; the icon files make the app Windows-like, not Windows-branded. Every fixed drive, Local Disk included, is the plain fixed drive (imageres 32). The root keeps its own art (SystemDrive) and draws as the plain drive; the separate role for it is removed, so the role table and the cache key are as before round 12 apart from the other round 12 groups.
 NOTE: Other branding in the table, as far as the names go: the groups in use are folders, drives, a monitor, network places, the Recycle Bin and plain file pages; none is a Windows or Microsoft logo as checked so far (see QUESTION for the ones not yet looked at). The symbol font's glyphs are interface symbols; the app maps no logo glyph (Segoe's WindowsLogo and similar are not in the glyph table).
