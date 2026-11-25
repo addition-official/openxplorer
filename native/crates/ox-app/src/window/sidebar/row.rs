@@ -18,7 +18,7 @@ use crate::window::widget_tree::descendants;
 use crate::window::window_action::WindowAction;
 
 use super::super::saved_search::saved_search_target;
-use super::entries::{EjectButton, RowExpander, RowLevel, RowTarget, Section, SidebarEntry};
+use super::entries::{EjectButton, ExpanderKind, RowExpander, RowLevel, RowTarget, Section, SidebarEntry};
 
 /// Glyphs and art are 16 pixels, as Windows 11's navigation pane icons
 /// (owner decision 2026-11-06; the web's were 18 and 19).
@@ -27,6 +27,9 @@ const ART_SIZE: i32 = 16;
 
 /// The expander chevron of This PC and Network (`icon('down')` at 9px).
 const EXPANDER_SIZE: i32 = 9;
+
+/// How much further in each level of the tree sits, in pixels.
+const LEVEL_STEP: i32 = 16;
 
 /// The class of the chevron of This PC and Network.
 const CHEVRON_CLASS: &str = "side-expander";
@@ -111,6 +114,11 @@ fn row_content(entry: &SidebarEntry, look: RowLook, collapsed: bool) -> gtk::Box
     // The gaps are CSS margins on the parts (see `.side-entry` in
     // resources/skin/sidebar.css), so no box spacing.
     let content = gtk::Box::builder().css_classes(["side-entry"]).build();
+    // Each level past the second sits one 16-pixel step further in, as
+    // Windows' tree indents its folders; the CSS places the first two.
+    if let RowLevel::Nested(depth) = entry.level {
+        content.set_margin_start(i32::from(depth.saturating_sub(2)) * LEVEL_STEP);
+    }
     if entry.level == RowLevel::Group {
         if let Some(chevron) = section_chevron(entry.section, !collapsed) {
             content.append(&chevron);
@@ -181,7 +189,11 @@ fn row_chevron(expander: &RowExpander, name: &str) -> gtk::Button {
         .focus_on_click(false)
         .can_focus(false)
         .build();
-    WindowAction::ToggleComputer.assign_with_target_to(&button, &expander.uri.to_variant());
+    let action = match expander.kind {
+        ExpanderKind::Computer => WindowAction::ToggleComputer,
+        ExpanderKind::Folder => WindowAction::ToggleFolder,
+    };
+    action.assign_with_target_to(&button, &expander.uri.to_variant());
     let (glyph, label) = if expander.expanded {
         (
             Icon::ChevronDown16,
@@ -256,7 +268,7 @@ fn placement_classes(entry: &SidebarEntry) -> Vec<&'static str> {
         RowLevel::Place => {}
         RowLevel::Group => classes.push("group"),
         RowLevel::Child => classes.push("indent"),
-        RowLevel::Grandchild => classes.push("indent2"),
+        RowLevel::Grandchild | RowLevel::Nested(_) => classes.push("indent2"),
     }
     if entry.expander.is_some() {
         classes.push("expandable");
@@ -287,6 +299,7 @@ pub(super) fn sidebar_row(entry: &SidebarEntry, look: RowLook, collapsed: bool) 
         RowLevel::Place | RowLevel::Group => 1,
         RowLevel::Child => 2,
         RowLevel::Grandchild => 3,
+        RowLevel::Nested(depth) => i32::from(depth) + 1,
     };
     row.update_property(&[
         gtk::accessible::Property::Label(&entry.label),
@@ -296,7 +309,7 @@ pub(super) fn sidebar_row(entry: &SidebarEntry, look: RowLook, collapsed: bool) 
     match entry.level {
         RowLevel::Place => {}
         RowLevel::Group => row.update_state(&[gtk::accessible::State::Expanded(Some(!collapsed))]),
-        RowLevel::Child | RowLevel::Grandchild => row.set_visible(!collapsed),
+        RowLevel::Child | RowLevel::Grandchild | RowLevel::Nested(_) => row.set_visible(!collapsed),
     }
     if let Some(expander) = &entry.expander {
         row.update_state(&[gtk::accessible::State::Expanded(Some(expander.expanded))]);

@@ -588,6 +588,21 @@ impl Sidebar {
     /// Replaces the rows.
     pub(super) fn set_entries(&self, entries: Vec<SidebarEntry>) {
         let list = self.list();
+        // The row with the keyboard keeps it when the rows are drawn
+        // again, as when a drive's folders arrive while it is expanded
+        // from the keyboard.
+        let focused = list
+            .focus_child()
+            .and_downcast::<gtk::ListBoxRow>()
+            .filter(WidgetExt::has_focus)
+            .and_then(|row| usize::try_from(row.index()).ok())
+            .and_then(|index| {
+                self.imp()
+                    .entries
+                    .borrow()
+                    .get(index)
+                    .map(|entry| entry.target.clone())
+            });
         list.remove_all();
         let rows: Vec<gtk::ListBoxRow> = entries
             .iter()
@@ -598,6 +613,17 @@ impl Sidebar {
         self.imp().hidden_rows.replace(Vec::new());
         for row in &rows {
             list.append(row);
+        }
+        if let Some(target) = focused {
+            let index = self
+                .imp()
+                .entries
+                .borrow()
+                .iter()
+                .position(|entry| entry.target == target);
+            if let Some(row) = index.and_then(|index| rows.get(index)) {
+                row.grab_focus();
+            }
         }
     }
 
@@ -716,6 +742,23 @@ impl Sidebar {
             .and_then(|index| i32::try_from(index).ok())
             .and_then(|index| self.list().row_at_index(index));
         self.list().select_row(row.as_ref());
+    }
+
+    /// The rows' entries, for tests.
+    #[cfg(test)]
+    pub(super) fn entries_for_tests(&self) -> Vec<SidebarEntry> {
+        self.imp().entries.borrow().clone()
+    }
+
+    /// Puts the keyboard on the row labelled `label`, for tests.
+    #[cfg(test)]
+    pub(super) fn focus_row_for_tests(&self, label: &str) {
+        let index = self.labels().iter().position(|shown| shown == label);
+        let row = index
+            .and_then(|index| i32::try_from(index).ok())
+            .and_then(|index| self.list().row_at_index(index))
+            .unwrap_or_else(|| panic!("the sidebar shows {label}"));
+        row.grab_focus();
     }
 
     /// The labels shown, for tests.

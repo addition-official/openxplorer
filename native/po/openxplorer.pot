@@ -7899,6 +7899,11 @@ msgstr ""
 msgid "Open all"
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/window/pane_folders.rs
+msgid "More folders in {name}…"
+msgstr ""
+
 #: crates/ox-app/src/window/picker.rs
 msgid "Choose one file."
 msgstr ""

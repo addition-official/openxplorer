@@ -10,7 +10,7 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{gdk, glib};
 
-use super::entries::{RowLevel, Section, SidebarEntry};
+use super::entries::{ExpanderKind, RowLevel, Section, SidebarEntry};
 
 /// How long a drag must stay over a collapsed section's head before it
 /// expands (DND-027).
@@ -67,7 +67,9 @@ impl Sidebar {
                 match entry.level {
                     RowLevel::Place => {}
                     RowLevel::Group => row::show_expanded(&row, section, !collapsed),
-                    RowLevel::Child | RowLevel::Grandchild => row.set_visible(!collapsed),
+                    RowLevel::Child | RowLevel::Grandchild | RowLevel::Nested(_) => {
+                        row.set_visible(!collapsed);
+                    }
                 }
             }
         }
@@ -103,14 +105,32 @@ impl Sidebar {
                 let Some(row) = sidebar.list().row_at_y(y as i32) else {
                     return;
                 };
-                let head = {
+                let (head, expander) = {
                     let entries = sidebar.imp().entries.borrow();
-                    usize::try_from(row.index())
+                    let entry = usize::try_from(row.index())
                         .ok()
-                        .and_then(|index| entries.get(index))
+                        .and_then(|index| entries.get(index));
+                    let head = entry
                         .filter(|entry| entry.level == RowLevel::Group)
-                        .map(|entry| entry.section)
+                        .map(|entry| entry.section);
+                    (head, entry.and_then(|entry| entry.expander.clone()))
                 };
+                // A drive, a computer or a folder expands or collapses
+                // too, as its chevron does, once the press is handled.
+                if let Some(expander) = expander {
+                    let action = match expander.kind {
+                        ExpanderKind::Computer => WindowAction::ToggleComputer,
+                        ExpanderKind::Folder => WindowAction::ToggleFolder,
+                    };
+                    glib::idle_add_local_once(glib::clone!(
+                        #[weak]
+                        sidebar,
+                        move || {
+                            let target = expander.uri.to_variant();
+                            let _ = sidebar.activate_action(&action.detailed_name(), Some(&target));
+                        }
+                    ));
+                }
                 // Once GTK has handled the press: hiding rows while the
                 // list still handles it corrupts GTK's memory, which
                 // crashed the app later.
@@ -303,8 +323,12 @@ impl Sidebar {
             return false;
         };
         let target = expander.uri.to_variant();
+        let action = match expander.kind {
+            ExpanderKind::Computer => WindowAction::ToggleComputer,
+            ExpanderKind::Folder => WindowAction::ToggleFolder,
+        };
         let toggled = self
-            .activate_action(&WindowAction::ToggleComputer.detailed_name(), Some(&target))
+            .activate_action(&action.detailed_name(), Some(&target))
             .is_ok();
         // The rows were drawn again: the keyboard stays on the computer.
         if let Some(row) = i32::try_from(index)
@@ -332,18 +356,25 @@ impl Sidebar {
             let Some(entry) = entries.get(index) else {
                 return false;
             };
+            let depth = entry.level.depth();
             match (into, entry.level) {
                 (true, RowLevel::Group) if !self.is_collapsed(entry.section) => entries
                     .get(index + 1)
                     .filter(|next| next.section == entry.section && next.level == RowLevel::Child)
                     .map(|_| index + 1),
+                // Right on an expanded drive, computer or folder moves to
+                // its first row.
+                (true, _) if entry.expander.as_ref().is_some_and(|expander| expander.expanded) => entries
+                    .get(index + 1)
+                    .filter(|next| next.level.depth() == depth + 1)
+                    .map(|_| index + 1),
                 (false, RowLevel::Child) => entries[..index]
                     .iter()
                     .rposition(|head| head.level == RowLevel::Group && head.section == entry.section),
-                // Left on a share moves to its computer.
-                (false, RowLevel::Grandchild) => entries[..index]
+                // Left on a share or a folder moves to the row it is in.
+                (false, RowLevel::Grandchild | RowLevel::Nested(_)) => entries[..index]
                     .iter()
-                    .rposition(|parent| parent.level == RowLevel::Child && parent.expander.is_some()),
+                    .rposition(|parent| parent.level.depth() == depth - 1 && parent.expander.is_some()),
                 _ => None,
             }
         };
@@ -351,6 +382,18 @@ impl Sidebar {
             .and_then(|target| i32::try_from(target).ok())
             .and_then(|target| self.list().row_at_index(target));
         row.is_some_and(|row| row.grab_focus())
+    }
+
+    /// The locations of the drives, shares and folders that expand to
+    /// their folders, in row order.
+    pub(in crate::window) fn tree_locations(&self) -> Vec<String> {
+        let entries = self.imp().entries.borrow();
+        entries
+            .iter()
+            .filter_map(|entry| entry.expander.as_ref())
+            .filter(|expander| expander.kind == ExpanderKind::Folder)
+            .map(|expander| expander.uri.clone())
+            .collect()
     }
 
     /// The section `row` is the head of, `None` for any other row.

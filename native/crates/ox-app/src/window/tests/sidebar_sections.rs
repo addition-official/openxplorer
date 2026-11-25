@@ -213,16 +213,21 @@ fn left_and_right_with_nowhere_to_go_keep_the_keyboard_on_the_row() {
     let fixture = Fixture::standard();
     let test = TestWindow::open(&fixture.uri());
     for name in ["Local Disk", "Home"] {
-        let row = row_named(&test, name);
-        row.grab_focus();
+        row_named(&test, name).grab_focus();
         for key in [gdk::Key::Right, gdk::Key::Left] {
             if name == "Local Disk" && key == gdk::Key::Left {
                 continue; // Left steps out to This PC.
             }
             assert!(press(&test, key), "{key:?} on {name} is taken");
+            // Right on Local Disk expands it to its folders, which draws
+            // the rows again: the keyboard stays on its new row.
+            let focused = gtk::prelude::GtkWindowExt::focus(&test.window)
+                .and_downcast::<gtk::ListBoxRow>()
+                .and_then(|focused| usize::try_from(focused.index()).ok())
+                .and_then(|index| test.window.sidebar().labels().get(index).cloned());
             assert_eq!(
-                gtk::prelude::GtkWindowExt::focus(&test.window),
-                Some(row.clone().upcast()),
+                focused.as_deref(),
+                Some(name),
                 "{key:?} keeps the keyboard on {name}"
             );
         }

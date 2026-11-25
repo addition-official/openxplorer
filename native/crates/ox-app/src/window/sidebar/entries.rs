@@ -99,24 +99,101 @@ pub(in crate::window) enum RowLevel {
     /// A row inside a row of a group, such as a share inside a computer
     /// under Network, indented twice.
     Grandchild,
+    /// A folder further down a drive's or a share's tree, this many
+    /// levels inside its group (3 or more).
+    Nested(u8),
 }
 
 impl RowLevel {
     /// Whether the row is inside a group, so collapsing the group hides
     /// it.
     pub(in crate::window) fn is_inside(self) -> bool {
-        matches!(self, RowLevel::Child | RowLevel::Grandchild)
+        matches!(self, RowLevel::Child | RowLevel::Grandchild | RowLevel::Nested(_))
     }
+
+    /// How many levels inside its group the row is: 0 for a top-level
+    /// row or a group head, 1 for a drive or a computer, and one more
+    /// for each folder below.
+    pub(in crate::window) fn depth(self) -> u8 {
+        match self {
+            RowLevel::Place | RowLevel::Group => 0,
+            RowLevel::Child => 1,
+            RowLevel::Grandchild => 2,
+            RowLevel::Nested(depth) => depth,
+        }
+    }
+
+    /// The level of a row `depth` levels inside its group.
+    pub(in crate::window) fn at_depth(depth: u8) -> Self {
+        match depth {
+            0 => RowLevel::Place,
+            1 => RowLevel::Child,
+            2 => RowLevel::Grandchild,
+            depth => RowLevel::Nested(depth),
+        }
+    }
+}
+
+/// What a row's own chevron expands.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::window) enum ExpanderKind {
+    /// A computer under Network, to its shares.
+    Computer,
+    /// A drive, a share or a folder, to its subfolders.
+    Folder,
 }
 
 /// The chevron of a row inside a group that expands on its own, such as
 /// a computer under Network, which expands to its shares.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::window) struct RowExpander {
-    /// What the chevron toggles: the computer's location.
+    /// What the chevron toggles: the computer's or the folder's location.
     pub uri: String,
     /// Whether the rows inside it show.
     pub expanded: bool,
+    /// Whether it expands a computer or a folder.
+    pub kind: ExpanderKind,
+}
+
+/// A subfolder listed under an expanded drive, share or folder of the
+/// navigation pane, as Windows 11's tree lists it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::window) struct FolderNode {
+    /// The name shown.
+    pub name: String,
+    /// Its location.
+    pub uri: String,
+    /// Whether it has subfolders of its own: its chevron shows unless
+    /// that is known to be false.
+    pub has_subfolders: Option<bool>,
+}
+
+/// The row of the subfolder `node`, `depth` levels inside `section`,
+/// with a chevron unless it is known to hold no folder; `expanded` while
+/// its own subfolders are listed under it.
+pub(in crate::window) fn folder_entry(
+    section: Section,
+    depth: u8,
+    node: &FolderNode,
+    expanded: bool,
+    locations: &LocationContext,
+) -> SidebarEntry {
+    SidebarEntry {
+        section,
+        level: RowLevel::at_depth(depth),
+        label: node.name.clone(),
+        icon: Art::Folder,
+        target: RowTarget::Location(node.uri.clone()),
+        tooltip: locations.display_location(&node.uri),
+        pinned: false,
+        menu: None,
+        eject: None,
+        expander: (node.has_subfolders != Some(false) || expanded).then(|| RowExpander {
+            uri: node.uri.clone(),
+            expanded,
+            kind: ExpanderKind::Folder,
+        }),
+    }
 }
 
 /// What activating a row does.
@@ -313,6 +390,7 @@ fn computer_entry(node: &ComputerNode, locations: &LocationContext) -> SidebarEn
         expander: Some(RowExpander {
             uri: node.uri.clone(),
             expanded: node.expanded,
+            kind: ExpanderKind::Computer,
         }),
     }
 }

@@ -116,7 +116,7 @@ fn hidden_navigation_arrows_show_with_focus_in_the_pane() {
         .iter()
         .filter(|widget| widget.has_css_class("side-expander"))
         .count();
-    assert_eq!(chevrons, 2, "This PC and Network");
+    assert_eq!(chevrons, 3, "This PC, Local Disk and Network");
     assert!(arrows.len() > chevrons, "the folder tree draws arrows");
     assert!(arrows.iter().all(draws), "shown by default");
 

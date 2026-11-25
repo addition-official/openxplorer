@@ -70,6 +70,10 @@
    shares sit one 16px level further in (SIDE-035). */
 .sidebar list.places > row.indent.expandable .side-entry { padding-left: 21px; }
 .sidebar list.places > row.indent2 .side-entry { padding-left: 51px; }
+/* A folder that expands keeps its chevron before its icon, which stays
+   in its level's column, as on a drive or computer (14px less). Deeper
+   folders add 16px a level in code. */
+.sidebar list.places > row.indent2.expandable .side-entry { padding-left: 37px; }
 /* The dashed tail of an empty Quick access sits 7px further in (6px
    margin, 1px border), so its glyph takes the same column. */
 .sidebar list.places > row.quick-drop-tail .side-entry { padding-left: 12px; }

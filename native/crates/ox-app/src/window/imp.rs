@@ -410,6 +410,8 @@ pub(crate) struct BrowserWindow {
     pub(super) item_dialogs: super::item_dialogs::ItemDialogs,
     /// The computers under Network in the navigation pane.
     pub(super) network_pane: super::network_pane::NetworkPane,
+    /// The folder trees of the navigation pane's drives and shares.
+    pub(super) pane_folders: super::pane_folders::PaneFolders,
     /// Network's info bar, shown while discovery cannot run.
     pub(super) network_info_bar: OnceCell<super::network_info_bar::NetworkInfoBar>,
     /// The rename a slow second click on a name scheduled (OPS-011).
