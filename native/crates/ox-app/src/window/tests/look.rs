@@ -15,6 +15,7 @@ use super::context_menus::{choose_menu_style, position_of};
 use super::file_ops_support::open_dialog;
 use super::geometry::{bounds, laid_out, laid_out_with_details_pane, Bounds};
 use super::icons::{assert_same_colour, css_colour, painted, painted_colour, pixel_rows, TRANSITION_TIME};
+use crate::icons::Icon;
 use crate::test_support::harness::{
     descendants, wait_for, wait_for_frames, wait_until, Fixture, TestWindow, ThemeGuard,
 };
@@ -323,15 +324,34 @@ fn the_command_bar_keeps_its_right_group_and_shows_details_as_selected() {
         details.width(),
         details.height()
     );
-    let glyph = descendants::<gtk::Image>(&details)
-        .into_iter()
-        .next()
+    // Two-tone, as Windows' own picture (windows.readingpane): the
+    // outline in the text color, the divider and the filled pane in the
+    // accent, which shows only while the pane is open.
+    let images = descendants::<gtk::Image>(&details);
+    let glyph = images
+        .iter()
+        .find(|image| image.icon_name().as_deref() == Some(Icon::PanelRight.name()))
         .expect("the Details glyph");
+    let pane = images
+        .iter()
+        .find(|image| image.icon_name().as_deref() == Some(Icon::PanelRightFilled.name()))
+        .expect("the open pane's accent part");
+    assert!(!glyph.has_css_class("glyph-accent"));
+    assert!(pane.has_css_class("glyph-accent"));
+    assert!(pane.is_drawable(), "the pane is shown while open");
     assert_same_colour(
-        super::icons::painted_ink(&glyph),
-        css_colour("#74beff"),
-        "the glyph in the accent",
+        super::icons::painted_ink(pane),
+        css_colour("#4cc2ff"),
+        "the pane in the accent",
     );
+    let outline = super::icons::painted_ink(glyph);
+    assert!(
+        (outline.red() - outline.blue()).abs() < 0.05,
+        "the outline in the text color, not the accent: {outline}"
+    );
+    test.activate("details-pane", None);
+    wait_until("the pane to close", || !details.is_active());
+    assert!(!pane.is_drawable(), "one color while closed");
 }
 
 /// The classic menu is Windows 11's Win32 menu: 24-pixel rows at 100%

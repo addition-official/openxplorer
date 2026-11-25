@@ -133,7 +133,6 @@ pub(crate) const fn windows_source(icon: Icon) -> WindowsSource {
         Icon::Organization | Icon::GlobeDesktop => glyph(0xE968, "Network"),
         Icon::PaintBrush => glyph(0xE771, "Personalize"),
         Icon::PanelLeft => glyph(0xE90C, "DockLeft"),
-        Icon::PanelRight => glyph(0xE90D, "DockRight"),
         Icon::PanelRightGallery => glyph(0xE8A1, "PreviewLink"),
         Icon::Pause16 => glyph(0xE769, "Pause"),
         Icon::Phone => glyph(0xE8EA, "CellPhone"),
@@ -188,7 +187,13 @@ pub(crate) const fn windows_source(icon: Icon) -> WindowsSource {
         | Icon::ViewExtraLarge
         | Icon::OpenInNewTab
         | Icon::TextDescription
-        | Icon::Desktop16 => {
+        | Icon::Desktop16
+        // The Details pane button: Windows' two-tone pane, the outline in
+        // the text colour and the open pane in the accent, as Fluent's
+        // regular and filled panel_right draw it; the font's DockRight is
+        // one colour.
+        | Icon::PanelRight
+        | Icon::PanelRightFilled => {
             WindowsSource::None("Windows draws the Fluent UI System Icons file the app bundles")
         }
         Icon::ArrowSwap

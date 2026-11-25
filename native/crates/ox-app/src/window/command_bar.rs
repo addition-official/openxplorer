@@ -704,12 +704,53 @@ impl CommandBar {
             TEXT_COMMAND_GLYPH,
             icons::explorer_icons::Spot::Command,
         );
+        self.draw_open_pane_in_two_tones();
         WindowAction::DetailsPane.assign_to(&*imp.details_toggle);
         // Windows 11's tooltip (checked in Windows 11 26200).
         imp.details_toggle
             .set_tooltip_text(Some(&ox_core::i18n::gettext("Show or hide the details pane.")));
         let details_toggle = imp.details_toggle.get().upcast();
         imp.hidden_when_compact.borrow_mut().push(details_toggle);
+    }
+
+    /// While the pane is open, draws the Details glyph as Windows 11 does:
+    /// the outline in the text colour and the divider and the pane filled
+    /// in the accent (`windows.readingpane`). Windows Explorer's own
+    /// picture, when its folder is chosen, has both colours already.
+    fn draw_open_pane_in_two_tones(&self) {
+        /// The pane inside the outline, divider included, in the 20-unit
+        /// square of `panel_right_20_filled`.
+        const PANE: (f64, f64, f64, f64) = (11.5, 4.0, 17.0, 15.0);
+        let imp = self.imp();
+        let glyph = imp.details_glyph.get();
+        let Some(content) = glyph.parent().and_downcast::<gtk::Box>() else {
+            return;
+        };
+        content.remove(&glyph);
+        let (two_tone, pane) =
+            icons::with_accent_part(&glyph, Icon::PanelRightFilled, TEXT_COMMAND_GLYPH, PANE);
+        pane.add_css_class("open-pane");
+        content.prepend(&two_tone);
+        let toggle = imp.details_toggle.get();
+        let show = {
+            let toggle = toggle.downgrade();
+            let pane = pane.downgrade();
+            move || {
+                let (Some(toggle), Some(pane)) = (toggle.upgrade(), pane.upgrade()) else {
+                    return false;
+                };
+                let explorer =
+                    icons::explorer_icons::draws(Icon::PanelRight, icons::explorer_icons::Spot::Command);
+                pane.set_visible(toggle.is_active() && !explorer);
+                true
+            }
+        };
+        show();
+        let shown = show.clone();
+        toggle.connect_active_notify(move |_| {
+            shown();
+        });
+        icons::explorer_icons::follow_status(move |_| show());
     }
 
     /// Shows `appearance`'s sun or moon and its "Light" or "Dark" label.
@@ -1196,12 +1237,14 @@ fn text_menu_content(label: &str, glyph: Icon) -> gtk::Box {
 /// How far New's menu opens left of where the shared menus open.
 const NEW_MENU_SHIFT: i32 = -2;
 
-/// Home's Filter ▾: a label and a chevron, as no funnel glyph is bundled,
-/// and a radio list of the kinds of file Recent and Favorites list
+/// Home's Filter ▾: the funnel, a label and a chevron, and a radio list of the kinds of file Recent and Favorites list
 /// (HOME-038), hidden until the tab shows Home.
 fn home_filter_button() -> gtk::MenuButton {
     let label = ox_core::i18n::gettext("Filter");
     let content = gtk::Box::new(gtk::Orientation::Horizontal, 9);
+    // Windows' funnel: the symbol font's Filter, Windows Explorer's own
+    // picture from its folder, else the bundled filter lines.
+    content.append(&icons::command_image(Icon::Filter, TEXT_COMMAND_GLYPH));
     content.append(&gtk::Label::new(Some(&label)));
     let chevron = icons::image(Icon::ChevronDown, CARET_GLYPH);
     chevron.add_css_class("chevron");

@@ -54,4 +54,5 @@
    hover. */
 .commandbar button.details-toggle:checked { background: none; }
 .commandbar button.details-toggle:checked:hover { background-color: @ox_hover; }
-.commandbar button.details-toggle:checked image { color: @ox_accent; }
+/* The open pane's glyph: the outline in the text colour, the pane in the
+   accent (image.glyph-accent, src/window/command_bar.rs). */

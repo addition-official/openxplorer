@@ -234,6 +234,38 @@ pub(crate) fn accented_image(icon: Icon, size: i32) -> gtk::Widget {
     overlay.upcast()
 }
 
+/// `base`, an image of a 20-unit Fluent icon `size` pixels square, under
+/// `accent` drawn in the accent colour and clipped to `part`, a rectangle
+/// of the 20-unit square (left, top, right, bottom): the open Details
+/// pane's two-tone glyph, whose pane alone Windows 11 tints. `base` must
+/// have no parent. Returns the overlay and the clipped part, which the
+/// caller shows and hides.
+pub(crate) fn with_accent_part(
+    base: &gtk::Image,
+    accent: Icon,
+    size: i32,
+    (left, top, right, bottom): (f64, f64, f64, f64),
+) -> (gtk::Overlay, gtk::Widget) {
+    let overlay = gtk::Overlay::builder()
+        .child(base)
+        .accessible_role(gtk::AccessibleRole::Presentation)
+        .halign(gtk::Align::Center)
+        .valign(gtk::Align::Center)
+        .build();
+    let pixels = f64::from(scaled(size));
+    let at = |units: f64| to_pixels(units * pixels / 20.0);
+    let (x, y) = (at(left), at(top));
+    let image = image(accent, size);
+    image.add_css_class("glyph-accent");
+    let clip = accent_clip::AccentClip::new(&image, (x, y), (at(right) - x, at(bottom) - y));
+    clip.set_halign(gtk::Align::Start);
+    clip.set_valign(gtk::Align::Start);
+    clip.set_margin_start(x);
+    clip.set_margin_top(y);
+    overlay.add_overlay(&clip);
+    (overlay, clip.upcast())
+}
+
 /// `units` logical pixels, rounded to whole pixels.
 #[expect(clippy::cast_possible_truncation, reason = "icon sizes are small")]
 fn to_pixels(units: f64) -> i32 {

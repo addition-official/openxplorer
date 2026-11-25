@@ -142,7 +142,9 @@ pub(crate) const fn command_file(icon: Icon) -> Option<&'static str> {
         Icon::Star => "windows.pintohomefile",
         Icon::ShowMoreOptions => "expandtoclassic",
         Icon::ArrowClockwise => "windows.refresh",
-        Icon::Filter => "SearchFilter",
+        // Home's Filter: the command bar's funnel (SearchFilter is the
+        // search box's).
+        Icon::Filter => "windows.ribbonfiltercommand",
         Icon::ExtractAll => "windows.compressedfile.extract",
         Icon::TextBulletList => "windows.groupbycolumn",
         Icon::ArrowCounterclockwise => "windows.recyclebin.restoreitems",

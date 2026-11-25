@@ -303,6 +303,9 @@ pub(crate) enum Icon {
     PanelLeft,
     /// `panel_right_20_regular`: the details pane toggle.
     PanelRight,
+    /// `panel_right_20_filled`: the open Details pane's filled pane, drawn
+    /// in the accent over [`Icon::PanelRight`] on the Details button.
+    PanelRightFilled,
     /// `panel_right_gallery_20_regular`: View > Preview pane.
     PanelRightGallery,
     /// `pause_16_regular`: pausing an action in the progress window.
@@ -507,6 +510,7 @@ impl Icon {
             Icon::PaintBrush => "ox-paint-brush-20-symbolic",
             Icon::PanelLeft => "ox-panel-left-20-symbolic",
             Icon::PanelRight => "ox-panel-right-20-symbolic",
+            Icon::PanelRightFilled => "ox-panel-right-20-filled-symbolic",
             Icon::PanelRightGallery => "ox-panel-right-gallery-20-symbolic",
             Icon::Pause16 => "ox-pause-16-symbolic",
             Icon::Phone => "ox-phone-20-symbolic",
@@ -590,7 +594,7 @@ pub(crate) const COMMAND_ROLES: [Icon; 14] = [
 /// Every icon, in the order of [`Icon`]: for the tests that check each one
 /// ships, is recorded and resolves, and to find the icon a drawn name
 /// stands for ([`super::user_glyphs`]).
-pub(crate) const ALL_ICONS: [Icon; 133] = [
+pub(crate) const ALL_ICONS: [Icon; 134] = [
     Icon::Add,
     Icon::AddNetworkLocation24,
     Icon::Apps,
@@ -681,6 +685,7 @@ pub(crate) const ALL_ICONS: [Icon; 133] = [
     Icon::PaintBrush,
     Icon::PanelLeft,
     Icon::PanelRight,
+    Icon::PanelRightFilled,
     Icon::PanelRightGallery,
     Icon::Pause16,
     Icon::Phone,
