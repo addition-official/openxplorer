@@ -74,7 +74,7 @@ pub(super) fn address_root_icon(uri: &str, first_crumb: Option<&str>, home_uri: 
     const HOME: Icon = Icon::Home;
     match Page::from_uri(uri) {
         Some(Page::Home) => return HOME,
-        Some(Page::Network) => return Icon::Organization,
+        Some(Page::Network) => return Icon::GlobeDesktop,
         Some(Page::Settings) => return Icon::Settings,
         Some(Page::ThisPc) | None => {}
     }
@@ -82,7 +82,7 @@ pub(super) fn address_root_icon(uri: &str, first_crumb: Option<&str>, home_uri: 
         return Icon::Image;
     }
     if is_server_location(uri) {
-        return Icon::Organization;
+        return Icon::GlobeDesktop;
     }
     // Crumbs that start at a Home crumb are Home's; everything else on
     // this computer is This PC's, the Recycle Bin too (ref-26).
