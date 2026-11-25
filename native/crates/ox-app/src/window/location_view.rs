@@ -710,8 +710,8 @@ mod tests {
             (TRASH_URI, Some(TRASH_URI), Icon::Desktop),
             (phone, Some(phone), Icon::Desktop),
             (Page::Home.uri(), Some(Page::Home.uri()), Icon::Home),
-            (Page::Network.uri(), Some(Page::Network.uri()), Icon::Organization),
-            ("smb://nas/media", Some("smb://nas/"), Icon::Organization),
+            (Page::Network.uri(), Some(Page::Network.uri()), Icon::GlobeDesktop),
+            ("smb://nas/media", Some("smb://nas/"), Icon::GlobeDesktop),
             (
                 ox_core::location::GALLERY_URI,
                 Some(ox_core::location::GALLERY_URI),

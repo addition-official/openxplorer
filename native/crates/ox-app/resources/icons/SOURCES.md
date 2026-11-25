@@ -5,6 +5,11 @@ Every icon the native app shows is one of these files, copied byte for byte
 from its upstream set; none is drawn by the app or edited here. The product
 owner approved the set and its mapping on 2026-09-27.
 
+Added on 2026-11-25 to match Windows 11 File Explorer's address bar, whose
+first icon on Network is a globe with a monitor (reference ref-27), from the
+same pinned package and awaiting the owner's review: `globe_desktop_20_regular`
+(the address bar's root icon on Network and its servers).
+
 Added on 2026-11-03 and 2026-11-04 to match Windows 11 File Explorer's
 "…" and View menus (CMD-006, CMD-007), from the same pinned package and
 awaiting the owner's review: `wrench_20_regular` (Properties), `rectangle_landscape_20_regular` (Extra large and Large
@@ -182,6 +187,7 @@ it.
 | `places/ox-home-20-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/home_20_regular.svg` | dac78c102bf3fbd572d213673fc45c4cee38208fd80d42a12fc34ae94016b069 |
 | `places/ox-image-20-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/image_20_regular.svg` | 0e57f2cad97fe254f56e0997f877e1bb902efc9e2fc9b14f2091d1ce7301226c |
 | `places/ox-music-note-2-20-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/music_note_2_20_regular.svg` | e23841dcf78e78a5b5f624ab8cd702836e485a21216ba8e5058265f1f3522c69 |
+| `places/ox-globe-desktop-20-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/globe_desktop_20_regular.svg` | 49aa6f7de1662b447e04c87d0f56ee1a416c3834be309f2f193603edc588ff65 |
 | `places/ox-organization-20-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/organization_20_regular.svg` | b996c1ee7354c2b5bbed026cf8cb6e51298876381954cfb2d63372f1719937bd |
 | `places/ox-video-20-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/video_20_regular.svg` | 0d08b2e62ce110c379e9f726a954a81f8ee8eeb279d60e2eae4ebcea8a025365 |
 | `status/ox-clock-20-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/clock_20_regular.svg` | fd5202fb96544171c260e8541138dfb49c29a7db3c1801cdc5a15333f673e067 |
