@@ -764,6 +764,10 @@ fn a_drive_tile_has_the_drive_menu_and_its_properties() {
     for label in ["Open", "Open in new window", "Disconnect", "Properties"] {
         assert!(labels.iter().any(|shown| shown == label), "{label} in {labels:?}");
     }
+    // The places report their changes for a while after the window opens,
+    // and This PC is drawn again for each, keeping the selected tile: the
+    // keys go to the tiles shown now.
+    let (flow, _) = drive_tile(&test, "Backup");
     assert!(press_shortcut(&flow, "Menu"), "the Menu key opens the menu");
     let menu = descendants::<MenuPopover>(test.window.folder_pane())
         .into_iter()
@@ -771,6 +775,7 @@ fn a_drive_tile_has_the_drive_menu_and_its_properties() {
         .expect("the Menu key's menu");
     close_menu(&menu);
 
+    let (flow, _) = drive_tile(&test, "Backup");
     assert!(press_shortcut(&flow, "<Alt>Return"));
     wait_until("the drive's Properties", || {
         !test.window.properties_windows().is_empty()
