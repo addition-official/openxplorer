@@ -289,12 +289,20 @@ const CAPTION_EM: i32 = 10;
 /// Windows draws as `ChromeClose`; elsewhere it is the thin Cancel, as a
 /// menu's "Close tab" is. The command bar's New, in its 18-pixel square,
 /// is Windows' circled plus, `AddTo`; the new-tab button's plus stays
-/// plain.
+/// plain. A pinned folder's pin is filled, `PinnedFill`.
 const fn glyph_at(icon: Icon, size: i32) -> Option<WindowsGlyph> {
     match icon {
         Icon::Add if size >= 17 => Some(WindowsGlyph {
             codepoint: 0xECC8,
             name: "AddTo",
+        }),
+        // The pin beside a pinned folder in the navigation pane (its
+        // 14-pixel square) and on Home's Quick access tiles (12) is
+        // Windows' filled pin; menus' "Pin to Quick access" keeps the
+        // outline.
+        Icon::Pin if size <= 14 => Some(WindowsGlyph {
+            codepoint: 0xE842,
+            name: "PinnedFill",
         }),
         Icon::Dismiss if size <= 15 => Some(WindowsGlyph {
             codepoint: 0xE8BB,
@@ -316,13 +324,24 @@ const PADDED_SQUARES: [i32; 16] = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20
 /// the em fills the square, and `ox-win-add-20-box20-symbolic` where the
 /// em is smaller ([`em_of`]).
 fn glyph_icon_name(icon: Icon, size: i32) -> String {
-    if em_of(icon, size) == size {
+    if !has_own_square(icon, size) {
         return full_glyph_name(icon);
     }
     let name = glyph_key(icon);
     let stem = name.strip_prefix("ox-").unwrap_or(name);
     let stem = stem.strip_suffix("-symbolic").unwrap_or(stem);
     format!("ox-win-{stem}-box{size}-symbolic")
+}
+
+/// Whether `icon` has a glyph of its own in a square of `size` pixels:
+/// drawn at a smaller em than the square, or another glyph there
+/// ([`glyph_at`]).
+const fn has_own_square(icon: Icon, size: i32) -> bool {
+    let other_glyph = match (glyph_at(icon, size), glyph_of(icon)) {
+        (Some(here), Some(own)) => here.codepoint != own.codepoint,
+        _ => false,
+    };
+    em_of(icon, size) < size || other_glyph
 }
 
 /// The name of `icon`'s glyph drawn at an em filling its square, which
@@ -369,7 +388,7 @@ fn glyph_requests() -> Vec<GlyphRequest> {
         });
         let padded = PADDED_SQUARES
             .into_iter()
-            .filter(|size| em_of(icon, *size) < *size);
+            .filter(|size| has_own_square(icon, *size));
         for size in padded {
             let codepoint = match glyph_at(icon, size) {
                 Some(glyph) => glyph.codepoint,
@@ -455,7 +474,7 @@ pub(crate) fn drawn_name(icon: Icon, size: i32) -> &'static str {
     // A square with a padded icon draws it; any other draws the glyph at
     // an em filling it, as an icon the user enlarged.
     // 0 stands for the glyph filling its em.
-    let square = if PADDED_SQUARES.contains(&size) && em_of(icon, size) < size {
+    let square = if PADDED_SQUARES.contains(&size) && has_own_square(icon, size) {
         size
     } else {
         0

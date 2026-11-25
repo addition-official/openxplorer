@@ -1052,3 +1052,36 @@ fn a_tiny_picture_keeps_its_type_icon() {
         "a 1×1 picture shows its type icon, not an invisible thumbnail"
     );
 }
+
+/// The View button shows the view on screen, as Windows 11's does: lines
+/// in Details, the grid in Small icons, a tile in Tiles; the glyph is the
+/// view's own item in the View menu.
+///
+/// parity: LOOK-031
+#[gtk::test]
+fn the_view_button_shows_the_view_on_screen() {
+    use crate::icons::Icon;
+    let fixture = Fixture::with_files(3);
+    let test = TestWindow::open(&fixture.uri());
+    let button = descendants::<gtk::MenuButton>(&test.window)
+        .into_iter()
+        .find(|button| button.has_css_class("view-command"))
+        .expect("the View button");
+    let glyph = || {
+        descendants::<gtk::Image>(&button)
+            .first()
+            .and_then(gtk::Image::icon_name)
+            .map(String::from)
+    };
+    for (view, icon) in [
+        ("details", Icon::TextBulletList),
+        ("small", Icon::Grid),
+        ("tiles", Icon::AppsListDetail),
+        ("compact", Icon::TextColumnTwo),
+    ] {
+        test.activate("view", Some(view));
+        wait_until(&format!("the View button to show {view}"), || {
+            glyph().as_deref() == Some(icon.name())
+        });
+    }
+}

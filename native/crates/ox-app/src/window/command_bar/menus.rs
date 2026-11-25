@@ -292,6 +292,20 @@ fn text_size_item(label: &str, glyph: Icon, step: Step) -> MenuEntry {
     MenuItem::new(label, glyph, WindowAction::TextSize(step)).into()
 }
 
+/// The glyph of `view`'s item in the View menu, which Windows 11's View
+/// button shows for the view on screen: lines in Details, the grid in
+/// Small icons, and so on. A zoom step between the named icon sizes takes
+/// the nearest one's.
+pub(in crate::window) fn view_glyph(view: FolderView) -> Icon {
+    match view {
+        FolderView::Icons(size) => icon_size_glyph(crate::folder_view::gallery_view::nearest_named(size)),
+        FolderView::Compact => Icon::TextColumnTwo,
+        FolderView::Details => Icon::TextBulletList,
+        FolderView::Tiles => Icon::AppsListDetail,
+        FolderView::Content => Icon::ContentView,
+    }
+}
+
 /// The glyph Windows 11's View menu draws for `size`.
 fn icon_size_glyph(size: IconSize) -> Icon {
     if size == IconSize::MEDIUM {
@@ -319,10 +333,26 @@ pub(in crate::window) fn view_menu() -> Vec<MenuEntry> {
         })
         .collect();
     entries.extend([
-        view_item(&gettext("List"), Icon::TextColumnTwo, FolderView::Compact),
-        view_item(&gettext("Details"), Icon::TextBulletList, FolderView::Details),
-        view_item(&gettext("Tiles"), Icon::AppsListDetail, FolderView::Tiles),
-        view_item(&gettext("Content"), Icon::ContentView, FolderView::Content),
+        view_item(
+            &gettext("List"),
+            view_glyph(FolderView::Compact),
+            FolderView::Compact,
+        ),
+        view_item(
+            &gettext("Details"),
+            view_glyph(FolderView::Details),
+            FolderView::Details,
+        ),
+        view_item(
+            &gettext("Tiles"),
+            view_glyph(FolderView::Tiles),
+            FolderView::Tiles,
+        ),
+        view_item(
+            &gettext("Content"),
+            view_glyph(FolderView::Content),
+            FolderView::Content,
+        ),
         MenuEntry::Divider,
         // Windows 11 marks the open pane with a dot, as Details and its
         // Preview pane are one choice there.

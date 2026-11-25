@@ -43,7 +43,7 @@ use menus::{appearance_items, more_menu};
 pub(super) use menus::{disconnect_network_drive, FolderPin, MoreMenuState, MorePlace, NetworkDrive};
 pub(super) use menus::{
     gallery_view_menu, group_by_menu, new_menu, search_options_menu, sort_menu, this_pc_group_by_menu,
-    this_pc_sort_menu, view_menu,
+    this_pc_sort_menu, view_glyph, view_menu,
 };
 use overflow::OverflowLayout;
 
@@ -235,6 +235,8 @@ mod imp {
         /// its own of (HOME-030, HOME-031).
         pub(super) sort_button: OnceCell<gtk::MenuButton>,
         pub(super) view_popover: OnceCell<crate::window::menu_popover::MenuPopover>,
+        /// The View button's glyph, which shows the view on screen.
+        pub(super) view_glyph: OnceCell<gtk::Image>,
         /// Whether View shows Gallery's menu now.
         pub(super) gallery_menus: Cell<bool>,
         /// Whether Sort shows This PC's menu now.
@@ -392,6 +394,13 @@ impl CommandBar {
             view_menu(),
         );
         self.offer_menu_in_more(&view, &ox_core::i18n::gettext("View"), Icon::Grid);
+        if let Some(glyph) = view
+            .child()
+            .and_then(|content| content.first_child())
+            .and_downcast::<gtk::Image>()
+        {
+            let _ = imp.view_glyph.set(glyph);
+        }
         group.append(&view);
         imp.view_popover
             .set(
@@ -863,6 +872,14 @@ impl CommandBar {
             } else {
                 view_menu()
             });
+        }
+    }
+
+    /// Shows `view`'s glyph on the View button, as Windows 11 shows the
+    /// view on screen there: lines in Details, the grid in Small icons.
+    pub(crate) fn show_view(&self, view: crate::window::folder_pane::FolderView) {
+        if let Some(glyph) = self.imp().view_glyph.get() {
+            icons::set_icon(glyph, view_glyph(view), TEXT_COMMAND_GLYPH);
         }
     }
 
