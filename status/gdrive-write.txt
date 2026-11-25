@@ -1,0 +1,111 @@
+Model: claude-opus-5-5
+STATUS: DONE
+HEAD: gdrive-write 196c090c (one commit on origin/test-combined-63)
+BASE: origin/test-combined-63 (it appeared during the work; the commit was first made on test-combined-62 and rebased cleanly before the push)
+
+SUMMARY
+Google Drive can now be written to, but only after turning on a new setting. Off (the default) it stays read-only exactly as before, and the GIO adapter itself now also refuses every write to the drive. OneDrive stays read-only either way.
+
+VISIBLE CHANGES
+- Settings > Files & folders: a new group "Google Drive" (after "Deleting") with one switch, "Allow changes to Google Drive", off by default. It is NOT part of "Behave like Windows Explorer".
+- With the switch on, in an ordinary Google Drive folder (My Drive and its folders, a shared drive's folders, folders inside Shared with me):
+  - New menu (New folder, New text document, ...), Paste, Paste into, drag and drop in, Cut, Rename (F2), Delete, Shift+Delete and Duplicate are enabled as in a local folder.
+  - Copies and moves in and out work with the normal progress window, Cancel, and the normal Skip / Keep both / Replace question.
+  - Delete asks Windows' "Are you sure you want to permanently delete this file?" (folder / N items variants), because GVfs has no Trash for Google Drive.
+  - Rename changes the item's title; Undo gives the old title back.
+- With the switch on, the account's top folder, Shared with me itself and the list of shared drives still take nothing, and My Drive / a shared drive / an item listed directly in Shared with me cannot be moved, renamed or deleted.
+- With the switch off, the disabled commands now explain how to turn writing on (new tooltip text below) instead of saying "read-only for now". OneDrive keeps the owner's message.
+- The new preference is saved as "allowGoogleDriveChanges" in settings.json only when on, and is included in Export/Import settings like every other preference.
+
+NEW UI TEXT (verbatim)
+- Group title: Google Drive
+- Switch title: Allow changes to Google Drive
+- Switch description: Copies, moves, renames and deletes in Google Drive then change the files on your Drive, and New and Paste add items there. Deleting there removes items for good: they do not go to Drive's trash. Docs, Sheets and Slides files cannot be copied as files. Off: Google Drive is read-only, and its files can be opened and copied to this PC.
+- Refusal while off (tooltips, write guard, adapter): Google Drive is read-only. To change it, turn on Allow changes to Google Drive in Settings > Files & folders.
+- Refusal for the drive's top folders: Google Drive does not let this folder be changed here. Open My Drive or a folder in it.
+- Docs, Sheets or Slides copy: “{name}” is a Google Docs, Sheets or Slides file. It exists only online, so it cannot be copied as a file. Open it in the browser and use File > Download to save a copy.
+- Full drive: There is not enough space on Google Drive. Delete or move files so you have enough space, then try again.
+- Short upload: The copy of “{name}” on Google Drive is incomplete, so it was not kept. Try again.
+- Replace onto a shared title: More than one item in this Google Drive folder is named “{name}”, so it is not clear which one to replace. Rename them on Google Drive, then try again. Nothing was changed.
+- Offline: no new text; Windows' existing "The network location cannot be reached." is used.
+- Full drive known before copying: no new text; the existing "Not enough free space on {destination}: {needed} needed, {free} free." is used.
+- Search keywords for the switch (not shown): google drive gdrive cloud online account gnome online accounts write writable read-only copy move rename delete upload new folder paste drag drop change edit
+No .po files were touched; the new strings are untranslated until the translators run.
+
+HOW THE GVFS GOOGLE QUIRKS ARE HANDLED
+(Read from gvfsbackendgoogle.c, GVfs 1.54; the Ubuntu 24.04 package here is 1.54.4.)
+- IDs vs titles: GVfs names items by Drive ID; a title in an address is looked up and reported as a symlink ("volatile"). Queries on google-drive:// now follow links (Drive has no real links), and created/renamed/landed items are recorded by their ID address, so Undo never hits a same-titled neighbor.
+- Same titles: Drive allows two items with one title. The app never creates a duplicate: a taken title is a name conflict (Skip / Keep both / Replace). Replace onto a title two items share is refused.
+- Replace: never GVfs's overwriting move (it deletes the old file permanently after the move). The old file is renamed to a private title, the new one renamed into place, then the old one deleted.
+- Uploads: built under a private ".winspace-transfer-<hex>.part" title beside the final title, then renamed in place (works on every GVfs version). The uploaded size is checked against the source first. Note: that private title is briefly visible on drive.google.com while a copy runs.
+- Moves across folders: newer GVfs moves natively (same ID). Older GVfs refuses; the app then asks to finish the move by copying (existing question), copies, checks, and only then deletes the original.
+- Trash: GVfs reports access::can-trash = false and its delete is permanent (Drive API delete, not Drive's trash). So Delete asks for a permanent delete; Trash is never silently turned into a delete.
+- Slashes in titles: copies off the drive use GVfs's copy name ("/" becomes "-"; a duplicate title gets " - <ID>" before the extension).
+- Docs/Sheets/Slides: GVfs lists them as shortcuts. Copying is refused with the message above; nothing is written, not even 0 bytes. Moving a Doc within the drive works.
+- Big files: progress and Cancel through the normal progress window; a canceled or failed upload's partial staging file is deleted.
+- Quota: GVfs turns Google's quota refusal into "Permission denied"; the adapter re-checks the drive's free space and reports the full-drive message. The free-space precheck also runs before copying.
+- Offline: GVfs passes libsoup/resolver messages as plain failures; these (and network error codes) become "The network location cannot be reached."
+
+TESTS (run in this container under native/tools/check.py's isolation: private Xvfb, private D-Bus, disposable HOME; only the touched modules plus the new tests, per the rules)
+Fake: native/crates/ox-core/tests/transfer_support/google_drive.rs (+ google_drive/file.rs) registers a GIO URI-scheme handler so real google-drive://fake-drive-N@example.com/... URIs reach a simulated GVfs google backend: IDs as names, titles as display names, title lookup with GVfs's smallest-ID tie-break, volatile links, copy-name rules, same-title EXISTS rules, server-side copy (refuses folders), uploads that appear at once and fill as they run, no Trash, permanent delete, NOT_EMPTY folders, Docs as unreadable shortcuts, fixed top folders, quota as "Permission denied", offline resolver errors, optional old-GVfs cross-folder refusal, dropped and truncated uploads. No Google account and no network are used.
+
+New tests against the fake (ox-core, tests/transfer_cases/google_drive.rs):
+PASS a_copy_uploads_under_its_title_through_a_rename
+PASS a_folder_tree_is_copied_in_and_published_whole
+PASS copies_off_the_drive_keep_same_titled_files_apart (switch off; same titles and a "/" title)
+PASS a_taken_title_is_a_conflict_like_a_taken_name (Skip, Keep both)
+PASS replace_keeps_the_old_file_until_the_new_one_is_in_place
+PASS replace_onto_a_shared_title_changes_nothing
+PASS a_move_within_the_drive_is_one_move
+PASS a_move_older_gvfs_cannot_do_is_finished_by_copying_only_with_consent
+PASS moves_in_and_out_copy_then_remove_the_source
+PASS trash_is_refused_and_delete_is_permanent
+PASS a_google_doc_is_refused_and_nothing_is_written_for_it
+PASS a_cancelled_upload_leaves_nothing_behind (4 MiB, Cancel at 1 MiB)
+PASS an_incomplete_upload_is_never_published
+PASS a_full_drive_is_reported_in_windows_words
+PASS offline_errors_are_reported_in_windows_words (offline in and out, connection dropped mid-upload)
+PASS with_the_switch_off_nothing_writes_to_the_drive (copy, move in/out/within, delete, trash, mkdir, rename: zero calls reach the drive)
+PASS the_drive_top_folders_stay_fixed
+PASS rename_changes_the_title_and_undo_gives_it_back
+PASS new_items_are_created_once_and_named_by_id (also: refused with the switch off)
+
+New unit tests:
+PASS ox-core location::cloud_writes::tests::google_drive_is_read_only_until_the_switch_is_on
+PASS ox-core location::cloud_writes::tests::the_switch_opens_ordinary_drive_folders_only
+PASS ox-core gio_node::google_drive::tests::quota_and_offline_errors_take_windows_words
+PASS ox-core settings::preferences::tests::changes_to_google_drive_are_opt_in
+PASS ox-app window::file_ops::availability::tests::google_drive_takes_new_items_only_while_settings_allow_it
+PASS ox-app window::file_ops::availability::tests::google_drive_items_follow_the_switch
+PASS ox-app window::tests::file_operations::the_write_guard_follows_allow_changes_to_google_drive
+PASS ox-app window::tests::file_operations::the_write_guard_keeps_cloud_drives_read_only (existing, still passes)
+
+Touched modules (on test-combined-63):
+PASS ox-core tests/transfer (whole binary): 157 passed
+PASS ox-core tests/gio_node: 24 passed
+PASS ox-core tests/ops_rename 8, ops_create 18, ops_transfer 13, ops_undo 13
+PASS ox-core lib location:: 77, gio_node 22, settings:: 153, transfer:: 41, ops:: 121
+PASS ox-app window::file_ops::availability 17, folder_view::item 1, app_context 5
+PASS ox-app settings_page 135 (includes the updated redesign row count and every_preference_switch_saves_persists_and_turns_back_exactly, which toggles the new switch)
+FAIL ox-app window::tests::file_operations 30 passed, 1 failed: delete_reads_delete_and_asks_only_for_items_without_a_trash ("timed out waiting for a dialog to open"). Cause: this container runs as root, so a 0555 test folder is still writable and GIO offers the Trash, so no permanent-delete question appears. The test does not reach any changed code. Not re-run on the base build.
+NOTE: In one earlier group run on test-combined-62, every_preference_switch_saves_persists_and_turns_back_exactly timed out once while another build was running at the same time; it passed alone and in the final group run.
+PASS rustfmt (cargo fmt --all --check)
+PASS Clippy on the changed code. Clippy -D warnings on the whole workspace still fails in this container on untouched files only (duration_suboptimal_units in several ox-core files, map_unwrap_or in window/group_day.rs and window/home_page.rs, a decimal bit mask in picture_guard.rs, doc backticks in window/tests/nav_tree.rs); this toolchain's Clippy is newer than the one these files were written for.
+PASS native/parity/check.py (DEV-013's native_note updated to describe the opt-in writes)
+NOT RUN: the full native/tools/check.py suite (rule: touched modules only), Python-app interop beyond settings_page (the v2.0.0 tag was fetched from upstream so those tests could run), any real Google account or real GVfs google backend.
+
+HOW TO TRY IT SAFELY ON YOUR REAL DRIVE
+1. Keep a backup of anything important: Delete on Google Drive is permanent here; it does not go to Drive's trash. (Workspace admins can sometimes restore within 25 days; personal accounts cannot.)
+2. In a browser, on drive.google.com, make a new folder "OX test" in My Drive and put two or three throwaway files in it. Do not test in folders with real files.
+3. In OpenXplorer, open Settings > Files & folders > Google Drive and turn on "Allow changes to Google Drive".
+4. Open Google Drive in OpenXplorer, go into "OX test" only, and try: New folder, New text document, copy a small file from this PC in, copy it again (choose Keep both), rename one, copy a file back to this PC, then delete one test file (you will be asked first).
+5. Check the result on drive.google.com after each step (refresh the page).
+6. Try a bigger file (a few hundred MB) and press Cancel halfway: nothing should be left in "OX test" (on drive.google.com a ".winspace-transfer-....part" file may appear briefly while copying and must be gone after Cancel).
+7. Try copying a Google Doc to this PC: you should get the "exists only online" message and no file.
+8. When done testing, turn the switch off again until you are confident; with it off, nothing in OpenXplorer can change your Drive.
+
+QUESTION: Delete on Google Drive is permanent because GVfs's google backend has no Trash and deletes through the Drive API (no Drive trash). Should the setting stay as is (Windows-style "permanently delete?" question), or would you prefer Delete on Google Drive to stay disabled even when changes are allowed, so only copy/move/rename/new work?
+QUESTION: Extracting archives into Google Drive and compressing on it are still unavailable there (archive_actions keeps cloud drives read-only). Should they follow the new switch too?
+NOTE: OneDrive is untouched and stays read-only, as asked.
+NOTE: New > "Compressed (zipped) Folder" and the template items use the same exclusive GIO create as New text document, but were not tested against the fake.
+NOTE: The app-level Delete confirmation on Google Drive is the generic "no Recycle Bin" path (GVfs reports can-trash false); it is covered by the fake (can_trash is false, Trash refused, Delete permanent) and by existing GTK tests for locations without a Trash, not by a GTK test on the fake drive.
