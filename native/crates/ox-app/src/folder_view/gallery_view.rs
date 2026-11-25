@@ -477,6 +477,10 @@ mod imp {
         pub(super) tooltip_text: RefCell<Option<TooltipText>>,
         /// Runs when what is on screen changed: the heading follows.
         pub(super) on_shown: RefCell<Vec<Box<dyn Fn()>>>,
+        /// How many photos each layout with photos laid out, in order, for
+        /// tests: a layout of a new number of photos is one more.
+        #[cfg(test)]
+        pub(super) laid_counts: RefCell<Vec<usize>>,
         /// The view is told of a change once GTK is idle again.
         pub(super) shown_pending: Cell<bool>,
         pub(super) _item: std::marker::PhantomData<FileItem>,
@@ -719,6 +723,14 @@ impl GalleryCanvas {
         let key = (width, imp.row_height.get());
         if imp.laid_for.get() != key {
             let layout = justify(&imp.aspects.borrow(), width, imp.row_height.get(), GALLERY_GAP);
+            #[cfg(test)]
+            {
+                let count = layout.places.len();
+                let mut laid = imp.laid_counts.borrow_mut();
+                if count > 0 && laid.last() != Some(&count) {
+                    laid.push(count);
+                }
+            }
             imp.layout.replace(layout);
             imp.laid_for.set(key);
         }
@@ -983,6 +995,12 @@ impl GalleryCanvas {
             .is_some_and(|window| window.gets_focus_visible());
         let focused = self.has_focus() && visible && self.imp().focus.get() == Some(position);
         crate::window::widget_tree::toggle_class(tile, "keyboard-focus", focused);
+    }
+
+    /// How many photos each layout laid out, for tests.
+    #[cfg(test)]
+    pub(crate) fn laid_counts(&self) -> std::cell::RefMut<'_, Vec<usize>> {
+        self.imp().laid_counts.borrow_mut()
     }
 
     /// The menus attached to the canvas.
@@ -1567,6 +1585,12 @@ impl GalleryView {
             .get()
             .expect("new builds the scroller")
             .vadjustment()
+    }
+
+    /// Whether the heading's row shows, for tests.
+    #[cfg(test)]
+    pub(crate) fn heading_row_shown(&self) -> bool {
+        self.imp().heading.get().is_some_and(WidgetExt::is_visible)
     }
 
     /// The month the scrubber shows under the pointer, while it shows.

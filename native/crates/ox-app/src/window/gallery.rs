@@ -495,6 +495,17 @@ impl BrowserWindow {
         f64::from(self.folder_pane().gallery().canvas().width())
     }
 
+    /// How many photos each of Gallery's layouts laid out since last asked,
+    /// emptied.
+    pub(crate) fn take_gallery_layouts(&self) -> Vec<usize> {
+        std::mem::take(&mut *self.folder_pane().gallery().canvas().laid_counts())
+    }
+
+    /// Whether Gallery's heading row shows.
+    pub(crate) fn gallery_heading_row_shown(&self) -> bool {
+        self.folder_pane().gallery().heading_row_shown()
+    }
+
     /// The heading over the photos.
     pub(crate) fn gallery_heading(&self) -> Option<String> {
         let pane = self.folder_pane();

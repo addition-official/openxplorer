@@ -1682,6 +1682,22 @@ native = "done"
 native_note = "native/crates/ox-app/src/window/slow_location.rs (show_busy_state, INDETERMINATE_CLASS); native/crates/ox-app/src/window/selection.rs (update_status); resources/skin/navigation.css (.address.loading.indeterminate). Test: native/crates/ox-app/src/window/tests/gallery_view.rs (listing_gallery_shows_honest_progress)."
 
 [[feature]]
+id = "HOME-038"
+area = "HOME"
+title = "Gallery opens without flashing"
+behaviour = "Opening Gallery lays its photos out once, as Windows 11's Gallery does: while the folders are first read, the status bar counts the photos found and the page keeps the heading's row with no photos yet; once every folder is read, every photo is laid out in its final place at once and the thumbnails fill in place. No layout of only some photos shows first, nothing moves down when the heading's dates arrive, and no empty page shows until the reading has really found nothing. Listing Gallery again (a folder added, hidden items shown) keeps the photos shown and changes them once at the end."
+origin = ["openxplorer"]
+priority = "could"
+openxplorer = "missing"
+sources = [
+  "comparison with Windows 11 File Explorer, build 26200 (2026-11-25): Gallery opens without flashing",
+]
+python_tests = []
+bridge = []
+native = "done"
+native_note = "native/crates/ox-app/src/folder_view/gallery_view.rs (GalleryCanvas::hold_layout, GalleryView heading row); native/crates/ox-app/src/window/loading.rs (Gallery's first listing holds the layout until it ends). Test: native/crates/ox-app/src/window/tests/gallery_view.rs (gallery_lays_its_photos_out_once_as_it_opens)."
+
+[[feature]]
 id = "TAB-001"
 area = "TAB"
 title = "New tab via '+' button and Ctrl+T"
