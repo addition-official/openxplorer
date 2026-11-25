@@ -19,6 +19,12 @@ use gtk::{gdk, glib};
 /// The gap between two items of the row, as the crumbs' box had.
 const SPACING: i32 = 2;
 
+/// The blank space kept after the last crumb, so a click there edits the
+/// address however long the path, as in Windows 11, where a long path's
+/// first crumbs collapse into the « before the crumbs reach the bar's
+/// end. The last crumb alone may still take it.
+const EDIT_ROOM: i32 = 40;
+
 /// The CSS class of the chevron that lists the top-level places.
 pub(super) const ROOT_CLASS: &str = "crumb-root";
 
@@ -265,7 +271,7 @@ impl CrumbStrip {
             &widths,
             natural_width(root),
             natural_width(overflow),
-            width,
+            width - EDIT_ROOM,
         );
         let mut shown = vec![true; items.len()];
         for (index, segment) in segments.iter().enumerate().take(hidden + 1) {
