@@ -5222,7 +5222,7 @@ msgid_plural "{count} matching settings"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/ox-app/src/settings_page/startup.rs crates/ox-app/src/window/crumb_menus.rs crates/ox-app/src/window/folder_options.rs crates/ox-app/src/window/home_page.rs crates/ox-app/src/window/sidebar/entries.rs crates/ox-core/src/location/virtual_place.rs
+#: crates/ox-app/src/settings_page/startup.rs crates/ox-app/src/window/crumb_menus.rs crates/ox-app/src/window/folder_options.rs crates/ox-app/src/window/home_page.rs crates/ox-app/src/window/root_places.rs crates/ox-app/src/window/sidebar/entries.rs crates/ox-core/src/location/virtual_place.rs
 msgid "Home"
 msgstr ""
 
@@ -5622,11 +5622,6 @@ msgstr ""
 
 #: crates/ox-app/src/window/address_bar.rs
 msgid "Show locations"
-msgstr ""
-
-#. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-app/src/window/address_bar.rs
-msgid "{address} · Click blank space or press Ctrl+L to edit"
 msgstr ""
 
 #: crates/ox-app/src/window/address_menu.rs
@@ -6383,11 +6378,11 @@ msgstr ""
 msgid "Open a folder first."
 msgstr ""
 
-#: crates/ox-app/src/window/crumb_menus.rs crates/ox-app/src/window/sidebar/entries.rs crates/ox-core/src/location/virtual_place.rs
+#: crates/ox-app/src/window/crumb_menus.rs crates/ox-app/src/window/root_places.rs crates/ox-app/src/window/sidebar/entries.rs crates/ox-core/src/location/virtual_place.rs
 msgid "Network"
 msgstr ""
 
-#: crates/ox-app/resources/manual.md crates/ox-app/src/window/crumb_menus.rs crates/ox-app/src/window/sidebar/entries.rs crates/ox-app/src/window/transfer_panel/action.rs crates/ox-core/src/location/virtual_place.rs
+#: crates/ox-app/resources/manual.md crates/ox-app/src/window/crumb_menus.rs crates/ox-app/src/window/root_places.rs crates/ox-app/src/window/sidebar/entries.rs crates/ox-app/src/window/transfer_panel/action.rs crates/ox-core/src/location/virtual_place.rs
 msgid "Recycle Bin"
 msgstr ""
 
@@ -6400,7 +6395,7 @@ msgstr ""
 msgid "Show subfolders"
 msgstr ""
 
-#: crates/ox-app/src/window/crumb_menus.rs crates/ox-app/src/window/sidebar/entries.rs crates/ox-core/src/location/virtual_place.rs
+#: crates/ox-app/src/window/crumb_menus.rs crates/ox-app/src/window/root_places.rs crates/ox-app/src/window/sidebar/entries.rs crates/ox-core/src/location/virtual_place.rs
 msgid "This PC"
 msgstr ""
 
@@ -8141,6 +8136,10 @@ msgstr ""
 msgid "Old location: {display}"
 msgstr ""
 
+#: crates/ox-app/src/window/root_places.rs crates/ox-app/src/window/sidebar/entries.rs crates/ox-core/src/location/virtual_place.rs
+msgid "Gallery"
+msgstr ""
+
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/run_on_open.rs
 msgid "“{name}” is a program or script. Run it, or open it in its application?"
@@ -8517,10 +8516,6 @@ msgstr ""
 
 #: crates/ox-app/src/window/sidebar/entries.rs
 msgid "Empty"
-msgstr ""
-
-#: crates/ox-app/src/window/sidebar/entries.rs crates/ox-core/src/location/virtual_place.rs
-msgid "Gallery"
 msgstr ""
 
 #: crates/ox-app/src/window/sidebar/entries.rs

@@ -490,6 +490,7 @@ fn closing_a_crumbs_menu_gives_the_keyboard_back_to_the_crumb() {
 ///
 /// parity: LOOK-012
 #[gtk::test]
+#[expect(clippy::cast_possible_truncation, reason = "widget widths are small")]
 fn the_search_box_takes_windows_width_and_its_divider_is_remembered() {
     let fixture = Fixture::standard();
     let test = TestWindow::open(&fixture.uri());
