@@ -1,4 +1,23 @@
 STATUS: DONE
+UPDATE 2026-11-25 (deb 60: the classic menus' check mark)
+BRANCH: pass-14-menu-check 2335dd3aac01438dcb3f0270a20c69af6b417ce7, cut from origin/test-combined-60 (14a8bf9f).
+QUESTION: none.
+NOTE: the classic right-click menu did draw checked items already (View > Show > "Navigation pane", "Compact view"), but with the same Windows 11 check as the window menu (the 16 px Fluent check in the app's text color, not the menu's), so there was no Win32 check to reuse. Both now share one new drawing, so they stay identical.
+VISIBLE CHANGES (every menu in the classic, Win32 look: the window menu and the classic right-click menus and their submenus; the Windows 11 style menus are unchanged)
+1. A checked item shows a small check: ink 8 by 6 px, in the glyph column, resting on the text's baseline (its ink covers the same rows as the lowercase letters), in the row's text color, no accent and no box. Was the 16 px Windows 11 check, 9 by 7 px ink at 11 px tried and rejected.
+   Measured live, 1x dark: classic View > Show submenu: ink x 14 to 21 from the submenu's outer left edge, label box at 36 (first ink at 37), as on the Windows reference (14 to 21, 36). Window menu, "Use system title bar and borders": ink x 16 to 23, text at 38, the window menu's column being 2 px further in (VM check 12).
+2. A chosen item's round bullet (classic View > Details) is now in the row's text color too (was the app's text color), in the same column, centered; its size is unchanged: ink 6 by 6 px including its soft edge (4 by 4 solid), x 15 to 20. The reference was not measured for the bullet's size, so it is left as it was; see VM CHECK 14.
+No new text; no .pot or .po change.
+PASS new test, failing before the change (16 px, not in the text color): title_bar_menu::the_window_menus_check_is_the_classic_menus_small_check (the window menu's check and a classic menu's checked item draw the same small check, in the text's color).
+PASS touched tests, Rust 1.92, run_isolated as the unprivileged user: title_bar_menu 4, menu_popover 21, legacy 1, context_menu 56, theme::stylesheets 12; classic 18 of 19. rustfmt --check and Clippy -D warnings pass.
+FAIL look::classic_and_compact_menus_have_the_current_apps_widths_and_rows ("the classic width" 295 vs 264): the same failure as on unchanged origin/test-combined-59 and -60, from the classic-menu branch; not touched here.
+PASS live, real input (xdotool) on KWin 5.27 Wayland (nested), dark, Compact view on, system title bar on: Alt+Space window menu; Show more options > View > Show; View's Details bullet. 1x dark captures in the chat only.
+NOTE: this container's test runner had left about 9 GB of test binaries behind after failed runs, which filled the disk once; they are removed and the runner now cleans up on failure too. Not part of the repository.
+
+VM CHECK
+14. Classic menu bullet: desktop > Show more options > View, 1x dark, zoomed.
+   Look for: the size in pixels of the round bullet beside "Medium icons" and its place (x from the submenu's outer left edge, and its rows against the text's lowercase letters). The branch draws it 6 by 6 px with soft edges (4 by 4 solid), x 15 to 20, centered on the row.
+
 UPDATE 2026-11-24 (VM check 12 follow-up: the window menu's details)
 BRANCH: pass-14-system-menu-classic 24ea493d8d33bef6a71472e1cf75444e45eb85bb (one commit on bc428e0b).
 QUESTION: none. (Answered 2026-11-24 by the PC manager: keep Alt+Space as it is, no other key.)
