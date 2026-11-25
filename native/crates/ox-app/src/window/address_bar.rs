@@ -181,7 +181,14 @@ impl AddressBar {
     /// actions, and the crumbs' click handling.
     fn finish_template(&self) {
         let imp = self.imp();
-        icons::set_icon(&imp.icon, Icon::FileFolder, ICON_SIZE);
+        // Windows Explorer's own picture of the root, from the folder the
+        // user chose, when there is one (LOOK-034).
+        icons::set_icon_at(
+            &imp.icon,
+            Icon::FileFolder,
+            ICON_SIZE,
+            icons::explorer_icons::Spot::AddressRoot,
+        );
         let chevron = icons::image(Icon::ChevronDown16, CHEVRON_GLYPH);
         imp.edit_button.set_child(Some(&chevron));
         WindowAction::AddressHistory.assign_to(&*imp.edit_button);

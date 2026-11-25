@@ -698,7 +698,12 @@ impl CommandBar {
     /// hides the button.
     fn finish_details_toggle(&self) {
         let imp = self.imp();
-        icons::set_icon(&imp.details_glyph, Icon::PanelRight, TEXT_COMMAND_GLYPH);
+        icons::set_icon_at(
+            &imp.details_glyph,
+            Icon::PanelRight,
+            TEXT_COMMAND_GLYPH,
+            icons::explorer_icons::Spot::Command,
+        );
         WindowAction::DetailsPane.assign_to(&*imp.details_toggle);
         // Windows 11's tooltip (checked in Windows 11 26200).
         imp.details_toggle
@@ -1241,7 +1246,7 @@ fn text_menu_button(label: &str, glyph: Icon, css_class: &str, entries: Vec<Menu
 /// a command whose label changes.
 fn text_button(label: &str, glyph: Icon, action: WindowAction, css_class: &str) -> (gtk::Button, gtk::Label) {
     let content = gtk::Box::new(gtk::Orientation::Horizontal, 9);
-    content.append(&icons::image(glyph, TEXT_COMMAND_GLYPH));
+    content.append(&icons::command_image(glyph, TEXT_COMMAND_GLYPH));
     let text = gtk::Label::new(Some(label));
     content.append(&text);
     let button = gtk::Button::builder()
@@ -1260,7 +1265,7 @@ fn text_button(label: &str, glyph: Icon, action: WindowAction, css_class: &str) 
 fn extract_all_button() -> gtk::Button {
     let (button, _) = text_button(
         &ox_core::i18n::gettext("Extract all"),
-        Icon::FolderZip,
+        Icon::ExtractAll,
         WindowAction::ExtractAll,
         "extract-command",
     );

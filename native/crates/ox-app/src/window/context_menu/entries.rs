@@ -333,7 +333,7 @@ fn extraction_items(facts: &ItemFacts) -> Vec<MenuEntry> {
     }
     let extract_all = item(
         ox_core::i18n::gettext_static("Extract all…"),
-        Icon::FolderZip,
+        Icon::ExtractAll,
         WindowAction::ExtractAll,
     );
     let extract_here = item(
@@ -1119,7 +1119,7 @@ pub(crate) fn gallery_photo_menu(facts: &ItemFacts) -> ContextMenu {
     entries.push(
         item(
             ox_core::i18n::gettext_static("Rotate right"),
-            Icon::ArrowClockwise,
+            Icon::RotateRight,
             WindowAction::RotateRight,
         )
         .into(),
@@ -1127,7 +1127,7 @@ pub(crate) fn gallery_photo_menu(facts: &ItemFacts) -> ContextMenu {
     entries.push(
         item(
             ox_core::i18n::gettext_static("Rotate left"),
-            Icon::ArrowCounterclockwise,
+            Icon::RotateLeft,
             WindowAction::RotateLeft,
         )
         .into(),
@@ -1379,7 +1379,7 @@ pub(crate) fn zip_item_menu() -> Vec<MenuEntry> {
         MenuEntry::Divider,
         item(
             ox_core::i18n::gettext_static("Extract all…"),
-            Icon::FolderZip,
+            Icon::ExtractAll,
             WindowAction::ExtractAll,
         )
         .into(),
@@ -1446,7 +1446,7 @@ pub(crate) fn compact_zip_background_menu(steps: &UndoRedo, submenus: Background
     let [view, sort, group, _] = background_submenu_items(submenus);
     let extract = item(
         ox_core::i18n::gettext_static("Extract all…"),
-        Icon::FolderZip,
+        Icon::ExtractAll,
         WindowAction::ExtractAll,
     )
     .into();
@@ -1594,7 +1594,7 @@ pub(crate) fn zip_background_menu() -> Vec<MenuEntry> {
     vec![
         item(
             ox_core::i18n::gettext_static("Extract all…"),
-            Icon::FolderZip,
+            Icon::ExtractAll,
             WindowAction::ExtractAll,
         )
         .into(),

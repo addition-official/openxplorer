@@ -29,7 +29,7 @@ use super::row::{ControlName, RowLayout, SettingRow};
 use super::search::RowText;
 use super::section::{PageKind, SettingsSection};
 use super::SettingsPage;
-use crate::icons::{user_glyphs, user_icons, Icon};
+use crate::icons::{explorer_icons, user_glyphs, user_icons, Icon};
 use crate::text_size::TextSize;
 use crate::window::ButtonStyle;
 use crate::window::WindowAction;
@@ -198,6 +198,17 @@ const CHOSEN_ICON_FILES: RowText = RowText {
     description: "The .dll, .mun or .exe files the icons are read from. Only where they are is saved, \
                   never the icons. Choosing files again replaces the list.",
     keywords: "windows icons icon files choose browse imageres shell32 dll mun exe clear remove",
+};
+
+const EXPLORER_ICONS: RowText = RowText {
+    title: "Windows Explorer icons folder",
+    description: "The folder of Windows 11 File Explorer's own command pictures (the Assets\\images \
+                  folder beside File Explorer in Windows, or a copy of it), which then draw the command \
+                  bar, the View menu, menu rows, pane buttons and the address bar, in their own colors, \
+                  light, dark or high contrast as the app is. Only where the folder is is saved; nothing is \
+                  copied. Commands it has no picture for keep their icon.",
+    keywords: "windows explorer icons folder assets images svg command bar menu \
+               view details pane address bar pictures",
 };
 
 const SYMBOL_FONT: RowText = RowText {
@@ -469,7 +480,7 @@ fn theme_preview() -> gtk::Box {
 /// source of the same icons: a choice above wins over them. The first
 /// row's switch turns them on and says how many of the icons the files
 /// gave; the second chooses the files.
-pub(super) fn icon_files_rows(page: &SettingsPage) -> [SettingRow; 3] {
+pub(super) fn icon_files_rows(page: &SettingsPage) -> [SettingRow; 4] {
     let use_files = SettingRow::new(ICON_FILES);
     let switch = page.preference_switch(PreferenceBinding {
         read: |preferences| preferences.use_icon_files,
@@ -493,7 +504,114 @@ pub(super) fn icon_files_rows(page: &SettingsPage) -> [SettingRow; 3] {
         use_files,
         move |preferences| use_files.set_description(&icon_files_status(preferences, user_icons::status()))
     ));
-    [use_files, chosen_icon_files_row(page), symbol_font_row(page)]
+    [
+        use_files,
+        chosen_icon_files_row(page),
+        symbol_font_row(page),
+        explorer_icons_row(page),
+    ]
+}
+
+/// "Windows Explorer icons folder": the chosen folder's name and how many
+/// of the commands it draws, Choose folder… to pick it and Clear to forget
+/// it (LOOK-034). The switch above turns it on with the icon files.
+fn explorer_icons_row(page: &SettingsPage) -> SettingRow {
+    let row = SettingRow::new(EXPLORER_ICONS);
+    let choose = parts::button(&ox_core::i18n::gettext("Choose folder…"), ButtonStyle::Bordered);
+    let clear = parts::button(&ox_core::i18n::gettext("Clear"), ButtonStyle::Bordered);
+    choose.add_css_class("choose-explorer-icons");
+    clear.add_css_class("clear-explorer-icons");
+    choose.connect_clicked(glib::clone!(
+        #[weak]
+        page,
+        move |_| choose_explorer_icons(&page)
+    ));
+    clear.connect_clicked(glib::clone!(
+        #[weak]
+        page,
+        move |_| {
+            page.save_preferences(PreferencesUpdate {
+                explorer_icons: Some(String::new()),
+                ..PreferencesUpdate::default()
+            });
+        }
+    ));
+    let context = page.context().clone();
+    let weak_row = row.downgrade();
+    explorer_icons::follow_status(move |status| {
+        let Some(row) = weak_row.upgrade() else {
+            return false;
+        };
+        row.set_description(&explorer_icons_text(&context.settings_data().preferences, status));
+        true
+    });
+    page.follow_preferences(glib::clone!(
+        #[weak]
+        row,
+        #[weak]
+        clear,
+        move |preferences| {
+            row.set_description(&explorer_icons_text(preferences, explorer_icons::status()));
+            clear.set_sensitive(preferences.explorer_icons.is_some());
+        }
+    ));
+    row.add_control(&choose, ControlName::OwnLabel);
+    row.add_control(&clear, ControlName::OwnLabel);
+    row
+}
+
+/// What the Explorer icons row says: the folder's name and whether its
+/// pictures are in use, being listed, or how many commands they draw.
+pub(super) fn explorer_icons_text(
+    preferences: &ox_core::settings::Preferences,
+    status: explorer_icons::Status,
+) -> String {
+    let Some(folder) = &preferences.explorer_icons else {
+        return ox_core::i18n::gettext("No folder chosen");
+    };
+    let name = folder.trim_end_matches('/').rsplit('/').next().unwrap_or(folder);
+    let state = match status {
+        _ if !preferences.use_icon_files => {
+            ox_core::i18n::gettext("used while Icons from Windows icon files is on")
+        }
+        explorer_icons::Status::Off | explorer_icons::Status::Reading => ox_core::i18n::gettext("reading…"),
+        explorer_icons::Status::NotExplorerIcons => ox_core::i18n::gettext(
+            "it has no contrast-standard, contrast-black or contrast-white folder, so OpenXplorer's own icons are shown",
+        ),
+        explorer_icons::Status::Ready { found, wanted } => ox_core::i18n::format_message(
+            "{found} of {wanted} pictures",
+            &[("found", &found.to_string()), ("wanted", &wanted.to_string())],
+        ),
+    };
+    ox_core::i18n::format_message("{name} · {state}", &[("name", name), ("state", &state)])
+}
+
+/// Asks for Windows Explorer's icons folder and saves its path.
+fn choose_explorer_icons(page: &SettingsPage) {
+    let picker = gtk::FileDialog::builder()
+        .title(ox_core::i18n::gettext("Choose Windows Explorer's icons folder"))
+        .modal(true)
+        .build();
+    let window = page.root().and_downcast::<gtk::Window>();
+    picker.select_folder(
+        window.as_ref(),
+        gio::Cancellable::NONE,
+        glib::clone!(
+            #[weak]
+            page,
+            move |chosen| {
+                let Some(path) = chosen.ok().and_then(|folder| folder.path()) else {
+                    return;
+                };
+                if let Some(path) = path.to_str() {
+                    page.save_preferences(PreferencesUpdate {
+                        explorer_icons: Some(path.to_owned()),
+                        ..PreferencesUpdate::default()
+                    });
+                }
+            }
+        ),
+    );
 }
 
 /// "Windows symbol font": the chosen font's name and how many of the

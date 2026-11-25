@@ -3269,11 +3269,19 @@ msgid "Buttons in the right-click menu"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "Choose Windows Explorer's icons folder"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "Choose Windows icon files"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
 msgid "Choose files…"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "Choose folder…"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
@@ -3386,6 +3394,10 @@ msgid "No files chosen"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "No folder chosen"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "No font chosen"
 msgstr ""
 
@@ -3491,6 +3503,10 @@ msgid "The chosen files have none of these icons, so OpenXplorer's own are shown
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "The folder of Windows 11 File Explorer's own command pictures (the Assets\\images folder beside File Explorer in Windows, or a copy of it), which then draw the command bar, the View menu, menu rows, pane buttons and the address bar, in their own colors, light, dark or high contrast as the app is. Only where the folder is is saved; nothing is copied. Commands it has no picture for keep their icon."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "Theme"
 msgstr ""
 
@@ -3524,6 +3540,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
 msgid "Windows 11 · Compact actions (default)"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "Windows Explorer icons folder"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
@@ -3580,6 +3600,10 @@ msgid "hide expand arrows chevron expander triangle sidebar navigation pane tree
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "it has no contrast-standard, contrast-black or contrast-white folder, so OpenXplorer's own icons are shown"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "it has none of these glyphs, so OpenXplorer's own are shown"
 msgstr ""
 
@@ -3628,6 +3652,10 @@ msgid "used while Icons from Windows icon files is on"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/appearance.rs
+msgid "windows explorer icons folder assets images svg command bar menu view details pane address bar pictures"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/appearance.rs
 msgid "windows icons icon files choose browse imageres shell32 dll mun exe clear remove"
 msgstr ""
 
@@ -3651,6 +3679,11 @@ msgstr ""
 #. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/settings_page/appearance.rs
 msgid "{found} of {wanted} glyphs"
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-app/src/settings_page/appearance.rs
+msgid "{found} of {wanted} pictures"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.

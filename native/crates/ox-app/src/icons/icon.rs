@@ -76,6 +76,19 @@ pub(crate) enum Icon {
     /// Extra large icons on the View button and in the View menu: draws
     /// `desktop_20_regular`, Windows' own, with or without the font.
     ViewExtraLarge,
+    /// Medium icons on the View button and in the View menu: draws
+    /// `desktop_20_regular` with the font's monitor, as Desktop does; a
+    /// role of its own so Windows Explorer's icons folder can draw it.
+    ViewMedium,
+    /// Small icons on the View button and in the View menu: draws the
+    /// grid with the font's `ViewAll`, as Grid does; a role of its own so
+    /// Windows Explorer's icons folder can draw it.
+    ViewSmall,
+    /// Extract all, in the command bar and the menus: draws the zipped
+    /// folder with the font's compressed-folder glyph, as Compress to
+    /// does; a role of its own so Windows Explorer's icons folder can draw
+    /// its own picture.
+    ExtractAll,
     /// The menus' Open in new tab: draws `window_new_20_regular`, Windows'
     /// own, with or without the font.
     OpenInNewTab,
@@ -442,7 +455,7 @@ impl Icon {
             Icon::Cut => "ox-cut-20-symbolic",
             Icon::Delete => "ox-delete-20-symbolic",
             Icon::DeleteDismiss => "ox-delete-dismiss-20-symbolic",
-            Icon::Desktop | Icon::ViewExtraLarge => "ox-desktop-20-symbolic",
+            Icon::Desktop | Icon::ViewExtraLarge | Icon::ViewMedium => "ox-desktop-20-symbolic",
             Icon::ViewLarge | Icon::Desktop16 => "ox-desktop-16-symbolic",
             Icon::TextDescription => "ox-text-description-ltr-20-symbolic",
             Icon::DisconnectNetworkDrive24 => "ox-disconnect-network-drive-24-symbolic",
@@ -464,8 +477,8 @@ impl Icon {
             Icon::FileFolder => "ox-file-folder-flat",
             Icon::Folder => "ox-folder-20-symbolic",
             Icon::FolderAdd => "ox-folder-add-20-symbolic",
-            Icon::FolderZip => "ox-folder-zip-20-symbolic",
-            Icon::Grid => "ox-grid-20-symbolic",
+            Icon::FolderZip | Icon::ExtractAll => "ox-folder-zip-20-symbolic",
+            Icon::Grid | Icon::ViewSmall => "ox-grid-20-symbolic",
             Icon::HardDrive => "ox-hard-drive-20-symbolic",
             Icon::HeadphonesColor20 => "ox-headphones-20-color",
             Icon::HeadphonesColor32 => "ox-headphones-32-color",
@@ -557,7 +570,7 @@ impl Icon {
 /// The roles that draw another icon's bundled file but take a glyph of
 /// their own from the Windows symbol font (LOOK-031): they are not in
 /// [`ALL_ICONS`], whose names match the vendored files one to one.
-pub(crate) const COMMAND_ROLES: [Icon; 11] = [
+pub(crate) const COMMAND_ROLES: [Icon; 14] = [
     Icon::RotateLeft,
     Icon::RotateRight,
     Icon::SetAsBackground,
@@ -569,6 +582,9 @@ pub(crate) const COMMAND_ROLES: [Icon; 11] = [
     Icon::ViewLarge,
     Icon::ViewExtraLarge,
     Icon::OpenInNewTab,
+    Icon::ViewMedium,
+    Icon::ViewSmall,
+    Icon::ExtractAll,
 ];
 
 /// Every icon, in the order of [`Icon`]: for the tests that check each one

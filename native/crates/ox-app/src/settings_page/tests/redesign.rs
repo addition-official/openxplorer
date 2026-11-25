@@ -240,6 +240,7 @@ fn every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages() {
         "Icons from Windows icon files",
         "Windows icon files",
         "Windows symbol font",
+        "Windows Explorer icons folder",
         "Use system window decorations",
         "Separate window titles with a hyphen (like Windows)",
         "Open Quick access on Home",

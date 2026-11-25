@@ -374,6 +374,7 @@ fn show_role(image: &gtk::Image, role: Option<IconRole>, fallback: Icon, size: i
     let pixels = super::scaled(size);
     match role.and_then(|role| texture_of(role, pixels, image.scale_factor())) {
         Some(texture) => {
+            image.remove_css_class(super::EXPLORER_CLASS);
             image.set_paintable(Some(&texture));
             image.set_pixel_size(pixels);
         }
