@@ -27,7 +27,7 @@ mod drop_spots;
 pub(super) mod entries;
 pub(super) mod menu;
 pub(super) mod network_tree;
-mod row;
+pub(super) mod row;
 
 use std::cell::RefCell;
 use std::rc::Rc;

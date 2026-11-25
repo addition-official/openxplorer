@@ -68,6 +68,27 @@ fn row_icon(icon: Art, chosen_size: u32) -> ArtImage {
     image
 }
 
+/// The tooltip `row` shows now: as in Windows 11's navigation pane,
+/// only while its name is cut short with an ellipsis, and then the full
+/// name; `None` while the whole name shows.
+pub(in crate::window) fn shown_tooltip(row: &gtk::ListBoxRow) -> Option<String> {
+    let name = descendants::<gtk::Label>(row)
+        .into_iter()
+        .find(|label| label.has_css_class("name"))?;
+    name.layout().is_ellipsized().then(|| name.text().to_string())
+}
+
+/// Shows `row`'s tooltip only while its name is cut short.
+fn tooltip_when_cut_short(row: &gtk::ListBoxRow) {
+    row.connect_query_tooltip(|row, _, _, _, tooltip| match shown_tooltip(row) {
+        Some(text) => {
+            tooltip.set_text(Some(&text));
+            true
+        }
+        None => false,
+    });
+}
+
 fn name_label(text: &str) -> gtk::Label {
     gtk::Label::builder()
         .label(text)
@@ -129,8 +150,11 @@ fn row_content(entry: &SidebarEntry, look: RowLook, collapsed: bool) -> gtk::Box
     }
     let icon = row_icon(entry.icon, look.icon_size);
     if matches!(entry.icon, Art::Network(_)) {
-        // The network pipe says what it means (`.side-icon.shared`).
-        icon.set_tooltip_text(Some(&ox_core::i18n::gettext("Network share")));
+        // The network pipe says what it means to screen readers; Windows
+        // shows no tooltip on the pane's glyphs.
+        icon.update_property(&[gtk::accessible::Property::Description(&ox_core::i18n::gettext(
+            "Network share",
+        ))]);
     }
     content.append(&icon);
     content.append(&name_and_capacity(entry, look.capacity_bars));
@@ -206,7 +230,7 @@ fn row_chevron(expander: &RowExpander, name: &str) -> gtk::Button {
         )
     };
     button.set_child(Some(&icons::image(glyph, EXPANDER_SIZE)));
-    button.set_tooltip_text(Some(&label));
+    // Windows' chevrons show no tooltip; screen readers hear the label.
     button.update_property(&[gtk::accessible::Property::Label(&label)]);
     button
 }
@@ -227,7 +251,7 @@ fn draw_chevron(chevron: &gtk::Button, section: Section, expanded: bool) {
         )
     };
     chevron.set_child(Some(&icons::image(glyph, EXPANDER_SIZE)));
-    chevron.set_tooltip_text(Some(&label));
+    // Windows' chevrons show no tooltip; screen readers hear the label.
     chevron.update_property(&[gtk::accessible::Property::Label(&label)]);
 }
 
@@ -289,10 +313,11 @@ pub(super) fn sidebar_row(entry: &SidebarEntry, look: RowLook, collapsed: bool) 
     overlay.add_overlay(&selection_bar());
     let row = gtk::ListBoxRow::builder()
         .child(&overlay)
-        .tooltip_text(&entry.tooltip)
+        .has_tooltip(true)
         .css_classes(placement_classes(entry))
         .accessible_role(gtk::AccessibleRole::TreeItem)
         .build();
+    tooltip_when_cut_short(&row);
     // The visible label names the row; the address is its description.
     // GTK 4.16 and later send the level to screen readers; 4.14 does not.
     let level = match entry.level {

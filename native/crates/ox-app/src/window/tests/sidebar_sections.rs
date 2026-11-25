@@ -69,7 +69,7 @@ fn the_this_pc_chevron_collapses_and_expands_its_section() {
     assert!(shows(&test, "Local Disk"));
     let folder = test.window.current_uri();
     let chevron = section_chevron(&test, "This PC");
-    assert_eq!(chevron.tooltip_text().as_deref(), Some("Collapse This PC"));
+    assert_eq!(chevron.tooltip_text(), None, "Windows' chevrons show no tooltip");
     assert!(gtk::test_accessible_has_state(
         &row_named(&test, "This PC"),
         gtk::AccessibleState::Expanded
@@ -79,7 +79,7 @@ fn the_this_pc_chevron_collapses_and_expands_its_section() {
     wait_until("This PC to collapse", || !shows(&test, "Local Disk"));
     assert!(test.window.sidebar().section_is_collapsed("thisPc"));
     let chevron = section_chevron(&test, "This PC");
-    assert_eq!(chevron.tooltip_text().as_deref(), Some("Expand This PC"));
+    assert_eq!(chevron.tooltip_text(), None);
     assert!(shows(&test, "This PC"), "the head stays");
     assert!(shows(&test, "Network"), "other sections stay");
     assert_eq!(test.window.current_uri(), folder, "the chevron opens nothing");
@@ -88,10 +88,7 @@ fn the_this_pc_chevron_collapses_and_expands_its_section() {
     test.window.render_places();
     wait_for_frames(&test.window, 2);
     assert!(!shows(&test, "Local Disk"));
-    assert_eq!(
-        section_chevron(&test, "This PC").tooltip_text().as_deref(),
-        Some("Expand This PC")
-    );
+    assert!(test.window.sidebar().section_is_collapsed("thisPc"));
 
     section_chevron(&test, "This PC").emit_clicked();
     wait_until("This PC to expand", || shows(&test, "Local Disk"));
