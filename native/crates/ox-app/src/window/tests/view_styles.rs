@@ -1075,11 +1075,11 @@ fn the_view_button_shows_the_view_on_screen() {
     };
     // A new window opens in Details, and its button says so at once.
     wait_until("the View button to show Details", || {
-        glyph().as_deref() == Some(Icon::TextBulletList.name())
+        glyph().as_deref() == Some(Icon::TextDescription.name())
     });
     for (view, icon) in [
         ("small", Icon::Grid),
-        ("details", Icon::TextBulletList),
+        ("details", Icon::TextDescription),
         ("tiles", Icon::AppsListDetail),
         ("compact", Icon::TextColumnTwo),
     ] {

@@ -1014,7 +1014,7 @@ fn menu_marks_are_dots_for_choices_and_checks_for_toggles_beside_the_glyph() {
     );
     assert_eq!(
         row_glyph(&view.row("Details")).as_deref(),
-        Some(Icon::TextBulletList.name())
+        Some(Icon::TextDescription.name())
     );
     assert_eq!(
         mark_in(&view, "Large icons"),
@@ -1096,12 +1096,12 @@ fn the_more_and_view_menus_show_windows_glyphs() {
     }
     let view = menu_of(&test, "View");
     for (label, glyph) in [
-        ("Extra large icons", Icon::RectangleLandscape),
+        ("Extra large icons", Icon::ViewExtraLarge),
         ("Large icons", Icon::ViewLarge),
         ("Medium icons", Icon::Desktop),
         ("Small icons", Icon::Grid),
         ("List", Icon::TextColumnTwo),
-        ("Details", Icon::TextBulletList),
+        ("Details", Icon::TextDescription),
         ("Tiles", Icon::AppsListDetail),
         ("Content", Icon::ContentView),
         ("Details pane", Icon::PanelRight),

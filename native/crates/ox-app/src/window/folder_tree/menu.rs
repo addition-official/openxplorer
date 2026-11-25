@@ -71,7 +71,13 @@ pub(in crate::window) fn option_item(label: &str, glyph: Icon, name: &str, is_on
 /// The menu of the folder `uri` with `facts`, then the tree's options.
 fn entries(uri: &str, facts: FolderFacts, options: FolderTreeOptions) -> Vec<MenuEntry> {
     vec![
-        MenuItem::with_text_target(&gettext("Open in new tab"), Icon::Add, WindowAction::OpenTab, uri).into(),
+        MenuItem::with_text_target(
+            &gettext("Open in new tab"),
+            Icon::OpenInNewTab,
+            WindowAction::OpenTab,
+            uri,
+        )
+        .into(),
         MenuItem::with_text_target(
             &gettext("Open in new window"),
             Icon::WindowNew,

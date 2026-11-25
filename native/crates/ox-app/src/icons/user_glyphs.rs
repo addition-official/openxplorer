@@ -85,8 +85,8 @@ pub(crate) const fn windows_source(icon: Icon) -> WindowsSource {
         Icon::CopyAsPath => glyph(0xE62F, "CopyTo"),
         Icon::OpenWith => glyph(0xE7AC, "OpenWith"),
         Icon::OpenInNewWindow => glyph(0xE8A7, "OpenInNewWindow"),
-        Icon::Unpin => glyph(0xE77A, "Unpin"),
-        Icon::ShowMoreOptions => glyph(0xE93A, "ShowMoreOptions"),
+        Icon::Unpin | Icon::PinOff => glyph(0xE77A, "Unpin"),
+        Icon::ShowMoreOptions | Icon::ExpandUpRight => glyph(0xE93A, "ShowMoreOptions"),
         Icon::RotateRight => glyph(0xE80C, "RotateMapRight"),
         Icon::ArrowUndo => glyph(0xE7A7, "Undo"),
         Icon::ArrowUp => glyph(0xE74A, "Up"),
@@ -107,10 +107,7 @@ pub(crate) const fn windows_source(icon: Icon) -> WindowsSource {
         Icon::Copy => glyph(0xE8C8, "Copy"),
         Icon::Cut => glyph(0xE8C6, "Cut"),
         Icon::Delete => glyph(0xE74D, "Delete"),
-        // Large icons' monitor on Windows' View button and View menu
-        // (ViewLarge) is the same glyph: matched against the real font at
-        // a 12-pixel em (0.93).
-        Icon::Desktop | Icon::ViewLarge => glyph(0xE7F4, "TVMonitor"),
+        Icon::Desktop => glyph(0xE7F4, "TVMonitor"),
         // The thin X of a tab's Close and a menu's "Close tab"; a caption
         // or dialog button draws `ChromeClose` instead ([`glyph_at`]).
         Icon::Dismiss | Icon::Dismiss16 => glyph(0xE711, "Cancel"),
@@ -184,6 +181,16 @@ pub(crate) const fn windows_source(icon: Icon) -> WindowsSource {
             WindowsSource::None("Windows shows the file type's picture here, not a glyph")
         }
         Icon::DismissCircleFilled => WindowsSource::None("a coloured status badge, not a command glyph"),
+        // Windows 11 File Explorer draws these from Fluent UI System Icons,
+        // the files the app bundles, not from Segoe Fluent Icons, which has
+        // no glyph close to them (matched by script against its captures).
+        Icon::ViewLarge
+        | Icon::ViewExtraLarge
+        | Icon::OpenInNewTab
+        | Icon::TextDescription
+        | Icon::Desktop16 => {
+            WindowsSource::None("Windows draws the Fluent UI System Icons file the app bundles")
+        }
         Icon::ArrowSwap
         | Icon::Braces
         | Icon::Markdown
@@ -277,7 +284,6 @@ pub(crate) const fn em_of(icon: Icon, size: i32) -> i32 {
         // The search box's magnifier, 11 by 11.
         Icon::Search if size == 15 => 13,
         // Large icons' monitor, 12 by 12 as Windows' View button's.
-        Icon::ViewLarge if size == 18 => 12,
         // The command bar's "See more" dots, 16 by 3 at 20, as Windows'.
         Icon::MoreHorizontal if size == 20 => 20,
         // Back, Forward, Up and Refresh beside the address bar: the
@@ -411,6 +417,8 @@ const fn glyph_key(icon: Icon) -> &'static str {
         Icon::Unpin => "ox-unpin-16-symbolic",
         Icon::ShowMoreOptions => "ox-show-more-options-20-symbolic",
         Icon::ViewLarge => "ox-view-large-20-symbolic",
+        Icon::ViewExtraLarge => "ox-view-extra-large-20-symbolic",
+        Icon::OpenInNewTab => "ox-open-in-new-tab-20-symbolic",
         Icon::RotateRight => "ox-rotate-right-20-symbolic",
         Icon::SetAsBackground => "ox-set-as-background-20-symbolic",
         _ => icon.name(),

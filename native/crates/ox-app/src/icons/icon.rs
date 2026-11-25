@@ -69,10 +69,16 @@ pub(crate) enum Icon {
     /// The menus' Show more options: draws `more_horizontal_20_regular`,
     /// with its own glyph from the Windows symbol font.
     ShowMoreOptions,
-    /// Large icons on the View button and in the View menu: draws
-    /// `rectangle_landscape_20_regular`, with Windows' monitor from the
-    /// Windows symbol font.
+    /// Large icons on the View button and in the View menu:
+    /// `desktop_16_regular`, Windows' own (matched against its capture),
+    /// with or without the Windows symbol font.
     ViewLarge,
+    /// Extra large icons on the View button and in the View menu: draws
+    /// `desktop_20_regular`, Windows' own, with or without the font.
+    ViewExtraLarge,
+    /// The menus' Open in new tab: draws `window_new_20_regular`, Windows'
+    /// own, with or without the font.
+    OpenInNewTab,
     /// `arrow_eject_20_regular`: Eject, Safely remove, Disconnect and
     /// Sign out of server, the commands app.js drew with its eject
     /// glyph, and the eject button of a removable drive's sidebar row.
@@ -352,6 +358,15 @@ pub(crate) enum Icon {
     TableColor48,
     /// `text_bullet_list_ltr_20_regular`: the details view.
     TextBulletList,
+    /// `text_description_ltr_20_regular`: the View button in Details, four
+    /// plain lines as Windows 11 draws it.
+    TextDescription,
+    /// `desktop_16_regular`: Large icons' monitor on the View button.
+    Desktop16,
+    /// `expand_up_right_20_regular`: Show more options, as Windows 11's menus.
+    ExpandUpRight,
+    /// `pin_off_20_regular`: Unpin from Quick access, as Windows 11's menus.
+    PinOff,
     /// `text_column_two_20_regular`: View > List.
     TextColumnTwo,
     /// `video_20_regular`: the Videos folder.
@@ -427,7 +442,9 @@ impl Icon {
             Icon::Cut => "ox-cut-20-symbolic",
             Icon::Delete => "ox-delete-20-symbolic",
             Icon::DeleteDismiss => "ox-delete-dismiss-20-symbolic",
-            Icon::Desktop => "ox-desktop-20-symbolic",
+            Icon::Desktop | Icon::ViewExtraLarge => "ox-desktop-20-symbolic",
+            Icon::ViewLarge | Icon::Desktop16 => "ox-desktop-16-symbolic",
+            Icon::TextDescription => "ox-text-description-ltr-20-symbolic",
             Icon::DisconnectNetworkDrive24 => "ox-disconnect-network-drive-24-symbolic",
             Icon::Dismiss => "ox-dismiss-20-symbolic",
             Icon::Dismiss16 => "ox-dismiss-16-symbolic",
@@ -468,7 +485,8 @@ impl Icon {
             Icon::MapNetworkDrive24 => "ox-map-network-drive-24-symbolic",
             Icon::Markdown => "ox-markdown-20-symbolic",
             Icon::Maximize => "ox-maximize-20-symbolic",
-            Icon::MoreHorizontal | Icon::ShowMoreOptions => "ox-more-horizontal-20-symbolic",
+            Icon::ShowMoreOptions | Icon::ExpandUpRight => "ox-expand-up-right-20-symbolic",
+            Icon::MoreHorizontal => "ox-more-horizontal-20-symbolic",
             Icon::MusicNote => "ox-music-note-2-20-symbolic",
             Icon::Open => "ox-open-20-symbolic",
             Icon::Options24 => "ox-options-24-symbolic",
@@ -480,10 +498,11 @@ impl Icon {
             Icon::Pause16 => "ox-pause-16-symbolic",
             Icon::Phone => "ox-phone-20-symbolic",
             Icon::Play16 => "ox-play-16-symbolic",
-            Icon::Pin | Icon::Unpin => "ox-pin-16-symbolic",
+            Icon::Pin => "ox-pin-16-symbolic",
+            Icon::Unpin | Icon::PinOff => "ox-pin-off-20-symbolic",
             Icon::PinFilled => "ox-pin-16-filled-symbolic",
             Icon::Filter => "ox-filter-20-symbolic",
-            Icon::RectangleLandscape | Icon::ViewLarge => "ox-rectangle-landscape-20-symbolic",
+            Icon::RectangleLandscape => "ox-rectangle-landscape-20-symbolic",
             Icon::Rename => "ox-rename-20-symbolic",
             Icon::Search => "ox-search-20-symbolic",
             Icon::SearchSettings => "ox-search-settings-20-symbolic",
@@ -514,7 +533,7 @@ impl Icon {
             Icon::WeatherSunny => "ox-weather-sunny-20-symbolic",
             Icon::WindowConsole => "ox-window-console-20-symbolic",
             Icon::WindowMultiple => "ox-window-multiple-20-symbolic",
-            Icon::WindowNew | Icon::OpenInNewWindow => "ox-window-new-20-symbolic",
+            Icon::WindowNew | Icon::OpenInNewWindow | Icon::OpenInNewTab => "ox-window-new-20-symbolic",
             Icon::Wrench => "ox-wrench-20-symbolic",
         }
     }
@@ -538,7 +557,7 @@ impl Icon {
 /// The roles that draw another icon's bundled file but take a glyph of
 /// their own from the Windows symbol font (LOOK-031): they are not in
 /// [`ALL_ICONS`], whose names match the vendored files one to one.
-pub(crate) const COMMAND_ROLES: [Icon; 9] = [
+pub(crate) const COMMAND_ROLES: [Icon; 11] = [
     Icon::RotateLeft,
     Icon::RotateRight,
     Icon::SetAsBackground,
@@ -548,12 +567,14 @@ pub(crate) const COMMAND_ROLES: [Icon; 9] = [
     Icon::Unpin,
     Icon::ShowMoreOptions,
     Icon::ViewLarge,
+    Icon::ViewExtraLarge,
+    Icon::OpenInNewTab,
 ];
 
 /// Every icon, in the order of [`Icon`]: for the tests that check each one
 /// ships, is recorded and resolves, and to find the icon a drawn name
 /// stands for ([`super::user_glyphs`]).
-pub(crate) const ALL_ICONS: [Icon; 129] = [
+pub(crate) const ALL_ICONS: [Icon; 133] = [
     Icon::Add,
     Icon::AddNetworkLocation24,
     Icon::Apps,
@@ -671,6 +692,10 @@ pub(crate) const ALL_ICONS: [Icon; 129] = [
     Icon::TableColor32,
     Icon::TableColor48,
     Icon::TextBulletList,
+    Icon::TextDescription,
+    Icon::Desktop16,
+    Icon::ExpandUpRight,
+    Icon::PinOff,
     Icon::TextColumnTwo,
     Icon::Video,
     Icon::VideoColor20,

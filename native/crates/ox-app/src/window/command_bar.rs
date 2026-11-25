@@ -43,7 +43,7 @@ use menus::{appearance_items, more_menu};
 pub(super) use menus::{disconnect_network_drive, FolderPin, MoreMenuState, MorePlace, NetworkDrive};
 pub(super) use menus::{
     gallery_view_menu, group_by_menu, new_menu, search_options_menu, sort_menu, this_pc_group_by_menu,
-    this_pc_sort_menu, view_glyph, view_menu,
+    this_pc_sort_menu, view_glyph, view_glyph_size, view_menu,
 };
 use overflow::OverflowLayout;
 
@@ -936,7 +936,7 @@ impl CommandBar {
     /// view on screen there: lines in Details, the grid in Small icons.
     pub(crate) fn show_view(&self, view: crate::window::folder_pane::FolderView) {
         if let Some(glyph) = self.imp().view_glyph.get() {
-            icons::set_icon(glyph, view_glyph(view), TEXT_COMMAND_GLYPH);
+            icons::set_icon(glyph, view_glyph(view), view_glyph_size(view));
         }
     }
 
