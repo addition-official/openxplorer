@@ -4642,6 +4642,10 @@ msgid "“Notes.txt” shows as “Notes”, as in Windows. View > Show > File n
 msgstr ""
 
 #: crates/ox-app/src/settings_page/general.rs
+msgid "A button at the right end of the address bar lists the addresses you typed. Off, the address bar has nothing there, as in Windows 11; F4 still lists them."
+msgstr ""
+
+#: crates/ox-app/src/settings_page/general.rs
 msgid "Address bar"
 msgstr ""
 
@@ -4710,7 +4714,7 @@ msgid "New window"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/general.rs
-msgid "New windows show the address as text you can type in instead of breadcrumbs. Right-click the address bar to switch one window."
+msgid "New windows show the address as text you can type in instead of breadcrumbs. While you edit an address, right-click it to switch one window."
 msgstr ""
 
 #: crates/ox-app/src/settings_page/general.rs
@@ -4754,6 +4758,10 @@ msgid "Right-click a tab → Move tab to window… lets you pick an existing win
 msgstr ""
 
 #: crates/ox-app/src/settings_page/general.rs
+msgid "Show the address bar's history button"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/general.rs
 msgid "Show the full path"
 msgstr ""
 
@@ -4771,6 +4779,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/general.rs
 msgid "Windows and tabs"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/general.rs
+msgid "address bar history button typed addresses list drop-down f4 windows"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/general.rs

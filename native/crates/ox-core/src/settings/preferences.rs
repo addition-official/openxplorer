@@ -1163,6 +1163,7 @@ impl Preferences {
             update.more_navigation_pane_items,
         );
         replace_if_some(&mut self.more_tab_menu_items, update.more_tab_menu_items);
+        replace_if_some(&mut self.address_history_button, update.address_history_button);
         let icon_size = update
             .sidebar_icon_size
             .filter(|size| SIDEBAR_ICON_SIZES.contains(size));

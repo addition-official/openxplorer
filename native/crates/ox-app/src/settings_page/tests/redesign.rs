@@ -293,6 +293,9 @@ fn every_setting_of_the_earlier_layout_is_on_one_of_the_new_pages() {
         "Keep Properties windows a fixed size (like Windows)",
         // The letters of mapped network folders, which can be turned off.
         "Show letters on mapped network folders",
+        // The owner's address bar history button, which Windows lacks
+        // (NAV-043, SET-020).
+        "Show the address bar's history button",
         // Carrying the settings to another computer.
         "Export settings",
         "Import settings",

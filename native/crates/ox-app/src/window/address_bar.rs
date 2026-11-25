@@ -471,6 +471,11 @@ impl AddressBar {
         self.imp().crumbs.hidden_crumbs()
     }
 
+    /// Shows or hides the history button at the bar's right end.
+    pub(super) fn show_history_button(&self, shown: bool) {
+        self.imp().edit_button.set_visible(shown);
+    }
+
     /// The name of the icon at the bar's left end, for tests.
     #[cfg(test)]
     pub(super) fn shown_icon_name(&self) -> Option<String> {

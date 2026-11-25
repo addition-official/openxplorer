@@ -441,7 +441,7 @@ mod tests {
             "desktopFont": true, "systemWindowDecorations": true, "hyphenInWindowTitles": true,
             "hideSidebar": true,
             "hideExpandArrows": true,
-            "moreNavigationPaneItems": false, "moreTabMenuItems": false, "sidebarIconSize": 32,
+            "moreNavigationPaneItems": false, "moreTabMenuItems": false, "addressHistoryButton": false, "sidebarIconSize": 32,
             "hiddenSidebarSections": ["network"],
             "hiddenSidebarPlaces": ["file:///media/demo/USB"], "openTabsAtEnd": true,
             "homeQuickAccess": true, "favorites": ["file:///home/demo/Plans/q3.txt"],
