@@ -1073,9 +1073,13 @@ fn the_view_button_shows_the_view_on_screen() {
             .and_then(gtk::Image::icon_name)
             .map(String::from)
     };
+    // A new window opens in Details, and its button says so at once.
+    wait_until("the View button to show Details", || {
+        glyph().as_deref() == Some(Icon::TextBulletList.name())
+    });
     for (view, icon) in [
-        ("details", Icon::TextBulletList),
         ("small", Icon::Grid),
+        ("details", Icon::TextBulletList),
         ("tiles", Icon::AppsListDetail),
         ("compact", Icon::TextColumnTwo),
     ] {
