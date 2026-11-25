@@ -99,6 +99,36 @@ fn completions(base: &str, prefix: &str, entries: &[(String, bool)]) -> Vec<Stri
         .collect()
 }
 
+/// The typed addresses that start with `typed`, ignoring case, most
+/// recent first, as Windows' address bar offers them while typing
+/// (NAV-043); not the text itself.
+fn typed_history_matches(typed: &str, history: &[String]) -> Vec<String> {
+    let wanted = typed.trim().to_lowercase();
+    if wanted.is_empty() {
+        return Vec::new();
+    }
+    history
+        .iter()
+        .filter(|address| address.to_lowercase().starts_with(&wanted) && address.trim() != typed.trim())
+        .cloned()
+        .collect()
+}
+
+/// `history` first, then the `names` not already in it (a folder's name
+/// ends in its separator, a typed address may not), at most
+/// [`COMPLETION_LENGTH`] rows.
+fn with_history(history: Vec<String>, names: Vec<String>) -> Vec<String> {
+    let same = |a: &str, b: &str| a.trim_end_matches(['/', '\\']) == b.trim_end_matches(['/', '\\']);
+    let mut rows = history;
+    for name in names {
+        if !rows.iter().any(|kept| same(kept, &name)) {
+            rows.push(name);
+        }
+    }
+    rows.truncate(COMPLETION_LENGTH);
+    rows
+}
+
 impl BrowserWindow {
     /// Offers completions of `typed`, the text being typed in the address.
     pub(super) fn complete_address(&self, typed: &str) {
@@ -110,14 +140,20 @@ impl BrowserWindow {
             let expanded = typed_address(base, |name| std::env::var(name).ok());
             self.resolve_address(&expanded).ok()
         });
+        let history = typed_history_matches(typed, &self.context().typed_addresses());
         let (Some((base, prefix)), Some(folder)) = (split, folder) else {
             self.forget_address_completions();
-            bar.hide_suggestions();
+            // Text without a folder part still finds typed addresses.
+            if history.is_empty() {
+                bar.hide_suggestions();
+            } else {
+                bar.show_completions(typed, &history);
+            }
             return;
         };
         let state = &self.imp().completion_listing;
         if let Some(names) = state.names_of(&folder) {
-            bar.show_completions(typed, &completions(base, prefix, &names));
+            bar.show_completions(typed, &with_history(history, completions(base, prefix, &names)));
             return;
         }
         if state.is_listing(&folder) {
