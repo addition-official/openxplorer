@@ -223,13 +223,85 @@ fn the_chevron_after_the_icon_lists_the_top_level_places() {
     ));
 
     chevron.emit_clicked();
-    let menu = open_menu(&test);
-    assert_eq!(menu.row_labels(), ["Home", "This PC", "Network", "Recycle Bin"]);
-    menu.row("Home").activate();
+    let list = root_list(&test);
+    let user = glib::home_dir()
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .expect("the home folder has a name");
+    let labels: Vec<String> = root_rows(&list).iter().map(|(label, _)| label.clone()).collect();
+    assert_eq!(
+        labels,
+        [
+            "Home",
+            "Gallery",
+            "Desktop",
+            "Documents",
+            "Downloads",
+            "Music",
+            "Pictures",
+            "Videos",
+            user.as_str(),
+            "This PC",
+            "Network",
+            "Recycle Bin"
+        ],
+        "Windows 11's list; Libraries and Control Panel left out"
+    );
+    assert!(descendants::<gtk::Image>(&list).is_empty(), "text only, no icons");
+    let rows = descendants::<gtk::ListBoxRow>(&list);
+    wait_until("the rows laid out", || rows[0].height() > 0);
+    assert_eq!(
+        list.child().expect("a list").width(),
+        ROOT_LIST_WIDTH,
+        "214 px wide"
+    );
+    assert!(
+        rows.iter().all(|row| row.height() == ROOT_ROW_HEIGHT),
+        "32 px rows"
+    );
+    let scroller = descendants::<gtk::ScrolledWindow>(&list).remove(0);
+    assert_eq!(
+        scroller.height(),
+        ROOT_ROW_HEIGHT * 10,
+        "ten rows, then it scrolls"
+    );
+    assert!(scroller.vadjustment().upper() > scroller.vadjustment().page_size());
+
+    rows[0].activate();
     let home = test.window.imp().locations.borrow().home_uri();
     wait_until("the home folder", || {
         test.window.current_uri() == Some(home.clone())
     });
+    assert!(!list.is_visible(), "choosing a row closes the list");
+}
+
+/// The width of the root chevron's list, as measured on Windows 11.
+const ROOT_LIST_WIDTH: i32 = 214;
+
+/// The height of its rows.
+const ROOT_ROW_HEIGHT: i32 = 32;
+
+/// The shown list of the chevron after the address bar's first icon.
+fn root_list(test: &TestWindow) -> gtk::Popover {
+    let address = test.window.address_bar();
+    let list = || {
+        descendants::<gtk::Popover>(address)
+            .into_iter()
+            .find(|popover| popover.is_visible() && popover.has_css_class("root-places"))
+    };
+    wait_until("the root list", || list().is_some());
+    list().expect("the root list")
+}
+
+/// Its rows' labels, top to bottom.
+fn root_rows(list: &gtk::Popover) -> Vec<(String, gtk::ListBoxRow)> {
+    descendants::<gtk::ListBoxRow>(list)
+        .into_iter()
+        .filter_map(|row| {
+            let label = descendants::<gtk::Label>(&row).into_iter().next()?;
+            Some((label.label().to_string(), row))
+        })
+        .collect()
 }
 
 #[gtk::test]
