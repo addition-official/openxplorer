@@ -117,6 +117,7 @@ impl BrowserWindow {
             archives: preferences
                 .search_compressed_files
                 .then(crate::archive_view::archive_browser),
+            newest_folders_first: false,
         };
         let (sender, batches) = async_channel::unbounded::<Vec<Entry>>();
         let cancellable = run.cancellable.clone();

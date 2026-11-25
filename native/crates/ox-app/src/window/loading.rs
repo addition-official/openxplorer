@@ -53,6 +53,7 @@ use ox_core::location::{
 use ox_core::search::HiddenItems;
 
 use crate::app_context::add_to_desktop_history;
+use crate::folder_view::gallery_view::GalleryCanvas;
 use crate::folder_view::item::FileItem;
 use crate::folder_view::{loader, reconcile, watch};
 use crate::locations::Page;
@@ -89,6 +90,22 @@ struct LoadStart {
     generation: u64,
     /// The previous listing of the location succeeded, so it was shown.
     was_shown: bool,
+}
+
+/// How long Gallery's first listing reads before it shows the photos it
+/// read so far (HOME-038).
+const SHOW_READ_AFTER: std::time::Duration = std::time::Duration::from_millis(300);
+
+/// Gallery's first listing, once it shows the photos read so far.
+#[derive(Default)]
+struct GalleryOpening {
+    /// The photos read so far show.
+    shown: std::cell::Cell<bool>,
+    /// Photos read since, which belong among those on screen, laid out
+    /// when the listing ends.
+    waiting: RefCell<Vec<Entry>>,
+    /// Shows the photos read so far, while it has not.
+    timer: RefCell<Option<glib::SourceId>>,
 }
 
 /// One listing of one tab.
@@ -335,44 +352,117 @@ impl BrowserWindow {
 
     /// Lists Gallery for tab `id`: the photos of its folders, read on a
     /// thread of their own (HOME-019, HOME-038).
-    fn list_gallery_tab(
-        &self,
-        id: TabId,
-        mode: LoadMode,
-        run: Rc<LoadRun>,
-        batch_run: Rc<LoadRun>,
-    ) -> loader::Listing {
+    fn list_gallery_tab(&self, mode: LoadMode, run: Rc<LoadRun>, batch_run: Rc<LoadRun>) -> loader::Listing {
         let hidden = if self.folder_pane().model().shows_hidden() {
             HiddenItems::Include
         } else {
             HiddenItems::Skip
         };
-        // A first listing lays its photos out once, when every folder
-        // is read; a listing again keeps the rows until then anyway.
-        let first = mode == LoadMode::Navigate;
-        if first {
-            self.hold_gallery_layout(id, true);
-        }
+        // A first listing shows nothing until it read for a moment, then
+        // the photos read so far, and keeps those on screen as they are
+        // while it reads on (HOME-038); a listing again keeps the rows
+        // until it ends anyway.
+        let opening = (mode == LoadMode::Navigate).then(|| self.open_gallery_progressively(&run));
+        let batch_opening = opening.clone();
         crate::folder_view::gallery::list_gallery(
             self.gallery_folders(),
             hidden,
             glib::clone!(
                 #[weak(rename_to = window)]
                 self,
-                move |entries| window.receive_batch(&batch_run, entries)
+                move |entries| match &batch_opening {
+                    Some(opening) if opening.shown.get() => {
+                        window.receive_gallery_batch(&batch_run, entries, opening);
+                    }
+                    _ => window.receive_batch(&batch_run, entries),
+                }
             ),
             glib::clone!(
                 #[weak(rename_to = window)]
                 self,
                 move |result| {
                     let id = run.tab;
+                    if let Some(opening) = &opening {
+                        if let Some(timer) = opening.timer.take() {
+                            timer.remove();
+                        }
+                        // The photos that waited, among those on screen,
+                        // in one change.
+                        let waiting = opening.waiting.take();
+                        if result.is_ok() && !waiting.is_empty() {
+                            window.receive_batch(&run, waiting);
+                        }
+                    }
                     window.finish_load(&run, result);
-                    if first {
+                    if opening.is_some() {
                         window.hold_gallery_layout(id, false);
+                        window.keep_gallery_rows_steady(id, false);
                     }
                 }
             ),
         )
+    }
+
+    /// Holds the layout of Gallery's first listing in `run` until it read
+    /// for [`SHOW_READ_AFTER`], then shows the photos read so far.
+    fn open_gallery_progressively(&self, run: &Rc<LoadRun>) -> Rc<GalleryOpening> {
+        let opening = Rc::new(GalleryOpening::default());
+        self.hold_gallery_layout(run.tab, true);
+        let timer = glib::timeout_add_local_once(
+            SHOW_READ_AFTER,
+            glib::clone!(
+                #[weak(rename_to = window)]
+                self,
+                #[strong]
+                run,
+                #[strong]
+                opening,
+                move || {
+                    // Fired: nothing is left to remove.
+                    opening.timer.replace(None);
+                    if !window.imp().session.borrow().accepts(run.tab, run.generation) {
+                        return;
+                    }
+                    opening.shown.set(true);
+                    window.keep_gallery_rows_steady(run.tab, true);
+                    window.hold_gallery_layout(run.tab, false);
+                }
+            ),
+        );
+        opening.timer.replace(Some(timer));
+        opening
+    }
+
+    /// Adds `entries`, photos Gallery's first listing read after showing
+    /// some, without moving those on screen (HOME-038): older ones go
+    /// below them and, once the view left the top, newer ones above
+    /// them, each in a change of its own; those that belong among them,
+    /// or above them while the view shows the top, wait for the end.
+    fn receive_gallery_batch(&self, run: &LoadRun, entries: Vec<Entry>, opening: &GalleryOpening) {
+        if !self.imp().session.borrow().accepts(run.tab, run.generation) {
+            return;
+        }
+        let canvas = self.gallery_canvas_of(run.tab);
+        let Some((Some(newest), Some(oldest))) = canvas.as_ref().and_then(GalleryCanvas::kept_dates) else {
+            self.receive_batch(run, entries);
+            return;
+        };
+        let at_top = canvas.as_ref().is_none_or(GalleryCanvas::at_top);
+        let (mut below, mut above) = (Vec::new(), Vec::new());
+        let mut waiting = opening.waiting.borrow_mut();
+        for entry in entries {
+            match crate::folder_view::sort_roles::photo_date(&entry) {
+                Some(date) if date < oldest => below.push(entry),
+                Some(date) if date > newest && !at_top => above.push(entry),
+                _ => waiting.push(entry),
+            }
+        }
+        drop(waiting);
+        for part in [below, above] {
+            if !part.is_empty() {
+                self.receive_batch(run, part);
+            }
+        }
     }
 
     fn start_listing(
@@ -431,7 +521,7 @@ impl BrowserWindow {
             );
         }
         if start.uri == GALLERY_URI {
-            return self.list_gallery_tab(id, mode, run, batch_run);
+            return self.list_gallery_tab(mode, run, batch_run);
         }
         if let Some(inside) = ArchiveLocation::from_uri(&start.uri) {
             return loader::list_archive_folder(

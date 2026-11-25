@@ -178,6 +178,10 @@ fn walk_folders(
             subfolders: true,
             system_directories: true,
             archives: None,
+            // The newest photos are shown first: their folders are read
+            // first, so the rows on screen are the right ones sooner
+            // (HOME-038).
+            newest_folders_first: true,
         };
         // A missing or unreadable folder lists nothing; a cancelled walk
         // ends here.

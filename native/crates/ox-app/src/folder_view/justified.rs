@@ -100,6 +100,115 @@ impl Layout {
 /// shown square) in rows `width` pixels wide near `target` pixels tall,
 /// `gap` pixels apart.
 pub(crate) fn justify(aspects: &[Option<f64>], width: i32, target: i32, gap: i32) -> Layout {
+    justify_rows(aspects, width, target, gap, false)
+}
+
+/// Lays out as [`justify`] does, but fills the width with the last row
+/// too, as the rows above others kept in place end where those begin: it
+/// is stretched when that leaves it at most half as tall again as the
+/// target, else it joins the row before it.
+pub(crate) fn justify_filled(aspects: &[Option<f64>], width: i32, target: i32, gap: i32) -> Layout {
+    justify_rows(aspects, width, target, gap, true)
+}
+
+/// What changed in a layout's items: `added` items took the place of
+/// `removed` ones at `position`, numbered as before the change.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Change {
+    pub(crate) position: usize,
+    pub(crate) removed: usize,
+    pub(crate) added: usize,
+}
+
+/// Lays out `aspects`, the items after `change`, keeping `kept`, rows of
+/// `old` on screen, exactly as they are (HOME-038): the items changed
+/// only below them are laid out again below them, and those changed only
+/// above them above them, every row there filling the width. Returns the
+/// layout and how far down the kept rows moved, for the scroll position
+/// to follow, or `None` when the change touches the kept rows.
+pub(crate) fn steady(
+    old: &Layout,
+    kept: std::ops::Range<usize>,
+    aspects: &[Option<f64>],
+    change: Change,
+    (width, target, gap): (i32, i32, i32),
+) -> Option<(Layout, i32)> {
+    let (first, last) = (old.rows.get(kept.start)?, old.rows.get(kept.end.checked_sub(1)?)?);
+    let (start, end) = (first.start, last.end);
+    let mut layout = Layout {
+        places: vec![Place::default(); aspects.len()],
+        rows: Vec::new(),
+        height: 0,
+    };
+    if change.position >= end {
+        // Below: the rows down to the last kept one stay.
+        layout.rows.extend_from_slice(&old.rows[..kept.end]);
+        layout.places[..end].copy_from_slice(&old.places[..end]);
+        let below = justify(&aspects[end..], width, target, gap);
+        let top = last.y + last.height + gap;
+        layout.append(&below, end, top);
+        layout.height = if below.rows.is_empty() {
+            last.y + last.height
+        } else {
+            top + below.height
+        };
+        return Some((layout, 0));
+    }
+    if change.position + change.removed > start {
+        return None;
+    }
+    // Above: the rows from the first kept one on stay, moved down.
+    let new_start = start + change.added - change.removed;
+    let above = justify_filled(&aspects[..new_start], width, target, gap);
+    layout.append(&above, 0, 0);
+    let top = if above.rows.is_empty() {
+        0
+    } else {
+        above.height + gap
+    };
+    let shift = top - first.y;
+    let moved = new_start.wrapping_sub(start);
+    for row in &old.rows[kept.start..] {
+        layout.rows.push(Row {
+            start: row.start.wrapping_add(moved),
+            end: row.end.wrapping_add(moved),
+            y: row.y + shift,
+            height: row.height,
+        });
+    }
+    for (item, place) in old.places.iter().enumerate().skip(start) {
+        layout.places[item.wrapping_add(moved)] = Place {
+            y: place.y + shift,
+            ..*place
+        };
+    }
+    layout.height = old.height + shift;
+    Some((layout, shift))
+}
+
+impl Layout {
+    /// Adds `other`'s rows and places, its items from `first` on and its
+    /// rows from `top` down.
+    fn append(&mut self, other: &Layout, first: usize, top: i32) {
+        for row in &other.rows {
+            self.rows.push(Row {
+                start: row.start + first,
+                end: row.end + first,
+                y: row.y + top,
+                height: row.height,
+            });
+        }
+        for (item, place) in other.places.iter().enumerate() {
+            self.places[first + item] = Place {
+                y: place.y + top,
+                ..*place
+            };
+        }
+    }
+}
+
+/// [`justify`], with the last row filling the width when `fill_last`.
+fn justify_rows(aspects: &[Option<f64>], width: i32, target: i32, gap: i32, fill_last: bool) -> Layout {
     let width = width.max(1);
     let target = target.max(1);
     let aspects: Vec<f64> = aspects
@@ -121,6 +230,18 @@ pub(crate) fn justify(aspects: &[Option<f64>], width: i32, target: i32, gap: i32
     while start < aspects.len() {
         let (end, height) = row_end(&aspects[start..], width, target, gap);
         let end = start + end;
+        let mut height = height;
+        if fill_last && height.is_none() {
+            let filled = full_height(&aspects[start..end], width, gap);
+            if filled <= f64::from(target) * 1.5 {
+                height = Some(filled);
+            } else if let Some(before) = layout.rows.pop() {
+                // Too tall alone: one row with the row before it.
+                y = before.y;
+                start = before.start;
+                height = Some(full_height(&aspects[start..end], width, gap));
+            }
+        }
         let full = height.is_some();
         let height = height.unwrap_or(f64::from(target));
         #[expect(clippy::cast_possible_truncation, reason = "row heights are small")]
@@ -145,6 +266,13 @@ pub(crate) fn justify(aspects: &[Option<f64>], width: i32, target: i32, gap: i32
     }
     layout.height = (y - gap).max(0);
     layout
+}
+
+/// The height at which `aspects` in one row fill `width` exactly.
+fn full_height(aspects: &[f64], width: i32, gap: i32) -> f64 {
+    let gaps = f64::from(u32::try_from(aspects.len().saturating_sub(1)).unwrap_or(u32::MAX));
+    let sum: f64 = aspects.iter().sum();
+    (f64::from(width) - f64::from(gap) * gaps) / sum.max(f64::MIN_POSITIVE)
 }
 
 /// How many of `aspects` the next row takes, and its height when it is
@@ -288,5 +416,105 @@ mod tests {
         assert_eq!(layout.item_beside_vertically(1, true), None);
         assert_eq!(layout.row_of(11), Some(3));
         assert_eq!(layout.row_of(12), None);
+    }
+
+    /// Photos added below or above the rows on screen leave those rows
+    /// exactly as they were, moved down by what was added above them;
+    /// the rows above fill the width; a change among them is refused.
+    ///
+    /// parity: HOME-038
+    #[test]
+    fn rows_on_screen_stay_as_photos_come_above_and_below_them() {
+        let aspects = |count: usize, from: usize| -> Vec<Option<f64>> {
+            (from..from + count)
+                .map(|index| Some([1.5, 0.75, 1.0, 1.33, 2.0][index % 5]))
+                .collect()
+        };
+        let sizes = (1000, 160, 4);
+        let old_aspects = aspects(60, 0);
+        let old = justify(&old_aspects, 1000, 160, 4);
+        let kept = 3..6;
+        let (start, end) = (old.rows[3].start, old.rows[5].end);
+        let kept_places = old.places[start..end].to_vec();
+        let kept_rows = old.rows[kept.clone()].to_vec();
+
+        // Below: 30 more after the kept rows.
+        let mut more = old_aspects.clone();
+        more.splice(end + 4..end + 4, aspects(30, 7));
+        let change = Change {
+            position: end + 4,
+            removed: 0,
+            added: 30,
+        };
+        let (below, shift) = steady(&old, kept.clone(), &more, change, sizes).expect("below");
+        assert_eq!(shift, 0);
+        assert_eq!(&below.places[start..end], &kept_places[..]);
+        assert_eq!(&below.rows[kept.clone()], &kept_rows[..]);
+        assert_eq!(below.places.len(), 90);
+        let last = below.rows.last().expect("rows");
+        assert_eq!(last.end, 90);
+        assert_eq!(below.height, last.y + last.height);
+
+        // Above: 23 more before them.
+        let mut more = old_aspects.clone();
+        more.splice(2..2, aspects(23, 3));
+        let change = Change {
+            position: 2,
+            removed: 0,
+            added: 23,
+        };
+        let (above, shift) = steady(&old, kept.clone(), &more, change, sizes).expect("above");
+        assert!(shift > 0);
+        for (index, place) in kept_places.iter().enumerate() {
+            let moved = above.places[start + 23 + index];
+            assert_eq!(
+                (moved.x, moved.width, moved.height),
+                (place.x, place.width, place.height)
+            );
+            assert_eq!(moved.y, place.y + shift);
+        }
+        let first_kept = above.row_of(start + 23).expect("a row");
+        assert_eq!(above.rows[first_kept].y, kept_rows[0].y + shift);
+        assert_eq!(above.height, old.height + shift);
+        // Every row above them fills the width, one gap apart.
+        for row in &above.rows[..first_kept] {
+            let right = above.places[row.end - 1].x + above.places[row.end - 1].width;
+            assert_eq!(right, 1000, "{row:?}");
+        }
+        for pair in above.rows.windows(2) {
+            assert_eq!(pair[1].y, pair[0].y + pair[0].height + 4);
+        }
+
+        // Among them: refused.
+        let mut more = old_aspects.clone();
+        more.splice(start + 1..=start, aspects(2, 0));
+        let change = Change {
+            position: start + 1,
+            removed: 0,
+            added: 2,
+        };
+        assert_eq!(steady(&old, kept, &more, change, sizes), None);
+    }
+
+    /// A filled layout's last row reaches the width: stretched when that
+    /// keeps it near the target, else joined to the row before it.
+    ///
+    /// parity: HOME-038
+    #[test]
+    fn a_filled_layout_ends_with_a_full_row() {
+        for count in 1..40 {
+            let aspects: Vec<Option<f64>> = (0..count)
+                .map(|index| Some([1.5, 0.75, 1.0][index % 3]))
+                .collect();
+            let layout = justify_filled(&aspects, 1000, 160, 4);
+            for row in &layout.rows {
+                let right = layout.places[row.end - 1].x + layout.places[row.end - 1].width;
+                if count > 3 {
+                    assert_eq!(right, 1000, "{count} {row:?}");
+                }
+                assert!(row.height <= 240 || layout.rows.len() == 1, "{count} {row:?}");
+            }
+            assert_eq!(layout.rows.last().map(|row| row.end), Some(count));
+        }
     }
 }
