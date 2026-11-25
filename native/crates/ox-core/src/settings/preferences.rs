@@ -330,6 +330,11 @@ pub struct Preferences {
     /// Sidebar width in pixels, once the user resized it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sidebar_width: Option<u32>,
+    /// The search box's width in pixels, once the user dragged the divider
+    /// between it and the address bar, as Windows remembers it; until
+    /// then Windows 11's default. Stored as `searchBoxWidth`.
+    #[serde(rename = "searchBoxWidth", skip_serializing_if = "Option::is_none")]
+    pub search_box_width: Option<u32>,
     /// Details-view column widths, once the user resized or reset them.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub column_widths: Option<ColumnWidths>,
@@ -819,6 +824,7 @@ impl Default for Preferences {
             show_drive_letters: true,
             text_size: DEFAULT_TEXT_SIZE,
             sidebar_width: None,
+            search_box_width: None,
             column_widths: None,
             window_size: None,
             dialog_size: None,
@@ -1362,6 +1368,8 @@ pub struct PreferencesUpdate {
     pub text_size: Option<u32>,
     /// New sidebar width in pixels; rounded when saved.
     pub sidebar_width: Option<f64>,
+    /// New search box width in pixels; rounded when saved.
+    pub search_box_width: Option<f64>,
     /// Replaces all column widths; an empty list resets them.
     pub column_widths: Option<Vec<ColumnWidth>>,
     /// New context menu style.
@@ -1594,6 +1602,7 @@ impl PreferencesUpdate {
             auto_index: flag("autoIndex"),
             text_size: values.get("textSize").and_then(read_text_size),
             sidebar_width: values.get("sidebarWidth").and_then(Value::as_f64),
+            search_box_width: values.get("searchBoxWidth").and_then(Value::as_f64),
             column_widths: values.get("columnWidths").and_then(read_column_widths),
             context_menu: text("contextMenu").and_then(ContextMenu::from_key),
             strip_position: text("menuStripPosition").and_then(StripPosition::from_key),

@@ -481,3 +481,45 @@ fn closing_a_crumbs_menu_gives_the_keyboard_back_to_the_crumb() {
         "the keyboard is back on the crumb"
     );
 }
+
+/// The search box, at Windows 11's default width: 499 pixels in a window
+/// wide enough, 8 pixels after the address bar, which takes the rest of
+/// the row (ref-01, ref-24, ref-29: 1920 pixels wide). A drag of the
+/// divider between them changes it, and every window remembers it; a
+/// narrow window shrinks the search box first, down to 173 pixels.
+///
+/// parity: LOOK-012
+#[gtk::test]
+fn the_search_box_takes_windows_width_and_its_divider_is_remembered() {
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    resize(&test, 1400);
+    let search = test.window.search_box().clone();
+    let address = test.window.address_bar();
+    wait_until("Windows' default width", || search.width() == 499);
+    let address_end = address.compute_bounds(&test.window).expect("shown");
+    let search_start = search.compute_bounds(&test.window).expect("shown");
+    let gap = search_start.x() - (address_end.x() + address_end.width());
+    assert!((gap - 8.0).abs() < 0.5, "8 pixels apart: {gap}");
+
+    let paned = test.window.search_divider();
+    let handle = paned.width() - address.width() - search.width();
+    paned.set_position(paned.width() - handle - 320);
+    wait_until("the dragged width", || search.width() == 320);
+    wait_until("the width saved", || {
+        test.context.settings_data().preferences.search_box_width == Some(320)
+    });
+    resize(&test, 1200);
+    assert_eq!(search.width(), 320, "a wider or narrower window keeps it");
+    let second = test.open_beside(&fixture.uri());
+    resize(&second, 1400);
+    wait_until("the other window's width", || {
+        second.window.search_box().width() == 320
+    });
+
+    paned.set_position(paned.width() - handle - 700);
+    wait_until("a wide box", || search.width() == 700);
+    resize(&test, 1000);
+    assert!(search.width() < 700, "a narrow window shrinks it");
+    assert!(search.width() >= 173, "down to 173 pixels");
+}

@@ -322,6 +322,12 @@ impl BrowserWindow {
         &self.imp().address_bar
     }
 
+    /// The divider between the address bar and the search box, for tests.
+    #[cfg(test)]
+    pub(super) fn search_divider(&self) -> gtk::Paned {
+        self.imp().address_search.get()
+    }
+
     /// The search box that filters the folder.
     fn search_box(&self) -> &SearchBox {
         &self.imp().search_box

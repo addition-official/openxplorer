@@ -924,3 +924,22 @@ fn running_installed_launchers_is_off_until_chosen() {
             .run_installed_launchers
     );
 }
+
+/// The search box's width, once the divider between it and the address
+/// bar was dragged, is kept within 173 to 1200 pixels, as `searchBoxWidth`;
+/// until then nothing is stored and the window uses Windows' default.
+///
+/// parity: LOOK-012
+#[test]
+fn the_search_box_width_persists_within_bounds() {
+    let root = temporary_folder();
+    let mut store = Settings::open(root.path());
+    assert_eq!(store.snapshot().preferences.search_box_width, None);
+    for value in [json!(172), json!(1201), json!(null), json!("400"), json!(true)] {
+        save_preferences(&mut store, &json!({"searchBoxWidth": value}));
+        assert_eq!(store.snapshot().preferences.search_box_width, None, "{value}");
+    }
+    save_preferences(&mut store, &json!({"searchBoxWidth": 420.4}));
+    let reread = Settings::open(root.path()).snapshot().preferences;
+    assert_eq!(reread.search_box_width, Some(420));
+}
