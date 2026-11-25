@@ -271,8 +271,11 @@ impl Skin {
         }
         self.providers().draw_text_size(text.size, text.family.as_deref());
         // Icons grow and shrink with the text, so they keep their
-        // proportion to it, as at a desktop scale.
-        crate::icons::set_icon_scale(text.size.scale());
+        // proportion to it, as at a desktop scale. The icon scale is the
+        // app's, so a skin on no display (a test's) leaves it alone.
+        if self.providers().draw_on_a_display() {
+            crate::icons::set_icon_scale(text.size.scale());
+        }
         imp.drawn_text.replace(Some(text));
         self.emit_by_name::<()>(TEXT_SIZE_CHANGED, &[]);
         true

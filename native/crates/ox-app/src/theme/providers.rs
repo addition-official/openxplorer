@@ -104,6 +104,12 @@ impl Providers {
         }
     }
 
+    /// Whether the providers draw on a display, rather than for a test's
+    /// skin on none ([`Self::detached`]).
+    pub(super) fn draw_on_a_display(&self) -> bool {
+        self.settings.is_some()
+    }
+
     /// Loads the palette of `appearance`.
     pub(super) fn draw_palette(&self, appearance: Appearance) {
         self.palette.load_from_string(stylesheets::palette(appearance));
