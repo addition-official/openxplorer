@@ -179,16 +179,17 @@ fn ctrl_l_alt_d_the_chevron_and_blank_space_edit_the_whole_address() {
     let keys = application().accels_for_action("win.location");
     assert_eq!(keys, ["<Control>l", "<Alt>d"]);
     let path = fixture.root().display().to_string();
-    let tooltip = format!("{path} · Click blank space or press Ctrl+L to edit");
-    assert_eq!(address.tooltip_text().as_deref(), Some(tooltip.as_str()));
-    let chevron = descendants::<gtk::Button>(address)
+    // As Windows 11 File Explorer (deb 60 next to Windows): no tooltip on
+    // the address bar, and nothing at its right end; F4 and Alt+Down
+    // still list the typed addresses.
+    assert_eq!(address.tooltip_text(), None, "no tooltip");
+    let history_button = descendants::<gtk::Button>(address)
         .into_iter()
-        .find(|button| button.action_name().as_deref() == Some("win.address-history"))
-        .expect("the edit chevron");
-    assert!(gtk::test_accessible_has_property(
-        &chevron,
-        gtk::AccessibleProperty::Label
-    ));
+        .find(|button| button.action_name().as_deref() == Some("win.address-history"));
+    assert!(
+        history_button.is_none_or(|button| !button.is_visible()),
+        "no button at the right end"
+    );
 
     // The bar's own click, which the icon and blank space reach; the
     // crumbs and chevrons claim theirs.

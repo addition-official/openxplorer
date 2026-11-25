@@ -386,3 +386,43 @@ fn the_address_bars_icon_is_the_root_of_the_location() {
     test.show(&ox_core::location::file_uri(&glib::home_dir()));
     assert_eq!(bar.shown_icon_name(), house, "the home folder");
 }
+
+/// While an address is typed, the list under it offers the typed
+/// addresses that start with the text, before the folder's names, as
+/// Windows' address bar does; so the history is reachable without the
+/// button Windows does not have.
+///
+/// parity: NAV-043, NAV-030
+#[gtk::test]
+fn typing_offers_the_typed_addresses_that_start_with_the_text() {
+    let fixture = fixture_with_team_files();
+    let test = TestWindow::open(&fixture.uri());
+    test.wait_for_listing("the fixture");
+    let address = test.window.address_bar();
+    let team = fixture.path("Team files").display().to_string();
+    go_to(&test, &team, &fixture.uri_of("Team files"));
+    go_to(&test, "Recycle Bin", ox_core::location::TRASH_URI);
+
+    test.activate("location", None);
+    let entry = address.entry();
+    entry.set_text("rec");
+    entry.set_position(-1);
+    wait_until("the matching typed address", || address.suggestions_shown());
+    assert_eq!(address.suggestion_rows(), ["Recycle Bin"]);
+
+    let typed = format!("{}/", fixture.root().display());
+    entry.set_text(&typed);
+    entry.set_position(-1);
+    wait_until("the names", || {
+        address.suggestion_rows().len() > 1 && address.suggestion_rows()[0] == team
+    });
+    let rows = address.suggestion_rows();
+    assert_eq!(rows[0], team, "the typed address first");
+    assert_eq!(
+        rows.iter()
+            .filter(|row| **row == team || **row == format!("{team}/"))
+            .count(),
+        1,
+        "once, not again as a name"
+    );
+}
