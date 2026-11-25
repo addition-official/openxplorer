@@ -22,20 +22,21 @@ impl Drop for Reset {
     }
 }
 
-/// Writes synthetic `imageres.dll.mun` and `shell32.dll.mun` files with
-/// every group the roles use into `folder`.
+/// Writes synthetic `imageres.dll.mun`, `shell32.dll.mun` and
+/// `wpdshext.dll.mun` files with every group the roles use into `folder`.
 fn write_both_libraries(folder: &Path) -> Vec<PathBuf> {
     [
         ("imageres.dll.mun", IconLibrary::Imageres),
         ("shell32.dll.mun", IconLibrary::Shell32),
+        ("wpdshext.dll.mun", IconLibrary::Wpdshext),
     ]
     .into_iter()
     .map(|(name, library)| {
         let mut groups: Vec<u16> = IconRole::ALL
             .into_iter()
-            .map(IconRole::source)
+            .flat_map(IconRole::sources)
             .filter(|(source, _, _)| *source == library)
-            .map(|(_, group, _)| group)
+            .map(|(_, group, _)| *group)
             .collect();
         groups.sort_unstable();
         groups.dedup();

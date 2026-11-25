@@ -127,6 +127,8 @@ pub(crate) fn role_of(art: Art) -> Option<IconRole> {
         Art::Glyph(Icon::Laptop) | Art::TintedGlyph(Icon::Laptop, Tint::ThisPc) => IconRole::ThisPc,
         Art::Glyph(Icon::Organization) | Art::TintedGlyph(Icon::Organization, _) => IconRole::Network,
         Art::Glyph(Icon::Settings) => IconRole::Settings,
+        // A phone or other portable device This PC lists.
+        Art::Glyph(Icon::Phone) => IconRole::PortableDevice,
         Art::TintedGlyph(_, Tint::KnownFolder(folder)) => known_folder_role(folder)?,
         Art::Network(network) => network_role(network)?,
         // File icons' document with a zipper has no Windows picture.

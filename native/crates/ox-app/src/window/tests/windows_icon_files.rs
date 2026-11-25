@@ -37,6 +37,7 @@ impl TestHome {
         let files = [
             ("imageres.dll.mun", IconLibrary::Imageres),
             ("shell32.dll.mun", IconLibrary::Shell32),
+            ("wpdshext.dll.mun", IconLibrary::Wpdshext),
         ]
         .into_iter()
         .map(|(name, library)| write_library(root.path(), name, library))
@@ -54,9 +55,9 @@ impl TestHome {
 fn write_library(folder: &Path, name: &str, library: IconLibrary) -> String {
     let mut groups: Vec<u16> = IconRole::ALL
         .into_iter()
-        .map(IconRole::source)
+        .flat_map(IconRole::sources)
         .filter(|(source, _, _)| *source == library)
-        .map(|(_, group, _)| group)
+        .map(|(_, group, _)| *group)
         .collect();
     groups.sort_unstable();
     groups.dedup();

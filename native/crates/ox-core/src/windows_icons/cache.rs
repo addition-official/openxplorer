@@ -94,6 +94,8 @@ pub fn load_icons(files: &[PathBuf], cache: &Path) -> LoadedIcons {
         .mode(0o700)
         .create(cache)
         .is_ok();
+    // Each file's images, with its library, in the order chosen.
+    let mut found: Vec<(IconLibrary, BTreeMap<IconRole, Vec<CachedImage>>)> = Vec::new();
     for path in files.iter().take(MAX_FILES) {
         let Some(library) = IconLibrary::of_file(path) else {
             continue;
@@ -111,8 +113,19 @@ pub fn load_icons(files: &[PathBuf], cache: &Path) -> LoadedIcons {
         } else {
             BTreeMap::new()
         };
-        for (role, images) in images {
-            loaded.roles.entry(role).or_insert(images);
+        found.push((library, images));
+    }
+    // A role takes its images from the file of its first source that has
+    // them, of several of the same library the first chosen.
+    for role in IconRole::ALL {
+        let images = role.sources().iter().find_map(|(library, _, _)| {
+            found
+                .iter()
+                .filter(|(of, _)| of == library)
+                .find_map(|(_, images)| images.get(&role).cloned())
+        });
+        if let Some(images) = images {
+            loaded.roles.insert(role, images);
         }
     }
     if usable {
@@ -135,9 +148,11 @@ fn cache_key(path: &Path, metadata: &fs::Metadata) -> String {
     add(&READER_VERSION.to_le_bytes());
     // The role table too, so a change of a role's group reads afresh.
     for role in IconRole::ALL {
-        let (_, group, _) = role.source();
         add(role.key().as_bytes());
-        add(&group.to_le_bytes());
+        for (library, group, _) in role.sources() {
+            add(library.file_name().as_bytes());
+            add(&group.to_le_bytes());
+        }
     }
     add(path.as_os_str().as_bytes());
     add(&[0]);
@@ -212,11 +227,12 @@ fn decode_file(path: &Path, library: IconLibrary) -> BTreeMap<(IconRole, u32), V
         return pictures;
     };
     for role in IconRole::ALL {
-        let (source, group, _) = role.source();
-        if source != library {
-            continue;
-        }
-        let Ok(mut images) = file.group(group) else {
+        let mut groups = role
+            .sources()
+            .iter()
+            .filter(|(source, _, _)| *source == library)
+            .map(|(_, group, _)| *group);
+        let Some(mut images) = groups.find_map(|group| file.group(group).ok()) else {
             continue;
         };
         // Deepest first, so the first that decodes at an edge is kept.

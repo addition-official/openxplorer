@@ -5,8 +5,10 @@
 //! The group numbers are the resource IDs of `imageres.dll.mun` and
 //! `shell32.dll.mun` in Windows 10 and 11 (checked on Windows 11 build
 //! 26200; Home's and Gallery's are the ones their `DefaultIcon` keys
-//! name). A file is recognized by its name alone, with or without the
-//! `.mun` of the copies in `C:\Windows\SystemResources`.
+//! name), and of the other files Explorer draws devices, networks and
+//! archives from, where marked [`Provenance::Unverified`] not yet checked
+//! on Windows. A file is recognized by its name alone, with or without
+//! the `.mun` of the copies in `C:\Windows\SystemResources`.
 
 use std::path::Path;
 
@@ -17,6 +19,27 @@ pub enum IconLibrary {
     Imageres,
     /// `shell32.dll`, or its resources `shell32.dll.mun`.
     Shell32,
+    /// `DDORes.dll`: device icons (phones, cameras, printers, media
+    /// servers, televisions).
+    Ddores,
+    /// `wpdshext.dll`: portable devices and MTP phones.
+    Wpdshext,
+    /// `networkexplorer.dll`: Network's computers and media servers.
+    NetworkExplorer,
+    /// `netshell.dll`: network adapters and connections.
+    Netshell,
+    /// `ntshrui.dll`: sharing and its overlays.
+    Ntshrui,
+    /// `zipfldr.dll`: compressed folders.
+    Zipfldr,
+    /// `mydocs.dll`: Documents.
+    Mydocs,
+    /// `mycomput.dll`: This PC and computer management.
+    Mycomput,
+    /// `ExplorerFrame.dll`: Explorer's frame.
+    ExplorerFrame,
+    /// `dmdskres.dll`: disk types.
+    Dmdskres,
 }
 
 impl IconLibrary {
@@ -25,10 +48,40 @@ impl IconLibrary {
     pub fn of_file(path: &Path) -> Option<Self> {
         let name = path.file_name()?.to_str()?.to_ascii_lowercase();
         let name = name.strip_suffix(".mun").unwrap_or(&name);
-        match name {
-            "imageres.dll" => Some(Self::Imageres),
-            "shell32.dll" => Some(Self::Shell32),
-            _ => None,
+        Self::ALL.into_iter().find(|library| library.file_name() == name)
+    }
+
+    /// Every library, in the order of [`IconLibrary`].
+    pub const ALL: [IconLibrary; 12] = [
+        IconLibrary::Imageres,
+        IconLibrary::Shell32,
+        IconLibrary::Ddores,
+        IconLibrary::Wpdshext,
+        IconLibrary::NetworkExplorer,
+        IconLibrary::Netshell,
+        IconLibrary::Ntshrui,
+        IconLibrary::Zipfldr,
+        IconLibrary::Mydocs,
+        IconLibrary::Mycomput,
+        IconLibrary::ExplorerFrame,
+        IconLibrary::Dmdskres,
+    ];
+
+    /// The library's file name in lower case, without `.mun`.
+    pub const fn file_name(self) -> &'static str {
+        match self {
+            Self::Imageres => "imageres.dll",
+            Self::Shell32 => "shell32.dll",
+            Self::Ddores => "ddores.dll",
+            Self::Wpdshext => "wpdshext.dll",
+            Self::NetworkExplorer => "networkexplorer.dll",
+            Self::Netshell => "netshell.dll",
+            Self::Ntshrui => "ntshrui.dll",
+            Self::Zipfldr => "zipfldr.dll",
+            Self::Mydocs => "mydocs.dll",
+            Self::Mycomput => "mycomput.dll",
+            Self::ExplorerFrame => "explorerframe.dll",
+            Self::Dmdskres => "dmdskres.dll",
         }
     }
 }
@@ -109,6 +162,9 @@ pub enum IconRole {
     /// A folder with a white page sticking out: a folder that holds files
     /// but no picture, in the larger icon views.
     FolderWithFiles,
+    /// A phone or other portable device This PC lists, as an Android phone
+    /// over MTP.
+    PortableDevice,
 }
 
 /// Where a role's group number comes from.
@@ -119,11 +175,14 @@ pub enum Provenance {
     Verified,
     /// The closest picture on the icon sheet, not confirmed in Windows.
     BestMatch,
+    /// A resource ID from public documentation or known Explorer
+    /// behaviour, not yet rendered from the user's file to confirm it.
+    Unverified,
 }
 
 impl IconRole {
     /// Every role, in the order of [`IconRole`].
-    pub const ALL: [IconRole; 33] = [
+    pub const ALL: [IconRole; 34] = [
         IconRole::Folder,
         IconRole::Desktop,
         IconRole::Downloads,
@@ -157,6 +216,7 @@ impl IconRole {
         IconRole::FolderBack,
         IconRole::FolderFront,
         IconRole::FolderWithFiles,
+        IconRole::PortableDevice,
     ];
 
     /// The file and icon group that draw this role, and where the number
@@ -164,7 +224,36 @@ impl IconRole {
     /// are the flat tiles their `HKCR\CLSID\{known folder}\DefaultIcon`
     /// values name on Windows 11 build 26200, not the yellow folders with
     /// an overlay (1001 to 1005) older Windows used.
-    pub const fn source(self) -> (IconLibrary, u16, Provenance) {
+    pub fn source(self) -> (IconLibrary, u16, Provenance) {
+        self.sources()[0]
+    }
+
+    /// Every file and icon group that can draw this role, the one Windows
+    /// draws first: a role takes its images from the first of these whose
+    /// file is chosen and has the group. Where Windows 11 draws a role from
+    /// `imageres.dll` (checked), the older files that also have one
+    /// (`zipfldr.dll`, `mydocs.dll`, `mycomput.dll`, `dmdskres.dll`,
+    /// `networkexplorer.dll`) come after it, used only when it is not
+    /// chosen. Their group numbers are unverified.
+    pub fn sources(self) -> &'static [(IconLibrary, u16, Provenance)] {
+        use IconLibrary::{Ddores, Dmdskres, Imageres, Mycomput, Mydocs, NetworkExplorer, Wpdshext, Zipfldr};
+        use Provenance::{Unverified, Verified};
+        match self {
+            // An MTP phone in This PC: the portable device of wpdshext.dll,
+            // else the phone of DDORes.dll.
+            IconRole::PortableDevice => &[(Wpdshext, 704, Unverified), (Ddores, 2010, Unverified)],
+            IconRole::Documents => &[(Imageres, 112, Verified), (Mydocs, 101, Unverified)],
+            IconRole::ThisPc => &[(Imageres, 109, Verified), (Mycomput, 101, Unverified)],
+            IconRole::NetworkComputer => &[(Imageres, 109, Verified), (NetworkExplorer, 1, Unverified)],
+            IconRole::ZipFolder => &[(Imageres, 174, Verified), (Zipfldr, 101, Unverified)],
+            IconRole::Drive => &[(Imageres, 32, Verified), (Dmdskres, 31, Unverified)],
+            _ => std::slice::from_ref(&PRIMARY[self as usize]),
+        }
+    }
+
+    /// The `imageres.dll` or `shell32.dll` group of a role Windows 11 draws
+    /// from one of them.
+    const fn primary(self) -> (IconLibrary, u16, Provenance) {
         use IconLibrary::{Imageres, Shell32};
         use Provenance::{BestMatch, Verified};
         match self {
@@ -210,6 +299,8 @@ impl IconRole {
             IconRole::FolderBack => (Imageres, 5, Verified),
             IconRole::FolderFront => (Imageres, 6, Verified),
             IconRole::FolderWithFiles => (Imageres, 162, Verified),
+            // Not in either: never used, as its sources say.
+            IconRole::PortableDevice => (Imageres, 0, Provenance::Unverified),
         }
     }
 
@@ -249,6 +340,7 @@ impl IconRole {
             IconRole::FolderBack => "folder-back",
             IconRole::FolderFront => "folder-front",
             IconRole::FolderWithFiles => "folder-with-files",
+            IconRole::PortableDevice => "portable-device",
         }
     }
 
@@ -257,3 +349,15 @@ impl IconRole {
         Self::ALL.into_iter().find(|role| role.key() == key)
     }
 }
+
+/// The primary source of every role, in the order of [`IconRole::ALL`],
+/// for [`IconRole::sources`] to lend out.
+static PRIMARY: [(IconLibrary, u16, Provenance); IconRole::ALL.len()] = {
+    let mut table = [(IconLibrary::Imageres, 0, Provenance::Verified); IconRole::ALL.len()];
+    let mut index = 0;
+    while index < IconRole::ALL.len() {
+        table[index] = IconRole::ALL[index].primary();
+        index += 1;
+    }
+    table
+};
