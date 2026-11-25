@@ -40,6 +40,11 @@ use ox_core::search::{
 
 use super::loader::Listing;
 
+/// What tests hold to keep Gallery's listing waiting after its first
+/// batch, as a large library's later folders come later.
+#[cfg(test)]
+pub(crate) const AFTER_FIRST_BATCH: &str = "ox:gallery#after-first-batch";
+
 /// How much of a photo is read for its date: EXIF sits at the start.
 const EXIF_HEAD: u64 = 256 * 1024;
 /// How long later batches are merged before they reach the window.
@@ -111,14 +116,22 @@ pub(crate) fn list_gallery(
         }
         let mut is_first = true;
         while let Ok(mut batch) = receiver.recv().await {
+            // The first folder's photos go at once; later ones are merged.
             if !is_first {
                 glib::timeout_future(BATCH_MERGE).await;
+                while let Ok(more) = receiver.try_recv() {
+                    batch.extend(more);
+                }
             }
-            while let Ok(more) = receiver.try_recv() {
-                batch.extend(more);
-            }
-            is_first = false;
+            let was_first = std::mem::replace(&mut is_first, false);
             on_batch(batch);
+            // Tests hold the rest of the walk here, after the first batch.
+            #[cfg(test)]
+            if was_first {
+                crate::test_support::held::wait_while_held(AFTER_FIRST_BATCH).await;
+            }
+            #[cfg(not(test))]
+            let _ = was_first;
         }
         on_done(Ok(()));
     })

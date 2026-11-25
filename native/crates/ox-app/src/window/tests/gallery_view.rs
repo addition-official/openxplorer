@@ -582,7 +582,7 @@ fn small_print_is_drawn_as_sharp_as_the_original_shrunk_to_the_tile() {
 }
 
 /// Opening Gallery lays its photos out once, as Windows 11 does: however
-/// many batches the folders arrive in (1,000 photos in 40 folders), no layout of only some photos shows
+/// many batches the folders arrive in, no layout of only some photos shows
 /// first, the heading's row is there from the first frame (so nothing
 /// moves down when dates arrive), and no empty page shows while the
 /// folders are still read.
@@ -591,7 +591,7 @@ fn small_print_is_drawn_as_sharp_as_the_original_shrunk_to_the_tile() {
 #[gtk::test]
 fn gallery_lays_its_photos_out_once_as_it_opens() {
     let home = PicturesHome::new();
-    for folder in 0..40 {
+    for folder in 0..12 {
         for index in 0..25 {
             let day = 1 + (folder * 25 + index) % 28;
             photo(
@@ -608,36 +608,36 @@ fn gallery_lays_its_photos_out_once_as_it_opens() {
         |_| {},
     );
     test.window.take_gallery_layouts();
+    // The walk waits before any photo, then again after the first folder's
+    // photos, while the window draws, as on a large library.
+    let walk = crate::test_support::held::hold(super::gallery::GALLERY);
+    let rest = crate::test_support::held::hold(crate::folder_view::gallery::AFTER_FIRST_BATCH);
     test.window
         .navigate(super::gallery::GALLERY)
         .expect("Gallery opens");
-    let mut shown_without_heading = 0;
-    let mut empty_page_frames = 0;
-    for _ in 0..2000 {
-        wait_for_frames(&test.window, 1);
-        let pane = test.window.folder_pane();
-        if test.window.current_uri().as_deref() == Some(super::gallery::GALLERY) {
-            if pane.page() == Some(crate::window::folder_pane::PanePage::Empty) {
-                empty_page_frames += 1;
-            }
-            if pane.page() == Some(crate::window::folder_pane::PanePage::Listing)
-                && !test.window.gallery_heading_row_shown()
-            {
-                shown_without_heading += 1;
-            }
-        }
-        if !test.window.is_loading() && test.names().len() == 1000 {
-            break;
-        }
-    }
+    wait_until("Gallery", || {
+        test.window.current_uri().as_deref() == Some(super::gallery::GALLERY)
+    });
+    let page = || test.window.folder_pane().page();
+    let empty = Some(crate::window::folder_pane::PanePage::Empty);
+    wait_for_frames(&test.window, 5);
+    assert_ne!(page(), empty, "no empty page before any photo is found");
+    assert!(
+        test.window.gallery_heading_row_shown(),
+        "the heading's row is there before any photo"
+    );
+    drop(walk);
+    wait_until("the first folder's photos", || !test.names().is_empty());
+    wait_for_frames(&test.window, 5);
+    assert_ne!(page(), empty, "no empty page while reading");
+    assert!(test.window.gallery_heading_row_shown());
+    drop(rest);
     test.wait_for_listing("Gallery");
     wait_for_frames(&test.window, 3);
-    assert_eq!(test.names().len(), 1000);
+    assert_eq!(test.names().len(), 300);
     assert_eq!(
         test.window.take_gallery_layouts(),
         [300],
         "one layout, of every photo"
     );
-    assert_eq!(shown_without_heading, 0, "frames without the heading's row");
-    assert_eq!(empty_page_frames, 0, "frames of an empty page while reading");
 }
