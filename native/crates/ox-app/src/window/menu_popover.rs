@@ -2131,8 +2131,13 @@ fn item_content(item: &MenuItem, check: CheckMark, marks: MarkColumn, glyphs: Gl
     if marks == MarkColumn::Shown {
         content.append(&mark_slot(item, check));
     }
-    let glyph = application_icon.or_else(|| {
+    let glyph = application_icon.map(gtk::Image::upcast).or_else(|| {
         item.shows_glyph.then(|| {
+            // Windows' two-tone glyph, unless the row draws its glyph
+            // mirrored or in the accent colour already.
+            if !item.glyph_look.mirrored && !item.glyph_look.accent {
+                return icons::accented_image(item.glyph, ROW_ICON);
+            }
             let image = icons::image(item.glyph, ROW_ICON);
             if item.glyph_look.mirrored {
                 image.add_css_class("mirrored");
@@ -2140,7 +2145,7 @@ fn item_content(item: &MenuItem, check: CheckMark, marks: MarkColumn, glyphs: Gl
             if item.glyph_look.accent {
                 image.add_css_class("accent-glyph");
             }
-            image
+            image.upcast()
         })
     });
     if let Some(glyph) = glyph {

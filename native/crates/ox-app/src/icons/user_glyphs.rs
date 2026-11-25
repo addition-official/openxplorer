@@ -314,6 +314,14 @@ pub(crate) const fn accent_of(icon: Icon) -> Option<(i32, i32, i32, i32)> {
         Icon::Share => Some((4, 0, 15, 11)),
         // The down arrow.
         Icon::ArrowSort => Some((9, 0, 16, 14)),
+        // The menus' rows: Open with's arrow, the whole star of Add to
+        // Favorites, Compress to's zipper, Copy as path's path, Show more
+        // options' arrow.
+        Icon::OpenWith => Some((7, 3, 16, 16)),
+        Icon::Star => Some((0, 0, 16, 16)),
+        Icon::FolderZip => Some((10, 0, 13, 14)),
+        Icon::CopyAsPath => Some((2, 4, 14, 12)),
+        Icon::ShowMoreOptions => Some((7, 0, 15, 7)),
         _ => None,
     }
 }
