@@ -108,6 +108,13 @@ impl BrowserWindow {
         if let Some(pending) = state.save.take() {
             pending.remove();
         }
+        // GTK settles the divider where it was put once it lays the row
+        // out: the search box keeps its width, which is no drag, and
+        // saving it would change the settings, which draws every window's
+        // Home page again.
+        if width == state.wanted.get() {
+            return;
+        }
         let source = glib::timeout_add_local_once(
             SAVE_DELAY,
             glib::clone!(

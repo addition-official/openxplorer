@@ -485,6 +485,30 @@ fn closing_a_crumbs_menu_gives_the_keyboard_back_to_the_crumb() {
     );
 }
 
+/// Opening and laying out a window saves no search box width: the
+/// divider placing the search box at its width is not a drag. A saved
+/// width changes the settings, which draws every window's Home page again
+/// (a Quick access tile's menu then closed onto a tile drawn anew).
+///
+/// parity: LOOK-012
+#[gtk::test]
+fn laying_out_a_window_saves_no_search_box_width() {
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    resize(&test, 1400);
+    let paned = test.window.search_divider();
+    wait_until("the divider placed", || {
+        paned.is_position_set() && paned.width() > 0
+    });
+    resize(&test, 1200);
+    crate::test_support::harness::wait_for(std::time::Duration::from_millis(800));
+    assert_eq!(
+        test.context.settings_data().preferences.search_box_width,
+        None,
+        "no width saved without a drag"
+    );
+}
+
 /// The search box, at Windows 11's default width: 499 pixels in a window
 /// wide enough, 8 pixels after the address bar, which takes the rest of
 /// the row (ref-01, ref-24, ref-29: 1920 pixels wide). A drag of the
