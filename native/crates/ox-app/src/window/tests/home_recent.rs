@@ -745,10 +745,10 @@ fn strip_layout(menu: &MenuPopover) -> (Vec<gtk::graphene::Rect>, f32) {
 
 /// The compact menu's strip packs its buttons from the left at one fixed
 /// width, whatever their number, with the rest of the strip empty, as
-/// Windows 11 draws it (measured on Windows 11 at 1x, from the menu's
-/// outer edge: Copy centred at 32, a 1-pixel divider at 65, Share
-/// centred at 98, nothing after the last button). A Recent row's two
-/// buttons and a file's five are as wide.
+/// Windows 11 draws it (reference/ref-04, a file's menu at 1x, measured
+/// by script from the menu's outer edge: buttons 65 pixels apart, the
+/// first divider at 66, the menu 328 pixels wide with five buttons). A
+/// Recent row's two buttons and a file's five are as wide.
 ///
 /// parity: HOME-036, CMD-010
 #[gtk::test]
@@ -778,15 +778,19 @@ fn the_strip_packs_fixed_width_buttons_from_the_left() {
             "one fixed width: {button:?} against {width}"
         );
     }
-    // The first button fills the strip's start, inside the menu's 1-pixel
-    // border: 64 pixels, centred at 32 from the menu's edge; each next one
-    // starts with its 1-pixel divider, 65 pixels on.
-    assert!((63.0..=65.0).contains(&width), "Windows' width: {width}");
+    // Each button takes 65 pixels, a next one's 1-pixel divider (its left
+    // border) included, from the strip's start inside the menu's border.
+    assert!((64.5..=65.5).contains(&width), "Windows' width: {width}");
     assert!(recent[0].x() <= 0.5, "packed from the left: {:?}", recent[0]);
     let pitch = recent[1].x() - recent[0].x();
     assert!(
-        (64.0..=66.0).contains(&pitch),
+        (64.5..=65.5).contains(&pitch),
         "65 pixels from button to button: {pitch}"
+    );
+    let five = file.last().map_or(0.0, |last| last.x() + last.width());
+    assert!(
+        (324.0..=326.0).contains(&five),
+        "five buttons fill 325 pixels, as ref-04's: {five}"
     );
     let used = recent[1].x() + recent[1].width();
     assert!(

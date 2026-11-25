@@ -253,21 +253,22 @@ popover.ox-menu.compact list > row {
 popover.ox-menu.compact list > separator { margin: 4px 0; }
 /* Windows 11's labeled strip: buttons of one fixed width, each an icon
    with its label under it, set apart by 1px lines and packed from the
-   left, the rest of the strip empty (measured on Windows 11 at 1x, from
-   the menu's outer edge: the first button centred at 32, a divider at
-   65, the next centred at 98): 64px each, the divider the next one's
-   left border. */
+   left, the rest of the strip empty (reference/ref-04, a file's menu at
+   1x, measured by script from the menu's outer edge: buttons 65px apart,
+   the first divider at 66, five buttons filling a 328px menu): 65px each,
+   a next button's divider, its left border, included. */
 popover.ox-menu .context-strip { padding: 2px 0; border-bottom: 1px solid @ox_border; margin-bottom: 2px; }
 window.ox popover.ox-menu .context-strip button,
 popover.ox-menu .context-strip button {
   min-height: 44px;
-  min-width: 60px;
+  min-width: 61px;
   padding: 3px 2px;
   margin: 0;
   border-radius: 4px;
 }
 window.ox popover.ox-menu .context-strip button:not(:first-child),
 popover.ox-menu .context-strip button:not(:first-child) {
+  min-width: 60px;
   border-left: 1px solid alpha(@ox_border, 0.7);
 }
 popover.ox-menu .context-strip .strip-label { font-size: 0.85em; }
