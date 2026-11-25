@@ -580,6 +580,7 @@ pub(super) fn tile(icon: &gtk::Widget, name: &str, kind: &str, key: &str, shape:
             let content = beside(icon, &name_label, &lines, super::landing::TILE_ICON_GAP);
             let (across, down) = super::landing::TILE_CHROME;
             content.set_size_request(cell.width - across, cell.height - down);
+            lines.add_css_class("tile-bar-fixed");
             (content, CapacitySlot::Lines(lines.clone(), true))
         }
         Shape::Content(height) => {
@@ -656,6 +657,10 @@ pub(super) fn tile(icon: &gtk::Widget, name: &str, kind: &str, key: &str, shape:
 /// them at the left of the row.
 const CONTENT_LINES_WIDTH: i32 = 220;
 
+/// A tile's capacity bar across, its border included, as Windows 11's
+/// This PC draws it at 100% (189 pixels on its capture).
+const TILE_BAR_WIDTH: i32 = 189;
+
 /// Pixels an icon tile's padding takes across (landing.css).
 const ICON_CELL_CHROME: i32 = 12;
 
@@ -699,6 +704,11 @@ pub(super) fn show_capacity_in(slot: &CapacitySlot, capacity: Capacity) {
     match slot {
         CapacitySlot::Lines(lines, with_text) => {
             let bar = super::landing::capacity_bar(capacity);
+            if lines.has_css_class("tile-bar-fixed") {
+                // Windows 11's Tiles bar is as wide whatever the tile.
+                bar.set_halign(gtk::Align::Start);
+                bar.set_size_request(TILE_BAR_WIDTH, -1);
+            }
             lines.append(&bar);
             if *with_text {
                 lines.append(&text_label(&capacity.text(), "card-sub"));

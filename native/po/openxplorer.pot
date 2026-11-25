@@ -7747,11 +7747,6 @@ msgid "Portable Device"
 msgstr ""
 
 #. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-app/src/window/landing.rs
-msgid "{title} ({count})"
-msgstr ""
-
-#. Keep each {name} as it is: the app puts a value there.
 #: crates/ox-app/src/window/link_target.rs
 msgid "The target of “{name}” does not exist: {display}"
 msgstr ""

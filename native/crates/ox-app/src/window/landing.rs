@@ -58,8 +58,14 @@ use super::BrowserWindow;
 /// Share of used space from which the capacity bar turns red.
 const NEARLY_FULL: f64 = 0.9;
 
-/// Pixels between a tile's icon and its lines, as in the Tiles view.
-pub(super) const TILE_ICON_GAP: i32 = 10;
+/// Pixels between a tile's icon and its lines: Windows 11's This PC sets
+/// the bar 71 pixels and the name 73 pixels into the page (ref-25).
+pub(super) const TILE_ICON_GAP: i32 = 7;
+
+/// Pixels between a group header's chevron and its title, as Windows 11's
+/// This PC sets them (ref-25: the chevron's ink 7 pixels into the page,
+/// the title's 24).
+const HEADER_CHEVRON_GAP: i32 = 2;
 /// A tile's padding and margin across (8 and 2 on each side) and down
 /// (8 and 1 on each side), as `gridview.files.tiles > child` has them.
 pub(super) const TILE_CHROME: (i32, i32) = (20, 18);
@@ -454,26 +460,12 @@ fn is_drive_letter(text: &str) -> bool {
     )
 }
 
-/// "Devices and drives (3)": a group's title and how many tiles it holds,
-/// as the details view heads its groups.
-fn header_text(title: &str, count: usize) -> String {
-    ox_core::i18n::format_message(
-        "{title} ({count})",
-        &[
-            ("title", title),
-            (
-                "count",
-                &format::group_digits(u64::try_from(count).unwrap_or(u64::MAX)),
-            ),
-        ],
-    )
-}
-
-/// A group's header: a chevron, the title and count, and a line to the
-/// right edge. Clicking it, Enter or Space collapses or expands `tiles`;
-/// with the keyboard on it, Left collapses them and Right expands them, as
+/// A group's header: a chevron and the title, "Devices and drives", as
+/// Windows 11's This PC heads its groups, with no count and no line beside
+/// it (measured on its capture). Clicking it, Enter or Space collapses or
+/// expands `tiles`; with the keyboard on it, Left collapses them and Right expands them, as
 /// in Explorer ([`connect_header_keys`]).
-fn group_header(page: &gtk::Box, group: &Group, count: usize, tiles: &gtk::FlowBox) -> gtk::Button {
+fn group_header(page: &gtk::Box, group: &Group, tiles: &gtk::FlowBox) -> gtk::Button {
     let collapsed_class = group.collapsed_class();
     let header_class = group.header_class();
     let collapsed = page.has_css_class(&collapsed_class);
@@ -486,18 +478,14 @@ fn group_header(page: &gtk::Box, group: &Group, count: usize, tiles: &gtk::FlowB
     };
     let chevron = icons::image(chevron_of(collapsed), CHEVRON);
     let title = gtk::Label::builder()
-        .label(header_text(&group.title, count))
+        .label(group.title.as_str())
         .xalign(0.0)
+        .hexpand(true)
         .css_classes(["group-title"])
         .build();
-    let line = gtk::Separator::builder()
-        .hexpand(true)
-        .valign(gtk::Align::Center)
-        .build();
-    let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    let row = gtk::Box::new(gtk::Orientation::Horizontal, HEADER_CHEVRON_GAP);
     row.append(&chevron);
     row.append(&title);
-    row.append(&line);
     // Not a Tab stop while its group is expanded, as in Explorer: Tab goes
     // to the tiles, and the arrows reach the header from its group's first
     // row ([`focus_header`]). A collapsed group's header is one, so the
@@ -964,7 +952,7 @@ fn tile_group(page: &gtk::Box, group: Option<Group>, mut tiles: Vec<Tile>, layou
         .map_or_else(|| Page::ThisPc.title().to_owned(), |group| group.title.clone());
     flow.update_property(&[gtk::accessible::Property::Label(&title)]);
     if let Some(group) = group {
-        page.append(&group_header(page, &group, tiles.len(), &flow));
+        page.append(&group_header(page, &group, &flow));
     }
     page.append(&flow);
     sort_tiles(&flow, &mut tiles, layout);
@@ -1436,9 +1424,7 @@ pub(super) fn section_titles(body: &gtk::Box) -> Vec<String> {
         .filter_map(|header| {
             let row = header.child()?;
             let title = row.first_child()?.next_sibling().and_downcast::<gtk::Label>()?;
-            let text = title.text();
-            let (title, _count) = text.rsplit_once(" (")?;
-            Some(title.to_owned())
+            Some(title.text().to_string())
         })
         .collect()
 }
