@@ -139,10 +139,11 @@ fn every_place_of_a_window_takes_the_files_pictures() {
             image.shows_user_icon()
         });
     }
+    // The address bar's first icon stays Windows' monochrome glyph, as
+    // Windows 11 draws its address bar (reference shots ref-01, ref-24):
+    // never a colour picture of the files.
     let address = test.window.address_bar().location_icon();
-    wait_until("the address bar to show Home's picture", || {
-        address.icon_name().is_none() && address.paintable().is_some()
-    });
+    assert_eq!(address.icon_name().as_deref(), Some("ox-home-20-symbolic"));
 
     test.window
         .add_tab(crate::locations::Page::Home.uri())
