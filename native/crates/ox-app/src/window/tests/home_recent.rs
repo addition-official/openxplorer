@@ -637,7 +637,11 @@ fn menu_row_icons(menu: &MenuPopover) -> Vec<(String, String)> {
 /// With Windows icon files on and a symbol font chosen, a Recent row's
 /// menu draws its strip's and rows' glyphs from the font, as the file
 /// list's menu does. The font is synthetic, built in the test from the
-/// codepoints Microsoft's table gives those glyphs.
+/// codepoints Microsoft's table gives those glyphs: since the icons job's
+/// round on the menus' glyphs (icons-command-bar), Open with and Show
+/// more options draw their own, `OpenWith` (E7AC) and `ShowMoreOptions`
+/// (E93A), and Copy as path the file menu's `CopyAsPath` (E62F), as
+/// Windows 11's menus do.
 ///
 /// parity: HOME-036, LOOK-031
 #[gtk::test]
@@ -653,6 +657,9 @@ fn a_recent_rows_menu_draws_the_chosen_fonts_glyphs() {
         Icon::Share,
         Icon::Open,
         Icon::Apps,
+        Icon::OpenWith,
+        Icon::ShowMoreOptions,
+        Icon::CopyAsPath,
         Icon::Folder,
         Icon::FolderZip,
         Icon::Dismiss,
