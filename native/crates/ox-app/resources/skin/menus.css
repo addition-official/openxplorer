@@ -168,6 +168,23 @@ popover.ox-menu list.address-suggestions > row:active { background-color: @ox_pr
 .address-suggestions .pill { min-width: 3px; min-height: 16px; border-radius: 2px; margin-right: 13px; }
 .address-suggestions > row:selected .pill { background-color: @ox_accent; }
 
+/* ---- The root chevron's list (src/window/root_places.rs) ----
+   Windows 11's list under the chevron after the address bar's first icon:
+   plain text, no icons, 214px wide (the scroller's width request) with
+   32px rows, ten of them before it scrolls with GTK's thin overlay bar.
+   The text's inset is not measured yet (NEED VM REF); 12px as the
+   suggestions' text. */
+popover.ox-menu.root-places > contents { padding: 0; }
+popover.ox-menu.root-places list > row {
+  min-height: 0;
+  margin: 0;
+  padding: 0 12px;
+  border-radius: 4px;
+}
+popover.ox-menu.root-places list > row:hover,
+popover.ox-menu.root-places list > row:selected { background-color: @ox_hover; color: @ox_text; }
+popover.ox-menu.root-places list > row:active { background-color: @ox_pressed; }
+
 /* ---- Toast (§4.15, E08) ---- */
 .toast {
   background-color: @ox_text;

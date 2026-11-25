@@ -269,13 +269,6 @@ impl BrowserWindow {
             .collect()
     }
 
-    /// Opens the top-level places under the chevron `anchor`.
-    pub(super) fn show_places_menu(&self, anchor: &gtk::Widget) {
-        self.popup_address_menu(anchor, self.top_level_places(), true);
-    }
-
-    /// Opens the menu of the « button `anchor`: the `hidden` crumbs, then
-    /// the top-level places.
     pub(super) fn show_hidden_crumbs_menu(&self, anchor: &gtk::Widget, hidden: &[gtk::Button]) {
         let hidden: Vec<(String, String)> = hidden
             .iter()

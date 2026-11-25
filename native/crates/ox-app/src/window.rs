@@ -142,6 +142,7 @@ mod quiet_tooltips;
 mod recycle_bin_place;
 mod relocated_files;
 mod result_location;
+mod root_places;
 mod rubber_band;
 mod run_on_open;
 mod saved_search;
