@@ -302,7 +302,10 @@ fn the_tree_opens_to_the_current_folder_only_with_the_option_on() {
 
 /// With "Hide expand arrows" on, the drives' and folders' chevrons draw
 /// nothing while the pointer is outside the pane, show once the real
-/// pointer is over it, and still expand a drive when clicked.
+/// pointer is over it, whether it comes from the file list or from
+/// outside the window, hide again when it leaves, and still expand a
+/// drive when clicked. (Checked by hand on Weston and KWin 5.27 as
+/// Wayland compositors too, where XTEST cannot move the pointer.)
 ///
 /// parity: SIDE-032, SIDE-033
 #[gtk::test]
@@ -331,9 +334,25 @@ fn hidden_chevrons_show_while_the_real_pointer_is_over_the_pane() {
     pointer.move_to(off_pane.0, off_pane.1);
     wait_until("the chevron to hide", || !draws(&chevron()));
 
+    // From the file list into the pane, and back out.
     let over = screen_point(&mut pointer, test.window.sidebar().list(), (110.0, 20.0), PROBE);
-    pointer.move_to(over.0, over.1);
-    wait_until("the chevron to show under the pointer", || draws(&chevron()));
+    pointer.glide(off_pane, over, 12);
+    wait_until(
+        "the chevron to show, entering from the list",
+        || draws(&chevron()),
+    );
+    pointer.glide(over, off_pane, 12);
+    wait_until("the chevron to hide, leaving for the list", || !draws(&chevron()));
+    // From outside the window straight into the pane.
+    let outside = (1430, 990);
+    pointer.glide(off_pane, outside, 12);
+    wait_for(Duration::from_millis(300));
+    let hidden_outside = !draws(&chevron());
+    pointer.glide(outside, over, 16);
+    wait_until("the chevron to show, entering from outside the window", || {
+        draws(&chevron())
+    });
+    assert!(hidden_outside, "hidden while the pointer is outside the window");
     click(&mut pointer, &chevron());
     wait_until("the folders", || !rows_under(&test, "STICK").is_empty());
     let_go(&mut pointer);
