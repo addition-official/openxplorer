@@ -512,7 +512,8 @@ fn the_address_bars_home_opens_the_home_page() {
 /// Date accessed and File location 484 and 298 pixels apart from the
 /// left, not stretched to the edge; Quick access tiles 60 pixels high,
 /// about 37 pixels from the heading's middle to the first tile's name and
-/// 45 from the last tiles to the pills; the chevrons about 30 pixels in
+/// 21 from the last tiles' boxes to the pills (ref-38, Quick access
+/// unfolded); the chevrons about 30 pixels in
 /// from the pane's edge.
 ///
 /// parity: HOME-013, HOME-015
@@ -595,7 +596,7 @@ fn home_is_spaced_as_windows_11_home() {
         location,
         1,
     );
-    near("tile height", bounds(&test, &metrics.tiles[0]).height, 60, 0);
+    near("tile box height", bounds(&test, &metrics.tiles[0]).height, 58, 0);
     near(
         "heading to the first tile's name",
         middle(&metrics.first_tile_name) - middle(&metrics.heading),
@@ -606,7 +607,7 @@ fn home_is_spaced_as_windows_11_home() {
     near(
         "tiles to the pills",
         bounds(&test, &metrics.pills).y - bounds(&test, last_tile).bottom(),
-        45,
+        21,
         4,
     );
     near(
@@ -955,7 +956,8 @@ fn favorites_rows_come_at_once_and_their_dates_only_when_shown() {
 }
 
 /// Compact view draws Quick access's tiles closer too, as it does the
-/// list's rows.
+/// list's rows: a tile's box is 58 pixels high (60 apart, as Windows 11's)
+/// and 52 in Compact view (54 apart).
 ///
 /// parity: HOME-016
 #[gtk::test]
@@ -968,12 +970,12 @@ fn compact_view_draws_quick_access_tiles_closer() {
     wait_until("a tile", || !home_page::tile_names(body(&test)).is_empty());
     crate::test_support::harness::wait_for_frames(&test.window, 3);
     let tile = |test: &TestWindow| bounds(test, &home_page::tile_named(body(test), "Documents")).height;
-    assert_eq!(tile(&test), 60);
+    assert_eq!(tile(&test), 58);
 
     test.activate("compact-density", None);
     wait_until("Compact view", || test.window.shows_compact_density());
     crate::test_support::harness::wait_for_frames(&test.window, 3);
-    assert_eq!(tile(&test), 54, "a compact tile");
+    assert_eq!(tile(&test), 52, "a compact tile");
 }
 
 /// The shortcut text `menu`'s rows show, in order.
@@ -1509,14 +1511,15 @@ fn the_quick_access_heading_is_a_pill_around_its_title() {
 }
 
 /// Quick access's tiles stand as Windows 11's do beside the Details pane
-/// (reference ref-38, 1920 pixels, measured by script): 284 pixels apart
-/// across and 60 down, each name 57 pixels right of its folder's drawing
-/// (60 from the folder's box, as the drawing starts 3 pixels in), and as
-/// many a row as the pane holds when the last tile needs only its own
-/// width. Five fit in Home's 1442 pixels beside the Details pane in a
-/// 1920-pixel window, as in Windows; the test display is 1440 pixels
-/// wide, so the window here is narrower and that count is checked on
-/// its own.
+/// (references ref-38, ref-39 and ref-40, 1920 pixels, 1x, measured by
+/// script): each tile's box, which the hover and the selection fill, is
+/// 264 by 58 pixels, 284 apart across (20 between boxes) and 60 down,
+/// the folder's drawing 79 pixels in from the box's left edge (the box
+/// of the folder 76, as the drawing starts 3 pixels in) and each name 57
+/// pixels right of the drawing (60 from the folder's box). Five fit in
+/// Home's 1442 pixels beside the Details pane in a 1920-pixel window, as
+/// in Windows; the test display is 1440 pixels wide, so the window here
+/// is narrower and that count is checked on its own.
 ///
 /// parity: HOME-013
 #[gtk::test]
@@ -1565,6 +1568,7 @@ fn the_tiles_stand_as_windows_11s_beside_the_details_pane() {
         .map(gtk::prelude::Cast::upcast)
         .collect();
     let at = |index: usize| bounds(&test, &tiles[index]);
+    assert_eq!((at(0).width, at(0).height), (264, 58), "a tile's box");
     assert_eq!(at(1).x - at(0).x, 284, "across");
     assert_eq!(at(per_row as usize).y - at(0).y, 60, "down");
     let first = home_page::tile_names(body(&test))
@@ -1573,6 +1577,7 @@ fn the_tiles_stand_as_windows_11s_beside_the_details_pane() {
         .expect("a tile");
     let folder = bounds(&test, &home_page::tile_folder(body(&test), &first));
     let name = descendants_with_class_of(&tiles[0], "tile-name");
+    assert_eq!(folder.x - at(0).x, 76, "the folder in its box");
     let gap = bounds(&test, &name).x - folder.x;
     assert!(
         (59..=61).contains(&gap),

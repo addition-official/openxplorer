@@ -76,6 +76,10 @@
 @define-color ox_input_bottom #8d8d8d;             /* C28 */
 @define-color ox_flyout_stroke alpha(black, .06);  /* C42 */
 @define-color ox_compact_menu_stroke alpha(black, .06);  /* CMD-008: as ox_flyout_stroke */
+@define-color ox_home_tile_hover @ox_item_hover;
+@define-color ox_home_tile_hover_stroke @ox_item_hover;
+@define-color ox_home_tile_selected @ox_item_selected;
+@define-color ox_home_tile_selected_stroke @ox_item_selected;
 
 /* Bordered buttons (C25 visible: alpha(white, .7), alpha(#f9f9f9, .5), alpha(#f9f9f9, .3)) */
 @define-color ox_control_fill @ox_chrome;
