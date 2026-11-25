@@ -312,6 +312,9 @@ fn icon_size_glyph(size: IconSize) -> Icon {
         Icon::Desktop
     } else if size == IconSize::SMALL {
         Icon::Grid
+    } else if size == IconSize::LARGE {
+        // Windows' monitor, with the symbol font; the rectangle without.
+        Icon::ViewLarge
     } else {
         Icon::RectangleLandscape
     }
