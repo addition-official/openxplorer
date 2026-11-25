@@ -1097,7 +1097,7 @@ fn the_more_and_view_menus_show_windows_glyphs() {
     let view = menu_of(&test, "View");
     for (label, glyph) in [
         ("Extra large icons", Icon::RectangleLandscape),
-        ("Large icons", Icon::RectangleLandscape),
+        ("Large icons", Icon::ViewLarge),
         ("Medium icons", Icon::Desktop),
         ("Small icons", Icon::Grid),
         ("List", Icon::TextColumnTwo),

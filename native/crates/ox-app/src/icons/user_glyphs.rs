@@ -107,7 +107,10 @@ pub(crate) const fn windows_source(icon: Icon) -> WindowsSource {
         Icon::Copy => glyph(0xE8C8, "Copy"),
         Icon::Cut => glyph(0xE8C6, "Cut"),
         Icon::Delete => glyph(0xE74D, "Delete"),
-        Icon::Desktop => glyph(0xE7F4, "TVMonitor"),
+        // Large icons' monitor on Windows' View button and View menu
+        // (ViewLarge) is the same glyph: matched against the real font at
+        // a 12-pixel em (0.93).
+        Icon::Desktop | Icon::ViewLarge => glyph(0xE7F4, "TVMonitor"),
         // The thin X of a tab's Close and a menu's "Close tab"; a caption
         // or dialog button draws `ChromeClose` instead ([`glyph_at`]).
         Icon::Dismiss | Icon::Dismiss16 => glyph(0xE711, "Cancel"),
@@ -273,6 +276,8 @@ pub(crate) const fn em_of(icon: Icon, size: i32) -> i32 {
         Icon::PinFilled if size == 14 => 10,
         // The search box's magnifier, 11 by 11.
         Icon::Search if size == 15 => 13,
+        // Large icons' monitor, 12 by 12 as Windows' View button's.
+        Icon::ViewLarge if size == 18 => 12,
         // The command bar's "See more" dots, 16 by 3 at 20, as Windows'.
         Icon::MoreHorizontal if size == 20 => 20,
         // Back, Forward, Up and Refresh beside the address bar: the
@@ -405,6 +410,7 @@ const fn glyph_key(icon: Icon) -> &'static str {
         Icon::OpenInNewWindow => "ox-open-in-new-window-20-symbolic",
         Icon::Unpin => "ox-unpin-16-symbolic",
         Icon::ShowMoreOptions => "ox-show-more-options-20-symbolic",
+        Icon::ViewLarge => "ox-view-large-20-symbolic",
         Icon::RotateRight => "ox-rotate-right-20-symbolic",
         Icon::SetAsBackground => "ox-set-as-background-20-symbolic",
         _ => icon.name(),

@@ -69,6 +69,10 @@ pub(crate) enum Icon {
     /// The menus' Show more options: draws `more_horizontal_20_regular`,
     /// with its own glyph from the Windows symbol font.
     ShowMoreOptions,
+    /// Large icons on the View button and in the View menu: draws
+    /// `rectangle_landscape_20_regular`, with Windows' monitor from the
+    /// Windows symbol font.
+    ViewLarge,
     /// `arrow_eject_20_regular`: Eject, Safely remove, Disconnect and
     /// Sign out of server, the commands app.js drew with its eject
     /// glyph, and the eject button of a removable drive's sidebar row.
@@ -475,7 +479,7 @@ impl Icon {
             Icon::Pin | Icon::Unpin => "ox-pin-16-symbolic",
             Icon::PinFilled => "ox-pin-16-filled-symbolic",
             Icon::Filter => "ox-filter-20-symbolic",
-            Icon::RectangleLandscape => "ox-rectangle-landscape-20-symbolic",
+            Icon::RectangleLandscape | Icon::ViewLarge => "ox-rectangle-landscape-20-symbolic",
             Icon::Rename => "ox-rename-20-symbolic",
             Icon::Search => "ox-search-20-symbolic",
             Icon::SearchSettings => "ox-search-settings-20-symbolic",
@@ -530,7 +534,7 @@ impl Icon {
 /// The roles that draw another icon's bundled file but take a glyph of
 /// their own from the Windows symbol font (LOOK-031): they are not in
 /// [`ALL_ICONS`], whose names match the vendored files one to one.
-pub(crate) const COMMAND_ROLES: [Icon; 8] = [
+pub(crate) const COMMAND_ROLES: [Icon; 9] = [
     Icon::RotateLeft,
     Icon::RotateRight,
     Icon::SetAsBackground,
@@ -539,6 +543,7 @@ pub(crate) const COMMAND_ROLES: [Icon; 8] = [
     Icon::OpenInNewWindow,
     Icon::Unpin,
     Icon::ShowMoreOptions,
+    Icon::ViewLarge,
 ];
 
 /// Every icon, in the order of [`Icon`]: for the tests that check each one
