@@ -364,6 +364,22 @@ impl BrowserWindow {
         true
     }
 
+    /// Holds, or lets go of, the layout of the panes that show tab `id`
+    /// while its first listing of Gallery reads folders (HOME-038).
+    pub(super) fn hold_gallery_layout(&self, id: TabId, held: bool) {
+        let (active, beside) = {
+            let session = self.imp().session.borrow();
+            (session.is_active(id), session.beside_active() == Some(id))
+        };
+        let shown = self.folder_pane().clone();
+        for pane in self.folder_panes() {
+            let shows = if *pane == shown { active } else { beside };
+            if shows || !held {
+                pane.gallery().canvas().hold_layout(held);
+            }
+        }
+    }
+
     /// Whether the active tab shows Gallery.
     pub(super) fn shows_gallery(&self) -> bool {
         self.current_uri().as_deref() == Some(GALLERY_URI)

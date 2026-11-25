@@ -333,6 +333,48 @@ impl BrowserWindow {
         self.load_tab(id, LoadMode::Reload);
     }
 
+    /// Lists Gallery for tab `id`: the photos of its folders, read on a
+    /// thread of their own (HOME-019, HOME-038).
+    fn list_gallery_tab(
+        &self,
+        id: TabId,
+        mode: LoadMode,
+        run: Rc<LoadRun>,
+        batch_run: Rc<LoadRun>,
+    ) -> loader::Listing {
+        let hidden = if self.folder_pane().model().shows_hidden() {
+            HiddenItems::Include
+        } else {
+            HiddenItems::Skip
+        };
+        // A first listing lays its photos out once, when every folder
+        // is read; a listing again keeps the rows until then anyway.
+        let first = mode == LoadMode::Navigate;
+        if first {
+            self.hold_gallery_layout(id, true);
+        }
+        crate::folder_view::gallery::list_gallery(
+            self.gallery_folders(),
+            hidden,
+            glib::clone!(
+                #[weak(rename_to = window)]
+                self,
+                move |entries| window.receive_batch(&batch_run, entries)
+            ),
+            glib::clone!(
+                #[weak(rename_to = window)]
+                self,
+                move |result| {
+                    let id = run.tab;
+                    window.finish_load(&run, result);
+                    if first {
+                        window.hold_gallery_layout(id, false);
+                    }
+                }
+            ),
+        )
+    }
+
     fn start_listing(
         &self,
         id: TabId,
@@ -389,25 +431,7 @@ impl BrowserWindow {
             );
         }
         if start.uri == GALLERY_URI {
-            let hidden = if self.folder_pane().model().shows_hidden() {
-                HiddenItems::Include
-            } else {
-                HiddenItems::Skip
-            };
-            return crate::folder_view::gallery::list_gallery(
-                self.gallery_folders(),
-                hidden,
-                glib::clone!(
-                    #[weak(rename_to = window)]
-                    self,
-                    move |entries| window.receive_batch(&batch_run, entries)
-                ),
-                glib::clone!(
-                    #[weak(rename_to = window)]
-                    self,
-                    move |result| window.finish_load(&run, result)
-                ),
-            );
+            return self.list_gallery_tab(id, mode, run, batch_run);
         }
         if let Some(inside) = ArchiveLocation::from_uri(&start.uri) {
             return loader::list_archive_folder(

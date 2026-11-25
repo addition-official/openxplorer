@@ -88,6 +88,9 @@ pub(crate) struct TileState {
     pub(crate) drawn: Option<(i32, i32)>,
 }
 
+/// The width and row height a held layout is "made" for: no real one.
+const HELD_LAYOUT: (i32, i32) = (-1, -1);
+
 /// The aspect ratio (width over height) of `item`'s photo as shown, if
 /// its size was read.
 fn aspect_of(item: Option<&FileItem>) -> Option<f64> {
@@ -477,6 +480,9 @@ mod imp {
         pub(super) tooltip_text: RefCell<Option<TooltipText>>,
         /// Runs when what is on screen changed: the heading follows.
         pub(super) on_shown: RefCell<Vec<Box<dyn Fn()>>>,
+        /// Gallery's first listing is still reading folders: the photos are
+        /// laid out once it ends (HOME-038).
+        pub(super) held: Cell<bool>,
         /// How many photos each layout with photos laid out, in order, for
         /// tests: a layout of a new number of photos is one more.
         #[cfg(test)]
@@ -593,12 +599,24 @@ impl GalleryCanvas {
         self.model()?.item(position).and_downcast::<FileItem>()
     }
 
+    /// Lays nothing out while `held`, Gallery's first listing still reading
+    /// folders, then every photo at once (HOME-038): a layout of the first
+    /// folder's photos would be replaced by another as each later folder's
+    /// came, every tile moving and its thumbnail drawn again.
+    pub(crate) fn hold_layout(&self, held: bool) {
+        if self.imp().held.replace(held) != held {
+            self.relayout();
+        }
+    }
+
     /// Lists `model`, or nothing.
     pub(crate) fn set_model(&self, model: Option<&gtk::MultiSelection>) {
         let imp = self.imp();
         if imp.model.borrow().as_ref() == model {
             return;
         }
+        // Another listing: the first one's hold goes with it.
+        imp.held.set(false);
         if let Some(old) = imp.model.take() {
             for handler in imp.model_handlers.take() {
                 old.disconnect(handler);
@@ -721,6 +739,15 @@ impl GalleryCanvas {
     fn layout_for(&self, width: i32) -> std::cell::Ref<'_, Layout> {
         let imp = self.imp();
         let key = (width, imp.row_height.get());
+        if imp.held.get() {
+            // The first listing is still reading folders: nothing is laid
+            // out until every photo is known (HOME-038).
+            if imp.laid_for.get() != HELD_LAYOUT {
+                imp.layout.replace(Layout::default());
+                imp.laid_for.set(HELD_LAYOUT);
+            }
+            return imp.layout.borrow();
+        }
         if imp.laid_for.get() != key {
             let layout = justify(&imp.aspects.borrow(), width, imp.row_height.get(), GALLERY_GAP);
             #[cfg(test)]
@@ -1618,9 +1645,10 @@ impl GalleryView {
         if heading.text() != text {
             heading.set_text(&text);
         }
-        // The heading keeps its row while photos show, even when none on
-        // screen has a date, so the photos never jump up and down.
-        heading.set_visible(canvas.n_items() > 0);
+        // The heading keeps its row whenever Gallery's page shows, from
+        // before the first photo is found and while none on screen has a
+        // date, so the photos never move down when dates arrive (HOME-038).
+        heading.set_visible(true);
         let timeline = canvas.timeline();
         let adjustment = self.vadjustment();
         let span = adjustment.upper() - adjustment.page_size();
