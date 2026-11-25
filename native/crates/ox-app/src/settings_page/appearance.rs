@@ -151,6 +151,13 @@ const MORE_TAB_MENU_ITEMS: RowText = RowText {
     keywords: "tab menu right-click move tab new window open windows extra more items windows",
 };
 
+const SELECT_MATCHING_IN_MORE_MENU: RowText = RowText {
+    title: "Show Select items matching… in the … menu",
+    description: "Adds Select items matching…, which selects the items whose names match a pattern, \
+                  to the command bar's … menu. Off, the … menu looks like Windows 11's.",
+    keywords: "select items matching pattern wildcard more options menu command bar windows",
+};
+
 const COLUMN_TITLE_LINE: RowText = RowText {
     title: "Show a line under column titles",
     description: "In the details view, a thin line separates the column titles from the list. \
@@ -974,6 +981,16 @@ fn layout_group(page: &SettingsPage) -> SettingsGroup {
     };
     tab_menu_items.add_control(&page.preference_switch(binding), ControlName::RowTitle);
     group.add_row(&tab_menu_items);
+    let select_matching = SettingRow::new(SELECT_MATCHING_IN_MORE_MENU);
+    let binding = PreferenceBinding {
+        read: |preferences| preferences.select_matching_in_more_menu,
+        write: |on| PreferencesUpdate {
+            select_matching_in_more_menu: Some(on),
+            ..PreferencesUpdate::default()
+        },
+    };
+    select_matching.add_control(&page.preference_switch(binding), ControlName::RowTitle);
+    group.add_row(&select_matching);
     group.add_row(&right_click_menu_row(page));
     group.add_row(&menu_buttons_row(page));
     group.add_row(&shift_f10_row(page));

@@ -79,9 +79,19 @@ const ROW_ICON: i32 = 20;
 const TILE_ICON: i32 = 48;
 /// Pixels of the glyph a standard folder shows on its folder.
 const TILE_EMBLEM: i32 = 20;
-/// A Quick access tile's room inside its padding: Windows 11's Home puts
-/// tiles about 284 pixels apart across and 60 down.
-const TILE_CONTENT: (i32, i32) = (284, 60);
+/// A Quick access tile's box: its folder and three lines of text, and
+/// how high it is. Windows 11's Home puts tiles 284 pixels apart across
+/// and 60 down (reference ref-38, measured by script); the box is
+/// narrower than that so the last tile of a row needs only its own width,
+/// and five tiles fit beside the Details pane in a 1920-pixel window, as
+/// in Windows.
+const TILE_CONTENT: (i32, i32) = (200, 60);
+/// Pixels between a tile's folder box and its text: the name starts 57
+/// pixels right of the folder's drawing, as in Windows (ref-38).
+const TILE_TEXT_GAP: i32 = 12;
+/// Pixels between the location line and the pin, so the pin's glyph is
+/// 15 pixels under the location's top as in Windows (ref-38).
+const TILE_PIN_GAP: i32 = 2;
 /// A tile's height in Compact view, which draws the tiles closer as it
 /// does the list's rows: the folder and its three lines still fit, with
 /// a few pixels left above and below, so a pin never touches the name of
@@ -336,6 +346,104 @@ pub(super) struct RecentRowExtras {
     pub(super) create_shortcut: Option<MenuEntry>,
 }
 
+/// The kind of file Home's Recent and Favorites list, chosen with the
+/// command bar's Filter on Home, as Windows 11's (HOME-038, reference
+/// ref-24). Windows names its kinds for Microsoft's applications; these
+/// are named for what they are (the owner's decision).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum HomeFilter {
+    All,
+    Documents,
+    Spreadsheets,
+    Presentations,
+    Images,
+    Videos,
+    Pdf,
+}
+
+impl HomeFilter {
+    /// Every kind, in the Filter menu's order.
+    pub(super) const ALL: [HomeFilter; 7] = [
+        HomeFilter::All,
+        HomeFilter::Documents,
+        HomeFilter::Spreadsheets,
+        HomeFilter::Presentations,
+        HomeFilter::Images,
+        HomeFilter::Videos,
+        HomeFilter::Pdf,
+    ];
+
+    /// The action target that chooses this kind.
+    pub(super) const fn key(self) -> &'static str {
+        match self {
+            HomeFilter::All => "all",
+            HomeFilter::Documents => "documents",
+            HomeFilter::Spreadsheets => "spreadsheets",
+            HomeFilter::Presentations => "presentations",
+            HomeFilter::Images => "images",
+            HomeFilter::Videos => "videos",
+            HomeFilter::Pdf => "pdf",
+        }
+    }
+
+    /// The kind an action target names.
+    pub(super) fn from_key(key: &str) -> Option<HomeFilter> {
+        HomeFilter::ALL.into_iter().find(|filter| filter.key() == key)
+    }
+
+    /// Its row in the Filter menu.
+    pub(super) fn label(self) -> &'static str {
+        use ox_core::i18n::gettext_static;
+        match self {
+            HomeFilter::All => gettext_static("All File Types"),
+            HomeFilter::Documents => gettext_static("Documents"),
+            HomeFilter::Spreadsheets => gettext_static("Spreadsheets"),
+            HomeFilter::Presentations => gettext_static("Presentations"),
+            HomeFilter::Images => gettext_static("Images"),
+            HomeFilter::Videos => gettext_static("Videos"),
+            HomeFilter::Pdf => gettext_static("PDF"),
+        }
+    }
+
+    /// The kind the window `page` is in has chosen; every kind before it
+    /// is in a window.
+    fn of(page: &gtk::Box) -> HomeFilter {
+        page.root()
+            .and_downcast::<BrowserWindow>()
+            .and_then(|window| window.action_state(WindowAction::HomeFilter.name()))
+            .and_then(|state| state.str().and_then(HomeFilter::from_key))
+            .unwrap_or(HomeFilter::All)
+    }
+
+    /// Whether the file named `name` is of this kind: Documents, Spreadsheets,
+    /// Presentations and PDF by the name's extension, Images and Videos
+    /// by the type the name suggests.
+    pub(super) fn lets_through(self, name: &str) -> bool {
+        let extension = name
+            .rsplit_once('.')
+            .filter(|(stem, _)| !stem.is_empty())
+            .map(|(_, extension)| extension.to_ascii_lowercase())
+            .unwrap_or_default();
+        let one_of = |extensions: &[&str]| extensions.contains(&extension.as_str());
+        let guessed = || gio::content_type_guess(Some(name), None::<&[u8]>).0;
+        let mime = || {
+            let guessed = guessed();
+            gio::content_type_get_mime_type(&guessed)
+                .map(|mime| mime.to_string())
+                .unwrap_or_else(|| guessed.to_string())
+        };
+        match self {
+            HomeFilter::All => true,
+            HomeFilter::Documents => one_of(&["doc", "docx", "odt", "rtf"]),
+            HomeFilter::Spreadsheets => one_of(&["xls", "xlsx", "ods", "csv"]),
+            HomeFilter::Presentations => one_of(&["ppt", "pptx", "odp"]),
+            HomeFilter::Images => !extension.is_empty() && mime().starts_with("image/"),
+            HomeFilter::Videos => !extension.is_empty() && mime().starts_with("video/"),
+            HomeFilter::Pdf => extension == "pdf",
+        }
+    }
+}
+
 /// Whether the file named `name` has a type, as Windows judges it for its
 /// Open row: an extension after its name.
 fn has_type(name: &str) -> bool {
@@ -536,11 +644,12 @@ fn folder_tile(place: &Place, locations: &LocationContext, compact: bool) -> Ite
     let pin = icons::image(Icon::Pin, PIN_GLYPH);
     pin.set_halign(gtk::Align::Start);
     pin.add_css_class("home-pin");
+    pin.set_margin_top(TILE_PIN_GAP);
     pin.update_property(&[gtk::accessible::Property::Label(ox_core::i18n::gettext_static(
         "Pinned",
     ))]);
     lines.append(&pin);
-    let content = gtk::Box::new(gtk::Orientation::Horizontal, 16);
+    let content = gtk::Box::new(gtk::Orientation::Horizontal, TILE_TEXT_GAP);
     content.set_margin_start(8);
     content.append(&icon);
     content.append(&lines);
@@ -604,7 +713,7 @@ const SECTION_INDENT: i32 = 14;
 /// about 92 pixels from the pane's edge, as in Windows 11.
 const TILES_INDENT: i32 = 76;
 const LIST_INDENT: i32 = 48;
-const TILES_BELOW_HEADING: i32 = 6;
+const TILES_BELOW_HEADING: i32 = 1;
 const PILLS_BELOW_TILES: i32 = 45;
 const HEADER_BELOW_PILLS: i32 = 19;
 /// The narrowest Name gets in a narrow window, and the narrowest Date
@@ -1292,10 +1401,10 @@ fn add_item_shortcut(
 }
 
 /// Pixels from one Quick access tile to the next across, as Windows 11's
-/// Home places them: the tile's room and its padding.
-const TILE_PITCH: i32 = TILE_CONTENT.0;
-/// The tile box's own padding across (`flowbox.drive-tiles`).
-const TILE_BOX_PADDING: i32 = 8;
+/// Home places them (ref-24, ref-38).
+const TILE_PITCH: i32 = 284;
+/// The room between two tiles across: the pitch less a tile's box.
+const TILE_GAP: i32 = TILE_PITCH - TILE_CONTENT.0;
 
 /// Keeps Quick access's tiles a tile's width apart, as Windows 11 does,
 /// rather than spread over the whole width: the box holds as many tiles
@@ -1309,13 +1418,22 @@ fn keep_tiles_apart(flow: &gtk::FlowBox) {
             let Some(flow) = weak.upgrade() else {
                 return;
             };
-            let fit = (room - TILES_INDENT - PAGE_PADDING - TILE_BOX_PADDING) / TILE_PITCH;
-            let per_row = u32::try_from(fit.max(1)).unwrap_or(1).min(MOST_TILES_PER_ROW);
+            let per_row = tiles_that_fit(room);
             if flow.max_children_per_line() != per_row {
                 flow.set_max_children_per_line(per_row);
             }
         }),
     );
+}
+
+/// How many Quick access tiles a row holds in a pane `room` pixels wide:
+/// 284 pixels a tile, but the last one needs only its box, not a whole
+/// pitch, so a 1442-pixel pane (Home beside the Details pane in a
+/// 1920-pixel window) holds five, as Windows 11's 1444-pixel one does
+/// (ref-38).
+pub(super) fn tiles_that_fit(room: i32) -> u32 {
+    let fit = (room - TILES_INDENT - PAGE_PADDING + TILE_GAP) / TILE_PITCH;
+    u32::try_from(fit.max(1)).unwrap_or(1).min(MOST_TILES_PER_ROW)
 }
 
 /// What a dragged Quick access tile carries before its folder's address,
@@ -1392,7 +1510,19 @@ fn tile_drop_place(flow: &gtk::FlowBox, x: f64, y: f64) -> TileDrop {
         .collect();
     #[expect(clippy::cast_possible_truncation, reason = "pointer positions are small")]
     let Some(onto) = flow.child_at_pos(x as i32, y as i32) else {
-        return TileDrop::AtEnd;
+        // In the room right of a tile: after it, as on its right half.
+        let after = tiles.iter().position(|tile| {
+            tile.compute_bounds(flow).is_some_and(|bounds| {
+                let right = f64::from(bounds.x() + bounds.width());
+                let (top, bottom) = (f64::from(bounds.y()), f64::from(bounds.y() + bounds.height()));
+                (top..bottom).contains(&y) && (right..right + f64::from(TILE_GAP)).contains(&x)
+            })
+        });
+        return after
+            .and_then(|index| tiles.get(index + 1))
+            .map_or(TileDrop::AtEnd, |tile| {
+                TileDrop::Before(tile.widget_name().to_string())
+            });
     };
     let (Some(index), Some(bounds)) = (
         tiles.iter().position(|tile| *tile == onto),
@@ -1422,7 +1552,11 @@ fn item_box(page: &gtk::Box, items: Vec<Item>, section: Section, rows: bool) -> 
         .homogeneous(true)
         .min_children_per_line(1)
         .max_children_per_line(if rows { 1 } else { MOST_TILES_PER_ROW })
-        .column_spacing(0)
+        .column_spacing(if rows {
+            0
+        } else {
+            u32::try_from(TILE_GAP).unwrap_or(0)
+        })
         .row_spacing(0)
         .valign(gtk::Align::Start)
         .css_classes(if rows {
@@ -1493,6 +1627,7 @@ fn item_box(page: &gtk::Box, items: Vec<Item>, section: Section, rows: bool) -> 
                 window.update_share_command();
                 window.update_send_to_actions();
                 window.update_archive_actions();
+                window.update_properties_actions();
             }
         }
     ));
@@ -1514,7 +1649,11 @@ fn empty_label(text: &str) -> gtk::Label {
 /// Fills `list` with `items`, or with what it says while empty.
 fn fill_list(page: &gtk::Box, list: &gtk::Box, items: Vec<Item>, tab: Tab, columns: &Columns) {
     remove_children(list);
-    if items.is_empty() {
+    if items.is_empty() && HomeFilter::of(page) != HomeFilter::All {
+        list.append(&empty_label(ox_core::i18n::gettext_static(
+            "No files of this kind. Choose All File Types in Filter to list every file.",
+        )));
+    } else if items.is_empty() {
         list.append(&empty_label(tab.empty_text()));
     } else {
         list.append(&columns.header());
@@ -1523,8 +1662,8 @@ fn fill_list(page: &gtk::Box, list: &gtk::Box, items: Vec<Item>, tab: Tab, colum
     recount(page);
 }
 
-/// The heading of Quick access: a chevron, the title and a line to the
-/// right edge, as This PC's group headers.
+/// The heading of Quick access: a chevron and the title, as This PC's
+/// group headers, on a pill as wide as they are.
 fn quick_access_heading(page: &gtk::Box, folded: bool) -> gtk::Button {
     let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
     row.append(&icons::image(chevron(folded), CHEVRON));
@@ -1535,9 +1674,12 @@ fn quick_access_heading(page: &gtk::Box, folded: bool) -> gtk::Button {
             .css_classes(["group-title"])
             .build(),
     );
+    // Windows 11 fills a small rounded pill around the chevron and the
+    // title on hover, about 130 by 34 pixels, not the whole row (ref-24).
     let button = gtk::Button::builder()
         .child(&row)
-        .css_classes(["group-header", Section::QuickAccess.fold_class()])
+        .halign(gtk::Align::Start)
+        .css_classes(["group-header", "home-heading", Section::QuickAccess.fold_class()])
         .build();
     connect_fold(&button, page, Section::QuickAccess, folded);
     button
@@ -1970,8 +2112,10 @@ fn read_favorite_time(uri: &str, date: glib::WeakRef<gtk::Label>, cancellable: &
 /// drawn again or left.
 fn list_favorites(page: &gtk::Box, list: &gtk::Box, favorites: &[String]) {
     let columns = Columns::for_page(page);
+    let filter = HomeFilter::of(page);
     let rows: Vec<Item> = favorites
         .iter()
+        .filter(|uri| filter.lets_through(&favorite_name(uri)))
         .map(|uri| file_row(&favorite_name(uri), uri, None, (favorites, false), &columns))
         .collect();
     let dates: Vec<(String, glib::WeakRef<gtk::Label>)> = rows
@@ -2018,8 +2162,10 @@ fn list_recent(page: &gtk::Box, list: &gtk::Box, favorites: Vec<String>) {
         }
         let kept = KeptFocus::read(&page);
         let columns = Columns::for_page(&page);
+        let filter = HomeFilter::of(&page);
         let rows = files
             .iter()
+            .filter(|(entry, _, _)| filter.lets_through(&entry.name))
             .map(|(entry, target, used)| file_row(&entry.name, target, *used, (&favorites, true), &columns))
             .collect();
         fill_list(&page, &list, rows, Tab::Recent, &columns);
@@ -2042,6 +2188,18 @@ impl BrowserWindow {
             }),
             text_action(WindowAction::RemoveFromRecent, BrowserWindow::remove_from_recent),
             text_action(WindowAction::OpenItemAt, BrowserWindow::open_item_at),
+            super::actions::choice_action(WindowAction::HomeFilter, HomeFilter::All.key(), |window, key| {
+                if HomeFilter::from_key(key).is_none() {
+                    return false;
+                }
+                // Home is drawn again once the action holds the new kind.
+                glib::idle_add_local_once(glib::clone!(
+                    #[weak]
+                    window,
+                    move || window.render_landing()
+                ));
+                true
+            }),
             text_action(WindowAction::OpenFileLocationOf, |window, uri| {
                 window.open_item_location(uri.to_owned(), LocationTarget::ThisTab);
             }),

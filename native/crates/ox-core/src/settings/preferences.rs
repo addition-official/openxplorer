@@ -518,6 +518,11 @@ pub struct Preferences {
     /// only when off, which gives Windows 11's tab menu (TAB-060).
     #[serde(skip_serializing_if = "is_true")]
     pub more_tab_menu_items: bool,
+    /// The command bar's "…" menu has the app's own Select items
+    /// matching… (SEL-009). On by default; stored only when off, which
+    /// gives Windows 11's "…" menu. Stored as `selectMatchingInMoreMenu`.
+    #[serde(rename = "selectMatchingInMoreMenu", skip_serializing_if = "is_true")]
+    pub select_matching_in_more_menu: bool,
     /// The sidebar's icon size in pixels (16, 22, 32 or 48), or 0 for the
     /// automatic size (Dolphin's Places panel Icon Size). Stored only when
     /// chosen.
@@ -867,6 +872,7 @@ impl Default for Preferences {
             hide_expand_arrows: false,
             more_navigation_pane_items: true,
             more_tab_menu_items: true,
+            select_matching_in_more_menu: true,
             sidebar_icon_size: 0,
             hidden_sidebar_sections: Vec::new(),
             hidden_sidebar_places: Vec::new(),
@@ -1158,6 +1164,10 @@ impl Preferences {
             update.more_navigation_pane_items,
         );
         replace_if_some(&mut self.more_tab_menu_items, update.more_tab_menu_items);
+        replace_if_some(
+            &mut self.select_matching_in_more_menu,
+            update.select_matching_in_more_menu,
+        );
         let icon_size = update
             .sidebar_icon_size
             .filter(|size| SIDEBAR_ICON_SIZES.contains(size));
@@ -1469,6 +1479,8 @@ pub struct PreferencesUpdate {
     pub more_navigation_pane_items: Option<bool>,
     /// Keep the app's own tab menu, or show Windows'.
     pub more_tab_menu_items: Option<bool>,
+    /// Show Select items matching… in the "…" menu.
+    pub select_matching_in_more_menu: Option<bool>,
     /// New sidebar icon size; one of [`SIDEBAR_ICON_SIZES`] or ignored.
     pub sidebar_icon_size: Option<u32>,
     /// Replaces the hidden sidebar sections; up to 16 short ASCII keys,
@@ -1661,6 +1673,7 @@ impl PreferencesUpdate {
             hide_expand_arrows: flag("hideExpandArrows"),
             more_navigation_pane_items: flag("moreNavigationPaneItems"),
             more_tab_menu_items: flag("moreTabMenuItems"),
+            select_matching_in_more_menu: flag("selectMatchingInMoreMenu"),
             sidebar_icon_size: values
                 .get("sidebarIconSize")
                 .and_then(Value::as_u64)
@@ -2600,6 +2613,25 @@ mod tests {
         assert_eq!(stored["hideExpandArrows"], json!(true));
         let read = PreferencesUpdate::from_json(&stored).expect("read back");
         assert_eq!(read.hide_expand_arrows, Some(true));
+    }
+
+    /// "Select items matching…" in the command bar's "…" menu, the
+    /// owner's addition, starts on and is not stored then; turned off, as
+    /// "Behave like Windows Explorer" does, it is saved and read back.
+    ///
+    /// parity: CMD-007
+    #[test]
+    fn select_matching_in_the_more_menu_starts_on_and_is_stored_when_off() {
+        let mut preferences = Preferences::default();
+        assert!(preferences.select_matching_in_more_menu);
+        let stored = serde_json::to_value(&preferences).expect("serializable preferences");
+        assert!(stored.get("selectMatchingInMoreMenu").is_none());
+        let off = PreferencesUpdate::from_json(&json!({"selectMatchingInMoreMenu": false}))
+            .expect("valid preferences");
+        preferences.apply(&off);
+        assert!(!preferences.select_matching_in_more_menu);
+        let stored = serde_json::to_value(&preferences).expect("serializable preferences");
+        assert_eq!(stored.get("selectMatchingInMoreMenu"), Some(&json!(false)));
     }
 
     /// The app's extras beyond Windows 11's tab menu and navigation pane

@@ -1467,3 +1467,130 @@ fn searching_from_a_big_home_shows_matches_as_they_are_found() {
         "the search was seen running"
     );
 }
+
+/// Quick access's heading is a small pill around its chevron and title,
+/// about 130 by 34 pixels as Windows 11's (reference ref-24), which the
+/// pointer lights only over the pill, not across the row. The pointer is
+/// real (XTEST).
+///
+/// parity: HOME-012
+#[gtk::test]
+fn the_quick_access_heading_is_a_pill_around_its_title() {
+    use crate::test_support::pointer::{screen_point, Pointer};
+    let fixture = Fixture::standard();
+    let test = home_window(&fixture);
+    let heading = crate::test_support::harness::descendants::<gtk::Button>(body(&test))
+        .into_iter()
+        .find(|button| button.has_css_class("home-quick-fold"))
+        .expect("Quick access has its heading");
+    wait_until("the heading drawn", || heading.width() > 0);
+    crate::test_support::harness::wait_for_frames(&test.window, 2);
+    // The border box, padding included, which the hover fills.
+    let bounds = heading.compute_bounds(&heading).expect("the heading is drawn");
+    #[allow(clippy::cast_possible_truncation)]
+    let (width, height) = (bounds.width().round() as i32, bounds.height().round() as i32);
+    assert!((120..=140).contains(&width), "the pill is {width} pixels wide");
+    assert!((32..=36).contains(&height), "the pill is {height} pixels high");
+    assert!(width < body(&test).width() / 4, "the pill is not the row");
+
+    let mut pointer = Pointer::connect();
+    let lit = || heading.state_flags().contains(gtk::StateFlags::PRELIGHT);
+    let middle = f64::from(bounds.y() + bounds.height() / 2.0);
+    let (x, y) = screen_point(
+        &mut pointer,
+        &heading,
+        (f64::from(bounds.x() + bounds.width() / 2.0), middle),
+        (8, 8),
+    );
+    pointer.move_to(x, y);
+    wait_until("the pill lit", lit);
+    let beside = f64::from(bounds.x() + bounds.width()) + 60.0;
+    let (x, y) = screen_point(&mut pointer, &heading, (beside, middle), (8, 8));
+    pointer.move_to(x, y);
+    wait_until("the row beside it unlit", || !lit());
+}
+
+/// Quick access's tiles stand as Windows 11's do beside the Details pane
+/// (reference ref-38, 1920 pixels, measured by script): 284 pixels apart
+/// across and 60 down, each name 57 pixels right of its folder's drawing
+/// (60 from the folder's box, as the drawing starts 3 pixels in), and as
+/// many a row as the pane holds when the last tile needs only its own
+/// width. Five fit in Home's 1442 pixels beside the Details pane in a
+/// 1920-pixel window, as in Windows; the test display is 1440 pixels
+/// wide, so the window here is narrower and that count is checked on
+/// its own.
+///
+/// parity: HOME-013
+#[gtk::test]
+fn the_tiles_stand_as_windows_11s_beside_the_details_pane() {
+    use super::geometry::bounds;
+
+    assert_eq!(
+        home_page::tiles_that_fit(1442),
+        5,
+        "beside the Details pane at 1920 pixels"
+    );
+    let fixture = Fixture::standard();
+    let folders = ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"];
+    for folder in folders {
+        fs::create_dir(fixture.path(folder)).expect("fixture folder");
+    }
+    let test = home_window(&fixture);
+    test.window.set_default_size(1440, 1000);
+    let details_shown = || {
+        test.window
+            .action_state("details-pane")
+            .and_then(|state| state.get::<bool>())
+            .unwrap_or(false)
+    };
+    if !details_shown() {
+        test.activate("details-pane", None);
+    }
+    wait_until("the Details pane", details_shown);
+    for folder in folders {
+        test.activate("pin-location", Some(&fixture.uri_of(folder)));
+        wait_until("the tile", || {
+            home_page::tile_names(body(&test)).contains(&folder.to_owned())
+        });
+    }
+    crate::test_support::harness::wait_for_frames(&test.window, 4);
+    let per_row = home_page::tiles_per_row(body(&test));
+    assert_eq!(
+        per_row,
+        home_page::tiles_that_fit(body(&test).width()),
+        "the row holds what fits"
+    );
+    assert!(per_row >= 2, "{per_row} tiles a row");
+    let tiles: Vec<gtk::Widget> = crate::test_support::harness::descendants::<gtk::FlowBoxChild>(body(&test))
+        .into_iter()
+        .filter(|tile| tile.parent().is_some_and(|flow| flow.has_css_class("home-tiles")))
+        .map(gtk::prelude::Cast::upcast)
+        .collect();
+    let at = |index: usize| bounds(&test, &tiles[index]);
+    assert_eq!(at(1).x - at(0).x, 284, "across");
+    assert_eq!(at(per_row as usize).y - at(0).y, 60, "down");
+    let first = home_page::tile_names(body(&test))
+        .into_iter()
+        .next()
+        .expect("a tile");
+    let folder = bounds(&test, &home_page::tile_folder(body(&test), &first));
+    let name = descendants_with_class_of(&tiles[0], "tile-name");
+    let gap = bounds(&test, &name).x - folder.x;
+    assert!(
+        (59..=61).contains(&gap),
+        "the name is {gap} pixels right of the folder"
+    );
+    let last = at(per_row as usize - 1);
+    assert!(
+        last.x + last.width <= bounds(&test, body(&test)).x + body(&test).width(),
+        "the row fits the pane"
+    );
+}
+
+/// The first descendant of `widget` with `class`.
+fn descendants_with_class_of(widget: &gtk::Widget, class: &str) -> gtk::Widget {
+    crate::test_support::harness::descendants::<gtk::Widget>(widget)
+        .into_iter()
+        .find(|child| child.has_css_class(class))
+        .unwrap_or_else(|| panic!("a .{class}"))
+}

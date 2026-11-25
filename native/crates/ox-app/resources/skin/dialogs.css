@@ -237,6 +237,9 @@ window.file-conflicts { background-color: @ox_bg; color: @ox_text; }
 window.ox button.file-conflicts-button { min-width: 88px; min-height: 26px; padding: 0 8px; border-radius: 4px; }
 
 /* ---- Windows 11 style context menu (§4.9, CMD-008) ---- */
+/* In the dark theme a light 1px edge around the fill, as Windows 11's
+   context menu draws it (#3b3b3b around #2c2c2c, ref-04 and ref-06). */
+popover.ox-menu.compact > contents { border-color: @ox_compact_menu_stroke; }
 popover.ox-menu.compact > contents {
   border-radius: 8px;
   padding: 2px 0;

@@ -237,6 +237,10 @@ mod imp {
         pub(super) view_popover: OnceCell<crate::window::menu_popover::MenuPopover>,
         /// Whether View shows Gallery's menu now.
         pub(super) gallery_menus: Cell<bool>,
+        /// Home's Filter ▾, shown only on Home (HOME-038).
+        pub(super) home_filter: OnceCell<gtk::MenuButton>,
+        /// Whether the bar shows Home's commands now: Filter, Sort grayed.
+        pub(super) home_commands: Cell<bool>,
         /// Whether Sort shows This PC's menu now.
         pub(super) this_pc_menus: Cell<bool>,
         /// Set as background, Rotate left and Rotate right after a
@@ -409,6 +413,27 @@ impl CommandBar {
     fn add_place_commands(&self) {
         let imp = self.imp();
         let group = &*imp.file_commands;
+        let filter = home_filter_button();
+        let filter_label = ox_core::i18n::gettext("Filter");
+        if let Some(menu) = filter.popover().and_downcast::<MenuPopover>() {
+            self.offer_in_more(
+                &filter,
+                OverflowEntry(std::rc::Rc::new(move || {
+                    MenuItem::submenu(
+                        &filter_label,
+                        Icon::ChevronDown,
+                        WindowAction::HomeFilter,
+                        menu.entries(),
+                    )
+                    .without_glyph()
+                    .into()
+                })),
+            );
+        }
+        group.append(&filter);
+        imp.home_filter
+            .set(filter)
+            .expect("constructed runs once per object");
         let collection_menu = MenuPopover::new(Vec::new());
         let collection_label = ox_core::i18n::gettext("Collection");
         let collection = gtk::MenuButton::builder()
@@ -745,6 +770,34 @@ impl CommandBar {
         }
     }
 
+    /// Shows Home's commands while the tab shows Home, as Windows 11 does:
+    /// Filter between View and "…" (HOME-038), and Sort grayed; or the
+    /// folders' again.
+    pub(super) fn show_home_commands(&self, on_home: bool) {
+        let imp = self.imp();
+        if let Some(button) = imp.home_filter.get() {
+            button.set_visible(on_home);
+            if !on_home {
+                button.popdown();
+            }
+        }
+        imp.home_commands.set(on_home);
+        self.gray_sort_where_windows_does();
+    }
+
+    /// Grays Sort on Gallery (HOME-031) and on Home (HOME-038), where
+    /// Windows 11 grays it, and enables it elsewhere.
+    fn gray_sort_where_windows_does(&self) {
+        let imp = self.imp();
+        let grayed = imp.gallery_menus.get() || imp.home_commands.get();
+        if let Some(sort) = imp.sort_button.get() {
+            sort.set_sensitive(!grayed);
+            if grayed {
+                sort.popdown();
+            }
+        }
+    }
+
     /// Shows Extract all while an archive is selected or the window shows
     /// the inside of a ZIP.
     pub(super) fn show_extract_all(&self, shown: bool) {
@@ -848,13 +901,9 @@ impl CommandBar {
     /// Gallery (`in_gallery`), or the folders' (HOME-030, HOME-031).
     pub(super) fn show_gallery_menus(&self, in_gallery: bool) {
         let imp = self.imp();
-        if let Some(sort) = imp.sort_button.get() {
-            sort.set_sensitive(!in_gallery);
-            if in_gallery {
-                sort.popdown();
-            }
-        }
-        if imp.gallery_menus.replace(in_gallery) == in_gallery {
+        let changed = imp.gallery_menus.replace(in_gallery) != in_gallery;
+        self.gray_sort_where_windows_does();
+        if !changed {
             return;
         }
         if let Some(view) = imp.view_popover.get() {
@@ -1116,6 +1165,40 @@ fn text_menu_content(label: &str, glyph: Icon) -> gtk::Box {
 /// the stylesheet and the tests.
 /// How far New's menu opens left of where the shared menus open.
 const NEW_MENU_SHIFT: i32 = -2;
+
+/// Home's Filter ▾: a label and a chevron, as no funnel glyph is bundled,
+/// and a radio list of the kinds of file Recent and Favorites list
+/// (HOME-038), hidden until the tab shows Home.
+fn home_filter_button() -> gtk::MenuButton {
+    let label = ox_core::i18n::gettext("Filter");
+    let content = gtk::Box::new(gtk::Orientation::Horizontal, 9);
+    content.append(&gtk::Label::new(Some(&label)));
+    let chevron = icons::image(Icon::ChevronDown, CARET_GLYPH);
+    chevron.add_css_class("chevron");
+    content.append(&chevron);
+    let entries = super::home_page::HomeFilter::ALL
+        .into_iter()
+        .map(|filter| {
+            MenuItem::choice(
+                filter.label(),
+                Icon::Document,
+                WindowAction::HomeFilter,
+                filter.key(),
+            )
+            .without_glyph()
+            .into()
+        })
+        .collect();
+    let button = gtk::MenuButton::builder()
+        .child(&content)
+        .popover(&MenuPopover::new(entries))
+        .valign(gtk::Align::Center)
+        .css_classes(["command", "text-command", "filter-command"])
+        .visible(false)
+        .build();
+    crate::accessible_names::describe_menu_button(&button, Some(&label));
+    button
+}
 
 fn text_menu_button(label: &str, glyph: Icon, css_class: &str, entries: Vec<MenuEntry>) -> gtk::MenuButton {
     let button = gtk::MenuButton::builder()

@@ -103,6 +103,10 @@ window.ox .landing button.pc-title:hover { background-color: @ox_hover; }
 .landing .page.home-page { padding: 4px 12px 8px 8px; }
 .landing .home-switcher { margin: 0; }
 window.ox .landing .home-switcher button.group-header { padding: 4px 6px; margin: 0; }
+/* Quick access's heading: a pill around the chevron and the title, as
+   Windows 11's hover draws it (about 130 by 34 pixels), with the title
+   where the uneven padding of the group headers put it. */
+window.ox .landing button.group-header.home-heading { padding: 9px 8px; margin: 3px 0 0 0; }
 /* The switcher's pills, as Windows 11's Home draws them: a glyph and the
    title on a rounded fill, the shown one in the accent colour. */
 window.ox .landing button.home-tab {

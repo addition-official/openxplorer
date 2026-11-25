@@ -75,6 +75,7 @@
 @define-color ox_field_bottom #5a5a5a;             /* C27 */
 @define-color ox_input_bottom #9a9a9a;             /* C28 */
 @define-color ox_flyout_stroke alpha(black, .2);   /* C42 */
+@define-color ox_compact_menu_stroke #3b3b3b;                    /* CMD-008: the compact menu's light edge, measured on Windows 11 (ref-04, ref-06) */
 
 /* Bordered buttons (C25 visible: alpha(white, .06), alpha(white, .08), alpha(white, .03)) */
 @define-color ox_control_fill @ox_chrome;

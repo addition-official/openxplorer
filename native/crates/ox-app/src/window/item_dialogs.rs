@@ -133,7 +133,13 @@ impl BrowserWindow {
             .current_uri()
             .is_some_and(|uri| ox_core::location::is_archive_location(&uri));
         let one_item = !in_zip && (selected == 1 || (selected == 0 && !on_page));
-        self.set_action_enabled(WindowAction::Properties, one_item || (!in_zip && selected > 1));
+        // On Home, a selected Recent or Favorites row has Properties, and
+        // nothing selected has none, as in Windows 11 (HOME-012).
+        let home_file = self.selected_home_file().is_some();
+        self.set_action_enabled(
+            WindowAction::Properties,
+            home_file || one_item || (!in_zip && selected > 1),
+        );
         self.set_action_enabled(WindowAction::PreviousVersions, one_item);
     }
 
@@ -212,6 +218,10 @@ impl BrowserWindow {
 
     /// Opens Properties of the selection or the folder on `tab`.
     pub(super) fn open_properties(&self, tab: PropertiesTab) {
+        if let Some(uri) = self.selected_home_file() {
+            self.open_properties_of(&uri, tab);
+            return;
+        }
         let selected = self.folder_pane().model().selected_items();
         // A computer Network lists has no Properties, as in Windows: it is
         // not a folder, and its menu lists none (B4).

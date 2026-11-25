@@ -459,6 +459,9 @@ pub(crate) enum WindowAction {
     /// Takes the file in the target off the desktop's recently used list
     /// (HOME-036).
     RemoveFromRecent,
+    /// Chooses the kind of file Home's Recent and Favorites list, the
+    /// string target a [`super::home_page::HomeFilter`] key (HOME-038).
+    HomeFilter,
     /// Opens the item in the string target as a double-click does: a
     /// folder in the tab, a file in its default application (Home's
     /// Recent and Favorites).
@@ -778,6 +781,7 @@ impl WindowAction {
             WindowAction::AddToFavorites => "add-to-favorites",
             WindowAction::RemoveFromFavorites => "remove-from-favorites",
             WindowAction::RemoveFromRecent => "remove-from-recent",
+            WindowAction::HomeFilter => "home-filter",
             WindowAction::OpenItemAt => "open-item-at",
             WindowAction::OpenFileLocationOf => "open-file-location-of",
             WindowAction::GalleryCollection => "gallery-collection",

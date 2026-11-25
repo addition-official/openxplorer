@@ -573,6 +573,7 @@ fn escape_leaves_the_search_and_shows_every_row_again() {
             "Show Recent files in the navigation pane",
             "Show letters on mapped network folders",
             "Show more items in the tab menu",
+            "Show Select items matching… in the … menu",
             "Right-click menu",
             "Buttons in the right-click menu",
             "Shift+F10 opens the classic menu",

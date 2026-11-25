@@ -475,8 +475,11 @@ pub(in crate::window) enum MorePlace {
 /// whether "…" pins it or unpins it, as Windows 11 File Explorer's does.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(in crate::window) enum FolderPin {
-    /// Not pinned, or a page that cannot be: "Pin to Quick access".
+    /// Not pinned: "Pin to Quick access".
     Unpinned,
+    /// A place that cannot be pinned, such as Home or the inside of a
+    /// ZIP: Pin is left out, as Windows 11 leaves it out.
+    Unpinnable,
     /// Pinned as the Quick access pin at this location: "Unpin from
     /// Quick access", which removes that pin as the sidebar's Unpin does.
     Pinned(String),
@@ -492,9 +495,13 @@ pub(in crate::window) struct NetworkDrive {
 }
 
 /// What the "…" menu depends on: where the window is, whether the folder
-/// shown is pinned, what Undo and Redo would do, and the connected
-/// shares.
+/// shown is pinned or can be, what Undo and Redo would do, the connected
+/// shares and whether Settings keeps Select items matching….
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag adds or leaves out one independent item of the menu"
+)]
 pub(in crate::window) struct MoreMenuState {
     /// Where the window is.
     pub place: MorePlace,
@@ -509,6 +516,9 @@ pub(in crate::window) struct MoreMenuState {
     /// Whether the desktop has a system information app for This PC's
     /// Properties to open.
     pub system_information: bool,
+    /// Whether "…" has the app's own Select items matching… (Settings'
+    /// "Show Select items matching… in the … menu").
+    pub select_matching: bool,
 }
 
 impl Default for MoreMenuState {
@@ -521,6 +531,7 @@ impl Default for MoreMenuState {
             can_redo: false,
             network_drives: Vec::new(),
             system_information: false,
+            select_matching: true,
         }
     }
 }
@@ -556,8 +567,10 @@ pub(super) fn more_menu(state: &MoreMenuState) -> Vec<MenuEntry> {
         MorePlace::Folder => folder_commands(state),
         MorePlace::ThisPc | MorePlace::Network => network_drive_commands(&state.network_drives),
     };
+    if !entries.is_empty() {
+        entries.push(MenuEntry::Divider);
+    }
     entries.extend([
-        MenuEntry::Divider,
         // No shortcut text, as Windows 11's "…" shows none; Ctrl+A still
         // selects all. The three glyphs are original icons made to match
         // Windows', blue squares included (no Fluent glyph has them).
@@ -572,13 +585,17 @@ pub(super) fn more_menu(state: &MoreMenuState) -> Vec<MenuEntry> {
             Icon::InvertSelection24,
             WindowAction::InvertSelection,
         ),
-        item(
+    ]);
+    // The app's own, which Windows 11 does not have: left out while
+    // Settings says so, as "Behave like Windows Explorer" does.
+    if state.select_matching {
+        entries.push(item(
             &gettext("Select items matching…"),
             Icon::Search,
             WindowAction::SelectMatching,
-        ),
-        MenuEntry::Divider,
-    ]);
+        ));
+    }
+    entries.push(MenuEntry::Divider);
     // This PC's Properties opens the system information app, as Windows'
     // opens the system's properties; without one it is left out, not
     // greyed (the user's decision, 2026-11-04).
@@ -629,10 +646,10 @@ fn folder_commands(state: &MoreMenuState) -> Vec<MenuEntry> {
                 .into(),
         );
     }
-    if !entries.is_empty() {
-        entries.push(MenuEntry::Divider);
-    }
+    // Pin only where the place can be pinned: Windows 11 leaves it out,
+    // not grayed, on Home and the other pages (reference/ref-10).
     let pin = match &state.pin {
+        FolderPin::Unpinnable => return entries,
         FolderPin::Unpinned => MenuItem::new(
             &gettext("Pin to Quick access"),
             Icon::Pin,
@@ -645,8 +662,10 @@ fn folder_commands(state: &MoreMenuState) -> Vec<MenuEntry> {
             uri,
         ),
     };
-    let pin = pin.with_accent_glyph().into();
-    entries.push(pin);
+    if !entries.is_empty() {
+        entries.push(MenuEntry::Divider);
+    }
+    entries.push(pin.with_accent_glyph().into());
     entries
 }
 
@@ -785,6 +804,64 @@ mod tests {
             })
             .collect();
         assert!(!view_labels.iter().any(|label| label.contains("display style")));
+    }
+
+    /// The labels of `entries`, "-" for a divider.
+    fn menu_labels(entries: &[MenuEntry]) -> Vec<String> {
+        entries
+            .iter()
+            .map(|entry| match entry {
+                MenuEntry::Item(item) => item.label.clone(),
+                MenuEntry::Divider => "-".to_owned(),
+            })
+            .collect()
+    }
+
+    /// "…" leaves out what cannot run where Windows 11 leaves it out,
+    /// rather than graying it (reference/ref-10 and Windows 11's Home):
+    /// Pin to Quick access where the place cannot be pinned, as Home, and
+    /// the app's own Select items matching… while "Behave like Windows
+    /// Explorer" turns it off. A folder lists Windows' items in Windows'
+    /// groups.
+    ///
+    /// parity: CMD-007, HOME-012
+    #[test]
+    fn the_more_menu_leaves_out_what_windows_hides() {
+        assert_eq!(
+            menu_labels(&more_menu(&MoreMenuState::default())),
+            [
+                "Pin to Quick access",
+                "-",
+                "Select all",
+                "Select none",
+                "Invert selection",
+                "Select items matching…",
+                "-",
+                "Properties",
+                "Options"
+            ]
+        );
+        let home = MoreMenuState {
+            pin: FolderPin::Unpinnable,
+            select_matching: false,
+            ..MoreMenuState::default()
+        };
+        assert_eq!(
+            menu_labels(&more_menu(&home)),
+            [
+                "Select all",
+                "Select none",
+                "Invert selection",
+                "-",
+                "Properties",
+                "Options"
+            ]
+        );
+        let windows_folder = MoreMenuState {
+            select_matching: false,
+            ..MoreMenuState::default()
+        };
+        assert!(!menu_labels(&more_menu(&windows_folder)).contains(&"Select items matching…".to_owned()));
     }
 
     /// Disconnect network drive lists each connected share, running

@@ -484,6 +484,11 @@ impl BrowserWindow {
             .find(|pin| page.is_none() && location::same_location(&pin.uri, &uri));
         let pin = match pinned {
             Some(pin) if !self.pins_search() => FolderPin::Pinned(pin.uri.clone()),
+            // A search always saves (SRCH-046); a page such as Home and the
+            // inside of a ZIP cannot be pinned, as Pin's action says.
+            _ if !self.pins_search() && (page.is_some() || is_archive_location(&uri)) => {
+                FolderPin::Unpinnable
+            }
             _ => FolderPin::Unpinned,
         };
         let context = self.context();
@@ -494,8 +499,16 @@ impl BrowserWindow {
             can_redo: context.journal_label(JournalDirection::Redo).is_some(),
             network_drives: sources.network_drives.clone(),
             system_information,
+            select_matching: context.settings_data().preferences.select_matching_in_more_menu,
         };
         self.command_bar().show_more_menu(state);
+        // Filter shows on Home's own page, not on a search from it, and
+        // Sort is grayed there.
+        self.command_bar().show_home_commands(
+            page == Some(Page::Home)
+                && context.settings_data().preferences.home_quick_access
+                && !self.is_searching(),
+        );
     }
 
     /// Titles the window after the active tab's location: its name, or
