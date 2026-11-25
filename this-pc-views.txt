@@ -68,7 +68,7 @@ QUESTION: On a header hover, Size's divider is still drawn 14 px before the colu
 
 ==== this-pc-look ====
 STATUS: DONE
-HEAD: this-pc-look c407208f (branched from origin/test-combined-60 14a8bf9f; touches only landing.rs, this_pc_views.rs, fonts.rs, landing.css and the .pot, so it merges cleanly with details-row-end: no shared files, checked with git merge-tree)
+HEAD: this-pc-look c74dc2cc (round 2; round 1 c407208f; branched from origin/test-combined-60 14a8bf9f; touches only landing.rs, this_pc_views.rs, fonts.rs, landing.css and the .pot, so it merges cleanly with details-row-end: no shared files, checked with git merge-tree)
 CHANGES (This PC, all views share the header; the bar and spacing are the Tiles view's):
 - Group header: just the title, "Devices and drives", with no count and no line beside it; regular weight (was 600) at 15 px, which gives Windows' 11-pixel capitals; the chevron's ink 7 px into the page and the title's 24, as ref-25 (were 14 and 31).
 - Capacity bar: light track (230,230,230), 1 px (188,188,188) border, used part (0,112,203), square ends, 189x13 px border included (was a dark borderless track, a light-blue used part, about 275x8).
@@ -87,9 +87,17 @@ CAPTURE: ours-this-pc-look/compare-ref25.png (1x, dark): Windows ref-25, ours wi
 TESTS (touched modules only: window::landing, this_pc_views, theme::fonts, landing_pages, view_styles): 59 passed, 0 failed. rustfmt, Clippy (all targets) and the .pot check pass. Strings: no new UI text; the regenerated openxplorer.pot drops "{title} ({count})", which only This PC's header used (the picker builds its own with format!, not the catalog); no .po edited.
 NOTE: stderr during every run: no Bail out, CRITICAL, panicked or signals.
 
+
+---- this-pc-look round 2 (c74dc2cc): the bar's colors as theme tokens ----
+CAUSE: the deb 61 build failed theme::stylesheets::tests::the_rules_name_colours_only_by_token ("raw colours in the skin"): c407208f wrote the bar's four colors as rgb() in landing.css, and I had not run that test.
+FIX: four tokens, ox_capacity_track #e6e6e6 (230,230,230), ox_capacity_border #bcbcbc (188,188,188), ox_capacity_used #0070cb (0,112,203), ox_capacity_full #da2626 (218,38,38, NEED VM REF still), in dark.css (the values measured on ref-25, unchanged) and light.css (the same: there is no light capture of This PC in reference/, only ref-25 in dark, so light is unverified; Windows draws the bar alike in both themes, as the peer said). High contrast (high-contrast.css): GTK has no CSS system colors, so the bar uses the appearance's own colors as Windows' high contrast uses the system's: the track the page background, the border the text color, the used part the accent, red (the critical fill) when nearly full.
+MEASURED (1x, the container's disk is over 90% full so the used part is red): dark: track (230,230,230), border (188,188,188), used (218,38,38), 189x13 at x 71, as before; light: the same on a white page; high contrast dark: border (241,241,241), track (32,32,32), used (196,43,28); high contrast light: border (27,27,27), track (255,255,255), used (196,43,28). Capture: ours-this-pc-look/tokens-themes.png (dark, light, high contrast dark and light).
+TESTS: theme::stylesheets (the failing test included), window::landing, this_pc_views, landing_pages: 43 passed, 0 failed.
+BRANCHES: this-pc-look c74dc2cc; this-pc-list merged it (a23d8d20, a merge, no rebase), so this-pc-list carries the fix.
+
 ==== this-pc-list ====
 STATUS: DONE
-HEAD: this-pc-list dca92219 (branched from this-pc-look c407208f, so it carries that branch's commit; deb 61's two branches plus 7bdefeab and dca92219)
+HEAD: this-pc-list a23d8d20 (dca92219 plus this-pc-look c74dc2cc merged in; branched from this-pc-look c407208f, so it carries that branch's commit; deb 61's two branches plus 7bdefeab and dca92219)
 CHANGES: This PC's List (View > List, Ctrl+Shift+5) fills columns top to bottom and the page scrolls sideways, never down, as a folder's List (VIEW-008) and Windows 11's List everywhere (the peer's answer). Like a folder's List it shows no group headers: the drives and shares run in one list in the sort order (a folder's List keeps its order alone too). A plain mouse wheel scrolls the List sideways, as Windows' does; every other This PC view scrolls down as before (checked: Tiles after List scrolls down with the wheel). Small icons still fill rows, as in folders. No new UI text. Docs: docs.json (and interface.md via sync-docs.py) and ui-spec section 4.16 say List fills columns; ui-spec C47 now describes the capacity bar of this-pc-look (it still described the old 6 px bar).
 CHECKED with real input (xdotool, Xvfb, tester's throwaway home, 30 fictional shares smb://nas.example/share01..30 plus Local Disk, 1x, dark): at 1900x1000 all 31 fit one column; at 1200x600 two columns, Local Disk to Share 15 then Share 16 to 30; at 800x600 (one column and a half shown, horizontal scroll bar): Right from Share 01 selects Share 16 and scrolls it into view, Down goes 16 -> 18 in its column, Left goes back to Share 02 and scrolls back, End selects Share 30, Home Local Disk; four wheel notches down scroll right, four up back to the start. stderr: no Bail out, CRITICAL, panicked or signals.
 CAPTURES (1x, dark): ours-this-pc-list/list-1200x600.png, list-800x600-keys.png (start, Right, Down Down, Left, End, wheel after Home), list-800x600-wheel.png (wheel down, wheel up, then Tiles' wheel scrolling down).
