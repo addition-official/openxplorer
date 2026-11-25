@@ -85,7 +85,7 @@ fn opening_a_zip_browses_it_and_opens_a_member_as_a_private_copy() {
     test.activate("open", None);
 
     let frame = test.wait_for_dialog("the archive browser");
-    assert_eq!(frame.title(), "Bundle.zip — Compressed folder");
+    assert_eq!(frame.title(), "Bundle.zip - Compressed folder");
     assert_eq!(
         frame.button_labels(),
         ["Extract all…", "Open in archive manager", "Close"]

@@ -693,7 +693,7 @@ mod tests {
         let fixture = Fixture::standard();
         let test = TestWindow::open(&fixture.uri());
         let other = test.open_beside(&fixture.uri_of("Documents"));
-        let title = "Documents — OpenXplorer";
+        let title = "Documents - OpenXplorer";
         wait_until("the other window's title", || {
             other.window.title().is_some_and(|shown| shown == title)
         });

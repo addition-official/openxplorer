@@ -71,7 +71,7 @@ fn a_search_shows_search_options_and_close_search_and_no_filter_bar() {
     let title = test.window.title().map(|title| title.to_string());
     assert_eq!(
         title,
-        Some(format!("notes - Search Results in {root} — OpenXplorer"))
+        Some(format!("notes - Search Results in {root} - OpenXplorer"))
     );
     let crumbs = test.crumb_labels();
     assert_eq!(crumbs.last(), Some(&format!("Search Results in {root}")));
@@ -99,7 +99,7 @@ fn every_new_search_names_its_own_words_in_the_tab_and_title() {
     };
     let expected = |query: &str| {
         let tab = format!("{query} - Search Results in {root}");
-        let window = Some(format!("{tab} — OpenXplorer"));
+        let window = Some(format!("{tab} - OpenXplorer"));
         (tab, window)
     };
 

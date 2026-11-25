@@ -352,7 +352,7 @@ fn navigating_ends_the_search_prefix_and_address_editing_and_updates_the_frame()
     let typing = test.window.imp().typeahead.borrow().is_active(monotonic_now());
     assert!(!typing, "the typed prefix is gone");
     assert_eq!(test.window.address_bar().mode(), AddressMode::Crumbs);
-    assert_eq!(test.window.title().as_deref(), Some("Documents — OpenXplorer"));
+    assert_eq!(test.window.title().as_deref(), Some("Documents - OpenXplorer"));
     let crumbs = test.window.address_bar().crumb_buttons();
     let last = crumbs.last().and_then(ButtonExt::label);
     assert_eq!(last.as_deref(), Some("Documents"));
@@ -374,7 +374,7 @@ fn home_new_tabs_and_ctrl_t_open_the_real_home_folder_titled_home() {
     test.wait_for_listing("the home folder");
 
     assert_eq!(test.window.current_uri(), Some(home_uri()));
-    assert_eq!(test.window.title().as_deref(), Some("Home — OpenXplorer"));
+    assert_eq!(test.window.title().as_deref(), Some("Home - OpenXplorer"));
     press_shortcut(&test, gdk::Key::t, gdk::ModifierType::CONTROL_MASK);
     test.wait_for_listing("the new tab");
     assert_eq!(test.window.tab_count(), 2);

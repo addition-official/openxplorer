@@ -101,7 +101,7 @@ fn back_and_forward_walk_between_a_folder_its_results_and_a_folder_opened_from_t
     assert_eq!(test.names(), RESULTS);
     assert_eq!(test.active_tab_title(), tab);
     let title = test.window.title().map(|title| title.to_string());
-    assert_eq!(title, Some(format!("{tab} — OpenXplorer")));
+    assert_eq!(title, Some(format!("{tab} - OpenXplorer")));
     let crumbs = test.crumb_labels();
     assert_eq!(crumbs[crumbs.len() - 2..], [root.clone(), results.clone()]);
     wait_until("the results' crumb to scroll into view", || {
