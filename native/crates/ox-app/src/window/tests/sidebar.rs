@@ -411,10 +411,9 @@ fn the_resizer_is_a_titled_separator_that_the_keys_move() {
     let resizer = test.window.sidebar_resizer();
     let handle = test.window.sidebar_handle();
     assert_eq!(resizer.accessible_role(), gtk::AccessibleRole::Separator);
-    assert_eq!(
-        handle.tooltip_text().as_deref(),
-        Some("Drag to resize sidebar · double-click to reset")
-    );
+    // As Windows' pane divider, no tooltip.
+    assert_eq!(handle.tooltip_text(), None);
+    assert_eq!(resizer.tooltip_text(), None);
     assert!(resizer.grab_focus(), "the resizer is a Tab stop");
     assert!(handle.has_css_class("keyboard-focus"), "focus lights the handle");
     let workspace = test.window.workspace();

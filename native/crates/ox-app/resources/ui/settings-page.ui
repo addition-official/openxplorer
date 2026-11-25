@@ -71,7 +71,6 @@
         <child>
           <object class="GtkButton" id="back_button">
             <property name="halign">start</property>
-            <property name="tooltip-text" translatable="yes">Close Settings and return to your folders</property>
             <style>
               <class name="settings-back"/>
             </style>

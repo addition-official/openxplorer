@@ -1432,12 +1432,10 @@ fn searching_from_a_big_home_shows_matches_as_they_are_found() {
     let test = home_window(&fixture);
     test.start_search_cache();
     test.index_folder(&ox_core::location::file_uri(&home.path().join("Documents")));
+    // As Windows' search box, no tooltip, so none claims the box
+    // searches cached names only.
     let tooltip = test.window.search_box().entry().tooltip_text();
-    assert_eq!(
-        tooltip.as_deref(),
-        Some("Search names in this folder and its subfolders. Folders cached in Settings → Search are searched faster."),
-        "the box does not claim to search cached names only"
-    );
+    assert_eq!(tooltip, None);
     let pane = test.window.folder_pane();
     let sample = || SearchSample {
         rows: test.window.folder_model().n_items(),

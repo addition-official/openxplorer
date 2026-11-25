@@ -92,7 +92,7 @@ fn the_close_button_closes_an_idle_window() {
     let test = TestWindow::open(&fixture.uri());
     let close = caption_close(&test);
     if let Some(close) = &close {
-        assert_eq!(close.tooltip_text().as_deref(), Some("Close window"));
+        assert_eq!(close.tooltip_text().as_deref(), Some("Close"));
         close.emit_clicked();
     } else {
         test.activate("close-window", None);
