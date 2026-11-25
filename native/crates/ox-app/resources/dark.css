@@ -29,6 +29,9 @@
    blue parts of the custom icons. In the dark theme Windows
    draws them in its lighter accent fill, #60cdff (CMD-007). */
 @define-color ox_command_blue #60cdff;
+/* The accent part of the command glyphs drawn from the symbol font: Windows 11
+   File Explorer's #4cc2ff in the dark theme, measured on its command bar. */
+@define-color ox_glyph_accent #4cc2ff;
 @define-color ox_text_selection_bg #0078d4;        /* C31 */
 @define-color ox_text_selection_fg #ffffff;
 

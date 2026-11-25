@@ -554,6 +554,10 @@ fn symbol_font_text(preferences: &ox_core::settings::Preferences, status: user_g
             ox_core::i18n::gettext("used while Icons from Windows icon files is on")
         }
         user_glyphs::Status::Off | user_glyphs::Status::Reading => ox_core::i18n::gettext("reading…"),
+        user_glyphs::Status::Unreadable { reason } => ox_core::i18n::format_message(
+            "OpenXplorer cannot read it ({reason}), so its own glyphs are shown",
+            &[("reason", reason)],
+        ),
         user_glyphs::Status::Ready { found: 0, .. } => {
             ox_core::i18n::gettext("it has none of these glyphs, so OpenXplorer's own are shown")
         }

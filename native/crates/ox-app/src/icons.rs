@@ -32,6 +32,7 @@
 //! Icons are hidden from assistive technology, as app.js marks every icon
 //! `aria-hidden`: the button, row, tab or card around an icon names it.
 
+mod accent_clip;
 mod art;
 mod art_image;
 mod composition;
@@ -127,6 +128,55 @@ fn draw_icon(image: &gtk::Image, icon: Icon, size: i32, pixels: i32) {
     image.set_icon_name(Some(name));
     image.set_pixel_size(pixels);
     keep_loaded(image, name, pixels);
+}
+
+/// An image of `icon` at `size` logical pixels, as [`image`] makes, which
+/// while the symbol font draws it shows the part Windows 11 File Explorer
+/// draws in its accent colour ([`user_glyphs::accent_of`]) over it: the
+/// same glyph, in the accent colour, clipped to that part.
+pub(crate) fn accented_image(icon: Icon, size: i32) -> gtk::Widget {
+    let base = image(icon, size);
+    let Some((left, top, right, bottom)) = user_glyphs::accent_of(icon) else {
+        return base.upcast();
+    };
+    let overlay = gtk::Overlay::builder()
+        .child(&base)
+        .accessible_role(gtk::AccessibleRole::Presentation)
+        .halign(gtk::Align::Center)
+        .valign(gtk::Align::Center)
+        .build();
+    // The em sits in the square on whole pixels ([`user_glyphs::em_of`]).
+    let em = user_glyphs::em_of(icon, size);
+    let inset = (size - em) / 2;
+    let pixels = scaled(size);
+    let at = |sixteenths: i32| {
+        let units = f64::from(inset) + f64::from(sixteenths) * f64::from(em) / 16.0;
+        to_pixels(units * f64::from(pixels) / f64::from(size))
+    };
+    let (x, y) = (at(left), at(top));
+    let accent = image(icon, size);
+    accent.add_css_class("glyph-accent");
+    let clip = accent_clip::AccentClip::new(&accent, (x, y), (at(right) - x, at(bottom) - y));
+    clip.set_halign(gtk::Align::Start);
+    clip.set_valign(gtk::Align::Start);
+    clip.set_margin_start(x);
+    clip.set_margin_top(y);
+    overlay.add_overlay(&clip);
+    let shown = clip.downgrade();
+    user_glyphs::follow_status(move |_| {
+        let Some(clip) = shown.upgrade() else {
+            return false;
+        };
+        clip.set_visible(user_glyphs::draws_from_font(icon, size));
+        true
+    });
+    overlay.upcast()
+}
+
+/// `units` logical pixels, rounded to whole pixels.
+#[expect(clippy::cast_possible_truncation, reason = "icon sizes are small")]
+fn to_pixels(units: f64) -> i32 {
+    units.round() as i32
 }
 
 thread_local! {

@@ -43,7 +43,7 @@ use menus::{appearance_items, more_menu};
 pub(super) use menus::{disconnect_network_drive, FolderPin, MoreMenuState, MorePlace, NetworkDrive};
 pub(super) use menus::{
     gallery_view_menu, group_by_menu, new_menu, search_options_menu, sort_menu, this_pc_group_by_menu,
-    this_pc_sort_menu, view_menu,
+    this_pc_sort_menu, view_glyph, view_menu,
 };
 use overflow::OverflowLayout;
 
@@ -51,6 +51,11 @@ use overflow::OverflowLayout;
 /// own glyphs, drawn with room around them, ink 14 to 16 pixels as
 /// Windows 11's command bar does (ui-spec.md I01; measured at 1x).
 const ICON_COMMAND_GLYPH: i32 = 18;
+
+/// The square of "See more"'s dots: 20 pixels, the font's More glyph at a
+/// 20-pixel em inks 16 by 3, as Windows 11's does (measured with the real
+/// font against its command bar); the app's own dots grow with it.
+const MORE_GLYPH: i32 = 20;
 
 /// The square of the glyph of a command with a label.
 const TEXT_COMMAND_GLYPH: i32 = 18;
@@ -235,6 +240,8 @@ mod imp {
         /// its own of (HOME-030, HOME-031).
         pub(super) sort_button: OnceCell<gtk::MenuButton>,
         pub(super) view_popover: OnceCell<crate::window::menu_popover::MenuPopover>,
+        /// The View button's glyph, which shows the view on screen.
+        pub(super) view_glyph: OnceCell<gtk::Image>,
         /// Whether View shows Gallery's menu now.
         pub(super) gallery_menus: Cell<bool>,
         /// Home's Filter ▾, shown only on Home (HOME-038).
@@ -396,6 +403,13 @@ impl CommandBar {
             view_menu(),
         );
         self.offer_menu_in_more(&view, &ox_core::i18n::gettext("View"), Icon::Grid);
+        if let Some(glyph) = view
+            .child()
+            .and_then(|content| content.first_child())
+            .and_downcast::<gtk::Image>()
+        {
+            let _ = imp.view_glyph.set(glyph);
+        }
         group.append(&view);
         imp.view_popover
             .set(
@@ -918,6 +932,14 @@ impl CommandBar {
         }
     }
 
+    /// Shows `view`'s glyph on the View button, as Windows 11 shows the
+    /// view on screen there: lines in Details, the grid in Small icons.
+    pub(crate) fn show_view(&self, view: crate::window::folder_pane::FolderView) {
+        if let Some(glyph) = self.imp().view_glyph.get() {
+            icons::set_icon(glyph, view_glyph(view), TEXT_COMMAND_GLYPH);
+        }
+    }
+
     /// Gives Sort This PC's menu while This PC is shown (`on_this_pc`),
     /// else the folders'.
     pub(super) fn show_this_pc_menus(&self, on_this_pc: bool) {
@@ -1140,7 +1162,7 @@ fn separator() -> gtk::Separator {
 
 fn icon_button(command: &IconCommand) -> gtk::Button {
     let button = gtk::Button::builder()
-        .child(&icons::image(command.glyph, ICON_COMMAND_GLYPH))
+        .child(&icons::accented_image(command.glyph, ICON_COMMAND_GLYPH))
         .tooltip_text(ox_core::i18n::gettext(command.tooltip))
         .action_name(command.action.detailed_name())
         .valign(gtk::Align::Center)
@@ -1156,7 +1178,7 @@ fn icon_button(command: &IconCommand) -> gtk::Button {
 /// `arrow`).
 fn text_menu_content(label: &str, glyph: Icon) -> gtk::Box {
     let content = gtk::Box::new(gtk::Orientation::Horizontal, 9);
-    content.append(&icons::image(glyph, TEXT_COMMAND_GLYPH));
+    content.append(&icons::accented_image(glyph, TEXT_COMMAND_GLYPH));
     content.append(&gtk::Label::new(Some(label)));
     let chevron = icons::image(Icon::ChevronDown, CARET_GLYPH);
     chevron.add_css_class("chevron");
@@ -1253,7 +1275,7 @@ fn extract_all_button() -> gtk::Button {
 fn more_button() -> (gtk::MenuButton, MenuPopover) {
     let menu = MenuPopover::new(more_menu(&MoreMenuState::default()));
     let button = gtk::MenuButton::builder()
-        .child(&icons::image(Icon::MoreHorizontal, ICON_COMMAND_GLYPH))
+        .child(&icons::image(Icon::MoreHorizontal, MORE_GLYPH))
         .tooltip_text(ox_core::i18n::gettext("See more"))
         .popover(&menu)
         .valign(gtk::Align::Center)

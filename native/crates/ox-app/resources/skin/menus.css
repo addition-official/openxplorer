@@ -208,3 +208,9 @@ window.ox .notice-card button.notice-card-close {
   margin-top: -8px;
   color: @ox_muted;
 }
+
+/* The accent part of a command glyph drawn from the Windows symbol font:
+   the part Windows 11 File Explorer draws in its accent blue (New's plus,
+   Cut's rings, Copy's front sheet, Rename's text, Share's arrow, Sort's
+   down arrow), over the glyph in the text color. */
+image.glyph-accent { color: @ox_glyph_accent; }

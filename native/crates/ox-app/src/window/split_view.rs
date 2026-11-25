@@ -503,6 +503,7 @@ impl BrowserWindow {
     pub(super) fn show_pane_view_state(&self) {
         let view = self.folder_pane().view();
         self.status_bar().show_view(view);
+        self.command_bar().show_view(view);
         self.set_action_state(WindowAction::View, &view.as_str().to_variant());
         self.show_sort_state();
         let model = self.folder_pane().model();

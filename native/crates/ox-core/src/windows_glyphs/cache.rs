@@ -70,6 +70,8 @@ pub struct LoadedGlyphs {
     folder: Option<PathBuf>,
     /// The icons the folder has.
     names: BTreeSet<String>,
+    /// Why the font gave no glyphs at all, when it could not be read.
+    problem: Option<&'static str>,
 }
 
 impl LoadedGlyphs {
@@ -87,6 +89,20 @@ impl LoadedGlyphs {
     /// How many of the icons asked for the font drew.
     pub fn found(&self) -> usize {
         self.names.len()
+    }
+
+    /// Why the font could not be read, if it could not: missing,
+    /// unreadable, too large, not TrueType or damaged.
+    pub fn problem(&self) -> Option<&'static str> {
+        self.problem
+    }
+
+    /// No glyphs, because of `problem`.
+    fn unreadable(problem: &'static str) -> Self {
+        Self {
+            problem: Some(problem),
+            ..Self::default()
+        }
     }
 }
 
@@ -111,14 +127,16 @@ pub fn load_glyphs(font: &Path, wanted: &[GlyphRequest], cache: &Path) -> Loaded
     wanted.sort_unstable();
     wanted.dedup_by(|a, b| a.name == b.name);
     let Ok(metadata) = fs::metadata(font) else {
-        return LoadedGlyphs::default();
+        return LoadedGlyphs::unreadable("the file cannot be found or opened");
     };
-    if !metadata.is_file()
-        || fs::DirBuilder::new()
-            .recursive(true)
-            .mode(0o700)
-            .create(cache)
-            .is_err()
+    if !metadata.is_file() {
+        return LoadedGlyphs::unreadable("the path is not a file");
+    }
+    if fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o700)
+        .create(cache)
+        .is_err()
     {
         return LoadedGlyphs::default();
     }
@@ -126,7 +144,12 @@ pub fn load_glyphs(font: &Path, wanted: &[GlyphRequest], cache: &Path) -> Loaded
     let folder = cache.join(&key);
     let loaded = read_index(&folder).unwrap_or_else(|| {
         let _ = fs::remove_dir_all(&folder);
-        let glyphs = draw_glyphs(font, metadata.len(), &wanted);
+        // A font that cannot be read is not cached, so its reason is
+        // given each time and a fixed file is read again.
+        let glyphs = match draw_glyphs(font, metadata.len(), &wanted) {
+            Ok(glyphs) => glyphs,
+            Err(problem) => return LoadedGlyphs::unreadable(problem),
+        };
         if write_folder(&folder, &glyphs).is_err() {
             return LoadedGlyphs::default();
         }
@@ -136,18 +159,19 @@ pub fn load_glyphs(font: &Path, wanted: &[GlyphRequest], cache: &Path) -> Loaded
     loaded
 }
 
-/// The SVG of each of `wanted` whose glyph the font at `path` has.
-fn draw_glyphs(path: &Path, size: u64, wanted: &[GlyphRequest]) -> Vec<(String, String)> {
+/// The SVG of each of `wanted` whose glyph the font at `path` has, or why
+/// the font cannot be read.
+fn draw_glyphs(
+    path: &Path,
+    size: u64,
+    wanted: &[GlyphRequest],
+) -> Result<Vec<(String, String)>, &'static str> {
     if size > MAX_FONT_SIZE as u64 {
-        return Vec::new();
+        return Err(super::truetype::FontError::TooLarge.message());
     }
-    let Ok(bytes) = fs::read(path) else {
-        return Vec::new();
-    };
-    let Ok(font) = Font::parse(bytes) else {
-        return Vec::new();
-    };
-    wanted
+    let bytes = fs::read(path).map_err(|_| "the file cannot be read")?;
+    let font = Font::parse(bytes).map_err(super::truetype::FontError::message)?;
+    Ok(wanted
         .iter()
         .filter_map(|request| {
             let svg = font
@@ -155,7 +179,7 @@ fn draw_glyphs(path: &Path, size: u64, wanted: &[GlyphRequest]) -> Vec<(String, 
                 .ok()??;
             Some((request.name.clone(), svg))
         })
-        .collect()
+        .collect())
 }
 
 /// The name of the cache folder: a 64-bit FNV-1a hash of the reader's
@@ -199,6 +223,7 @@ fn read_index(folder: &Path) -> Option<LoadedGlyphs> {
     Some(LoadedGlyphs {
         folder: (!names.is_empty()).then(|| folder.to_path_buf()),
         names,
+        problem: None,
     })
 }
 

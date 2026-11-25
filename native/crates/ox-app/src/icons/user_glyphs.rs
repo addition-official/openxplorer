@@ -80,6 +80,13 @@ pub(crate) const fn windows_source(icon: Icon) -> WindowsSource {
         // glyphs; these are the nearest glyphs of Microsoft's table, drawn
         // in the bar's colour as Cut's is.
         Icon::RotateLeft => glyph(0xE80D, "RotateMapLeft"),
+        // The menus' rows, as Windows 11 draws them, each matched against
+        // the real font on Windows' own menus (ref-04 and ref-31).
+        Icon::CopyAsPath => glyph(0xE62F, "CopyTo"),
+        Icon::OpenWith => glyph(0xE7AC, "OpenWith"),
+        Icon::OpenInNewWindow => glyph(0xE8A7, "OpenInNewWindow"),
+        Icon::Unpin => glyph(0xE77A, "Unpin"),
+        Icon::ShowMoreOptions => glyph(0xE93A, "ShowMoreOptions"),
         Icon::RotateRight => glyph(0xE80C, "RotateMapRight"),
         Icon::ArrowUndo => glyph(0xE7A7, "Undo"),
         Icon::ArrowUp => glyph(0xE74A, "Up"),
@@ -132,6 +139,8 @@ pub(crate) const fn windows_source(icon: Icon) -> WindowsSource {
         Icon::Phone => glyph(0xE8EA, "CellPhone"),
         Icon::Play16 => glyph(0xE768, "Play"),
         Icon::Pin => glyph(0xE718, "Pin"),
+        Icon::PinFilled => glyph(0xE842, "PinnedFill"),
+        Icon::Filter => glyph(0xE71C, "Filter"),
         Icon::Rename => glyph(0xE8AC, "Rename"),
         Icon::Search => glyph(0xE721, "Search"),
         Icon::SelectAll24 => glyph(0xE8B3, "SelectAll"),
@@ -261,9 +270,11 @@ pub(crate) const fn em_of(icon: Icon, size: i32) -> i32 {
         // Caption buttons: the Chrome glyphs ink their em, 10.
         Icon::Subtract | Icon::Maximize | Icon::SquareMultiple | Icon::Dismiss if size <= 15 => CAPTION_EM,
         // A Quick access row's pin inks its em, Windows' 10 by 10.
-        Icon::Pin if size == 14 => 10,
+        Icon::PinFilled if size == 14 => 10,
         // The search box's magnifier, 11 by 11.
         Icon::Search if size == 15 => 13,
+        // The command bar's "See more" dots, 16 by 3 at 20, as Windows'.
+        Icon::MoreHorizontal if size == 20 => 20,
         // Back, Forward, Up and Refresh beside the address bar: the
         // arrows ink their whole em, Windows' 12 by 12.
         Icon::ArrowLeft | Icon::ArrowRight | Icon::ArrowUp | Icon::ArrowClockwise if size == 16 => 12,
@@ -284,12 +295,51 @@ const CHEVRON_EM: i32 = 8;
 /// The font size of the caption buttons' glyphs.
 const CAPTION_EM: i32 = 10;
 
+/// The part of `icon`'s glyph Windows 11 File Explorer draws in its accent
+/// colour on the command bar and the menus' strip, as a rectangle of the
+/// em in sixteenths (left, top, right, bottom): measured on Windows'
+/// own command bar against the glyphs of Segoe Fluent Icons 1.54, as the
+/// rectangle whose part of the glyph best matches the blue there. `None`
+/// for a glyph drawn in one colour (Paste's accent cannot be measured on
+/// the references, where Paste is greyed).
+pub(crate) const fn accent_of(icon: Icon) -> Option<(i32, i32, i32, i32)> {
+    match icon {
+        // New's plus, inside its circle: the plus's own outline's bounds.
+        Icon::Add => Some((4, 4, 11, 11)),
+        // The two finger rings.
+        Icon::Cut => Some((0, 10, 15, 16)),
+        // The front sheet.
+        Icon::Copy => Some((5, 0, 15, 12)),
+        // The text in the box.
+        Icon::Rename => Some((3, 0, 12, 16)),
+        // The arrow.
+        Icon::Share => Some((4, 0, 15, 11)),
+        // The down arrow.
+        Icon::ArrowSort => Some((9, 0, 16, 14)),
+        // The menus' rows: Open with's arrow, the whole star of Add to
+        // Favorites, Compress to's zipper, Copy as path's path, Show more
+        // options' arrow.
+        Icon::OpenWith => Some((7, 3, 16, 16)),
+        Icon::Star => Some((0, 0, 16, 16)),
+        Icon::FolderZip => Some((10, 0, 13, 14)),
+        Icon::CopyAsPath => Some((2, 4, 14, 12)),
+        Icon::ShowMoreOptions => Some((7, 0, 15, 7)),
+        _ => None,
+    }
+}
+
+/// Whether `icon` in a square of `size` pixels is drawn from the chosen
+/// symbol font now, rather than as the app's own icon.
+pub(crate) fn draws_from_font(icon: Icon, size: i32) -> bool {
+    drawn_name(icon, size) != icon.name()
+}
+
 /// The glyph of `icon` in a square of `size` pixels: a dismiss X in a
 /// square of 15 pixels or less is a caption or dialog button, which
 /// Windows draws as `ChromeClose`; elsewhere it is the thin Cancel, as a
 /// menu's "Close tab" is. The command bar's New, in its 18-pixel square,
 /// is Windows' circled plus, `AddTo`; the new-tab button's plus stays
-/// plain.
+/// plain. A pinned folder's pin is filled, `PinnedFill`.
 const fn glyph_at(icon: Icon, size: i32) -> Option<WindowsGlyph> {
     match icon {
         Icon::Add if size >= 17 => Some(WindowsGlyph {
@@ -316,13 +366,24 @@ const PADDED_SQUARES: [i32; 16] = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20
 /// the em fills the square, and `ox-win-add-20-box20-symbolic` where the
 /// em is smaller ([`em_of`]).
 fn glyph_icon_name(icon: Icon, size: i32) -> String {
-    if em_of(icon, size) == size {
+    if !has_own_square(icon, size) {
         return full_glyph_name(icon);
     }
     let name = glyph_key(icon);
     let stem = name.strip_prefix("ox-").unwrap_or(name);
     let stem = stem.strip_suffix("-symbolic").unwrap_or(stem);
     format!("ox-win-{stem}-box{size}-symbolic")
+}
+
+/// Whether `icon` has a glyph of its own in a square of `size` pixels:
+/// drawn at a smaller em than the square, or another glyph there
+/// ([`glyph_at`]).
+const fn has_own_square(icon: Icon, size: i32) -> bool {
+    let other_glyph = match (glyph_at(icon, size), glyph_of(icon)) {
+        (Some(here), Some(own)) => here.codepoint != own.codepoint,
+        _ => false,
+    };
+    em_of(icon, size) < size || other_glyph
 }
 
 /// The name of `icon`'s glyph drawn at an em filling its square, which
@@ -339,6 +400,11 @@ fn full_glyph_name(icon: Icon) -> String {
 const fn glyph_key(icon: Icon) -> &'static str {
     match icon {
         Icon::RotateLeft => "ox-rotate-left-20-symbolic",
+        Icon::CopyAsPath => "ox-copy-as-path-20-symbolic",
+        Icon::OpenWith => "ox-open-with-20-symbolic",
+        Icon::OpenInNewWindow => "ox-open-in-new-window-20-symbolic",
+        Icon::Unpin => "ox-unpin-16-symbolic",
+        Icon::ShowMoreOptions => "ox-show-more-options-20-symbolic",
         Icon::RotateRight => "ox-rotate-right-20-symbolic",
         Icon::SetAsBackground => "ox-set-as-background-20-symbolic",
         _ => icon.name(),
@@ -369,7 +435,7 @@ fn glyph_requests() -> Vec<GlyphRequest> {
         });
         let padded = PADDED_SQUARES
             .into_iter()
-            .filter(|size| em_of(icon, *size) < *size);
+            .filter(|size| has_own_square(icon, *size));
         for size in padded {
             let codepoint = match glyph_at(icon, size) {
                 Some(glyph) => glyph.codepoint,
@@ -394,6 +460,11 @@ pub(crate) enum Status {
     Off,
     /// The chosen font is being read.
     Reading,
+    /// The font could not be read, for `reason`: the app's own glyphs.
+    Unreadable {
+        /// Why: missing, unreadable, not TrueType, damaged.
+        reason: &'static str,
+    },
     /// The font was read and draws `found` of `wanted` glyphs.
     Ready {
         /// How many glyphs it draws.
@@ -450,7 +521,7 @@ pub(crate) fn drawn_name(icon: Icon, size: i32) -> &'static str {
     // A square with a padded icon draws it; any other draws the glyph at
     // an em filling it, as an icon the user enlarged.
     // 0 stands for the glyph filling its em.
-    let square = if PADDED_SQUARES.contains(&size) && em_of(icon, size) < size {
+    let square = if PADDED_SQUARES.contains(&size) && has_own_square(icon, size) {
         size
     } else {
         0
@@ -517,9 +588,18 @@ pub(crate) fn follow_preferences(preferences: &Preferences) {
             let found = glyph_icons()
                 .filter(|icon| glyph_of(*icon).is_some() && loaded.contains(&glyph_icon_name(*icon, 16)))
                 .count();
-            state.status = Status::Ready {
-                found,
-                wanted: glyph_count(),
+            state.status = match loaded.problem() {
+                Some(reason) => {
+                    glib::g_warning!(
+                        ox_core::LOG_DOMAIN,
+                        "The Windows symbol font could not be read ({reason}), so the app's own glyphs are shown"
+                    );
+                    Status::Unreadable { reason }
+                }
+                None => Status::Ready {
+                    found,
+                    wanted: glyph_count(),
+                },
             };
             state.loaded = Some(loaded);
             true

@@ -54,6 +54,21 @@ pub(crate) enum Icon {
     /// The command bar's Set as background: draws `image_20_regular`,
     /// with its own glyph from the Windows symbol font.
     SetAsBackground,
+    /// The menus' Copy as path: draws `link_20_regular`, with its own
+    /// glyph from the Windows symbol font.
+    CopyAsPath,
+    /// The menus' Open with: draws `apps_20_regular`, with its own glyph
+    /// from the Windows symbol font.
+    OpenWith,
+    /// The menus' Open in new window: draws `window_new_20_regular`, with
+    /// its own glyph from the Windows symbol font.
+    OpenInNewWindow,
+    /// The menus' Unpin from Quick access: draws `pin_16_regular`, with
+    /// Windows' crossed-out pin from the Windows symbol font.
+    Unpin,
+    /// The menus' Show more options: draws `more_horizontal_20_regular`,
+    /// with its own glyph from the Windows symbol font.
+    ShowMoreOptions,
     /// `arrow_eject_20_regular`: Eject, Safely remove, Disconnect and
     /// Sign out of server, the commands app.js drew with its eject
     /// glyph, and the eject button of a removable drive's sidebar row.
@@ -194,6 +209,9 @@ pub(crate) enum Icon {
     FolderAdd,
     /// `folder_zip_20_regular`: the badge that marks a ZIP archive, and New
     /// ▸ Compressed (zipped) Folder.
+    /// `filter_20_regular`: Home's Filter button (Windows' funnel comes from
+    /// the symbol font).
+    Filter,
     FolderZip,
     /// `grid_20_regular`: View and the icon views.
     Grid,
@@ -270,6 +288,9 @@ pub(crate) enum Icon {
     Play16,
     /// `pin_16_regular`: pins and the Quick access headings.
     Pin,
+    /// `pin_16_filled`: the pin beside a pinned folder in the navigation pane
+    /// and on Home's Quick access tiles, filled as Windows 11 draws it.
+    PinFilled,
     /// `rectangle_landscape_20_regular`: View > Extra large icons and Large icons.
     RectangleLandscape,
     /// `rename_20_regular`: Rename.
@@ -361,7 +382,7 @@ impl Icon {
         match self {
             Icon::Add => "ox-add-20-symbolic",
             Icon::AddNetworkLocation24 => "ox-add-network-location-24-symbolic",
-            Icon::Apps => "ox-apps-20-symbolic",
+            Icon::Apps | Icon::OpenWith => "ox-apps-20-symbolic",
             Icon::AppsListDetail => "ox-apps-list-detail-20-symbolic",
             Icon::ArrowAutofitHeight => "ox-arrow-autofit-height-20-symbolic",
             Icon::ArrowClockwise | Icon::RotateRight => "ox-arrow-clockwise-20-symbolic",
@@ -434,12 +455,12 @@ impl Icon {
             Icon::Info => "ox-info-20-symbolic",
             Icon::InvertSelection24 => "ox-invert-selection-24-symbolic",
             Icon::Laptop => "ox-laptop-20-symbolic",
-            Icon::Link => "ox-link-20-symbolic",
+            Icon::Link | Icon::CopyAsPath => "ox-link-20-symbolic",
             Icon::MailColor20 => "ox-mail-20-color",
             Icon::MapNetworkDrive24 => "ox-map-network-drive-24-symbolic",
             Icon::Markdown => "ox-markdown-20-symbolic",
             Icon::Maximize => "ox-maximize-20-symbolic",
-            Icon::MoreHorizontal => "ox-more-horizontal-20-symbolic",
+            Icon::MoreHorizontal | Icon::ShowMoreOptions => "ox-more-horizontal-20-symbolic",
             Icon::MusicNote => "ox-music-note-2-20-symbolic",
             Icon::Open => "ox-open-20-symbolic",
             Icon::Options24 => "ox-options-24-symbolic",
@@ -451,7 +472,9 @@ impl Icon {
             Icon::Pause16 => "ox-pause-16-symbolic",
             Icon::Phone => "ox-phone-20-symbolic",
             Icon::Play16 => "ox-play-16-symbolic",
-            Icon::Pin => "ox-pin-16-symbolic",
+            Icon::Pin | Icon::Unpin => "ox-pin-16-symbolic",
+            Icon::PinFilled => "ox-pin-16-filled-symbolic",
+            Icon::Filter => "ox-filter-20-symbolic",
             Icon::RectangleLandscape => "ox-rectangle-landscape-20-symbolic",
             Icon::Rename => "ox-rename-20-symbolic",
             Icon::Search => "ox-search-20-symbolic",
@@ -483,7 +506,7 @@ impl Icon {
             Icon::WeatherSunny => "ox-weather-sunny-20-symbolic",
             Icon::WindowConsole => "ox-window-console-20-symbolic",
             Icon::WindowMultiple => "ox-window-multiple-20-symbolic",
-            Icon::WindowNew => "ox-window-new-20-symbolic",
+            Icon::WindowNew | Icon::OpenInNewWindow => "ox-window-new-20-symbolic",
             Icon::Wrench => "ox-wrench-20-symbolic",
         }
     }
@@ -507,12 +530,21 @@ impl Icon {
 /// The roles that draw another icon's bundled file but take a glyph of
 /// their own from the Windows symbol font (LOOK-031): they are not in
 /// [`ALL_ICONS`], whose names match the vendored files one to one.
-pub(crate) const COMMAND_ROLES: [Icon; 3] = [Icon::RotateLeft, Icon::RotateRight, Icon::SetAsBackground];
+pub(crate) const COMMAND_ROLES: [Icon; 8] = [
+    Icon::RotateLeft,
+    Icon::RotateRight,
+    Icon::SetAsBackground,
+    Icon::CopyAsPath,
+    Icon::OpenWith,
+    Icon::OpenInNewWindow,
+    Icon::Unpin,
+    Icon::ShowMoreOptions,
+];
 
 /// Every icon, in the order of [`Icon`]: for the tests that check each one
 /// ships, is recorded and resolves, and to find the icon a drawn name
 /// stands for ([`super::user_glyphs`]).
-pub(crate) const ALL_ICONS: [Icon; 126] = [
+pub(crate) const ALL_ICONS: [Icon; 128] = [
     Icon::Add,
     Icon::AddNetworkLocation24,
     Icon::Apps,
@@ -573,6 +605,7 @@ pub(crate) const ALL_ICONS: [Icon; 126] = [
     Icon::FileFolder,
     Icon::Folder,
     Icon::FolderAdd,
+    Icon::Filter,
     Icon::FolderZip,
     Icon::Grid,
     Icon::HardDrive,
@@ -606,6 +639,7 @@ pub(crate) const ALL_ICONS: [Icon; 126] = [
     Icon::Phone,
     Icon::Play16,
     Icon::Pin,
+    Icon::PinFilled,
     Icon::RectangleLandscape,
     Icon::Rename,
     Icon::Search,

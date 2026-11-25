@@ -28,6 +28,8 @@
    blue parts of the custom icons: Windows' accent blue, as they are drawn;
    the dark theme has the lighter one (CMD-007). */
 @define-color ox_command_blue #0078d4;
+/* The accent part of the command glyphs drawn from the symbol font. */
+@define-color ox_glyph_accent #0078d4;
 @define-color ox_text_selection_bg #0078d4;        /* C31 */
 @define-color ox_text_selection_fg #ffffff;
 
