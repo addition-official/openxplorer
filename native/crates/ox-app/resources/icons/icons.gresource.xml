@@ -51,6 +51,7 @@
     <file>scalable/actions/ox-document-copy-20-symbolic.svg</file>
     <file>scalable/actions/ox-document-text-20-symbolic.svg</file>
     <file>scalable/actions/ox-eye-20-symbolic.svg</file>
+    <file>scalable/actions/ox-filter-20-symbolic.svg</file>
     <file>scalable/actions/ox-folder-add-20-symbolic.svg</file>
     <file>scalable/actions/ox-grid-20-symbolic.svg</file>
     <file>scalable/actions/ox-history-20-symbolic.svg</file>
@@ -96,6 +97,7 @@
     <file>scalable/emblems/ox-circle-small-20-filled-symbolic.svg</file>
     <file>scalable/emblems/ox-dismiss-circle-16-filled-symbolic.svg</file>
     <file>scalable/emblems/ox-folder-zip-20-symbolic.svg</file>
+    <file>scalable/emblems/ox-pin-16-filled-symbolic.svg</file>
     <file>scalable/emblems/ox-pin-16-symbolic.svg</file>
     <file>scalable/mimetypes/ox-code-20-color.svg</file>
     <file>scalable/mimetypes/ox-code-24-color.svg</file>

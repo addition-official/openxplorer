@@ -533,7 +533,7 @@ fn folder_tile(place: &Place, locations: &LocationContext, compact: bool) -> Ite
         &folder_location(&place.uri, locations),
         "home-tile-location",
     ));
-    let pin = icons::image(Icon::Pin, PIN_GLYPH);
+    let pin = icons::image(Icon::PinFilled, PIN_GLYPH);
     pin.set_halign(gtk::Align::Start);
     pin.add_css_class("home-pin");
     pin.update_property(&[gtk::accessible::Property::Label(ox_core::i18n::gettext_static(

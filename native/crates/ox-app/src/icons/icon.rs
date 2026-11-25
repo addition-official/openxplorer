@@ -209,6 +209,9 @@ pub(crate) enum Icon {
     FolderAdd,
     /// `folder_zip_20_regular`: the badge that marks a ZIP archive, and New
     /// ▸ Compressed (zipped) Folder.
+    /// `filter_20_regular`: Home's Filter button (Windows' funnel comes from
+    /// the symbol font).
+    Filter,
     FolderZip,
     /// `grid_20_regular`: View and the icon views.
     Grid,
@@ -285,6 +288,9 @@ pub(crate) enum Icon {
     Play16,
     /// `pin_16_regular`: pins and the Quick access headings.
     Pin,
+    /// `pin_16_filled`: the pin beside a pinned folder in the navigation pane
+    /// and on Home's Quick access tiles, filled as Windows 11 draws it.
+    PinFilled,
     /// `rectangle_landscape_20_regular`: View > Extra large icons and Large icons.
     RectangleLandscape,
     /// `rename_20_regular`: Rename.
@@ -467,6 +473,8 @@ impl Icon {
             Icon::Phone => "ox-phone-20-symbolic",
             Icon::Play16 => "ox-play-16-symbolic",
             Icon::Pin | Icon::Unpin => "ox-pin-16-symbolic",
+            Icon::PinFilled => "ox-pin-16-filled-symbolic",
+            Icon::Filter => "ox-filter-20-symbolic",
             Icon::RectangleLandscape => "ox-rectangle-landscape-20-symbolic",
             Icon::Rename => "ox-rename-20-symbolic",
             Icon::Search => "ox-search-20-symbolic",
@@ -536,7 +544,7 @@ pub(crate) const COMMAND_ROLES: [Icon; 8] = [
 /// Every icon, in the order of [`Icon`]: for the tests that check each one
 /// ships, is recorded and resolves, and to find the icon a drawn name
 /// stands for ([`super::user_glyphs`]).
-pub(crate) const ALL_ICONS: [Icon; 126] = [
+pub(crate) const ALL_ICONS: [Icon; 128] = [
     Icon::Add,
     Icon::AddNetworkLocation24,
     Icon::Apps,
@@ -597,6 +605,7 @@ pub(crate) const ALL_ICONS: [Icon; 126] = [
     Icon::FileFolder,
     Icon::Folder,
     Icon::FolderAdd,
+    Icon::Filter,
     Icon::FolderZip,
     Icon::Grid,
     Icon::HardDrive,
@@ -630,6 +639,7 @@ pub(crate) const ALL_ICONS: [Icon; 126] = [
     Icon::Phone,
     Icon::Play16,
     Icon::Pin,
+    Icon::PinFilled,
     Icon::RectangleLandscape,
     Icon::Rename,
     Icon::Search,

@@ -17,7 +17,7 @@ also awaiting the owner's review: `apps_list_detail_20_regular` (Tiles) and
 `content_view_20_regular` (Content). Added on 2026-11-08, also awaiting the
 owner's review: `search_settings_20_regular` (Search options while searching). Added on 2026-11-09, also awaiting the owner's review: `warning_32_color`
 (the warning icon of the Rename and Confirm Save As message boxes, which Windows 11
-draws in colour). Added on 2026-11-17, also awaiting the owner's review: `dismiss_circle_32_color` (the error icon of the message box that says a typed address was not found, the red circle Windows 11's File Explorer error box shows). Added on 2026-11-23, also awaiting the owner's review: `cloud_20_regular` (Google Drive and OneDrive drives, as Windows 11 draws OneDrive). Undo, Redo and Pin
+draws in colour). Added on 2026-11-17, also awaiting the owner's review: `dismiss_circle_32_color` (the error icon of the message box that says a typed address was not found, the red circle Windows 11's File Explorer error box shows). Added on 2026-11-23, also awaiting the owner's review: `cloud_20_regular` (Google Drive and OneDrive drives, as Windows 11 draws OneDrive). Added on 2026-11-25, also awaiting the owner's review: `filter_20_regular` (Home's Filter button; Windows draws a funnel, which the package does not have, so without the Windows symbol font the filter lines stand in) and `pin_16_filled` (the pin beside a pinned folder, filled as Windows 11 draws it). Undo, Redo and Pin
 are drawn in Windows' blue (#0078d4, or #60cdff in the dark theme) by the menu's CSS, and Redo shows
 `arrow_undo_20_regular` mirrored by it (`-gtk-icon-transform`), as Windows
 11 draws them; the files are not changed. Microsoft publishes no colour
@@ -108,6 +108,7 @@ it.
 | `actions/ox-document-copy-20-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/document_copy_20_regular.svg` | 3cd4ddb3473b836b3cf8954e3ec6592a149cd9680a201ee8bf719bf5d60d8433 |
 | `actions/ox-document-text-20-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/document_text_20_regular.svg` | 4c1e89ff1d85152da67997db13c68af58a9b930de199e9a91922aa7b6a8dc7cb |
 | `actions/ox-eye-20-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/eye_20_regular.svg` | 453fff6c012ee96342c6de537404ee2927f4b6f40515c26dca890eb2f3b36327 |
+| `actions/ox-filter-20-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/filter_20_regular.svg` | f3a36ac80135c010c83a1360e89b40a7df9f30fe3aac6dd64d8a17d5f2ddde6f |
 | `actions/ox-folder-add-20-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/folder_add_20_regular.svg` | ce74be6268ef151cc9accc0452df91f8164c3f8389c14fa7473a66fd15389661 |
 | `actions/ox-grid-20-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/grid_20_regular.svg` | e39560fcf33db8035a28269765f079779c6938dbc8a51bc80f00a7293878c825 |
 | `actions/ox-history-20-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/history_20_regular.svg` | 44499869f85aa37f46046e9652d5912a3f9a1ce2c4b835dd3c556d23cb664ef7 |
@@ -153,6 +154,7 @@ it.
 | `emblems/ox-circle-small-20-filled-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/circle_small_20_filled.svg` | 2c66febb23b8b5f7233500418e110ecb83c3b3afccefd6f86cc784f99a184bfa |
 | `emblems/ox-dismiss-circle-16-filled-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/dismiss_circle_16_filled.svg` | 9e28ebc2b04e1a528968f227ba83d5a54ea2657305ef0cafd44440a93917a3bf |
 | `emblems/ox-folder-zip-20-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/folder_zip_20_regular.svg` | 7fa45a1da754ab612939a3806d6a5079642c0a2d897db59da2f9be5034e8870c |
+| `emblems/ox-pin-16-filled-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/pin_16_filled.svg` | 1e9fc8cf55a9d40372e95d7a2bab6299606163497649eae2c337820504173ec7 |
 | `emblems/ox-pin-16-symbolic.svg` | Fluent UI System Icons 1.1.343 | `icons/pin_16_regular.svg` | 4294f30fef80b1ad90e746cb161321be97ff3ea40b4316812619624aab6a12a2 |
 | `mimetypes/ox-code-20-color.svg` | Fluent UI System Icons 1.1.343 | `icons/code_20_color.svg` | 67ccde98fd9e13659526f6a1bc34b9da75aeec62f383c245982fec2485a2f354 |
 | `mimetypes/ox-code-24-color.svg` | Fluent UI System Icons 1.1.343 | `icons/code_24_color.svg` | b3b2f8ab097efd98de249f1a3878fb71d4b76b5fc8005823c62733d8ac80c7e1 |

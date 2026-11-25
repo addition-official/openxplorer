@@ -127,7 +127,7 @@ fn row_content(entry: &SidebarEntry, look: RowLook, collapsed: bool) -> gtk::Box
     content.append(&icon);
     content.append(&name_and_capacity(entry, look.capacity_bars));
     if entry.pinned {
-        let pin = icons::image(Icon::Pin, PIN_SIZE);
+        let pin = icons::image(Icon::PinFilled, PIN_SIZE);
         pin.add_css_class("pin");
         content.append(&pin);
     }

@@ -139,6 +139,8 @@ pub(crate) const fn windows_source(icon: Icon) -> WindowsSource {
         Icon::Phone => glyph(0xE8EA, "CellPhone"),
         Icon::Play16 => glyph(0xE768, "Play"),
         Icon::Pin => glyph(0xE718, "Pin"),
+        Icon::PinFilled => glyph(0xE842, "PinnedFill"),
+        Icon::Filter => glyph(0xE71C, "Filter"),
         Icon::Rename => glyph(0xE8AC, "Rename"),
         Icon::Search => glyph(0xE721, "Search"),
         Icon::SelectAll24 => glyph(0xE8B3, "SelectAll"),
@@ -268,7 +270,7 @@ pub(crate) const fn em_of(icon: Icon, size: i32) -> i32 {
         // Caption buttons: the Chrome glyphs ink their em, 10.
         Icon::Subtract | Icon::Maximize | Icon::SquareMultiple | Icon::Dismiss if size <= 15 => CAPTION_EM,
         // A Quick access row's pin inks its em, Windows' 10 by 10.
-        Icon::Pin if size == 14 => 10,
+        Icon::PinFilled if size == 14 => 10,
         // The search box's magnifier, 11 by 11.
         Icon::Search if size == 15 => 13,
         // The command bar's "See more" dots, 16 by 3 at 20, as Windows'.
@@ -343,14 +345,6 @@ const fn glyph_at(icon: Icon, size: i32) -> Option<WindowsGlyph> {
         Icon::Add if size >= 17 => Some(WindowsGlyph {
             codepoint: 0xECC8,
             name: "AddTo",
-        }),
-        // The pin beside a pinned folder in the navigation pane (its
-        // 14-pixel square) and on Home's Quick access tiles (12) is
-        // Windows' filled pin; menus' "Pin to Quick access" keeps the
-        // outline.
-        Icon::Pin if size <= 14 => Some(WindowsGlyph {
-            codepoint: 0xE842,
-            name: "PinnedFill",
         }),
         Icon::Dismiss if size <= 15 => Some(WindowsGlyph {
             codepoint: 0xE8BB,
