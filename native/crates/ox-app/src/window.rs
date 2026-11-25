@@ -147,6 +147,7 @@ mod rubber_band;
 mod run_on_open;
 mod saved_search;
 mod search_box;
+mod search_divider;
 mod search_layout;
 mod search_steps;
 mod select_matching;

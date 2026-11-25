@@ -496,30 +496,35 @@ fn the_search_box_takes_windows_width_and_its_divider_is_remembered() {
     resize(&test, 1400);
     let search = test.window.search_box().clone();
     let address = test.window.address_bar();
-    wait_until("Windows' default width", || search.width() == 499);
-    let address_end = address.compute_bounds(&test.window).expect("shown");
-    let search_start = search.compute_bounds(&test.window).expect("shown");
-    let gap = search_start.x() - (address_end.x() + address_end.width());
+    let paned = test.window.search_divider();
+    // The drawn boxes, borders included, as the reference shots measure.
+    let drawn = |widget: &gtk::Widget| widget.compute_bounds(&paned).expect("shown");
+    let search_width = || drawn(search.upcast_ref()).width().round() as i32;
+    wait_until("Windows' default width", || search_width() == 499);
+    let gap = drawn(search.upcast_ref()).x()
+        - (drawn(address.upcast_ref()).x() + drawn(address.upcast_ref()).width());
     assert!((gap - 8.0).abs() < 0.5, "8 pixels apart: {gap}");
 
-    let paned = test.window.search_divider();
-    let handle = paned.width() - address.width() - search.width();
-    paned.set_position(paned.width() - handle - 320);
-    wait_until("the dragged width", || search.width() == 320);
+    paned.set_position(paned.width() - 8 - 320);
+    wait_until("the dragged width", || search_width() == 320);
     wait_until("the width saved", || {
         test.context.settings_data().preferences.search_box_width == Some(320)
     });
     resize(&test, 1200);
-    assert_eq!(search.width(), 320, "a wider or narrower window keeps it");
+    assert_eq!(search_width(), 320, "a wider or narrower window keeps it");
     let second = test.open_beside(&fixture.uri());
     resize(&second, 1400);
+    let second_paned = second.window.search_divider();
+    let second_search = second.window.search_box().clone();
     wait_until("the other window's width", || {
-        second.window.search_box().width() == 320
+        second_search
+            .compute_bounds(&second_paned)
+            .is_some_and(|bounds| bounds.width().round() as i32 == 320)
     });
 
-    paned.set_position(paned.width() - handle - 700);
-    wait_until("a wide box", || search.width() == 700);
+    paned.set_position(paned.width() - 8 - 700);
+    wait_until("a wide box", || search_width() == 700);
     resize(&test, 1000);
-    assert!(search.width() < 700, "a narrow window shrinks it");
-    assert!(search.width() >= 173, "down to 173 pixels");
+    assert!(search_width() < 700, "a narrow window shrinks it");
+    assert!(search_width() >= 173, "down to 173 pixels");
 }

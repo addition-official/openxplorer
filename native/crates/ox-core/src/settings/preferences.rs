@@ -38,6 +38,10 @@ const DEFAULT_NETWORK_INTERVAL: u32 = 60;
 /// Accepted sidebar widths, in pixels.
 pub const SIDEBAR_WIDTHS: RangeInclusive<u32> = 140..=560;
 
+/// The search box widths kept, in pixels: its least width to as wide as a
+/// large window's row leaves it (LOOK-012).
+pub const SEARCH_BOX_WIDTHS: RangeInclusive<u32> = 173..=1200;
+
 /// Accepted window widths, in pixels: from the window's minimum up.
 pub const WINDOW_WIDTHS: RangeInclusive<u32> = 670..=16_384;
 
@@ -1115,6 +1119,9 @@ impl Preferences {
         let sidebar_width = update
             .sidebar_width
             .and_then(|width| bounded_width(width, SIDEBAR_WIDTHS));
+        let search_box_width = update
+            .search_box_width
+            .and_then(|width| bounded_width(width, SEARCH_BOX_WIDTHS));
         let column_widths = update.column_widths.as_deref().map(ColumnWidths::from_values);
 
         replace_if_some(&mut self.theme, update.theme);
@@ -1153,6 +1160,9 @@ impl Preferences {
             .filter(|size| SIDEBAR_ICON_SIZES.contains(size));
         replace_if_some(&mut self.sidebar_icon_size, icon_size);
         self.apply_hidden_sidebar_items(update);
+        if let Some(width) = search_box_width {
+            self.search_box_width = Some(width);
+        }
         if let Some(width) = sidebar_width {
             self.sidebar_width = Some(width);
         }

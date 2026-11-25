@@ -207,11 +207,13 @@ fn the_address_and_search_boxes_are_34_pixels_tall_7_pixels_below_the_title_bar(
     let address = bounds(&test, test.window.address_bar());
     assert_eq!((address.x, address.y, address.height), (178, 49, 34));
     let search = bounds(&test, test.window.search_box());
-    assert_eq!((search.y, search.width, search.height), (49, 235, 34));
+    // Windows 11's search box (ref-01, ref-24, ref-29 at 1920 pixels):
+    // 499 pixels wide, ending 11 pixels from the window's edge.
+    assert_eq!((search.y, search.width, search.height), (49, 499, 34));
     assert_eq!(
         search.right(),
-        test.window.width() - 16,
-        "the search box ends 16 pixels from the edge"
+        test.window.width() - 11,
+        "the search box ends 11 pixels from the edge"
     );
 }
 
