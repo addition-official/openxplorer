@@ -472,7 +472,7 @@ fn rename_changes_a_removable_drives_label() {
 
 /// A tile This PC drew again while its menu was asked for is in no
 /// window: its menu does not open, where GTK would fail to show a popover
-/// there (`gtk_native_get_surface`: "GTK_IS_NATIVE (self)" failed, which
+/// there (`gtk_native_get_surface`: `GTK_IS_NATIVE (self)` failed, which
 /// ended the deb 61 run of `a_drive_tile_has_the_drive_menu_and_its_properties`).
 #[gtk::test]
 fn a_menu_for_a_tile_in_no_window_does_not_open() {
