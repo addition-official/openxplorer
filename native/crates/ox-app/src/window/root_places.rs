@@ -115,6 +115,7 @@ impl BrowserWindow {
             .css_classes(["ox-menu", LIST_CLASS])
             .child(&scroller)
             .build();
+        crate::tooltip_guard::release_tooltip_on_close(&popover);
         let bar = self.address_bar();
         popover.set_parent(bar);
         if let Some(bounds) = anchor.compute_bounds(bar) {

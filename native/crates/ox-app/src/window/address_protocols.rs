@@ -37,6 +37,7 @@ pub(super) fn protocol_chooser(entry: &gtk::Entry) -> gtk::Popover {
         .child(&list)
         .css_classes(["ox-menu", "classic"])
         .build();
+    crate::tooltip_guard::release_tooltip_on_close(&popover);
     for protocol in Protocol::ALL {
         let prefix = format!("{}://", protocol.scheme());
         list.append(&choice_button(protocol.label(), &prefix, entry, &popover));

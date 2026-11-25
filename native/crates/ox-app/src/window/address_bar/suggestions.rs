@@ -68,6 +68,7 @@ impl AddressBar {
             .child(&scroller)
             .css_classes(["ox-menu"])
             .build();
+        crate::tooltip_guard::release_tooltip_on_close(&popover);
         popover.set_parent(self);
         imp.suggestion_list.set(list).expect("add_suggestions runs once");
         imp.suggestion_popover
