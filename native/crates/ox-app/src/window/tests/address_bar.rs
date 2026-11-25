@@ -13,7 +13,7 @@ use gtk::{gdk, glib};
 use ox_core::settings::{PreferencesUpdate, Settings};
 
 use crate::locations::location_context;
-use crate::test_support::harness::{descendants, wait_until, Fixture, TestWindow};
+use crate::test_support::harness::{descendants, wait_for, wait_until, Fixture, TestWindow};
 use crate::volumes::{MountControls, VolumeKind, VolumeRow, VolumeState};
 use crate::window::address_bar::AddressMode;
 use crate::window::menu_popover::MenuPopover;
@@ -555,6 +555,42 @@ fn the_search_box_takes_windows_width_and_its_divider_is_remembered() {
     resize(&test, 1000);
     assert!(search_width() < 700, "a narrow window shrinks it");
     assert!(search_width() >= 173, "down to 173 pixels");
+}
+
+/// A narrow window squeezes the search box but is no drag of the divider:
+/// the squeezed width is not saved, and the box takes its width back
+/// when the window grows again. The divider used to take its own move,
+/// made as the window narrowed, for the user's drag and saved it.
+///
+/// parity: LOOK-012
+#[gtk::test]
+#[expect(clippy::cast_possible_truncation, reason = "widget widths are small")]
+fn a_narrow_window_squeezes_the_search_box_without_saving_it() {
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    resize(&test, 1400);
+    let search = test.window.search_box().clone();
+    let paned = test.window.search_divider();
+    let search_width = || {
+        search
+            .compute_bounds(&paned)
+            .expect("shown")
+            .width()
+            .round() as i32
+    };
+    wait_until("Windows' default width", || search_width() == 499);
+
+    resize(&test, 760);
+    assert!(search_width() < 499, "a narrow window squeezes it");
+    // Longer than the divider waits before it saves a drag.
+    wait_for(std::time::Duration::from_millis(600));
+    assert_eq!(
+        test.context.settings_data().preferences.search_box_width,
+        None,
+        "the squeezed width is no choice of the user's"
+    );
+    resize(&test, 1400);
+    wait_until("the default width back", || search_width() == 499);
 }
 
 /// While the search box holds text, its X sits to the left of the
