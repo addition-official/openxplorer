@@ -47,7 +47,10 @@ pub(super) fn root_places(
     home: &str,
     known_folders: &[Place],
     user: &std::path::Path,
+    drives: &[(String, String)],
+    desktop_folders: &[(String, String)],
 ) -> Vec<(String, String)> {
+    let _ = (drives, desktop_folders);
     let mut rows = vec![
         (ox_core::i18n::gettext("Home"), home.to_owned()),
         (ox_core::i18n::gettext("Gallery"), GALLERY_URI.to_owned()),
@@ -92,7 +95,13 @@ impl BrowserWindow {
     /// for the keyboard.
     pub(super) fn show_places_menu(&self, anchor: &gtk::Widget) {
         let home = self.home_location();
-        let places = root_places(&home, &self.context().known_folders(), &glib::home_dir());
+        let places = root_places(
+            &home,
+            &self.context().known_folders(),
+            &glib::home_dir(),
+            &[],
+            &[],
+        );
         let list = gtk::ListBox::builder()
             .selection_mode(gtk::SelectionMode::Browse)
             .activate_on_single_click(true)
@@ -181,7 +190,16 @@ mod tests {
             place(KnownFolder::Videos, "Videos"),
         ];
 
-        let rows = root_places("file:///home/demo", &known, Path::new("/home/demo"));
+        let drives = [("CD Drive".to_owned(), "file:///media/demo/CD".to_owned())];
+        let desktop = [("Zeta".to_owned(), "file:///home/demo/Desktop/Zeta".to_owned())];
+
+        let rows = root_places(
+            "file:///home/demo",
+            &known,
+            Path::new("/home/demo"),
+            &drives,
+            &desktop,
+        );
 
         let labels: Vec<&str> = rows.iter().map(|(label, _)| label.as_str()).collect();
         assert_eq!(
@@ -197,9 +215,13 @@ mod tests {
                 "Videos",
                 "demo",
                 "This PC",
+                "CD Drive",
                 "Network",
-                "Recycle Bin"
-            ]
+                "Recycle Bin",
+                "Zeta"
+            ],
+            "Windows' order (seen on build 26200): Libraries after This PC and Control Panel \
+             before the Recycle Bin are left out"
         );
         assert_eq!(rows[3].1, "file:///home/demo/Documents");
         assert_eq!(rows[8].1, "file:///home/demo");
