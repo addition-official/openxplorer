@@ -725,7 +725,10 @@ pub(super) fn popup_item_place_menu(
 }
 
 /// Opens `menu` in `style` at `point` of `owner`, its folder pane; the
-/// `opener`, if any, takes the keyboard back when it closes.
+/// `opener`, if any, takes the keyboard back when it closes. Nothing
+/// opens for an owner no longer in a window: a tile This PC drew again
+/// meanwhile (the places change while it shows) has no folder pane, and
+/// GTK cannot show a menu there (`gtk_native_get_surface` fails).
 pub(super) fn popup_place_menu_in(
     menu: &PlaceMenu,
     owner: &gtk::Widget,
@@ -733,6 +736,7 @@ pub(super) fn popup_place_menu_in(
     style: MenuStyle,
     opener: Option<&gtk::Widget>,
 ) -> Option<MenuPopover> {
+    owner.root()?;
     let (entries, strip) = match (menu, owner.root().and_downcast::<BrowserWindow>()) {
         // A Recent row offers what this computer has for its file.
         (
