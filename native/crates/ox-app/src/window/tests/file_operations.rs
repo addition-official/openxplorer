@@ -1033,7 +1033,7 @@ fn running_operations_show_their_progress_on_the_dock_icon() {
     });
 }
 
-/// Google Drive and `OneDrive` stay read-only for now: every file and
+/// Google Drive and `OneDrive` are read-only by default: every file and
 /// archive operation asks the shared write guard, which refuses them, so
 /// moving, renaming or deleting items there, or writing into a drive, is
 /// refused however it was started. Local folders stay writable.
@@ -1047,4 +1047,52 @@ fn the_write_guard_keeps_cloud_drives_read_only() {
     assert!(guard("google-drive://alice@example.com/0AIbcd/1x9Kq").is_err());
     assert!(guard("onedrive://alice@example.com/Documents/Q3%20report.xlsx").is_err());
     assert!(guard(&fixture.uri()).is_ok());
+}
+
+/// With Settings > Files & folders > "Allow changes to Google Drive" on,
+/// the write guard lets writes reach Google Drive's ordinary folders,
+/// while `OneDrive` and the drive's top folders stay read-only; turning it
+/// off again restores the read-only drive (DEV-013).
+///
+/// parity: DEV-013
+#[gtk::test]
+fn the_write_guard_follows_allow_changes_to_google_drive() {
+    let _lock = ox_core::location::cloud_writes::switch_lock();
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    let context = test.window.context();
+    let item = "google-drive://alice@example.com/0AIbcd/1x9Kq";
+    let set = |on: bool| {
+        let done = std::rc::Rc::new(std::cell::Cell::new(false));
+        let finished = std::rc::Rc::clone(&done);
+        context.update_preferences(
+            ox_core::settings::PreferencesUpdate {
+                allow_google_drive_changes: Some(on),
+                ..ox_core::settings::PreferencesUpdate::default()
+            },
+            move |result| {
+                result.expect("saved");
+                finished.set(true);
+            },
+        );
+        wait_until("the preference saved", || done.get());
+    };
+
+    set(true);
+    let guard = context.write_guard();
+    assert!(guard(item).is_ok());
+    assert!(
+        guard("google-drive://alice@example.com/0AIbcd").is_ok(),
+        "My Drive takes items"
+    );
+    assert!(
+        guard("google-drive://alice@example.com/").is_err(),
+        "the account's top folder"
+    );
+    assert!(guard("google-drive://alice@example.com/GVfsSharedWithMe").is_err());
+    assert!(guard("onedrive://alice@example.com/Documents/Q3%20report.xlsx").is_err());
+
+    set(false);
+    assert!(guard(item).is_err());
+    assert!(!context.settings_data().preferences.allow_google_drive_changes);
 }

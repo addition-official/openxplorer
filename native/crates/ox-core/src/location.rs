@@ -52,6 +52,7 @@
 mod archive_location;
 mod classify;
 mod cloud_names;
+pub mod cloud_writes;
 mod device_uri;
 mod display;
 mod drive_letters;

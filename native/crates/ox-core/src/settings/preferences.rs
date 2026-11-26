@@ -407,6 +407,12 @@ pub struct Preferences {
     /// when on.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub delete_removable_permanently: bool,
+    /// Copies, moves, renames, deletes and new items reach Google Drive
+    /// (DEV-013). Off by default, the owner's choice: Google Drive is then
+    /// read-only, its files listed, opened and copied off. Stored as
+    /// `allowGoogleDriveChanges` only when on. `OneDrive` stays read-only.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub allow_google_drive_changes: bool,
     /// Ask before closing a window with several tabs (Dolphin's
     /// `ConfirmClosingMultipleTabs`); off, as Explorer never asks.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
@@ -868,6 +874,7 @@ impl Default for Preferences {
             confirm_delete: true,
             confirm_empty_trash: true,
             delete_removable_permanently: false,
+            allow_google_drive_changes: false,
             confirm_close_tabs: false,
             ask_to_run_programs: false,
             run_installed_launchers: false,
@@ -1020,6 +1027,10 @@ impl Preferences {
         replace_if_some(
             &mut self.delete_removable_permanently,
             update.delete_removable_permanently,
+        );
+        replace_if_some(
+            &mut self.allow_google_drive_changes,
+            update.allow_google_drive_changes,
         );
         replace_if_some(&mut self.recycle_replaced_files, update.recycle_replaced_files);
         replace_if_some(&mut self.restore_over_original, update.restore_over_original);
@@ -1469,6 +1480,8 @@ pub struct PreferencesUpdate {
     pub confirm_empty_trash: Option<bool>,
     /// See [`Preferences::delete_removable_permanently`].
     pub delete_removable_permanently: Option<bool>,
+    /// See [`Preferences::allow_google_drive_changes`].
+    pub allow_google_drive_changes: Option<bool>,
     /// See [`Preferences::recycle_replaced_files`].
     pub recycle_replaced_files: Option<bool>,
     /// See [`Preferences::restore_over_original`].
@@ -1689,6 +1702,7 @@ impl PreferencesUpdate {
             confirm_delete: flag("confirmDelete"),
             confirm_empty_trash: flag("confirmEmptyTrash"),
             delete_removable_permanently: flag("deleteRemovablePermanently"),
+            allow_google_drive_changes: flag("allowGoogleDriveChanges"),
             recycle_replaced_files: flag("recycleReplacedFiles"),
             restore_over_original: flag("restoreOverOriginal"),
             extension_word_starts: flag("extensionWordStarts"),
@@ -2455,6 +2469,34 @@ mod tests {
         let mut read = Preferences::default();
         read.apply(&PreferencesUpdate::from_json(&stored).unwrap());
         assert!(read.delete_removable_permanently, "read back");
+    }
+
+    /// Google Drive is read-only by default (DEV-013); allowing changes to
+    /// it is a choice stored only when made, and read back.
+    ///
+    /// parity: DEV-013
+    #[test]
+    fn changes_to_google_drive_are_opt_in() {
+        let mut preferences = Preferences::default();
+        assert!(!preferences.allow_google_drive_changes, "read-only by default");
+        assert!(serde_json::to_value(&preferences)
+            .unwrap()
+            .get("allowGoogleDriveChanges")
+            .is_none());
+
+        preferences.apply(&PreferencesUpdate::from_json(&json!({"allowGoogleDriveChanges": true})).unwrap());
+
+        assert!(preferences.allow_google_drive_changes);
+        let stored = serde_json::to_value(&preferences).unwrap();
+        assert_eq!(stored["allowGoogleDriveChanges"], json!(true));
+        let mut read = Preferences::default();
+        read.apply(&PreferencesUpdate::from_json(&stored).unwrap());
+        assert!(read.allow_google_drive_changes, "read back");
+        preferences.apply(&PreferencesUpdate::from_json(&json!({"allowGoogleDriveChanges": false})).unwrap());
+        assert!(serde_json::to_value(&preferences)
+            .unwrap()
+            .get("allowGoogleDriveChanges")
+            .is_none());
     }
 
     /// The progress window's "More details" stays as it was last left,

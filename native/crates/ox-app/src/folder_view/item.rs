@@ -53,15 +53,22 @@ struct PreparedEntry {
 /// selected, worked out again whenever the commands were updated, it froze
 /// the window for seconds after Select all.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is one independent fact of an address, not a state"
+)]
 pub(crate) struct AddressFacts {
     /// A whole SMB server or share, which cannot be moved, renamed or
     /// trashed.
     pub smb_share_root: bool,
     /// Read-only by its path alone: a snapshot component (`.snapshot`,
-    /// `@GMT-…`), inside a ZIP or on Google Drive or `OneDrive` (DEV-013).
-    /// A configured snapshot root is the window's to check, as it can
-    /// change while the item is listed.
+    /// `@GMT-…`) or inside a ZIP. A configured snapshot root is the
+    /// window's to check, as it can change while the item is listed.
     pub read_only_by_path: bool,
+    /// On Google Drive or `OneDrive` (DEV-013), read-only unless Settings
+    /// allow changes to Google Drive, which can change while the item is
+    /// listed: [`AddressFacts::is_read_only`] asks.
+    pub on_cloud_drive: bool,
     /// A row of Recent files.
     pub recent_row: bool,
 }
@@ -75,10 +82,18 @@ impl AddressFacts {
             smb_share_root: is_smb_share_root(uri),
             // With no snapshot roots configured, only the path decides.
             read_only_by_path: LocationContext::default().is_snapshot_location(uri)
-                || is_archive_location(uri)
-                || is_cloud_location(uri),
+                || is_archive_location(uri),
+            on_cloud_drive: is_cloud_location(uri),
             recent_row: scheme(uri).as_deref() == Some("recent"),
         }
+    }
+
+    /// Whether the item at `uri`, whose facts these are, is read-only by
+    /// its path: in a snapshot or a ZIP, or on a cloud drive that may not
+    /// be changed now (DEV-013).
+    pub(crate) fn is_read_only(self, uri: &str) -> bool {
+        self.read_only_by_path
+            || (self.on_cloud_drive && !ox_core::location::cloud_writes::can_change_google_drive_item(uri))
     }
 }
 

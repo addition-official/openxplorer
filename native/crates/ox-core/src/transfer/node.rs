@@ -317,6 +317,22 @@ pub trait Node: Send + Sync {
         clean_staging(self)
     }
 
+    /// This item's address once it exists, for the run's record of where
+    /// items landed. Google Drive finds an item created by its title, but
+    /// names it by its ID: that address keeps naming it even when another
+    /// item takes its title later (DEV-013).
+    fn settled_uri(&self) -> String {
+        self.uri()
+    }
+
+    /// Why this item, which the backend reports as neither a file, a
+    /// folder nor a link, is not copied, when the backend can say better
+    /// than the engine's general refusal: a Google Docs, Sheets or Slides
+    /// file is a web page, not bytes (DEV-013).
+    fn special_refusal(&self) -> Option<TransferError> {
+        None
+    }
+
     /// True when copies into this folder are staged beside their final name
     /// (MTP). Asked of the destination folder: its native move cannot
     /// rename across folders, and some devices cannot move across folders

@@ -6,6 +6,7 @@
 //! | `local` | Local files behind the [`Node`] contract, with overridable behaviour |
 //! | `device` | A `GVfs` MTP destination built on `local` |
 //! | `faults` | Local files that fail at a chosen step of a copy or replacement |
+//! | `google_drive` | A simulated `GVfs` Google Drive behind real `google-drive://` URIs |
 //! | `mtp_device` | A simulated phone behind real `mtp://` URIs for the production adapter |
 //! | `versions` | The previous-version write guard |
 //! | `shared` | Helpers the `gio_node` test binary uses too |
@@ -15,6 +16,7 @@ pub mod device;
 pub mod faults;
 #[path = "../common/fifo.rs"]
 mod fifo;
+pub mod google_drive;
 pub mod local;
 pub mod mtp_device;
 mod shared;

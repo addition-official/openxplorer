@@ -44,11 +44,15 @@ impl LocationContext {
         // Safety rule (app.js `writableLocation`): New and Paste never
         // create items on a page, in a virtual folder, in a server's list
         // of shares or in a read-only snapshot. A ZIP browsed as a folder
-        // is read-only too, and so are Google Drive and OneDrive for now
-        // (DEV-013): their files are listed, opened and copied off.
+        // is read-only too, and so are Google Drive and OneDrive (DEV-013):
+        // their files are listed, opened and copied off. Settings' "Allow
+        // changes to Google Drive" opens the ordinary folders of Google
+        // Drive; OneDrive stays read-only.
+        let cloud_allows =
+            !super::is_cloud_location(uri) || super::cloud_writes::can_write_into_google_drive_folder(uri);
         !uri.is_empty()
             && !super::is_archive_location(uri)
-            && !super::is_cloud_location(uri)
+            && cloud_allows
             && VirtualPlace::from_uri(uri).is_none()
             && !is_in_virtual_folder(uri)
             && !is_smb_server(uri)

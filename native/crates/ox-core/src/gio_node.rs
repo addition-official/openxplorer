@@ -13,6 +13,7 @@
 //! | `local_delete` | Deletion relative to pinned folder descriptors |
 //! | `remote_delete` | Deletion by path on shares and phones |
 //! | `into_admin` | Copies into `admin://` that never let root open the source |
+//! | `google_drive` | Writes to Google Drive, only when Settings allow them (DEV-013) |
 //!
 //! Permanent deletion of a local item, and cleanup of local staging, run
 //! relative to pinned folder descriptors, so a folder swapped for a
@@ -23,6 +24,7 @@
 //! it goes to the pinned walk of [`crate::admin_delete`]. MTP behaviour is
 //! regression-tested with simulated devices, not hardware.
 
+mod google_drive;
 mod into_admin;
 mod local_delete;
 mod move_item;
@@ -30,6 +32,7 @@ mod query;
 mod remote_delete;
 mod removal;
 
+pub use google_drive::{google_drive_id_uri, google_drive_title, rename_on_google_drive};
 pub(crate) use local_delete::FolderDeletion;
 
 use std::ffi::{OsStr, OsString};
@@ -98,7 +101,7 @@ impl GioNode {
                 .file
                 .query_info(
                     "standard::copy-name,standard::display-name",
-                    gio::FileQueryInfoFlags::NOFOLLOW_SYMLINKS,
+                    self.query_flags(),
                     gio::Cancellable::NONE,
                 )
                 .ok()?;
@@ -188,11 +191,14 @@ impl Node for GioNode {
         check_cancelled(cancel)?;
         // Follows links on purpose: a destination reached through a link to
         // a folder is a folder, as in the Python app.
-        let info = self.file.query_info(
-            "standard::type",
-            gio::FileQueryInfoFlags::NONE,
-            gio_cancellable(cancel),
-        )?;
+        let info = self
+            .file
+            .query_info(
+                "standard::type",
+                gio::FileQueryInfoFlags::NONE,
+                gio_cancellable(cancel),
+            )
+            .map_err(|error| self.write_error(error))?;
         Ok(info.file_type() == gio::FileType::Directory)
     }
 
@@ -202,8 +208,13 @@ impl Node for GioNode {
 
     fn create_directory(&self, cancel: Option<&Cancellation>) -> Result<(), TransferError> {
         check_cancelled(cancel)?;
+        // DEV-013: only while Settings allow changes to Google Drive.
+        self.refuse_cloud_change()?;
         // XFER-002: `make_directory` is exclusive and fails on a taken name.
-        self.file.make_directory(gio_cancellable(cancel))?;
+        // On Google Drive a title another item has counts as taken.
+        self.file
+            .make_directory(gio_cancellable(cancel))
+            .map_err(|error| self.write_error(error))?;
         Ok(())
     }
 
@@ -215,6 +226,14 @@ impl Node for GioNode {
     ) -> Result<(), TransferError> {
         cancel.check()?;
         let target_file = gio::File::for_uri(&target.uri());
+        let to_drive = target_file.has_uri_scheme("google-drive");
+        // DEV-013: only while Settings allow changes to Google Drive.
+        GioNode::from_file(target_file.clone()).refuse_cloud_change()?;
+        // DEV-013: Docs, Sheets and Slides are web pages, not bytes; nothing
+        // is written for them, not even an empty file.
+        if self.is_google_document() {
+            return Err(self.google_document_refusal());
+        }
         // OPS-047: `gvfsd-admin` never opens the source by its path.
         if into_admin::crosses_into_admin(&self.file, &target_file) {
             return into_admin::copy_into_admin(&self.file, &target_file, cancel, progress);
@@ -223,35 +242,57 @@ impl Node for GioNode {
         // XFER-002: without OVERWRITE the copy refuses an existing target,
         // which keeps the engine's "never overwrite" rule for staging and
         // uploads. XFER-017: a link is copied as a link.
-        self.file.copy(
+        let copied = self.file.copy(
             &target_file,
             gio::FileCopyFlags::NOFOLLOW_SYMLINKS,
             Some(cancel.cancellable()),
             Some(&mut report),
-        )?;
+        );
+        if to_drive {
+            copied.map_err(|error| self.upload_error(error, &target_file, cancel))?;
+            // An upload that lost bytes is never published as complete.
+            return self.verify_drive_upload(&target_file, cancel);
+        }
+        if self.is_google_drive() {
+            return copied.map_err(google_drive::drive_error);
+        }
+        copied?;
         Ok(())
     }
 
     fn move_native(&self, target: &dyn Node, cancel: Option<&Cancellation>) -> Result<(), TransferError> {
         self.refuse_move_into_admin(target)?;
+        self.refuse_cloud_move(target)?;
         self.move_item(target, cancel, move_item::Overwrite::Never)
     }
 
     fn publish(&self, target: &dyn Node, cancel: Option<&Cancellation>) -> Result<(), TransferError> {
+        self.refuse_cloud_move(target)?;
+        if self.is_google_drive() {
+            return self.publish_on_drive(target, cancel);
+        }
         self.publish_item(target, cancel)
     }
 
     fn replace_native(&self, target: &dyn Node, cancel: Option<&Cancellation>) -> Result<(), TransferError> {
         self.refuse_move_into_admin(target)?;
+        self.refuse_cloud_move(target)?;
+        if google_drive::touches_google_drive(&self.uri(), &target.uri()) {
+            return Self::refuse_drive_overwrite(target, cancel);
+        }
         self.move_item(target, cancel, move_item::Overwrite::Replace)
     }
 
     fn delete(&self) -> Result<(), TransferError> {
-        self.file.delete(gio::Cancellable::NONE)?;
+        self.refuse_cloud_change()?;
+        self.file
+            .delete(gio::Cancellable::NONE)
+            .map_err(|error| self.write_error(error))?;
         Ok(())
     }
 
     fn trash(&self, cancel: &Cancellation) -> Result<(), TransferError> {
+        self.refuse_cloud_change()?;
         self.trash_item(cancel)
     }
 
@@ -272,6 +313,7 @@ impl Node for GioNode {
     }
 
     fn delete_tree(&self, cancel: &Cancellation, guard: Option<&WriteGuard>) -> Result<(), TransferError> {
+        self.refuse_cloud_delete()?;
         self.delete_item_tree(None, None, cancel, guard)
     }
 
@@ -281,6 +323,7 @@ impl Node for GioNode {
         cancel: &Cancellation,
         guard: Option<&WriteGuard>,
     ) -> Result<(), TransferError> {
+        self.refuse_cloud_delete()?;
         self.delete_item_tree(Some(kind), None, cancel, guard)
     }
 
@@ -290,6 +333,7 @@ impl Node for GioNode {
         cancel: &Cancellation,
         guard: Option<&WriteGuard>,
     ) -> Result<(), TransferError> {
+        self.refuse_cloud_delete()?;
         self.delete_item_tree(Some(selected.kind), selected.identity, cancel, guard)
     }
 
@@ -302,7 +346,21 @@ impl Node for GioNode {
     }
 
     fn has_sibling_staging(&self) -> bool {
-        self.is_mtp()
+        // On Google Drive an upload is published by a rename within its
+        // folder, which every GVfs version can do (DEV-013).
+        self.is_mtp() || self.is_google_drive()
+    }
+
+    fn settled_uri(&self) -> String {
+        if self.is_google_drive() {
+            google_drive::google_drive_id_uri(&self.uri())
+        } else {
+            self.uri()
+        }
+    }
+
+    fn special_refusal(&self) -> Option<TransferError> {
+        self.is_google_document().then(|| self.google_document_refusal())
     }
 
     fn native_copy_keeps_name(&self, target_folder: &dyn Node) -> bool {

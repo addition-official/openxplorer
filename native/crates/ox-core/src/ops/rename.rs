@@ -17,8 +17,8 @@ use super::context::{on_worker, OperationContext};
 use super::create::name_taken_or;
 use super::error::OpsError;
 use super::undo::UndoRecord;
-use crate::gio_node::GioNode;
-use crate::location::{require_item_uri, validate_name};
+use crate::gio_node::{google_drive_title, rename_on_google_drive, GioNode};
+use crate::location::{names_items_by_id, require_item_uri, validate_name};
 use crate::transfer::{staging_name, Cancellation, Node, SourceChange, TransferError};
 
 /// A finished rename.
@@ -79,6 +79,9 @@ pub(super) fn rename_item_blocking(
     // OPS-035: a whole share or device is not an item that can be renamed.
     let uri = require_item_uri(uri)?;
     context.protection.check(&uri)?;
+    if names_items_by_id(&uri) {
+        return rename_on_drive(&uri, new_name, context);
+    }
     let source = GioNode::new(&uri);
     let Some(folder) = source.parent() else {
         return Err(OpsError::failed(crate::i18n::gettext(
@@ -97,6 +100,36 @@ pub(super) fn rename_item_blocking(
     move_within_folder(&source, destination.as_ref(), context)
         .map_err(|error| rename_refusal(error, &source.display_name(), new_name))?;
     Ok(renamed)
+}
+
+/// DEV-013: a rename on Google Drive changes the item's title; its
+/// address, which holds its ID, stays. The address it had is given by its
+/// old title, so Undo can give that title back.
+fn rename_on_drive(uri: &str, new_name: &str, context: &OperationContext) -> Result<RenamedItem, OpsError> {
+    let cancel = &context.cancel;
+    let old_title = google_drive_title(uri, cancel).unwrap_or_default();
+    let item = gio::File::for_uri(uri);
+    let original_uri = match item.parent() {
+        Some(folder) if !old_title.is_empty() && old_title != new_name => {
+            folder.child(&old_title).uri().to_string()
+        }
+        _ => uri.to_owned(),
+    };
+    if original_uri == uri {
+        return Ok(RenamedItem {
+            original_uri,
+            uri: uri.to_owned(),
+            name: new_name.to_owned(),
+        });
+    }
+    let renamed = rename_on_google_drive(uri, new_name, cancel)
+        .map_err(OpsError::from)
+        .map_err(|error| rename_refusal(error, &old_title, new_name))?;
+    Ok(RenamedItem {
+        original_uri,
+        uri: renamed,
+        name: new_name.to_owned(),
+    })
 }
 
 /// The message for a rename the backend refused: a taken `new_name`
@@ -137,6 +170,14 @@ pub(crate) fn rename_back(
         )));
     }
     context.protection.check(renamed_uri)?;
+    if names_items_by_id(renamed_uri) {
+        // The original address names the item by its old title.
+        let title = gio::File::for_uri(original_uri)
+            .basename()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        return rename_on_drive(renamed_uri, &title, context).map(|_| ());
+    }
     move_within_folder(&source, &original, context)
         .map_err(|error| rename_refusal(error, &source.display_name(), &original.display_name()))
 }
