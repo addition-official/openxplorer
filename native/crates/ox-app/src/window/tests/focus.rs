@@ -492,14 +492,23 @@ impl Picture {
         #[expect(clippy::cast_precision_loss, reason = "scale factors are small integers")]
         let scale = native.scale_factor() as f32;
         let paintable = gtk::WidgetPaintable::new(Some(native));
-        let snapshot = gtk::Snapshot::new();
-        snapshot.scale(scale, scale);
-        paintable.snapshot(
-            &snapshot,
-            f64::from(paintable.intrinsic_width()),
-            f64::from(paintable.intrinsic_height()),
-        );
-        let node = snapshot.to_node().expect("a shown window draws");
+        // While a redraw is pending the paintable has no picture of the
+        // window yet; the window's next frame draws it.
+        let node = (0..10)
+            .find_map(|attempt| {
+                if attempt > 0 {
+                    wait_for_frames(window, 1);
+                }
+                let snapshot = gtk::Snapshot::new();
+                snapshot.scale(scale, scale);
+                paintable.snapshot(
+                    &snapshot,
+                    f64::from(paintable.intrinsic_width()),
+                    f64::from(paintable.intrinsic_height()),
+                );
+                snapshot.to_node()
+            })
+            .expect("a shown window draws");
         let renderer = native.renderer().expect("a shown window has a renderer");
         let texture = renderer.render_texture(&node, None);
         let mut downloader = gdk::TextureDownloader::new(&texture);

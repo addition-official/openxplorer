@@ -13,7 +13,8 @@ use gtk::{gdk, glib};
 use ox_core::settings::{PreferencesUpdate, Settings};
 
 use crate::locations::location_context;
-use crate::test_support::harness::{descendants, wait_until, Fixture, TestWindow};
+use crate::test_support::harness::{descendants, wait_for, wait_for_frames, wait_until, Fixture, TestWindow};
+use crate::test_support::pointer::{screen_point, Button, Pointer};
 use crate::volumes::{MountControls, VolumeKind, VolumeRow, VolumeState};
 use crate::window::address_bar::AddressMode;
 use crate::window::menu_popover::MenuPopover;
@@ -533,13 +534,16 @@ fn the_search_box_takes_windows_width_and_its_divider_is_remembered() {
         - (drawn(address.upcast_ref()).x() + drawn(address.upcast_ref()).width());
     assert!((gap - 8.0).abs() < 0.5, "8 pixels apart: {gap}");
 
-    paned.set_position(paned.width() - 8 - 320);
-    wait_until("the dragged width", || search_width() == 320);
+    let mut pointer = Pointer::connect();
+    drag_the_divider(&mut pointer, &paned, 320);
+    // GTK's drag threshold may leave the handle a few pixels short.
+    let dragged = search_width();
+    assert!((dragged - 320).abs() <= 12, "dragged to about 320: {dragged}");
     wait_until("the width saved", || {
-        test.context.settings_data().preferences.search_box_width == Some(320)
+        test.context.settings_data().preferences.search_box_width == u32::try_from(dragged).ok()
     });
     resize(&test, 1200);
-    assert_eq!(search_width(), 320, "a wider or narrower window keeps it");
+    assert_eq!(search_width(), dragged, "a wider or narrower window keeps it");
     let second = test.open_beside(&fixture.uri());
     resize(&second, 1400);
     let second_paned = second.window.search_divider();
@@ -547,14 +551,69 @@ fn the_search_box_takes_windows_width_and_its_divider_is_remembered() {
     wait_until("the other window's width", || {
         second_search
             .compute_bounds(&second_paned)
-            .is_some_and(|bounds| bounds.width().round() as i32 == 320)
+            .is_some_and(|bounds| bounds.width().round() as i32 == dragged)
     });
 
-    paned.set_position(paned.width() - 8 - 700);
-    wait_until("a wide box", || search_width() == 700);
+    // The second window opened over the first.
+    second.window.set_visible(false);
+    wait_for_frames(&test.window, 3);
+    drag_the_divider(&mut pointer, &paned, 700);
+    let wide = search_width();
+    assert!((wide - 700).abs() <= 12, "dragged to about 700: {wide}");
     resize(&test, 1000);
-    assert!(search_width() < 700, "a narrow window shrinks it");
+    assert!(search_width() < wide, "a narrow window shrinks it");
     assert!(search_width() >= 173, "down to 173 pixels");
+    // The pointer goes back to where Xvfb starts it.
+    pointer.move_to(720, 500);
+}
+
+/// Drags the divider's handle with the real pointer until the search box
+/// is `width` pixels wide.
+fn drag_the_divider(pointer: &mut Pointer, paned: &gtk::Paned, width: i32) {
+    let middle = f64::from(paned.height()) / 2.0;
+    let handle = f64::from(paned.position()) + 4.0;
+    let (x, y) = screen_point(pointer, paned, (handle, middle), (720, 60));
+    // Where the handle's middle goes, from where it is.
+    let by = paned.width() - 8 - width - paned.position();
+    pointer.move_to(x, y);
+    pointer.press(Button::Primary);
+    let steps = 8;
+    for step in 1..=steps {
+        pointer.move_to(x + by * step / steps, y);
+        wait_for_frames(paned, 1);
+    }
+    pointer.release(Button::Primary);
+    wait_for_frames(paned, 2);
+}
+
+/// A narrow window squeezes the search box but is no drag of the divider:
+/// the squeezed width is not saved, and the box takes its width back
+/// when the window grows again. The divider used to take its own move,
+/// made as the window narrowed, for the user's drag and saved it.
+///
+/// parity: LOOK-012
+#[gtk::test]
+#[expect(clippy::cast_possible_truncation, reason = "widget widths are small")]
+fn a_narrow_window_squeezes_the_search_box_without_saving_it() {
+    let fixture = Fixture::standard();
+    let test = TestWindow::open(&fixture.uri());
+    resize(&test, 1400);
+    let search = test.window.search_box().clone();
+    let paned = test.window.search_divider();
+    let search_width = || search.compute_bounds(&paned).expect("shown").width().round() as i32;
+    wait_until("Windows' default width", || search_width() == 499);
+
+    resize(&test, 760);
+    assert!(search_width() < 499, "a narrow window squeezes it");
+    // Longer than the divider waits before it saves a drag.
+    wait_for(std::time::Duration::from_millis(600));
+    assert_eq!(
+        test.context.settings_data().preferences.search_box_width,
+        None,
+        "the squeezed width is no choice of the user's"
+    );
+    resize(&test, 1400);
+    wait_until("the default width back", || search_width() == 499);
 }
 
 /// While the search box holds text, its X sits to the left of the
@@ -581,4 +640,39 @@ fn the_search_boxs_x_sits_left_of_the_magnifier_as_in_windows() {
         "the X 35.5 pixels left of the magnifier: {apart}"
     );
     assert!(magnifier.is_visible(), "the magnifier stays");
+}
+
+/// However long the path, the address bar keeps 40 pixels of blank space
+/// after its last crumb, collapsing more crumbs into the « to make room,
+/// so a click there still edits the address, as in Windows 11 (a click on
+/// a crumb opens its folder instead); only the folder's own crumb, shown
+/// alone, may take the whole bar.
+///
+/// parity: NAV-023, NAV-026
+#[gtk::test]
+fn a_long_path_keeps_blank_space_after_the_last_crumb_to_click() {
+    let fixture = Fixture::standard();
+    let deep = deep_folder(&fixture);
+    let test = TestWindow::open(&ox_core::location::file_uri(&deep));
+    let address = test.window.address_bar();
+    for width in (800..=1320).rev().step_by(20) {
+        resize(&test, width);
+        wait_until("the crumbs to collapse", || !address.hidden_crumbs().is_empty());
+        let crumbs = address.crumb_buttons();
+        let strip = crumbs[0].parent().expect("the crumbs' strip");
+        let last = crumbs.last().expect("the folder's crumb");
+        let end = last.compute_bounds(&strip).expect("a shown crumb");
+        let room = f64::from(strip.width()) - f64::from(end.x() + end.width());
+        let shown = crumbs.len() - address.hidden_crumbs().len();
+        if width == 1320 {
+            assert!(shown > 1, "more than the folder's crumb fits at 1320 pixels");
+        }
+        // The folder's crumb alone may take the whole bar.
+        if shown > 1 {
+            assert!(
+                room >= 40.0,
+                "{width}: {room} pixels of blank space after the last crumb"
+            );
+        }
+    }
 }
