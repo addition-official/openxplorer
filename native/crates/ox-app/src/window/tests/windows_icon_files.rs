@@ -163,6 +163,22 @@ fn every_place_of_a_window_takes_the_files_pictures() {
             .any(|image| image.is_visible())
     };
     assert!(!glyph_shows(), "the folder's glyph steps aside for the tile");
+    // The status bar's view toggles: shell32's old-style pictures at
+    // Windows' 16 pixels.
+    let toggle_image = |tooltip: &str| {
+        descendants::<gtk::Button>(&test.window)
+            .into_iter()
+            .find(|button| button.tooltip_text().as_deref() == Some(tooltip))
+            .and_then(|button| button.child())
+            .and_downcast::<gtk::Image>()
+            .unwrap_or_else(|| panic!("the status bar's {tooltip} toggle"))
+    };
+    for tooltip in ["Details view", "Large icons"] {
+        let image = toggle_image(tooltip);
+        assert_eq!(image.icon_name(), None, "{tooltip}: the file's picture");
+        assert!(image.paintable().is_some(), "{tooltip}");
+        assert_eq!(image.pixel_size(), 16, "{tooltip}");
+    }
 
     test.context.update_preferences(
         PreferencesUpdate {
@@ -174,6 +190,19 @@ fn every_place_of_a_window_takes_the_files_pictures() {
     wait_until("the app's own icons to return", || {
         !network.shows_user_icon() && !tile.shows_user_icon() && glyph_shows()
     });
+    assert_eq!(
+        toggle_image("Details view").icon_name().as_deref(),
+        Some(Icon::TextBulletList.name())
+    );
+    assert_eq!(
+        toggle_image("Large icons").icon_name().as_deref(),
+        Some(Icon::Grid.name())
+    );
+    assert_eq!(
+        toggle_image("Large icons").pixel_size(),
+        18,
+        "the app's own square"
+    );
 }
 
 /// With Windows icon files on and a symbol font chosen from a path in the

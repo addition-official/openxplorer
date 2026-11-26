@@ -36,6 +36,7 @@ use crate::folder_view::model::SelectionSummary;
 use crate::icons::{self, Icon};
 use crate::search::SearchCount;
 use crate::update::UpdateState;
+use ox_core::windows_icons::IconRole;
 
 use super::folder_pane::FolderView;
 use super::window_action::WindowAction;
@@ -210,10 +211,16 @@ impl StatusBar {
         let large_icons = FolderView::Icons(IconSize::LARGE);
         show_view_on(
             &imp.details_view_button,
+            IconRole::StatusBarDetails,
             Icon::TextBulletList,
             FolderView::Details,
         );
-        show_view_on(&imp.icons_view_button, Icon::Grid, large_icons);
+        show_view_on(
+            &imp.icons_view_button,
+            IconRole::StatusBarLargeIcons,
+            Icon::Grid,
+            large_icons,
+        );
     }
 
     /// "Check for updates" opens the Software updates dialog.
@@ -386,9 +393,11 @@ impl StatusBar {
     }
 }
 
-/// Makes `button` show `glyph` and switch to `view`.
-fn show_view_on(button: &gtk::Button, glyph: Icon, view: FolderView) {
-    button.set_child(Some(&icons::image(glyph, BUTTON_GLYPH)));
+/// Shows `view`'s toggle on `button`: Windows' old-style shell32 picture
+/// of `role` while Windows icon files are on and give it (LOOK-030), else
+/// the app's `glyph`; the current view's gray square stays behind it.
+fn show_view_on(button: &gtk::Button, role: IconRole, glyph: Icon, view: FolderView) {
+    button.set_child(Some(&icons::user_icons::role_image(role, glyph, BUTTON_GLYPH)));
     WindowAction::View.assign_with_target_to(button, &view.as_str().to_variant());
 }
 

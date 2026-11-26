@@ -373,14 +373,27 @@ fn redraw_role_image(image: &gtk::Image) {
 
 /// Shows `role` in `image`, or `fallback` when there is no texture for it.
 fn show_role(image: &gtk::Image, role: Option<IconRole>, fallback: Icon, size: i32) {
-    let pixels = super::scaled(size);
-    match role.and_then(|role| texture_of(role, pixels, image.scale_factor())) {
-        Some(texture) => {
+    let picture = |role: IconRole| {
+        let pixels = super::scaled(picture_size(role, size));
+        texture_of(role, pixels, image.scale_factor()).map(|texture| (texture, pixels))
+    };
+    match role.and_then(picture) {
+        Some((texture, pixels)) => {
             image.remove_css_class(super::EXPLORER_CLASS);
             image.set_paintable(Some(&texture));
             image.set_pixel_size(pixels);
         }
         None => super::set_icon(image, fallback, size),
+    }
+}
+
+/// The size `role`'s picture is drawn at in an image of `size` pixels:
+/// the status bar's view toggles at Windows' 16 pixels (ref-01) in the
+/// app's 18-pixel glyph square, every other role at `size`.
+const fn picture_size(role: IconRole, size: i32) -> i32 {
+    match role {
+        IconRole::StatusBarDetails | IconRole::StatusBarLargeIcons => 16,
+        _ => size,
     }
 }
 

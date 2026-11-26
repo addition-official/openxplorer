@@ -165,6 +165,12 @@ pub enum IconRole {
     /// A phone or other portable device This PC lists, as an Android phone
     /// over MTP.
     PortableDevice,
+    /// The status bar's Details toggle: shell32's old-style rounded square
+    /// with four lines.
+    StatusBarDetails,
+    /// The status bar's Large icons toggle: shell32's old-style rounded
+    /// square with a monitor.
+    StatusBarLargeIcons,
 }
 
 /// Where a role's group number comes from.
@@ -182,7 +188,7 @@ pub enum Provenance {
 
 impl IconRole {
     /// Every role, in the order of [`IconRole`].
-    pub const ALL: [IconRole; 34] = [
+    pub const ALL: [IconRole; 36] = [
         IconRole::Folder,
         IconRole::Desktop,
         IconRole::Downloads,
@@ -217,6 +223,8 @@ impl IconRole {
         IconRole::FolderFront,
         IconRole::FolderWithFiles,
         IconRole::PortableDevice,
+        IconRole::StatusBarDetails,
+        IconRole::StatusBarLargeIcons,
     ];
 
     /// The file and icon group that draw this role, and where the number
@@ -236,12 +244,19 @@ impl IconRole {
     /// `networkexplorer.dll`) come after it, used only when it is not
     /// chosen. Their group numbers are unverified.
     pub fn sources(self) -> &'static [(IconLibrary, u16, Provenance)] {
+        use IconLibrary::Shell32;
         use IconLibrary::{Ddores, Dmdskres, Imageres, Mycomput, Mydocs, NetworkExplorer, Wpdshext, Zipfldr};
-        use Provenance::{Unverified, Verified};
+        use Provenance::{BestMatch, Unverified, Verified};
         match self {
             // An MTP phone in This PC: the portable device of wpdshext.dll,
             // else the phone of DDORes.dll.
             IconRole::PortableDevice => &[(Wpdshext, 704, Unverified), (Ddores, 2010, Unverified)],
+            // The status bar's view toggles, matched by script on the
+            // user's own shell32 against Windows' capture (ref-01): two
+            // groups each that look the same at 32 pixels, which of them
+            // Windows takes in dark and light not yet checked.
+            IconRole::StatusBarDetails => &[(Shell32, 51681, BestMatch), (Shell32, 62998, BestMatch)],
+            IconRole::StatusBarLargeIcons => &[(Shell32, 51685, BestMatch), (Shell32, 63008, BestMatch)],
             IconRole::Documents => &[(Imageres, 112, Verified), (Mydocs, 101, Unverified)],
             IconRole::ThisPc => &[(Imageres, 109, Verified), (Mycomput, 101, Unverified)],
             IconRole::NetworkComputer => &[(Imageres, 109, Verified), (NetworkExplorer, 1, Unverified)],
@@ -301,6 +316,8 @@ impl IconRole {
             IconRole::FolderWithFiles => (Imageres, 162, Verified),
             // Not in either: never used, as its sources say.
             IconRole::PortableDevice => (Imageres, 0, Provenance::Unverified),
+            IconRole::StatusBarDetails => (Shell32, 51681, BestMatch),
+            IconRole::StatusBarLargeIcons => (Shell32, 51685, BestMatch),
         }
     }
 
@@ -341,6 +358,8 @@ impl IconRole {
             IconRole::FolderFront => "folder-front",
             IconRole::FolderWithFiles => "folder-with-files",
             IconRole::PortableDevice => "portable-device",
+            IconRole::StatusBarDetails => "status-bar-details",
+            IconRole::StatusBarLargeIcons => "status-bar-large-icons",
         }
     }
 
