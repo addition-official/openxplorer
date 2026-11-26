@@ -1,0 +1,56 @@
+role	where	ref	x	y	w	h	size	current_source
+Home	navigation pane: Home	ref-01-*.png	26	137	16	15	16	shell32.dll 51380
+Gallery	navigation pane: Gallery	ref-01-*.png	26	160	16	16	16	shell32.dll 51586
+Desktop	navigation pane: Desktop	ref-01-*.png	26	210	16	12	16	imageres.dll 183
+Downloads	navigation pane: Downloads	ref-01-*.png	28	232	12	16	16	imageres.dll 184
+Documents	navigation pane: Documents	ref-01-*.png	28	256	12	16	16	imageres.dll 112 (Verified) then mydocs.dll 101 (Unverified)
+Pictures	navigation pane: Pictures	ref-01-*.png	27	281	14	14	16	imageres.dll 113
+Music	navigation pane: Music	ref-01-*.png	26	304	16	16	16	imageres.dll 108
+Videos	navigation pane: Videos	ref-01-*.png	27	328	14	16	16	imageres.dll 189
+Folder	navigation pane: a pinned folder (OXT)	ref-01-*.png	26	353	16	13	16	imageres.dll 3
+ThisPc	navigation pane: This PC	ref-01-*.png	26	401	16	15	16	imageres.dll 109 (Verified) then mycomput.dll 101 (Unverified)
+Network	navigation pane: Network	ref-01-*.png	26	424	16	16	16	imageres.dll 25
+Folder	Details row: folder (Music)	ref-01-*.png	178	162	16	13	16	imageres.dll 3
+ZipFolder	Details row: Archive.zip	ref-01-*.png	178	225	16	14	16	imageres.dll 174 (Verified) then zipfldr.dll 101 (Unverified)
+GenericFile	Details row: Budget 2026.xlsx (no Office)	ref-01-*.png	180	245	12	16	16	imageres.dll 2
+ImageFile	Details row: a .jpg	ref-01-*.png	180	266	12	16	16	imageres.dll 132
+GenericFile	Details row: Invoice 1042.pdf (Windows: Edge's icon, app-registered)	ref-01-*.png	178	287	16	16	16	imageres.dll 2
+TextFile	Details row: Meeting notes.txt	ref-01-*.png	180	308	12	16	16	imageres.dll 102
+GenericFile	Details row: Report final.docx (no Office)	ref-01-*.png	180	329	12	16	16	imageres.dll 2
+StatusBarDetails	status bar: Details toggle (current view, gray square behind)	ref-01-*.png	1873	1013	16	16	16	shell32.dll 51681 (BestMatch) then shell32.dll 62998 (BestMatch)
+StatusBarLargeIcons	status bar: Large icons toggle	ref-01-*.png	1896	1012	16	16	16	shell32.dll 51685 (BestMatch) then shell32.dll 63008 (BestMatch)
+Drive	This PC tile: Local Disk (Windows shows its logo drive; ours the plain drive on purpose)	ref-25-*.png	180	166	52	41	48	imageres.dll 32 (Verified) then dmdskres.dll 31 (Unverified)
+OpticalDrive	This PC tile: CD Drive (empty in the ref; ours shows only a mounted disc)	ref-25-*.png	435	165	51	35	48	imageres.dll 56
+TextFile	Home Recent row: .txt	ref-24-*.png	254	293	16	22	24	imageres.dll 102
+ImageFile	Home Recent row: .bmp	ref-24-*.png	254	329	17	22	24	imageres.dll 132
+GenericFile	Home Recent row: README (no extension)	ref-24-*.png	254	365	17	22	24	imageres.dll 2
+ZipFolder	Home Recent row: pack.zip	ref-24-*.png	250	439	23	17	24	imageres.dll 174 (Verified) then zipfldr.dll 101 (Unverified)
+Shortcut	Recycle Bin row: a .txt shortcut (Windows draws the target's icon with the arrow)	ref-26-*.png	178	161	14	16	16	imageres.dll 15
+Folder	Recycle Bin row: New folder	ref-26-*.png	178	204	16	13	16	imageres.dll 3
+FolderWithFiles	Extra large icons: Music folder with a file peeking out (FolderBack+FolderFront around the content)	ref-11-*.png	198	170	224	176	256	imageres.dll 162
+FolderBack	Extra large icons: Photos folder with a picture (back and front around the preview)	ref-11-*.png	489	170	224	176	256	imageres.dll 5
+ZipFolder	Extra large icons: Archive.zip	ref-11-*.png	1067	170	227	176	256	imageres.dll 174 (Verified) then zipfldr.dll 101 (Unverified)
+GenericFile	Extra large icons: a .pdf (Windows: Edge's PDF icon)	ref-11-*.png	220	459	179	224	256	imageres.dll 2
+TextFile	Extra large icons: a .txt	ref-11-*.png	517	459	167	224	256	imageres.dll 102
+GenericFile	Extra large icons: a file of no known type	ref-11-*.png	808	460	167	222	256	imageres.dll 2
+TextFile	Properties (file) header icon	ref-22-*.png	333	388	21	28	32	imageres.dll 102
+TextFile	Properties (file) title bar icon	ref-22-*.png	317	323	11	14	16	imageres.dll 102
+DeleteDialogIcon	Delete File dialog: page with a red cross	ref-33-*.png	736	465	32	36	32	bundled (no role yet)
+TextFile	Delete File dialog: the file's own icon	ref-33-*.png	790	492	40	53	48	imageres.dll 102
+RecycleBinEmpty	navigation pane / Desktop: Recycle Bin, empty	none					16	imageres.dll 55
+RecycleBinFull	navigation pane: Recycle Bin, full	none					16	imageres.dll 54
+NetworkComputer	Network: a computer or server	none					16	imageres.dll 109 (Verified) then networkexplorer.dll 1 (Unverified)
+NetworkShare	a server's shared folder	none					16	imageres.dll 143
+NetworkDrive	This PC: mapped drive, connected	none					48	imageres.dll 33
+NetworkDriveDisconnected	This PC: mapped drive, disconnected	none					48	imageres.dll 31
+RemovableDrive	This PC: USB stick or SD card	none					48	imageres.dll 35
+PortableDevice	This PC: phone over MTP (SAMSUNG Android)	none					48	wpdshext.dll 704 (Unverified) then DDORes.dll 2010 (Unverified)
+AudioFile	rows and tiles: music	none					16	imageres.dll 131
+VideoFile	rows and tiles: video	none					16	imageres.dll 133
+Executable	rows and tiles: program	none					16	imageres.dll 15
+Script	rows and tiles: script	none					16	imageres.dll 68
+Settings	Settings tab	none					16	shell32.dll 16826
+FolderFront	larger views: front flap over a folder's pictures	none					256	imageres.dll 6
+MediaServer	Network: media server	none					16	bundled (no role yet)
+Printer	Network: printer	none					16	bundled (no role yet)
+ShareOverlay	a shared folder's overlay	none					16	bundled (no role yet)
