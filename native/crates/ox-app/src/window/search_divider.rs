@@ -6,11 +6,13 @@
 //! pixel window: x 1410 to 1908) and 8 pixels after the address bar,
 //! which takes the rest of the row. Dragging the divider between them
 //! changes the search box's width, which every window then starts with,
-//! as Windows remembers it. When the window grows or shrinks, the address
-//! bar takes the difference and the search box keeps its width, until the
-//! address bar is at its least; the search box then shrinks, down to its
-//! least width. How Windows shares the row in narrow windows is not
-//! measured yet.
+//! as Windows remembers it. In a narrow window the address bar comes
+//! first, as in Windows: the search box keeps its width while the address
+//! bar has `ADDRESS_ROOM`, then shrinks first, down to
+//! `SEARCH_LEAST_WIDTH`, and only then does the address bar shrink. A
+//! saved width is so the most the search box takes. How much Windows
+//! gives each in narrow windows is not measured yet, so both numbers are
+//! placeholders.
 //!
 //! The paned tells of each new layout through its position, which GTK
 //! moves as the row's width changes (the address bar takes the
@@ -134,6 +136,15 @@ fn follow_the_users_moves(paned: &gtk::Paned, state: &Rc<DividerState>) {
     ));
 }
 
+/// The search box's width in a row `room` pixels wide, its handle left
+/// out, when it wants `wanted`: the wanted width while the address bar
+/// keeps `ADDRESS_ROOM`, less as the window narrows, down to
+/// `SEARCH_LEAST_WIDTH` (or a narrower wanted width). A saved width is
+/// so the most the search box takes, not a fixed width.
+fn search_width(room: i32, wanted: i32) -> i32 {
+    wanted.min((room - ADDRESS_ROOM).max(SEARCH_LEAST_WIDTH))
+}
+
 impl BrowserWindow {
     /// Gives the search box the saved or default width and saves a width
     /// the user drags the divider to.
@@ -172,7 +183,8 @@ impl BrowserWindow {
         // grows again.
         let resized = state.row_width.replace(total) != total;
         if resized || !paned.is_position_set() {
-            let wanted = total - handle_width(paned) - state.wanted.get();
+            let wanted =
+                total - handle_width(paned) - search_width(total - handle_width(paned), state.wanted.get());
             let position = wanted.clamp(
                 paned.min_position(),
                 paned.max_position().max(paned.min_position()),
@@ -211,5 +223,26 @@ impl BrowserWindow {
             ),
         );
         state.save.set(Some(source));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// parity: LOOK-012
+    #[test]
+    fn the_search_box_gives_way_to_the_address_down_to_its_least() {
+        let wide = ADDRESS_ROOM + DEFAULT_SEARCH_WIDTH + 100;
+        assert_eq!(search_width(wide, DEFAULT_SEARCH_WIDTH), DEFAULT_SEARCH_WIDTH);
+        assert_eq!(search_width(ADDRESS_ROOM + 250, DEFAULT_SEARCH_WIDTH), 250);
+        assert_eq!(
+            search_width(ADDRESS_ROOM, DEFAULT_SEARCH_WIDTH),
+            SEARCH_LEAST_WIDTH
+        );
+        // A saved width is the most it takes, a narrow one included.
+        assert_eq!(search_width(wide, 300), 300);
+        assert_eq!(search_width(ADDRESS_ROOM + 250, 300), 250);
+        assert_eq!(search_width(100, 175), 175);
     }
 }
