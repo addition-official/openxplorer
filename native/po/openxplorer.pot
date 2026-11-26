@@ -301,10 +301,6 @@ msgstr ""
 msgid "The application did not accept this file."
 msgstr ""
 
-#: crates/ox-app/src/app_context/previous_versions.rs crates/ox-app/src/window/file_ops/availability.rs
-msgid "Google Drive and OneDrive are read-only for now. Copy items to this PC to change them."
-msgstr ""
-
 #: crates/ox-app/src/application.rs
 msgid "OpenXplorer is already running with hardware rendering. To use software rendering, run: openxplorer --restart --software-rendering"
 msgstr ""
@@ -4391,6 +4387,10 @@ msgid "Allow Linux file name characters when renaming"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs
+msgid "Allow changes to Google Drive"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/files_folders.rs
 msgid "Also copy paths as text"
 msgstr ""
 
@@ -4400,6 +4400,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs crates/ox-app/src/window/command_bar/menus.rs
 msgid "Compact view"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/files_folders.rs
+msgid "Copies, moves, renames and deletes in Google Drive then change the files on your Drive, and New and Paste add items there. Deleting there removes items for good: they do not go to Drive's trash. Docs, Sheets and Slides files cannot be copied as files. Off: Google Drive is read-only, and its files can be opened and copied to this PC."
 msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs
@@ -4452,6 +4456,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs crates/ox-app/src/window/folder_options.rs
 msgid "Folder views"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/files_folders.rs
+msgid "Google Drive"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs crates/ox-app/src/window/folder_options.rs
@@ -4616,6 +4624,10 @@ msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs
 msgid "folder options file explorer options folder and search options open each folder in its own window single-click double-click show recently used files frequently used folders status bar pop-up description infotips tooltips preview handlers preview pane always show icons never thumbnails check boxes when typing into list view search box always search file names and contents clear file explorer history apply to folders reset folders restore defaults"
+msgstr ""
+
+#: crates/ox-app/src/settings_page/files_folders.rs
+msgid "google drive gdrive cloud online account gnome online accounts write writable read-only copy move rename delete upload new folder paste drag drop change edit"
 msgstr ""
 
 #: crates/ox-app/src/settings_page/files_folders.rs
@@ -6845,6 +6857,18 @@ msgstr ""
 
 #: crates/ox-app/src/window/file_ops/availability.rs
 msgid "Drives, shares and virtual items cannot be changed here."
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/availability.rs crates/ox-core/src/location/cloud_writes.rs
+msgid "Google Drive and OneDrive are read-only for now. Copy items to this PC to change them."
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/availability.rs crates/ox-core/src/location/cloud_writes.rs
+msgid "Google Drive does not let this folder be changed here. Open My Drive or a folder in it."
+msgstr ""
+
+#: crates/ox-app/src/window/file_ops/availability.rs crates/ox-core/src/location/cloud_writes.rs
+msgid "Google Drive is read-only. To change it, turn on Allow changes to Google Drive in Settings > Files & folders."
 msgstr ""
 
 #: crates/ox-app/src/window/file_ops/availability.rs
@@ -9867,6 +9891,38 @@ msgstr ""
 msgid "Filesystem roots cannot be changed as items."
 msgstr ""
 
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-core/src/gio_node/google_drive.rs crates/ox-core/src/ops/create.rs
+msgid "An item named “{name}” already exists. Nothing was overwritten."
+msgstr ""
+
+#: crates/ox-core/src/gio_node/google_drive.rs crates/ox-core/src/gio_node/move_item.rs
+msgid "Enter a name."
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-core/src/gio_node/google_drive.rs
+msgid "More than one item in this Google Drive folder is named “{name}”, so it is not clear which one to replace. Rename them on Google Drive, then try again. Nothing was changed."
+msgstr ""
+
+#: crates/ox-core/src/gio_node/google_drive.rs crates/ox-core/src/gio_node/move_item.rs
+msgid "The backend does not support direct overwrite."
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-core/src/gio_node/google_drive.rs
+msgid "The copy of “{name}” on Google Drive is incomplete, so it was not kept. Try again."
+msgstr ""
+
+#: crates/ox-core/src/gio_node/google_drive.rs
+msgid "There is not enough space on Google Drive. Delete or move files so you have enough space, then try again."
+msgstr ""
+
+#. Keep each {name} as it is: the app puts a value there.
+#: crates/ox-core/src/gio_node/google_drive.rs
+msgid "“{name}” is a Google Docs, Sheets or Slides file. It exists only online, so it cannot be copied as a file. Open it in the browser and use File > Download to save a copy."
+msgstr ""
+
 #: crates/ox-core/src/gio_node/into_admin.rs
 msgid "Items are moved into an administrator location by copying them and then removing the originals."
 msgstr ""
@@ -9895,10 +9951,6 @@ msgstr ""
 
 #: crates/ox-core/src/gio_node/local_delete.rs
 msgid "Open the actual folder before deleting its contents."
-msgstr ""
-
-#: crates/ox-core/src/gio_node/move_item.rs
-msgid "The backend does not support direct overwrite."
 msgstr ""
 
 #: crates/ox-core/src/gio_node/move_item.rs
@@ -10706,11 +10758,6 @@ msgstr ""
 
 #: crates/ox-core/src/ops/context.rs
 msgid "The file operation stopped unexpectedly. Check the folder before trying again."
-msgstr ""
-
-#. Keep each {name} as it is: the app puts a value there.
-#: crates/ox-core/src/ops/create.rs
-msgid "An item named “{name}” already exists. Nothing was overwritten."
 msgstr ""
 
 #: crates/ox-core/src/ops/create.rs
