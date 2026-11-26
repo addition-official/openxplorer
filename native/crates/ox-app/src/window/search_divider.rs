@@ -35,6 +35,16 @@ use super::BrowserWindow;
 /// Windows 11's default search box width.
 pub(super) const DEFAULT_SEARCH_WIDTH: i32 = 499;
 
+/// The address bar's width the search box gives way to as the window
+/// narrows: the search box shrinks first, down to `SEARCH_LEAST_WIDTH`,
+/// and only then does the address bar. A placeholder until Windows'
+/// narrow windows are measured.
+pub(super) const ADDRESS_ROOM: i32 = 400;
+
+/// The least width a narrow window shrinks the search box to before the
+/// address bar gives way. A placeholder until Windows is measured.
+pub(super) const SEARCH_LEAST_WIDTH: i32 = 180;
+
 /// How long after the divider last moved its width is saved, so a drag
 /// saves once.
 const SAVE_DELAY: Duration = Duration::from_millis(300);

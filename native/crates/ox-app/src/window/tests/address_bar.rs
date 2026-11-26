@@ -616,6 +616,55 @@ fn a_narrow_window_squeezes_the_search_box_without_saving_it() {
     wait_until("the default width back", || search_width() == 499);
 }
 
+/// In a narrow window the address bar comes first, as in Windows 11: the
+/// search box gives way, down to its least width, before the address bar
+/// shrinks, so the folder's name stays readable. A window about 830
+/// pixels wide gave the search box 470 pixels and cut "Downloads" to
+/// "Downloa" in a 150 pixel address bar.
+///
+/// parity: LOOK-012
+#[gtk::test]
+#[expect(clippy::cast_possible_truncation, reason = "widget widths are small")]
+fn a_narrow_window_shrinks_the_search_box_before_the_address() {
+    use crate::window::search_divider::{ADDRESS_ROOM, SEARCH_LEAST_WIDTH};
+
+    let fixture = Fixture::standard();
+    std::fs::create_dir(fixture.path("Downloads")).expect("fixture subfolder");
+    let test = TestWindow::open(&fixture.uri_of("Downloads"));
+    resize(&test, 1400);
+    let search = test.window.search_box().clone();
+    let address = test.window.address_bar().clone();
+    let paned = test.window.search_divider();
+    let width = |widget: &gtk::Widget| widget.compute_bounds(&paned).expect("shown").width().round() as i32;
+    wait_until("Windows' default width", || width(search.upcast_ref()) == 499);
+
+    resize(&test, 830);
+    let (address_width, search_width) = (width(address.upcast_ref()), width(search.upcast_ref()));
+    assert!(
+        address_width >= ADDRESS_ROOM,
+        "the address bar keeps {ADDRESS_ROOM} pixels: {address_width} (search {search_width})"
+    );
+    assert!(
+        (SEARCH_LEAST_WIDTH..499).contains(&search_width),
+        "the search box gives way, down to {SEARCH_LEAST_WIDTH}: {search_width}"
+    );
+    let last: gtk::Button = address.crumb_buttons().last().cloned().expect("a crumb");
+    let label = descendants(last.upcast_ref::<gtk::Widget>())
+        .into_iter()
+        .find_map(|widget: gtk::Widget| widget.downcast::<gtk::Label>().ok())
+        .expect("the crumb's name");
+    assert_eq!(label.text(), "Downloads");
+    let (_, natural, _, _) = label.measure(gtk::Orientation::Horizontal, -1);
+    assert!(
+        label.width() >= natural,
+        "Downloads shown whole: {} of {natural}",
+        label.width()
+    );
+
+    resize(&test, 1400);
+    wait_until("the default width back", || width(search.upcast_ref()) == 499);
+}
+
 /// While the search box holds text, its X sits to the left of the
 /// magnifier, which stays, as Windows 11 draws a search (ref-29: the X's
 /// center 35.5 pixels left of the magnifier's).
