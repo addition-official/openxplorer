@@ -1,0 +1,46 @@
+STATUS: RUNNING (merged and pushed; GitHub Actions builds the deb)
+HEAD: test-combined-64 10e2086e2c868d77f103d3e2048e0ef576fab7a8
+
+BRANCH: test-combined-64, started from deb 63's test-combined-63 8dc8a4c6 (workflow file in the tree). Both tips were their branches' newest when merged and still are.
+
+REQUIRED RESULTS (isolated under Xvfb, G_DEBUG=fatal-criticals):
+- Google Drive fake-backend tests (ox-core tests/transfer_cases/google_drive.rs, in the transfer test binary): PASS, 18 of 18 (a_cancelled_upload_leaves_nothing_behind, a_copy_uploads_under_its_title_through_a_rename, a_folder_tree_is_copied_in_and_published_whole, a_full_drive_is_reported_in_windows_words, a_google_doc_is_refused_and_nothing_is_written_for_it, a_move_older_gvfs_cannot_do_is_finished_by_copying_only_with_consent, a_move_within_the_drive_is_one_move, a_taken_title_is_a_conflict_like_a_taken_name, an_incomplete_upload_is_never_published, copies_off_the_drive_keep_same_titled_files_apart, new_items_are_created_once_and_named_by_id, offline_errors_are_reported_in_windows_words, rename_changes_the_title_and_undo_gives_it_back, replace_keeps_the_old_file_until_the_new_one_is_in_place, replace_onto_a_shared_title_changes_nothing, the_drive_top_folders_stay_fixed, trash_is_refused_and_delete_is_permanent, with_the_switch_off_nothing_writes_to_the_drive). The whole transfer binary: 157 of 157.
+- window::tests::address_input::left_and_right_stop_at_the_first_chevron_and_the_last_crumb: PASS.
+- window::tests::focus::tab_after_escaping_the_address_goes_round_in_explorers_order_with_every_stop_shown: PASS.
+- Also: window::tests::command_bar_switch::a_click_elsewhere_closes_the_menu_and_still_acts_there: PASS.
+
+MERGES (in the order given):
+- gdrive-write 196c090c -> 041f65a9, no conflicts. IDENTITY NOTE: 196c090c, the branch's own tip, has author addition-official but committer "Claude <noreply@anthropic.com>". So that no other name goes out from this branch, it was merged as 90bca7c2, the same commit recommitted (same tree, parent 8dc8a4c6, author, author date and message; committer addition-official). The gdrive-write branch itself was not changed. Its owner should recommit 196c090c as addition-official (same content), or a later deb that merges a newer gdrive-write tip will carry the other committer in again. (The Actions author check reads authors only, so it would not catch this.)
+- pass-5-tests-fix aaf454a1 -> 206f587a: no conflicts.
+- 10e2086e chore(i18n): the two branches' message templates merged into one that i18n check found out of date; regenerated. No .po file touched; docs needed no change.
+
+SKIPPED: none.
+
+TESTS RUN HERE (touched modules only, one process per crate):
+- ox-core lib (gio_node, location, ops::create, ops::rename, settings::, transfer::): 333 of 333 passed.
+- ox-core transfer test binary: 157 of 157 passed (the 18 Google Drive cases above included).
+- ox-app lib (settings_page::, window tests address_bar, address_input, command_bar_switch, file_operations, focus; window::address_bar, window::search_divider, window::file_ops, app_context, folder_view::item, window::environment): 305 passed, 1 failed: window::tests::file_operations::delete_reads_delete_and_asks_only_for_items_without_a_trash ("timed out waiting for a dialog to open"). It fails the same way run alone on test-combined-63 8dc8a4c6, and was among the failures shared with main in deb 49's check, so it predates these merges.
+No full suite.
+
+CHECKS HERE: cargo check of the workspace (and of all targets): no errors or warnings; rustfmt clean; parity check, i18n check and sync-docs --check pass. The addresses in the added lines are the tests' fictional alice@example.com and fake-drive-N@example.com. On top of upstream main 5243f3ea: 768 commits, all by addition-official <239187859+addition-official@users.noreply.github.com> (author and committer) except the owner's 2 #366 commits by AKolenda; no trailers. No status/*.txt or status/*.md in the tree. The tree tested is the tree pushed (059dce42). No release build here; GitHub Actions builds and checks the deb.
+
+CHANGES (everything since deb 63, in plain words):
+- Google Drive can be changed, as an opt-in (gdrive-write): Settings > Files & folders > Google Drive has a new switch, "Allow changes to Google Drive", off by default. On, copies, moves, renames, deletes, New, Paste and drops reach Google Drive through GVfs; deleting there removes items for good (they do not go to Drive's trash). Off, Google Drive stays read-only, now also enforced by the file layer itself; OneDrive stays read-only either way. Behind it: uploads are written beside their final name and only published by a rename once their size checks out, so an interrupted or incomplete copy never appears; Replace goes through reversible renames and is refused when two items share the title; Google Docs, Sheets and Slides are refused with a clear message, as they exist only online; a full drive or a lost connection is reported in Windows' words. Tested against a simulated GVfs Google backend, without an account or network.
+- Address bar (pass-5-tests-fix): 40 pixels stay blank after the last crumb, collapsing the first crumbs into the « sooner, as Windows 11 keeps blank space there, so a click at the bar's end edits the address instead of opening the folder's crumb.
+- Search box width (pass-5-tests-fix): only a width the user drags the divider to is saved; narrowing a window squeezes the search box without saving that, so it grows back with the window.
+- Test fixes (pass-5-tests-fix): the click-through test clicks the blank space after the last crumb; the address keyboard test starts from the first crumb shown; the focus walk waits for the window's next frame when its picture is pending.
+
+NEW TEXT (every new or changed UI text, verbatim; nothing removed):
+- Allow changes to Google Drive
+- Copies, moves, renames and deletes in Google Drive then change the files on your Drive, and New and Paste add items there. Deleting there removes items for good: they do not go to Drive's trash. Docs, Sheets and Slides files cannot be copied as files. Off: Google Drive is read-only, and its files can be opened and copied to this PC.
+- Google Drive
+- google drive gdrive cloud online account gnome online accounts write writable read-only copy move rename delete upload new folder paste drag drop change edit
+- Google Drive does not let this folder be changed here. Open My Drive or a folder in it.
+- Google Drive is read-only. To change it, turn on Allow changes to Google Drive in Settings > Files & folders.
+- Enter a name.
+- More than one item in this Google Drive folder is named “{name}”, so it is not clear which one to replace. Rename them on Google Drive, then try again. Nothing was changed.
+- The copy of “{name}” on Google Drive is incomplete, so it was not kept. Try again.
+- There is not enough space on Google Drive. Delete or move files so you have enough space, then try again.
+- “{name}” is a Google Docs, Sheets or Slides file. It exists only online, so it cannot be copied as a file. Open it in the browser and use File > Download to save a copy.
+
+QUESTION: should gdrive-write's 196c090c be recommitted as addition-official on its branch? (See the identity note under MERGES.)
